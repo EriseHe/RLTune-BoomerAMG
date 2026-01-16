@@ -97,12 +97,4 @@ Each script generates plots in `scripts/plots/`:
 - `degenerate.py` → `degenerate.png`
 - `h2d.py` → `iterations.png`
 
-## Verification
-
-To verify correctness:
-1. Compare plot shapes qualitatively with MATLAB outputs
-2. Check that learning curves show expected convergence behavior
-3. Verify TsallisINF converges toward best fixed omega
-4. Verify contextual methods (ChebCB, TsallisINFCB) improve over non-contextual
-
 Note: Due to RNG differences, exact numerical reproduction is not expected.
