@@ -12,10 +12,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import eye as speye
 
 from solvers import sor, omega_grid, rho_jacobi
 from utils import truncated_normal, delsq, numgrid
 
+########################################################
+def progress_bar(current, total, prefix="", every=None):
+    width = 30
+    if total <= 0:
+        return
+    if every is None:
+        every = max(1, total // 100)  # ~100 updates
+    if current not in (1, total) and current % every != 0:
+        return
+    filled = int(width * current / total)
+    bar = "=" * filled + "-" * (width - filled)
+    msg = f"\r{prefix} [{bar}] {current}/{total}"
+    print(msg, end="", flush=True)
+    if current == total:
+        print()
+########################################################
 
 def main():
     # Setup
@@ -40,7 +57,7 @@ def main():
     
     for i, c in enumerate(cs):
         print(f"  Trial {i + 1}/{trials}")
-        Ac = A + c * np.eye(n)
+        Ac = A + c * speye(n, format="csr")
         Ac_dense = Ac if isinstance(Ac, np.ndarray) else Ac.toarray()
         b = truncated_normal(n)
         Dc = np.diag(np.diag(Ac_dense))
@@ -68,6 +85,7 @@ def main():
             actual[j] += k
             if k < current_best:
                 current_best = k
+            progress_bar(j + 1, len(omegas), prefix=f"    trial {i + 1}/{trials}")
         
         dynamic_actual += current_best
         
@@ -113,7 +131,7 @@ def main():
     
     for i, c in enumerate(cs):
         print(f"  Trial {i + 1}/{trials}")
-        Ac = A + c * np.eye(n)
+        Ac = A + c * speye(n, format="csr")
         Ac_dense = Ac if isinstance(Ac, np.ndarray) else Ac.toarray()
         b = truncated_normal(n)
         Dc = np.diag(np.diag(Ac_dense))
@@ -141,6 +159,7 @@ def main():
             actual[j] += k
             if k < current_best:
                 current_best = k
+            progress_bar(j + 1, len(omegas), prefix=f"    trial {i + 1}/{trials}")
         
         dynamic_actual += current_best
         

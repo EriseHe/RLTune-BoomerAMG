@@ -11,11 +11,28 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import eye as speye
 
 from learners import TsallisINF
 from solvers import sor
 from utils import truncated_normal, delsq, numgrid
 
+########################################################
+def progress_bar(current, total, prefix="", every=None):
+    width = 30
+    if total <= 0:
+        return
+    if every is None:
+        every = max(1, total // 100)  # ~100 updates
+    if current not in (1, total) and current % every != 0:
+        return
+    filled = int(width * current / total)
+    bar = "=" * filled + "-" * (width - filled)
+    msg = f"\r{prefix} [{bar}] {current}/{total}"
+    print(msg, end="", flush=True)
+    if current == total:
+        print()
+########################################################
 
 def main():
     # Setup
@@ -23,7 +40,7 @@ def main():
     n = A.shape[0]
     epsilon = 1e-8
     T = 5000
-    trials = 40
+    trials = 5
     omegas = np.linspace(1.0, 1.8, 5)
     
     omega_costs = np.zeros((T, trials, len(omegas)))
@@ -37,7 +54,7 @@ def main():
         
         for t in range(T):
             c = -0.15 + 0.6 * np.random.beta(0.5, 1.5)
-            At = A + c * np.eye(n)
+            At = A + c * speye(n, format="csr")
             bt = truncated_normal(n)
             
             k, _ = sor(At, bt, np.zeros(n), tinf.predict(), epsilon)
@@ -47,6 +64,7 @@ def main():
             for i, omega in enumerate(omegas):
                 k, _ = sor(At, bt, np.zeros(n), omega, epsilon)
                 omega_costs[t, trial, i] = k
+            progress_bar(t + 1, T, prefix=f"    trial {trial + 1}/{trials}")
     
     # Plot high-variance results
     plt.figure(1, figsize=(7, 5))
@@ -73,7 +91,7 @@ def main():
         
         for t in range(T):
             c = -0.15 + 0.6 * np.random.beta(2.0, 6.0)
-            At = A + c * np.eye(n)
+            At = A + c * speye(n, format="csr")
             bt = truncated_normal(n)
             
             k, _ = sor(At, bt, np.zeros(n), tinf.predict(), epsilon)
@@ -83,6 +101,7 @@ def main():
             for i, omega in enumerate(omegas):
                 k, _ = sor(At, bt, np.zeros(n), omega, epsilon)
                 omega_costs[t, trial, i] = k
+            progress_bar(t + 1, T, prefix=f"    trial {trial + 1}/{trials}")
     
     # Plot low-variance results
     plt.figure(2, figsize=(7, 5))

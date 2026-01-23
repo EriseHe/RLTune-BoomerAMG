@@ -5,7 +5,7 @@ Direct translation of TsallisINFCB.m
 """
 
 import numpy as np
-from .TsallisINF import TsallisINF
+from .TsallisINF_SOR import TsallisINF
 
 
 class TsallisINFCB:

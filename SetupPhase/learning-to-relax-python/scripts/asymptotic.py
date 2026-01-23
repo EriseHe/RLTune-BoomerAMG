@@ -10,10 +10,27 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import eye as speye
 
 from solvers import sor, omega_grid, rho_jacobi, energy_norm
 from utils import truncated_normal, delsq, numgrid
 
+########################################################
+def progress_bar(current, total, prefix="", every=None):
+    width = 30
+    if total <= 0:
+        return
+    if every is None:
+        every = max(1, total // 100)  # ~100 updates
+    if current not in (1, total) and current % every != 0:
+        return
+    filled = int(width * current / total)
+    bar = "=" * filled + "-" * (width - filled)
+    msg = f"\r{prefix} [{bar}] {current}/{total}"
+    print(msg, end="", flush=True)
+    if current == total:
+        print()
+########################################################
 
 def main():
     # Setup
@@ -34,8 +51,7 @@ def main():
     
     print("Computing SOR iterations and spectral quantities...")
     for i, omega in enumerate(omegas):
-        if (i + 1) % 20 == 0:
-            print(f"  {i + 1}/{len(omegas)}")
+        progress_bar(i + 1, len(omegas), prefix="  omegas")
         
         k, _ = sor(A, b, np.zeros(n), omega, epsilon)
         
@@ -103,10 +119,9 @@ def main():
     betas = np.zeros(len(cs))
     
     for i, c in enumerate(cs):
-        if (i + 1) % 20 == 0:
-            print(f"  {i + 1}/{len(cs)}")
+        progress_bar(i + 1, len(cs), prefix="  offsets")
         
-        Ac = A + c * np.eye(n)
+        Ac = A + c * speye(n, format="csr")
         Ac_dense = Ac if isinstance(Ac, np.ndarray) else Ac.toarray()
         omegas_c = omega_grid(A, 1.0, 1.9, 0.01)
         Dc = np.diag(np.diag(Ac_dense))

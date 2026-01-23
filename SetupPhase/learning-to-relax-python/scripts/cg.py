@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import eye as speye
 
 from solvers import ssor_pcg, cgbound
 from utils import truncated_normal, delsq, numgrid
@@ -26,7 +27,7 @@ def main():
                 
                 A = delsq(numgrid(region, s))
                 n = A.shape[0]
-                A_offset = A + offset * np.eye(n)
+                A_offset = A + offset * speye(n, format="csr")
                 b = truncated_normal(n)
                 
                 K = 100
