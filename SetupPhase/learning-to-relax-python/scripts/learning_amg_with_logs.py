@@ -200,7 +200,7 @@ def main():
     A = delsq(numgrid('S', 20))
     n = A.shape[0]
     epsilon = 1e-8
-    T = 500
+    T = 5000
     trials = 2
     
     thresholds = np.array([0.1, 0.25, 0.4, 0.5, 0.7])
