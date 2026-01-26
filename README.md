@@ -19,6 +19,6 @@ The following Python packages are required:
 python train_ppo.py
 ```
 
-![Current solve phase progress](./Resouce/current_solvephase_progress.png)
+![Current solve phase progress](./Resource/current_solvephase_progress.png)
 
 *Figure: Current solve phase progress.*
