@@ -36,10 +36,10 @@ class BoomerAMGRelaxEnv(gym.Env):
         fixed_stencil=27,
         fixed_rhs_type=1,   # 1 => uses rhs_seed in your C code
         tol=1e-8,
-        max_cycles=30,
+        max_cycles=20,
         seed=0,
-        w_center=0.9,
-        w_scale=0.3,
+        w_center=1.5,
+        w_scale=1.0,
     ):
         super().__init__()
         self.rng = np.random.default_rng(seed)
