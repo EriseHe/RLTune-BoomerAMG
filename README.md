@@ -18,3 +18,8 @@ The following Python packages are required:
 
 ```bash
 python train_ppo.py
+
+
+![Current solve phase progress](./Resouce/current_solvephase_progress.png)
+
+*Figure: Current solve phase progress.*
