@@ -11,7 +11,7 @@ The following Python packages are required:
 
 ## Running the Solve Phase
 
-1. Navigate to `solvephase/Hypre/src/test/`.
+1. Navigate to `SolvePhase/Hypre/src/test/`.
 2. recompile if needed
 3. Run the training script:
 
