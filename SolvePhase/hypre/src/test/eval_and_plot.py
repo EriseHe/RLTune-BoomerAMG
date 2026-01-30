@@ -1,6 +1,4 @@
 import os
-import itertools
-import multiprocessing as mp
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -24,6 +22,10 @@ def _maybe_batch_action(env, action):
     if _is_vec_env(env) and action.ndim == 1:
         return action.reshape((1, -1))
     return action
+
+
+def _env_flag(name, default="1"):
+    return os.environ.get(name, default).strip().lower() not in ("0", "false", "no")
 
 
 def run_episode(
@@ -88,51 +90,191 @@ def run_episode(
     }
 
 
-def _eval_fixed_cfg(args):
-    cfg, eval_seed, lib_path = args
-    env = BoomerAMGRelaxEnv(lib_path=lib_path, seed=eval_seed)
-    out = run_episode(env, fixed_cfg=cfg, record_curve=False)
-    env.close()
-    return cfg, out["time"], out["cycles"]
+def _parse_grid_sizes(spec):
+    if not spec:
+        return None
+    sizes = []
+    for part in spec.split(";"):
+        clean = part.replace("x", ",")
+        nums = [n for n in clean.split(",") if n.strip()]
+        if len(nums) != 3:
+            continue
+        sizes.append(tuple(int(n) for n in nums))
+    return sizes if sizes else None
 
 
-def grid_search_best_constant(eval_seed, w_grid, sd_grid, su_grid, lib_path, n_workers):
-    configs = list(itertools.product(w_grid, sd_grid, su_grid))
-    args = [(cfg, eval_seed, lib_path) for cfg in configs]
+def _parse_grid_range(spec):
+    if not spec:
+        return None
+    vals = [v for v in spec.replace("x", ",").split(",") if v.strip()]
+    if len(vals) != 3:
+        return None
+    start, stop, step = (int(v) for v in vals)
+    sizes = []
+    for n in range(start, stop + 1, step):
+        sizes.append((n, n, n))
+    return sizes if sizes else None
 
-    if n_workers <= 1:
-        results = [_eval_fixed_cfg(a) for a in args]
-    else:
-        ctx = mp.get_context("spawn")
-        with ctx.Pool(processes=n_workers) as pool:
-            results = pool.map(_eval_fixed_cfg, args)
 
-    best_cfg, best_time, best_cycles = min(results, key=lambda x: x[1])
-    return {"cfg": best_cfg, "time": best_time, "cycles": best_cycles}
+def _make_env(lib_path, seed, grid, randomize_A, randomize_b, fixed_rhs_seed, fixed_rhs_type):
+    return BoomerAMGRelaxEnv(
+        lib_path=lib_path,
+        seed=seed,
+        fixed_grid=grid,
+        randomize_A=randomize_A,
+        randomize_b=randomize_b,
+        fixed_rhs_seed=fixed_rhs_seed,
+        fixed_rhs_type=fixed_rhs_type,
+    )
+
+
+def _sample_baseline_cfgs(rng, w_min, w_max, samples):
+    cfgs = []
+    for _ in range(samples):
+        w = float(rng.uniform(w_min, w_max))
+        sd = int(rng.integers(1, 6))
+        su = int(rng.integers(1, 6))
+        cfgs.append((w, sd, su))
+    return cfgs
+
+
+def find_rough_best_constant(lib_path, eval_cases, w_min, w_max, samples):
+    rng = np.random.default_rng(0)
+    cfgs = _sample_baseline_cfgs(rng, w_min, w_max, samples)
+
+    best = None
+    for cfg in cfgs:
+        times = []
+        cycles = []
+        for case in eval_cases:
+            env = _make_env(
+                lib_path,
+                case["seed"],
+                case["grid"],
+                case["randomize_A"],
+                case["randomize_b"],
+                case["fixed_rhs_seed"],
+                case["fixed_rhs_type"],
+            )
+            out = run_episode(env, fixed_cfg=cfg, record_curve=False)
+            env.close()
+            times.append(out["time"])
+            cycles.append(out["cycles"])
+        mean_time = float(np.mean(times))
+        mean_cycles = float(np.mean(cycles))
+        if best is None or mean_time < best["time"]:
+            best = {"cfg": cfg, "time": mean_time, "cycles": mean_cycles}
+    return best
+
+
+def _summarize(results):
+    times = np.array([r["time"] for r in results], dtype=float)
+    cycles = np.array([r["cycles"] for r in results], dtype=float)
+    return {
+        "mean_time": float(times.mean()),
+        "median_time": float(np.median(times)),
+        "mean_cycles": float(cycles.mean()),
+        "median_cycles": float(np.median(cycles)),
+    }
 
 
 def main():
     lib_path = "./libamg_env.dylib"
-    eval_seed = int(os.environ.get("EVAL_SEED", "100"))
+    seed_start = int(os.environ.get("EVAL_SEED_START", "100"))
+    seed_count = int(os.environ.get("EVAL_SEED_COUNT", "6"))
+    eval_seeds = list(range(seed_start, seed_start + seed_count))
+    # Matrix size fixed at 60^3 for all eval runs
+    grid_sizes = [(60, 60, 60)]
 
-    w_grid = np.linspace(0.7, 1.2, 11)
-    sd_grid = [1, 2, 3, 4]
-    su_grid = [1, 2, 3, 4]
+    fixed_a_mode = _env_flag("EVAL_FIXED_A", "0")
+    randomize_A = _env_flag("RANDOMIZE_A", "1")
+    randomize_b = _env_flag("RANDOMIZE_B", "1")
+    fixed_rhs_seed = int(os.environ.get("FIXED_RHS_SEED", "123456789"))
+    fixed_rhs_type = int(os.environ.get("FIXED_RHS_TYPE", "1"))
+    if fixed_a_mode:
+        randomize_A = False
+        randomize_b = False
+        fixed_rhs_type = 1
+        grid_sizes = [(60, 60, 60)]
+        eval_seeds = [seed_start]
 
-    n_workers = int(os.environ.get("GRID_WORKERS", "4"))
-    n_workers = max(1, min(n_workers, os.cpu_count() or 1))
-    best = grid_search_best_constant(
-        eval_seed, w_grid, sd_grid, su_grid, lib_path, n_workers
+    grid_mode = os.environ.get("EVAL_GRID_MODE", "zip").lower()
+    if grid_mode == "full":
+        eval_cases = [
+            {
+                "seed": s,
+                "grid": g,
+                "randomize_A": randomize_A,
+                "randomize_b": randomize_b,
+                "fixed_rhs_seed": fixed_rhs_seed,
+                "fixed_rhs_type": fixed_rhs_type,
+            }
+            for s in eval_seeds
+            for g in grid_sizes
+        ]
+    else:
+        eval_cases = [
+            {
+                "seed": s,
+                "grid": grid_sizes[i % len(grid_sizes)],
+                "randomize_A": randomize_A,
+                "randomize_b": randomize_b,
+                "fixed_rhs_seed": fixed_rhs_seed,
+                "fixed_rhs_type": fixed_rhs_type,
+            }
+            for i, s in enumerate(eval_seeds)
+        ]
+
+    baseline_cases = int(os.environ.get("BASELINE_EVAL_CASES", "3"))
+    baseline_cases = max(1, min(baseline_cases, len(eval_cases)))
+    baseline_samples = int(os.environ.get("BASELINE_SAMPLES", "25"))
+
+    tmp_env = _make_env(
+        lib_path,
+        seed_start,
+        grid_sizes[0],
+        randomize_A,
+        randomize_b,
+        fixed_rhs_seed,
+        fixed_rhs_type,
+    )
+    w_min = tmp_env.w_center - tmp_env.w_scale
+    w_max = tmp_env.w_center + tmp_env.w_scale
+    tmp_env.close()
+
+    best = find_rough_best_constant(
+        lib_path,
+        eval_cases[:baseline_cases],
+        w_min,
+        w_max,
+        baseline_samples,
     )
     print("\n=== Grid-best constant ===")
     print(best)
     print("Grid-best cfg (w, sweeps_down, sweeps_up):", best["cfg"])
+    print("Eval grid sizes:", grid_sizes)
+    print("Eval cases:", len(eval_cases), "| baseline cases:", baseline_cases)
+    if fixed_a_mode:
+        print("Fixed-A mode: ON (A coefficients and size fixed)")
 
-    vec_path = "vecnormalize_paper.pkl"
+    vec_path = "vecnormalize_gen.pkl"
+    # vec_path = "vecnormalize_fixed.pkl"
     vec_norm = None
     if os.path.exists(vec_path):
         try:
-            raw_env = DummyVecEnv([lambda: BoomerAMGRelaxEnv(lib_path=lib_path, seed=0)])
+            raw_env = DummyVecEnv(
+                [
+                    lambda: _make_env(
+                        lib_path,
+                        seed_start,
+                        grid_sizes[0],
+                        randomize_A,
+                        randomize_b,
+                        fixed_rhs_seed,
+                        fixed_rhs_type,
+                    )
+                ]
+            )
             vec_norm = VecNormalize.load(vec_path, raw_env)
             vec_norm.training = False
             vec_norm.norm_reward = False
@@ -140,35 +282,62 @@ def main():
         except AssertionError as exc:
             print(f"VecNormalize mismatch; skipping {vec_path}. Reason: {exc}")
 
-    model = PPO.load("ppo_boomeramg_paper")
+    model = PPO.load("ppo_boomeramg_gen")
+    # model = PPO.load("ppo_boomeramg_fixed")
 
-    env = BoomerAMGRelaxEnv(lib_path=lib_path, seed=eval_seed)
-    out_best = run_episode(env, fixed_cfg=best["cfg"], record_curve=True)
-    env.close()
+    plot_count = int(os.environ.get("PLOT_COUNT", "3"))
+    plot_count = max(1, min(plot_count, len(eval_cases)))
 
-    env2 = BoomerAMGRelaxEnv(lib_path=lib_path, seed=eval_seed)
-    out_rl = run_episode(
-        env2,
-        policy=model,
-        record_curve=True,
-        obs_normalizer=(vec_norm.normalize_obs if vec_norm is not None else None),
-    )
-    env2.close()
+    best_results = []
+    rl_results = []
+    for i, case in enumerate(eval_cases):
+        env = _make_env(
+            lib_path,
+            case["seed"],
+            case["grid"],
+            case["randomize_A"],
+            case["randomize_b"],
+            case["fixed_rhs_seed"],
+            case["fixed_rhs_type"],
+        )
+        out_best = run_episode(env, fixed_cfg=best["cfg"], record_curve=(i < plot_count))
+        env.close()
+        out_best["case"] = case
+        best_results.append(out_best)
 
-    print("\n=== Single-episode eval ===")
-    print("Grid-best:", out_best["time"], "s | cycles:", out_best["cycles"])
-    print("RL       :", out_rl["time"], "s | cycles:", out_rl["cycles"])
-    if out_best["cfg_curve"] and out_rl["cfg_curve"]:
-        best_last = out_best["cfg_curve"][-1]
-        rl_last = out_rl["cfg_curve"][-1]
-        print("\n=== Final params table ===")
+        env2 = _make_env(
+            lib_path,
+            case["seed"],
+            case["grid"],
+            case["randomize_A"],
+            case["randomize_b"],
+            case["fixed_rhs_seed"],
+            case["fixed_rhs_type"],
+        )
+        out_rl = run_episode(
+            env2,
+            policy=model,
+            record_curve=(i < plot_count),
+            obs_normalizer=(vec_norm.normalize_obs if vec_norm is not None else None),
+        )
+        env2.close()
+        out_rl["case"] = case
+        rl_results.append(out_rl)
+
+    print("\n=== Summary ===")
+    print("Grid-best:", _summarize(best_results))
+    print("RL       :", _summarize(rl_results))
+
+    if best_results and best_results[0]["cfg_curve"] and rl_results[0]["cfg_curve"]:
+        best_last = best_results[0]["cfg_curve"][-1]
+        rl_last = rl_results[0]["cfg_curve"][-1]
+        print("\n=== Final params table (first case) ===")
         print("method    w        sweeps_down  sweeps_up")
         print(f"grid-best {best_last[0]:.6f} {best_last[1]:>12d} {best_last[2]:>10d}")
         print(f"rl        {rl_last[0]:.6f} {rl_last[1]:>12d} {rl_last[2]:>10d}")
 
-    if out_best["cfg_curve"] and out_rl["cfg_curve"]:
-        best_cfg = np.array(out_best["cfg_curve"], dtype=float)
-        rl_cfg = np.array(out_rl["cfg_curve"], dtype=float)
+        best_cfg = np.array(best_results[0]["cfg_curve"], dtype=float)
+        rl_cfg = np.array(rl_results[0]["cfg_curve"], dtype=float)
         best_steps = np.arange(1, best_cfg.shape[0] + 1)
         rl_steps = np.arange(1, rl_cfg.shape[0] + 1)
         best_w, best_sd, best_su = best["cfg"]
@@ -198,21 +367,21 @@ def main():
         plt.tight_layout()
         plt.show()
 
-    plt.figure()
-    plt.semilogy(out_best["residual_curve"], alpha=0.7, label="grid-best")
-    plt.title("Grid-best: residual curve")
-    plt.xlabel("V-cycle")
-    plt.ylabel("||r||")
-    plt.tight_layout()
-    plt.show()
+        plt.figure()
+        plt.semilogy(best_results[0]["residual_curve"], alpha=0.7, label="grid-best")
+        plt.title("Grid-best: residual curve (first case)")
+        plt.xlabel("V-cycle")
+        plt.ylabel("||r||")
+        plt.tight_layout()
+        plt.show()
 
-    plt.figure()
-    plt.semilogy(out_rl["residual_curve"], alpha=0.7, label="rl")
-    plt.title("RL: residual curve")
-    plt.xlabel("V-cycle")
-    plt.ylabel("||r||")
-    plt.tight_layout()
-    plt.show()
+        plt.figure()
+        plt.semilogy(rl_results[0]["residual_curve"], alpha=0.7, label="rl")
+        plt.title("RL: residual curve (first case)")
+        plt.xlabel("V-cycle")
+        plt.ylabel("||r||")
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":

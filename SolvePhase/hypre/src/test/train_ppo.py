@@ -9,6 +9,36 @@ from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 
 from amg_gym_env import BoomerAMGRelaxEnv
+
+
+def _parse_grid_sizes(spec):
+    if not spec:
+        return None
+    sizes = []
+    for part in spec.split(";"):
+        clean = part.replace("x", ",")
+        nums = [n for n in clean.split(",") if n.strip()]
+        if len(nums) != 3:
+            continue
+        sizes.append(tuple(int(n) for n in nums))
+    return sizes if sizes else None
+
+
+def _parse_grid_range(spec):
+    if not spec:
+        return None
+    vals = [v for v in spec.replace("x", ",").split(",") if v.strip()]
+    if len(vals) != 3:
+        return None
+    start, stop, step = (int(v) for v in vals)
+    sizes = []
+    for n in range(start, stop + 1, step):
+        sizes.append((n, n, n))
+    return sizes if sizes else None
+
+
+def _env_flag(name, default="1"):
+    return os.environ.get(name, default).strip().lower() not in ("0", "false", "no")
 from paper_policy import PaperPPOPolicy
 import matplotlib.pyplot as plt
 
@@ -178,10 +208,30 @@ class EvalTrajCallback(BaseCallback):
 
 
 def make_env(rank, seed=0):
+    # Matrix size fixed at 60^3 for all training runs
+    grid_sizes = [(60, 60, 60)]
+    randomize_A = _env_flag("RANDOMIZE_A", "1")
+    randomize_b = _env_flag("RANDOMIZE_B", "1")
+    fixed_rhs_seed = int(os.environ.get("FIXED_RHS_SEED", "123456789"))
+    fixed_rhs_type = int(os.environ.get("FIXED_RHS_TYPE", "1"))
+
+    if not randomize_A:
+        grid_sizes = [(60, 60, 60)]
+        randomize_b = False
+        fixed_rhs_type = 1
+
     def _init():
+        kwargs = {}
+        if grid_sizes:
+            kwargs["fixed_grid"] = grid_sizes
+        kwargs["randomize_A"] = randomize_A
+        kwargs["randomize_b"] = randomize_b
+        kwargs["fixed_rhs_seed"] = fixed_rhs_seed
+        kwargs["fixed_rhs_type"] = fixed_rhs_type
         env = BoomerAMGRelaxEnv(
             lib_path="./libamg_env.dylib",
             seed=seed + rank,
+            **kwargs,
         )
         return env
     return _init
@@ -190,6 +240,9 @@ def make_env(rank, seed=0):
 def main():
     seed = 0
     set_random_seed(seed)
+
+    randomize_A = _env_flag("RANDOMIZE_A", "1")
+    randomize_b = _env_flag("RANDOMIZE_B", "1")
 
     # Parallel envs help SPEED (CPU), especially if your C env step is heavy.
     n_envs = int(os.environ.get("N_ENVS", "8"))
@@ -203,7 +256,16 @@ def main():
     # Normalize obs/reward (common in PPO); must be saved/loaded consistently
     venv = VecMonitor(venv)  # will create rollout/ep_rew_mean, rollout/ep_len_mean
     venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0)
-    eval_env = BoomerAMGRelaxEnv(lib_path="./libamg_env.dylib", seed=123)
+    eval_env = BoomerAMGRelaxEnv(
+        lib_path="./libamg_env.dylib",
+        seed=123,
+        randomize_A=randomize_A,
+        randomize_b=randomize_b,
+        fixed_rhs_seed=int(os.environ.get("FIXED_RHS_SEED", "123456789")),
+        fixed_rhs_type=int(os.environ.get("FIXED_RHS_TYPE", "1")),
+        # w_change_penalty=0.01,
+        # w_smooth_alpha=0.3,
+    )
 
     # Paper: timesteps per batch = 16
     n_steps = 16
@@ -218,7 +280,8 @@ def main():
     print("Device:", device, "| n_envs:", n_envs)
 
     model = PPO(
-        policy="MlpPolicy",      # <--- default small MLP
+        policy="MlpPolicy",      # default small MLP
+        # change to better neuron-network, or check different options.
         env=venv,
         n_steps=16,
         batch_size=16,
@@ -234,23 +297,6 @@ def main():
         device=device,
         tensorboard_log="./ppo_logs",
     )
-    # model = PPO(
-    #     policy=PaperPPOPolicy,
-    #     env=venv,
-    #     n_steps=n_steps,
-    #     batch_size=batch_size,
-    #     gamma=0.98,
-    #     clip_range=0.2,
-    #     learning_rate=3e-4,  # will be overridden by policy optimizer groups; keep any value
-    #     n_epochs=10,         # paper doesn't show; 10 is a reasonable default
-    #     gae_lambda=0.95,
-    #     vf_coef=0.5,
-    #     ent_coef=0.0,
-    #     max_grad_norm=0.5,
-    #     verbose=1,
-    #     device=device,
-    #     tensorboard_log="./ppo_logs_paper",
-    # )
     step_logger = StepLoggerCallback(log_path="logs/train_steps.csv")
     eval_callback = EvalTrajCallback(eval_env=eval_env, eval_freq=50_000)
 
@@ -258,8 +304,8 @@ def main():
 
     model.learn(total_timesteps=total_timesteps, callback=callback)
 
-    model.save("ppo_boomeramg_paper")
-    venv.save("vecnormalize_paper.pkl")
+    model.save("ppo_boomeramg_gen")
+    venv.save("vecnormalize_gen.pkl")
 
 
 if __name__ == "__main__":
