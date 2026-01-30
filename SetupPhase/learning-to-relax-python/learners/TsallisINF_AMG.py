@@ -55,17 +55,16 @@ class TsallisINF_AMG:
             probs = 4.0 * (eta * (self.k / self.scale - x)) ** (-2.0)
             x = x - (np.sum(probs) - 1.0) / (eta * np.sum(probs ** 1.5))
         
-        probs = np.maximum(probs, 0)  # Ensure non-negative
-        probs_sum = np.sum(probs)
+        # Ensure numerical stability: clamp to small positive, then renormalize
+        probs = np.maximum(probs, 1e-18)
+        probs_normalized = probs / np.sum(probs)
 
-        # `np.random.choice` expects a normalized probability vector, but to
-        # match the MATLAB reference implementation we store the *unnormalized*
-        # weight `probs[index]` as `self.prob` for the importance-weighted update.
+        # Sample according to the normalized distribution and store the
+        # *actual sampling probability* for correct importance weighting
         try:
-            if probs_sum > 0 and np.all(np.isfinite(probs)):
-                probs_normalized = probs / probs_sum
+            if np.all(np.isfinite(probs_normalized)):
                 self.index = np.random.choice(self.d, p=probs_normalized)
-                self.prob = probs[self.index]
+                self.prob = probs_normalized[self.index]  # Store actual probability!
             else:
                 self.index = np.random.choice(self.d)
                 self.prob = 1.0 / self.d
@@ -80,24 +79,23 @@ class TsallisINF_AMG:
         
         return out
     
-    def update(self, iterations, cum_nnz_AP):
+    def update(self, loss):
         """
         Updates action distribution using the incurred cost.
         
-        For BoomerAMG, the loss is Work Units (WU) = iterations * cum_nnz_AP,
-        which accounts for both the number of V-cycles and the cost per cycle.
+        For BoomerAMG, the caller should pass a **normalized** loss in [1, 2]:
+            WU = iterations * cum_nnz_AP
+            u = min(WU, K) / K   # in [0, 1], where K is a WU budget cap
+            loss = 1.0 + u       # in [1, 2]
+        
+        This matches the original MATLAB implementation's assumptions where
+        (loss - 1) is in [0, 1].
         
         Parameters
         ----------
-        iterations : int
-            Number of V-cycles (iterations) to converge
-        cum_nnz_AP : float
-            Cumulative nnz ratio: (sum nnz(A_l) + sum nnz(P_l)) / nnz(A_0)
-            This represents the memory/work complexity of the AMG hierarchy
+        loss : float
+            Normalized loss in [1, 2] (or at least bounded and close to 1)
         """
-        # Compute work units as the loss
-        loss = iterations * cum_nnz_AP
-        
         if self.t <= len(self.losses):
             self.losses[self.t - 1] = loss
             self.scale = np.mean(self.losses[:self.t]) - 1.0

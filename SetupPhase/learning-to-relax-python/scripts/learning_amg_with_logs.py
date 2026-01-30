@@ -15,6 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import eye as speye
@@ -69,6 +70,7 @@ def run_experiment(A, n, T, trials, thresholds, threshold_grid, epsilon,
     print(f"Instances: {T}, Trials: {trials}")
     print(f"Beta distribution params: alpha={beta_params[0]}, beta={beta_params[1]}")
     print(f"Threshold grid: {threshold_grid}")
+    print(f"Loss transform: 1 + log(1 + WU/40)")
     print()
     
     for trial in range(trials):
@@ -86,7 +88,13 @@ def run_experiment(A, n, T, trials, thresholds, threshold_grid, epsilon,
             k_tinf, cum_nnz_AP_tinf, _ = boomeramg(At, bt, np.zeros(n), theta_pred, epsilon)
             WU_tinf = k_tinf * cum_nnz_AP_tinf
             tinf_costs[t, trial] = WU_tinf
-            tinf.update(k_tinf, cum_nnz_AP_tinf)
+            
+            # Faithful log transform: loss = 1 + log(1 + WU/a)
+            # No cap, no saturation - preserves hard instance signal
+            # a = 40 is a "knee" near easy-instance scale
+            a = 40.0
+            loss_tinf = 1.0 + math.log1p(WU_tinf / a)
+            tinf.update(loss_tinf)
             
             # Fixed threshold solves
             fixed_results = []
@@ -201,7 +209,7 @@ def main():
     n = A.shape[0]
     epsilon = 1e-8
     T = 5000
-    trials = 2
+    trials = 1
     
     thresholds = np.array([0.1, 0.25, 0.4, 0.5, 0.7])
     threshold_grid = np.linspace(0.1, 0.9, 9)
