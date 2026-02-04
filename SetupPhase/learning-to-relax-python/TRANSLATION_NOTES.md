@@ -6,7 +6,7 @@ This document describes the translation of the "Learning to Relax" MATLAB reposi
 
 | MATLAB File | Python File | Description |
 |-------------|-------------|-------------|
-| `learners/TsallisINF.m` | `learners/TsallisINF.py` | Tsallis-INF bandit algorithm |
+| `learners/TsallisINF.m` | `learners/TsallisINF_SOR.py` | Tsallis-INF bandit algorithm (SOR loss = iterations) |
 | `learners/TsallisINFCB.m` | `learners/TsallisINFCB.py` | Contextual bandit with discretized contexts |
 | `learners/ChebCB.m` | `learners/ChebCB.py` | ChebCB with Chebyshev regression |
 | `solvers/sor.m` | `solvers/SOR/sor.py` | SOR solver |
@@ -92,7 +92,7 @@ This document describes the translation of the "Learning to Relax" MATLAB reposi
 ## Running the Scripts
 
 ```bash
-cd d:\Github\RLTune-BoomerAMG\SetupPhase\learning-to-relax-python
+cd SetupPhase/learning-to-relax-python
 
 # Install dependencies
 pip install -r requirements.txt

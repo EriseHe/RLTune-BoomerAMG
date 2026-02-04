@@ -17,12 +17,23 @@ Loss_SOR = iteration_count
 
 ### BoomerAMG Loss Function (This Implementation)
 ```
-Loss_AMG = iterations × cum_nnz_AP
+WU = iterations × cum_nnz_AP
 ```
 
 Where:
 - `iterations`: Number of V-cycles to converge
 - `cum_nnz_AP`: Cumulative nonzeros ratio of the AMG hierarchy
+
+### Bandit Loss (what Tsallis-INF consumes)
+
+In the Python adaptation here, Tsallis-INF is fed a **log-transformed** loss derived from work units:
+
+```
+loss = 1 + log(1 + WU / 40)
+```
+
+This is the convention used by `scripts/learning_amg_with_logs.py` and keeps the magnitude of losses
+well-scaled across easy vs hard instances.
 
 ### The cum_nnz_AP Metric
 
@@ -102,7 +113,9 @@ bandit = TsallisINF_AMG(grid, T=1000)
 # Predict and update
 theta = bandit.predict()
 k, cum_nnz_AP, x = boomeramg(A, b, x0, theta, tol)
-bandit.update(k, cum_nnz_AP)  # Uses WU = k * cum_nnz_AP internally
+WU = k * cum_nnz_AP
+loss = 1 + np.log1p(WU / 40.0)
+bandit.update(loss)
 ```
 
 ## File Structure
@@ -118,19 +131,22 @@ solvers/BoomerAMG/
 
 learners/
 ├── TsallisINF_SOR.py    # Original SOR bandit (loss = iterations)
-└── TsallisINF_AMG.py    # BoomerAMG bandit (loss = work units)
+└── TsallisINF_AMG.py    # BoomerAMG bandit (loss = log-transformed WU)
 
 scripts/
 ├── learning.py          # SOR experiments
-└── learning_amg.py      # BoomerAMG experiments
+├── learning_amg_with_logs.py  # BoomerAMG reference experiment (plots + CSV)
+└── run_boomeramg_bandit.py    # BoomerAMG single entrypoint (CLI)
 ```
 
 ## HYPRE Requirements
 
-This module requires HYPRE built with:
-- `BUILD_SHARED_LIBS=ON` (creates DLL/shared library)
-- `CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON` (Windows only)
-- `HYPRE_ENABLE_MPI=OFF` (for sequential Python usage)
+This module requires a shared HYPRE library (e.g. `libHYPRE.dylib` on macOS).
+
+In this repo, the bundled `SolvePhase/hypre/src/lib/libHYPRE.dylib` is MPI-enabled, so you must
+either:
+- set `HYPRE_MPI_COMM_WORLD` to an initialized communicator handle (recommended via `mpi4py`), or
+- rebuild HYPRE without MPI for purely sequential use.
 
 Set environment variable:
 ```bash

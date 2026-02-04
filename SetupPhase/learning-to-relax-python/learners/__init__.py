@@ -3,7 +3,7 @@ Learners package for Learning to Relax.
 Contains bandit algorithms for tuning solver parameters.
 
 - TsallisINF: Original Tsallis-INF for SOR (loss = iteration count)
-- TsallisINF_AMG: Tsallis-INF for BoomerAMG (loss = work units)
+- TsallisINF_AMG: Tsallis-INF for BoomerAMG (loss = log-transformed work units)
 - TsallisINFCB: Contextual bandit wrapper
 - ChebCB: Chebyshev contextual bandit
 """
