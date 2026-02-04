@@ -15,6 +15,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse import eye as speye
@@ -69,6 +70,7 @@ def run_experiment(A, n, T, trials, thresholds, threshold_grid, epsilon,
     print(f"Instances: {T}, Trials: {trials}")
     print(f"Beta distribution params: alpha={beta_params[0]}, beta={beta_params[1]}")
     print(f"Threshold grid: {threshold_grid}")
+    print(f"Loss transform: 1 + log(1 + WU/40)")
     print()
     
     for trial in range(trials):
@@ -86,7 +88,13 @@ def run_experiment(A, n, T, trials, thresholds, threshold_grid, epsilon,
             k_tinf, cum_nnz_AP_tinf, _ = boomeramg(At, bt, np.zeros(n), theta_pred, epsilon)
             WU_tinf = k_tinf * cum_nnz_AP_tinf
             tinf_costs[t, trial] = WU_tinf
-            tinf.update(k_tinf, cum_nnz_AP_tinf)
+            
+            # Faithful log transform: loss = 1 + log(1 + WU/a)
+            # No cap, no saturation - preserves hard instance signal
+            # a = 40 is a "knee" near easy-instance scale
+            a = 40.0
+            loss_tinf = 1.0 + math.log1p(WU_tinf / a)
+            tinf.update(loss_tinf)
             
             # Fixed threshold solves
             fixed_results = []
@@ -187,6 +195,41 @@ def run_experiment(A, n, T, trials, thresholds, threshold_grid, epsilon,
     cumulative_regret = np.sum(tinf_costs - best_per_instance)
     print(f"    Cumulative regret: {cumulative_regret:.2f}")
     
+    # Debug output: show k evolution
+    print(f"\n  DEBUG: k evolution for Tsallis-INF (trial 0):")
+    for entry in tinf.k_history:
+        t, scale, k = entry[0], entry[1], entry[2]
+        probs = entry[3] if len(entry) > 3 and entry[3] is not None else None
+        x = entry[4] if len(entry) > 4 else None
+        k_str = ", ".join([f"{v:.1f}" for v in k])
+        if probs is not None:
+            p_str = ", ".join([f"{v:.4f}" for v in probs])
+            print(f"    t={t}: scale={scale:.3f}, x={x:.2f}")
+            print(f"           k=[{k_str}]")
+            print(f"           p=[{p_str}]")
+        else:
+            print(f"    t={t}: scale={scale:.3f}, k=[{k_str}]")
+    
+    # Sanity check: verify arm ranking (lowest k → highest prob)
+    if tinf.k_history:
+        final_k = tinf.k_history[-1][2]
+        final_probs = tinf.k_history[-1][3]
+        if final_probs is not None:
+            k_rank = np.argsort(final_k)  # indices sorted by k (ascending)
+            p_rank = np.argsort(final_probs)[::-1]  # indices sorted by prob (descending)
+            print(f"\n  SANITY CHECK:")
+            print(f"    Arms by k (lowest first): {k_rank}")
+            print(f"    Arms by prob (highest first): {p_rank}")
+            print(f"    Lowest k arm: θ={threshold_grid[k_rank[0]]:.1f} (k={final_k[k_rank[0]]:.1f}, p={final_probs[k_rank[0]]:.4f})")
+            print(f"    Highest prob arm: θ={threshold_grid[p_rank[0]]:.1f} (k={final_k[p_rank[0]]:.1f}, p={final_probs[p_rank[0]]:.4f})")
+            if k_rank[0] == p_rank[0]:
+                print(f"    [OK] Ranking correct: lowest k has highest probability")
+            else:
+                print(f"    [WARN] Ranking mismatch!")
+    
+    # Report fallback count
+    print(f"\n  Fallback to uniform count: {tinf.fallback_count}")
+    
     return threshold_costs, tinf_costs, all_logs
 
 
@@ -201,7 +244,7 @@ def main():
     n = A.shape[0]
     epsilon = 1e-8
     T = 5000
-    trials = 2
+    trials = 1
     
     thresholds = np.array([0.1, 0.25, 0.4, 0.5, 0.7])
     threshold_grid = np.linspace(0.1, 0.9, 9)

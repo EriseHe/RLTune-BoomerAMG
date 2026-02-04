@@ -226,8 +226,14 @@ AMGEnv* amg_env_create(int nx, int ny, int nz,
         {
             unsigned long long seed = rhs_seed ^ (unsigned long long)(first_row + i);
             seed = 6364136223846793005ULL * seed + 1ULL;
-            double u = (double)(seed & 0xFFFFFFFFULL) / (double)0xFFFFFFFFULL;
-            vals[i] = 2.0 * u - 1.0; /* [-1,1] */
+            double u1 = (double)(seed & 0xFFFFFFFFULL) / (double)0xFFFFFFFFULL;
+            seed = 6364136223846793005ULL * seed + 1ULL;
+            double u2 = (double)(seed & 0xFFFFFFFFULL) / (double)0xFFFFFFFFULL;
+
+            /* Box-Muller: Gaussian(0,1) */
+            if (u1 < 1e-12) u1 = 1e-12;
+            double z = sqrt(-2.0 * log(u1)) * cos(6.2831853071795864769 * u2);
+            vals[i] = z;
         }
     }
 
