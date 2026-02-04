@@ -1,10 +1,10 @@
 """
 Setup-phase bandit experiment: compare bandit loss transforms for BoomerAMG.
 
-This script reproduces the A/B test we ran in the terminal:
-- same exact sequence of linear system instances
-- same baseline θ comparisons
-- two bandits that differ only in the *update loss*:
+Reproduces the A/B test:
+- Same exact sequence of linear system instances (At, bt)
+- Same baseline θ comparisons
+- Two Tsallis-INF bandits that differ only in the update loss:
 
   (1) log loss:     loss = 1 + log(1 + WU / knee)
   (2) linear loss:  loss = 1 + (WU / knee)
@@ -24,7 +24,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict
 
 import numpy as np
 
@@ -65,7 +65,7 @@ def _ensure_mpi_env() -> None:
     """
     Ensure MPI is initialized and HYPRE_MPI_COMM_WORLD is set.
 
-    The repo’s libHYPRE is MPI-enabled on macOS; boomeramg.py reads
+    The repo’s bundled libHYPRE is MPI-enabled on macOS; boomeramg.py reads
     HYPRE_MPI_COMM_WORLD to obtain a communicator handle.
     """
     if os.environ.get("HYPRE_MPI_COMM_WORLD"):
@@ -101,6 +101,15 @@ def _progress(t: int, T: int, start_time: float, tag: str, every: int = 100) -> 
         print(f"{tag}: {t+1}/{T} ({mins:.1f} min)")
 
 
+def _parse_grid(spec: str) -> np.ndarray:
+    gmin, gmax, gcount = spec.split(":")
+    return np.linspace(float(gmin), float(gmax), int(gcount))
+
+
+def _parse_list(spec: str) -> np.ndarray:
+    return np.array([float(x.strip()) for x in spec.split(",") if x.strip()], dtype=np.float64)
+
+
 def _run_one_variance(
     *,
     A,
@@ -123,7 +132,6 @@ def _run_one_variance(
     rng_env = np.random.default_rng(seed_env)
 
     baseline_wu = np.zeros((T, len(baselines)), dtype=np.float64)
-
     wu_log = np.zeros(T, dtype=np.float64)
     wu_linear = np.zeros(T, dtype=np.float64)
 
@@ -213,7 +221,13 @@ def _plot_mode(*, results_by_tag: Dict[str, Dict[str, object]], mode: str, out_p
             )
 
         if mode == "log":
-            ax.plot(np.cumsum(r["wu_log"]), y, color="black", linewidth=3, label="Tsallis-INF (log loss)")  # type: ignore[arg-type]
+            ax.plot(
+                np.cumsum(r["wu_log"]),
+                y,
+                color="black",
+                linewidth=3,
+                label="Tsallis-INF (log loss)",
+            )  # type: ignore[arg-type]
             title = f"{tag.replace('_', ' ')} (log loss)"
         else:
             ax.plot(
@@ -234,15 +248,6 @@ def _plot_mode(*, results_by_tag: Dict[str, Dict[str, object]], mode: str, out_p
     fig.tight_layout()
     fig.savefig(out_path, dpi=256)
     plt.close(fig)
-
-
-def _parse_grid(spec: str) -> np.ndarray:
-    gmin, gmax, gcount = spec.split(":")
-    return np.linspace(float(gmin), float(gmax), int(gcount))
-
-
-def _parse_list(spec: str) -> np.ndarray:
-    return np.array([float(x.strip()) for x in spec.split(",") if x.strip()], dtype=np.float64)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -290,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"Problem: numgrid('S', {args.S}) -> n={n}, nnz(A)={A.nnz}")
-    print(f"T={args.T}, trials=1")
+    print("T=%d, trials=1" % args.T)
     print(f"Baselines: {baselines}")
     print(f"Bandit grid: {bandit_grid}")
     print(f"knee={args.knee}")
