@@ -103,85 +103,6 @@ def run_episode(
     }
 
 
-def _parse_grid_sizes(spec):
-    if not spec:
-        return None
-    sizes = []
-    for part in spec.split(";"):
-        clean = part.replace("x", ",")
-        nums = [n for n in clean.split(",") if n.strip()]
-        if len(nums) != 3:
-            continue
-        sizes.append(tuple(int(n) for n in nums))
-    return sizes if sizes else None
-
-
-def _parse_grid_range(spec):
-    if not spec:
-        return None
-    vals = [v for v in spec.replace("x", ",").split(",") if v.strip()]
-    if len(vals) != 3:
-        return None
-    start, stop, step = (int(v) for v in vals)
-    sizes = []
-    for n in range(start, stop + 1, step):
-        sizes.append((n, n, n))
-    return sizes if sizes else None
-
-
-def _make_env(lib_path, seed, grid, randomize_A, randomize_b, fixed_rhs_seed, fixed_rhs_type):
-    return BoomerAMGRelaxEnv(
-        lib_path=lib_path,
-        seed=seed,
-        fixed_grid=grid,
-        randomize_A=randomize_A,
-        randomize_b=randomize_b,
-        fixed_rhs_seed=fixed_rhs_seed,
-        fixed_rhs_type=fixed_rhs_type,
-    )
-
-
-def _sample_baseline_cfgs(rng, w_min, w_max, samples):
-    cfgs = []
-    for _ in range(samples):
-        w = float(rng.uniform(w_min, w_max))
-        sd = int(rng.integers(1, 6))
-        su = int(rng.integers(1, 6))
-        cfgs.append((w, sd, su))
-    return cfgs
-
-
-def find_rough_best_constant(lib_path, eval_cases, w_min, w_max, samples):
-    rng = np.random.default_rng(0)
-    cfgs = _sample_baseline_cfgs(rng, w_min, w_max, samples)
-    if (1.0, 1, 1) not in cfgs:
-        cfgs.append((1.0, 1, 1))
-
-    best = None
-    for cfg in cfgs:
-        times = []
-        cycles = []
-        for case in eval_cases:
-            env = _make_env(
-                lib_path,
-                case["seed"],
-                case["grid"],
-                case["randomize_A"],
-                case["randomize_b"],
-                case["fixed_rhs_seed"],
-                case["fixed_rhs_type"],
-            )
-            out = run_episode(env, fixed_cfg=cfg, record_curve=False)
-            env.close()
-            times.append(out["time"])
-            cycles.append(out["cycles"])
-        mean_time = float(np.mean(times))
-        mean_cycles = float(np.mean(cycles))
-        if best is None or mean_time < best["time"]:
-            best = {"cfg": cfg, "time": mean_time, "cycles": mean_cycles}
-    return best
-
-
 def _summarize(results):
     times = np.array([r["time"] for r in results], dtype=float)
     cycles = np.array([r["cycles"] for r in results], dtype=float)
@@ -194,6 +115,18 @@ def _summarize(results):
         "mean_time_per_cycle": float(time_per_cycle.mean()),
         "median_time_per_cycle": float(np.median(time_per_cycle)),
     }
+
+
+def _make_env(lib_path, seed, grid, randomize_A, randomize_b, fixed_rhs_seed, fixed_rhs_type):
+    return BoomerAMGRelaxEnv(
+        lib_path=lib_path,
+        seed=seed,
+        fixed_grid=grid,
+        randomize_A=randomize_A,
+        randomize_b=randomize_b,
+        fixed_rhs_seed=fixed_rhs_seed,
+        fixed_rhs_type=fixed_rhs_type,
+    )
 
 
 def main():
@@ -243,40 +176,13 @@ def main():
             for i, s in enumerate(eval_seeds)
         ]
 
-    baseline_cases = int(os.environ.get("BASELINE_EVAL_CASES", str(len(eval_cases))))
-    baseline_cases = max(1, min(baseline_cases, len(eval_cases)))
-    baseline_samples = int(os.environ.get("BASELINE_SAMPLES", "25"))
+    baseline_cfg = (1.0, 1, 1)
 
-    tmp_env = _make_env(
-        lib_path,
-        seed_start,
-        grid_sizes[0],
-        randomize_A,
-        randomize_b,
-        fixed_rhs_seed,
-        fixed_rhs_type,
-    )
-    w_min = tmp_env.w_center - tmp_env.w_scale
-    w_max = tmp_env.w_center + tmp_env.w_scale
-    tmp_env.close()
+    model_type = os.environ.get("MODEL_TYPE", "ppo").strip().lower()
+    model_path = os.environ.get("MODEL_PATH", "ppo_boomeramg_gen")
+    vec_path = os.environ.get("VEC_PATH", "vecnormalize_gen.pkl")
+    baseline_lib_path = os.environ.get("BASELINE_LIB_PATH", lib_path)
 
-    best = find_rough_best_constant(
-        lib_path,
-        eval_cases[:baseline_cases],
-        w_min,
-        w_max,
-        baseline_samples,
-    )
-    print("\n=== Grid-best constant ===")
-    print(best)
-    print("Grid-best cfg (w, sweeps_down, sweeps_up):", best["cfg"])
-    print("Eval grid sizes:", grid_sizes)
-    print("Eval cases:", len(eval_cases), "| baseline cases:", baseline_cases)
-    if fixed_a_mode:
-        print("Fixed-A mode: ON (A coefficients and size fixed)")
-
-    vec_path = "vecnormalize_gen.pkl"
-    # vec_path = "vecnormalize_fixed.pkl"
     vec_norm = None
     if os.path.exists(vec_path):
         try:
@@ -300,21 +206,19 @@ def main():
         except AssertionError as exc:
             print(f"VecNormalize mismatch; skipping {vec_path}. Reason: {exc}")
 
-    model_type = os.environ.get("MODEL_TYPE", "ppo").strip().lower()
     if model_type == "lstm":
-        model = RecurrentPPO.load("ppo_boomeramg_gen")
+        model = RecurrentPPO.load(model_path)
     else:
-        model = PPO.load("ppo_boomeramg_gen")
-    # model = PPO.load("ppo_boomeramg_fixed")
+        model = PPO.load(model_path)
 
     plot_count = int(os.environ.get("PLOT_COUNT", "3"))
     plot_count = max(1, min(plot_count, len(eval_cases)))
 
-    best_results = []
+    base_results = []
     rl_results = []
     for i, case in enumerate(eval_cases):
         env = _make_env(
-            lib_path,
+            baseline_lib_path,
             case["seed"],
             case["grid"],
             case["randomize_A"],
@@ -322,10 +226,10 @@ def main():
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
         )
-        out_best = run_episode(env, fixed_cfg=best["cfg"], record_curve=(i < plot_count))
+        out_base = run_episode(env, fixed_cfg=baseline_cfg, record_curve=(i < plot_count))
         env.close()
-        out_best["case"] = case
-        best_results.append(out_best)
+        out_base["case"] = case
+        base_results.append(out_base)
 
         env2 = _make_env(
             lib_path,
@@ -347,28 +251,34 @@ def main():
         out_rl["case"] = case
         rl_results.append(out_rl)
 
-    print("\n=== Summary ===")
-    print("Grid-best:", _summarize(best_results))
-    print("RL       :", _summarize(rl_results))
+    print("\n=== Baseline vs RL (Hypre default baseline) ===")
+    print("Baseline config (w, sweeps_down, sweeps_up):", baseline_cfg)
+    if baseline_lib_path != lib_path:
+        print("Baseline lib:", baseline_lib_path)
+    print("Baseline:", _summarize(base_results))
+    print("RL      :", _summarize(rl_results))
+    print("Eval grid sizes:", grid_sizes)
+    print("Eval cases:", len(eval_cases))
+    if fixed_a_mode:
+        print("Fixed-A mode: ON (A coefficients and size fixed)")
 
-    if best_results and best_results[0]["cfg_curve"] and rl_results[0]["cfg_curve"]:
-        best_last = best_results[0]["cfg_curve"][-1]
+    if base_results and base_results[0]["cfg_curve"] and rl_results[0]["cfg_curve"]:
+        base_last = base_results[0]["cfg_curve"][-1]
         rl_last = rl_results[0]["cfg_curve"][-1]
         print("\n=== Final params table (first case) ===")
         print("method    w        sweeps_down  sweeps_up")
-        print(f"grid-best {best_last[0]:.6f} {best_last[1]:>12d} {best_last[2]:>10d}")
+        print(f"baseline  {base_last[0]:.6f} {base_last[1]:>12d} {base_last[2]:>10d}")
         print(f"rl        {rl_last[0]:.6f} {rl_last[1]:>12d} {rl_last[2]:>10d}")
 
-        best_cfg = np.array(best_results[0]["cfg_curve"], dtype=float)
+        base_cfg = np.array(base_results[0]["cfg_curve"], dtype=float)
         rl_cfg = np.array(rl_results[0]["cfg_curve"], dtype=float)
-        best_steps = np.arange(1, best_cfg.shape[0] + 1)
+        base_steps = np.arange(1, base_cfg.shape[0] + 1)
         rl_steps = np.arange(1, rl_cfg.shape[0] + 1)
-        best_w, best_sd, best_su = best["cfg"]
 
         plt.figure()
-        plt.plot(best_steps, best_cfg[:, 0], label="grid-best")
+        plt.plot(base_steps, base_cfg[:, 0], label="baseline")
         plt.plot(rl_steps, rl_cfg[:, 0], label="rl")
-        plt.title(f"Relaxation weight w (grid-best w={best_w:.3f})")
+        plt.title(f"Relaxation weight w (baseline w={baseline_cfg[0]:.3f})")
         plt.xlabel("V-cycle")
         plt.ylabel("w")
         plt.legend()
@@ -376,13 +286,13 @@ def main():
         plt.show()
 
         plt.figure()
-        plt.plot(best_steps, best_cfg[:, 1], label="grid-best sweeps_down")
-        plt.plot(best_steps, best_cfg[:, 2], label="grid-best sweeps_up")
+        plt.plot(base_steps, base_cfg[:, 1], label="baseline sweeps_down")
+        plt.plot(base_steps, base_cfg[:, 2], label="baseline sweeps_up")
         plt.plot(rl_steps, rl_cfg[:, 1], label="rl sweeps_down")
         plt.plot(rl_steps, rl_cfg[:, 2], label="rl sweeps_up")
         plt.title(
             "Sweeps per cycle "
-            f"(grid-best down={int(best_sd)}, up={int(best_su)})"
+            f"(baseline down={int(baseline_cfg[1])}, up={int(baseline_cfg[2])})"
         )
         plt.xlabel("V-cycle")
         plt.ylabel("sweeps")
@@ -391,8 +301,8 @@ def main():
         plt.show()
 
         plt.figure()
-        plt.semilogy(best_results[0]["residual_curve"], alpha=0.7, label="grid-best")
-        plt.title("Grid-best: residual curve (first case)")
+        plt.semilogy(base_results[0]["residual_curve"], alpha=0.7, label="baseline")
+        plt.title("Baseline: residual curve (first case)")
         plt.xlabel("V-cycle")
         plt.ylabel("||r||")
         plt.tight_layout()

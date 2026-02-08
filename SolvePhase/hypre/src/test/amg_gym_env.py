@@ -374,14 +374,6 @@ class BoomerAMGRelaxEnv(gym.Env):
         dt = float(dt_c.value)
         self.cycle = int(self.lib.amg_env_get_cycle(self.env_ptr))
 
-        if self.w_change_penalty > 0.0:
-            reward -= self.w_change_penalty * abs(w - prev_w)
-        if self.sweeps_change_penalty > 0.0:
-            reward -= self.sweeps_change_penalty * (
-                abs(sweeps_down - prev_sd) + abs(sweeps_up - prev_su)
-    )
-
-
         # Safety checks
         if (not np.isfinite(r)) or (r <= 0.0) or (not np.isfinite(dt)) or (dt <= 0.0):
             obs = np.zeros(self.observation_space.shape, dtype=np.float32)
@@ -442,6 +434,13 @@ class BoomerAMGRelaxEnv(gym.Env):
             reward += 1.0     # small bonus for actually converging
         if truncated:
             reward -= 1.0     # penalty for failing to reach tol
+
+        if self.w_change_penalty > 0.0:
+            reward -= self.w_change_penalty * abs(w - prev_w)
+        if self.sweeps_change_penalty > 0.0:
+            reward -= self.sweeps_change_penalty * (
+                abs(sweeps_down - prev_sd) + abs(sweeps_up - prev_su)
+            )
 
         obs = self._make_obs(r, self.r_prev)
         self.r_prev = r

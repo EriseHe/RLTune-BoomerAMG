@@ -4,11 +4,14 @@ import torch as th
 import csv  
 
 from stable_baselines3 import PPO
+from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNormalize, VecMonitor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
+from paper_policy import PaperPPOPolicy
+from SolvePhase.hypre.src.test.custom_policy import CustomPPOPolicy
 
-from amg_gym_env import BoomerAMGRelaxEnv
+from SolvePhase.hypre.src.test.amg_gym_env import BoomerAMGRelaxEnv
 
 
 def _parse_grid_sizes(spec):
@@ -39,8 +42,7 @@ def _parse_grid_range(spec):
 
 def _env_flag(name, default="1"):
     return os.environ.get(name, default).strip().lower() not in ("0", "false", "no")
-from paper_policy import PaperPPOPolicy
-import matplotlib.pyplot as plt
+
 
 class StepLoggerCallback(BaseCallback):
     """
@@ -152,59 +154,89 @@ class StepLoggerCallback(BaseCallback):
 class EvalTrajCallback(BaseCallback):
     def __init__(self, eval_env, eval_freq=50_000, save_dir="./eval_traj", verbose=1):
         super().__init__(verbose)
-        self.eval_env = eval_env
+        self.eval_env = eval_env  # VecNormalize(DummyVecEnv([...])), n_envs=1
         self.eval_freq = eval_freq
         self.save_dir = save_dir
         os.makedirs(save_dir, exist_ok=True)
 
+    def _get_reset_info0(self):
+        """
+        SB3 VecEnv reset() 通常只返回 obs，但会把 info 存在 reset_infos 里。
+        VecNormalize 包了一层，所以 info 在 self.eval_env.venv.reset_infos。
+        """
+        # Try common places safely
+        if hasattr(self.eval_env, "reset_infos"):
+            infos = self.eval_env.reset_infos
+            if infos and isinstance(infos, (list, tuple)):
+                return infos[0]
+        if hasattr(self.eval_env, "venv") and hasattr(self.eval_env.venv, "reset_infos"):
+            infos = self.eval_env.venv.reset_infos
+            if infos and isinstance(infos, (list, tuple)):
+                return infos[0]
+        return {}
+
     def _on_step(self) -> bool:
-        if self.n_calls % self.eval_freq == 0:
-            # Run one deterministic eval episode
-            obs, info = self.eval_env.reset()
-            done = False
-            residuals = [info["r0"]]
-            ws = []
-            downs = []
-            ups = []
-            dts = []
+        if self.n_calls % self.eval_freq != 0:
+            return True
 
-            while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
-                obs, reward, terminated, truncated, inf = self.eval_env.step(action)
-                done = terminated or truncated
+        # VecEnv reset: usually returns obs only (batched obs shape: (1, obs_dim))
+        obs = self.eval_env.reset()
+        info0 = self._get_reset_info0()
 
-                residuals.append(inf["r"])
-                ws.append(inf["w"])
-                downs.append(inf["sweeps_down"])
-                ups.append(inf["sweeps_up"])
-                dts.append(inf["dt"])
+        done = False
+        residuals = [info0.get("r0", np.nan)]
+        ws, downs, ups, dts = [], [], [], []
 
-            cycles = len(residuals) - 1
-            total_time = sum(dts)
+        # ✅ Recurrent state handling
+        lstm_states = None
+        episode_start = np.ones((1,), dtype=bool)  # n_envs=1
 
-            # Log scalars to TensorBoard
-            self.logger.record("eval/episode_cycles", cycles)
-            self.logger.record("eval/episode_time", total_time)
-
-            # Also save trajectory to disk for later plotting
-            step_id = self.num_timesteps
-            np.savez(
-                os.path.join(self.save_dir, f"traj_{step_id}.npz"),
-                residuals=np.array(residuals),
-                ws=np.array(ws),
-                downs=np.array(downs),
-                ups=np.array(ups),
-                dts=np.array(dts),
+        while not done:
+            action, lstm_states = self.model.predict(
+                obs,
+                state=lstm_states,
+                episode_start=episode_start,
+                deterministic=True,
             )
 
-            if self.verbose > 0:
-                print(
-                    f"[EvalTrajCallback] t={step_id} | cycles={cycles}, "
-                    f"time={total_time:.4f}s, w[0]={ws[0]:.3f}"
-                )
+            # VecEnv step: obs, rewards, dones, infos
+            obs, rewards, dones, infos = self.eval_env.step(action)
+            done = bool(dones[0])
+            inf = infos[0]
+            # reward = float(rewards[0])  # 如果你想记录 reward 也可以用
+
+            episode_start = np.array([done], dtype=bool)
+
+            residuals.append(inf.get("r", np.nan))
+            ws.append(inf.get("w", np.nan))
+            downs.append(inf.get("sweeps_down", -1))
+            ups.append(inf.get("sweeps_up", -1))
+            dts.append(inf.get("dt", np.nan))
+
+        cycles = len(residuals) - 1
+        total_time = float(np.nansum(dts))
+
+        self.logger.record("eval/episode_cycles", cycles)
+        self.logger.record("eval/episode_time", total_time)
+
+        step_id = self.num_timesteps
+        np.savez(
+            os.path.join(self.save_dir, f"traj_{step_id}.npz"),
+            residuals=np.array(residuals),
+            ws=np.array(ws),
+            downs=np.array(downs),
+            ups=np.array(ups),
+            dts=np.array(dts),
+        )
+
+        if self.verbose > 0:
+            w0 = ws[0] if len(ws) > 0 else np.nan
+            print(
+                f"[EvalTrajCallback] t={step_id} | cycles={cycles}, "
+                f"time={total_time:.4f}s, w[0]={w0:.3f}"
+            )
 
         return True
-
 
 
 def make_env(rank, seed=0):
@@ -256,16 +288,22 @@ def main():
     # Normalize obs/reward (common in PPO); must be saved/loaded consistently
     venv = VecMonitor(venv)  # will create rollout/ep_rew_mean, rollout/ep_len_mean
     venv = VecNormalize(venv, norm_obs=True, norm_reward=True, clip_obs=10.0)
-    eval_env = BoomerAMGRelaxEnv(
+    # 原本的裸环境先包成 VecEnv
+    _eval = DummyVecEnv([lambda: BoomerAMGRelaxEnv(
         lib_path="./libamg_env.dylib",
         seed=123,
         randomize_A=randomize_A,
         randomize_b=randomize_b,
         fixed_rhs_seed=int(os.environ.get("FIXED_RHS_SEED", "123456789")),
         fixed_rhs_type=int(os.environ.get("FIXED_RHS_TYPE", "1")),
-        # w_change_penalty=0.01,
-        # w_smooth_alpha=0.3,
-    )
+    )])
+
+    # VecNormalize：eval 不更新统计量，reward 也不需要 norm
+    eval_env = VecNormalize(_eval, training=False, norm_obs=True, norm_reward=False, clip_obs=10.0)
+
+    # 共享训练统计量（关键）
+    eval_env.obs_rms = venv.obs_rms
+
 
     # Paper: timesteps per batch = 16
     n_steps = 16
@@ -279,15 +317,14 @@ def main():
     device = "cuda" if th.cuda.is_available() else "cpu"
     print("Device:", device, "| n_envs:", n_envs)
 
-    model = PPO(
-        policy="MlpPolicy",      # default small MLP
-        # change to better neuron-network, or check different options.
+    model_type = os.environ.get("MODEL_TYPE", "lstm").strip().lower()
+    common_kwargs = dict(
         env=venv,
         n_steps=16,
         batch_size=16,
         gamma=0.999,
         clip_range=0.2,
-        learning_rate=3e-4,      # single LR for both actor+critic
+        learning_rate=3e-4,
         n_epochs=10,
         gae_lambda=0.95,
         vf_coef=0.5,
@@ -297,6 +334,50 @@ def main():
         device=device,
         tensorboard_log="./ppo_logs",
     )
+
+    if model_type == "custom":
+        pi_dim = int(os.environ.get("CUSTOM_PI_DIM", "256"))
+        vf_dim = int(os.environ.get("CUSTOM_VF_DIM", "128"))
+        n_blocks = int(os.environ.get("CUSTOM_BLOCKS", "2"))
+        model = PPO(
+            policy=CustomPPOPolicy,
+            policy_kwargs={"pi_dim": pi_dim, "vf_dim": vf_dim, "n_blocks": n_blocks},
+            **common_kwargs,
+        )
+    elif model_type == "paper":
+        model = PPO(
+            policy=PaperPPOPolicy,
+            **common_kwargs,
+        )
+    elif model_type == "mlp":
+        model = PPO(
+            policy="MlpPolicy",
+            **common_kwargs,
+        )
+    else:
+        model = RecurrentPPO(
+            "MlpLstmPolicy",
+            **common_kwargs,
+        )
+
+    # model = PPO(
+    #     policy="MlpPolicy",      # default small MLP
+    #     # change to better neuron-network, or check different options.
+    #     env=venv,
+    #     n_steps=16,
+    #     batch_size=16,
+    #     gamma=0.999,
+    #     clip_range=0.2,
+    #     learning_rate=3e-4,      # single LR for both actor+critic
+    #     n_epochs=10,
+    #     gae_lambda=0.95,
+    #     vf_coef=0.5,
+    #     ent_coef=0.0,
+    #     max_grad_norm=0.5,
+    #     verbose=1,
+    #     device=device,
+    #     tensorboard_log="./ppo_logs",
+    # )
     step_logger = StepLoggerCallback(log_path="logs/train_steps.csv")
     eval_callback = EvalTrajCallback(eval_env=eval_env, eval_freq=50_000)
 
