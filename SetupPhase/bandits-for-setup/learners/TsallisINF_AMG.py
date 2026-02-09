@@ -137,11 +137,7 @@ class TsallisINF_AMG:
         Updates action distribution using the incurred cost.
 
         `loss` is a scalar "cost" derived from the BoomerAMG solve, typically
-        built from Work Units (WU = iterations * cum_nnz_AP). The experiments
-        in this repo often use one of:
-          - 1 + log(1 + WU / knee)
-          - 1 + (WU / knee)
-          - 1 + WU
+        built from Work Units (WU = iterations * cum_nnz_AP). 
         
         Parameters
         ----------
