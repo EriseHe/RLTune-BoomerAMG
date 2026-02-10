@@ -196,7 +196,13 @@ class SharedLinUCB_AMG:
         theta_s2 = theta[self.d_x + 2 * self.g_dim : self.d_x + 3 * self.g_dim]
 
         base = float(theta_x @ x)
-        mean = base + (G @ theta_g) + s1 * (G @ theta_s1) + s2 * (G @ theta_s2)
+        # Avoid BLAS for these small contractions; OpenBLAS can be very slow here.
+        mean = (
+            base
+            + np.einsum("ij,j->i", G, theta_g, optimize=False)
+            + s1 * np.einsum("ij,j->i", G, theta_s1, optimize=False)
+            + s2 * np.einsum("ij,j->i", G, theta_s2, optimize=False)
+        )
 
         # Build c and P such that phi = c + P g.
         c = np.concatenate([x, np.zeros(3 * self.g_dim, dtype=float)], axis=0)
@@ -216,7 +222,7 @@ class SharedLinUCB_AMG:
         u = P.T @ Ac  # (g_dim,)
         M = P.T @ AP  # (g_dim, g_dim)
 
-        quad = q0 + 2.0 * (G @ u) + np.einsum("ij,jk,ik->i", G, M, G, optimize=True)
+        quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
         uncert = np.sqrt(np.maximum(0.0, quad))
         score = mean - self.alpha * uncert
         return score, mean, uncert

@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -9,15 +10,14 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from utils.problem_amg import stencil_27_laplace
-from utils.setup_amg import build_actions_th_mxrs_tr, run_amg_setup_experiment
+from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, moving_average, record_param_trace
 
 from learners.LinUCB_AMG import LinUCB_AMG
 from learners.SharedLinUCB_AMG import SharedLinUCB_AMG
-from learners.TsallisINF_AMG import TsallisINF_AMG
+from solver import solve
 
 
 T = 5000
-TRIALS = 1
 SEED = 20260209
 
 ALPHA = 1.0
@@ -100,166 +100,216 @@ class SharedLinUCBFactory:
         return _Policy(parameter_space["actions"], self.alpha, self.l2, seed)
 
 
-class TsallisThPolicy:
-    def __init__(self, grid: np.ndarray, *, T: int, default_params: dict, seed: int):
-        np.random.seed(int(seed))  # TsallisINF_AMG uses NumPy global RNG
-        self._default_params = dict(default_params)
-        self._bandit = TsallisINF_AMG(np.asarray(grid, dtype=float), int(T))
-
-    def select(self, context, **_):
-        th = float(self._bandit.predict())
-        params = dict(self._default_params)
-        params["strong_threshold"] = th
-        return params, {}
-
-    def update(self, loss, **_):
-        self._bandit.update(float(loss))
-
-
 def main() -> None:
     fail_penalty = 1e6
+    # Warmup: the first `solve()` in a fresh Python process pays MPI/HYPRE init
+    # inside the C library (amg_setup_solver.c::_ensure_init). This can be
+    # several seconds and is noisy run-to-run, so do one untimed warmup solve
+    # before any timing begins.
+    warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
+    warm_mkw, _, _ = stencil_27_laplace(rng=warm_rng)
+    _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
     # 2D: utils.problem_amg.NZ defaults to 1, so stencil_27_laplace is already 60x60x1.
-    # Grids: evenly spaced, within [0,1]. Use 0.05 steps where possible.
-    th_grid_19 = np.linspace(0.05, 0.95, 19)
-    mxrs_grid_19 = np.linspace(0.05, 0.95, 19)
-    tr_grid_19 = np.linspace(0.0, 0.90, 19)  # includes default tr=0.0
+    # Grids: evenly spaced and reduced for 3D tuning (sample-efficiency).
+    grid3_n = 3
+    th_grid_3d = np.linspace(0.05, 0.45, grid3_n)   # includes default th=0.25
+    mxrs_grid_3d = np.linspace(0.10, 0.90, grid3_n)  # includes default mxrs=0.90
+    tr_grid_3d = np.linspace(0.00, 0.80, grid3_n)    # includes default tr=0.00
 
-    # 19^3 actions for (th,mxrs,tr).
-    actions_cont3 = build_actions_th_mxrs_tr(
-        th_grid_19,
-        mxrs_grid_19,
-        tr_grid_19,
+    grid5_n = 5
+    th_grid_5d = np.linspace(0.05, 0.85, grid5_n)    # includes default th=0.25
+    mxrs_grid_5d = np.linspace(0.10, 0.90, grid5_n)  # includes default mxrs=0.90
+    tr_grid_5d = np.linspace(0.00, 0.80, grid5_n)    # includes default tr=0.00
+
+    # Action spaces for (th,mxrs,tr) at two discretization levels.
+    actions_cont3_3 = build_actions_th_mxrs_tr(
+        th_grid_3d,
+        mxrs_grid_3d,
+        tr_grid_3d,
+        fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
+    )
+    actions_cont3_5 = build_actions_th_mxrs_tr(
+        th_grid_5d,
+        mxrs_grid_5d,
+        tr_grid_5d,
         fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
     )
 
-    # 19 actions for th-only (shared LinUCB), others fixed to default.
-    actions_th_only = build_actions_th_mxrs_tr(
-        th_grid_19,
-        [DEFAULT_PARAMS["max_row_sum"]],
-        [DEFAULT_PARAMS["trunc_factor"]],
-        fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
-    )
+    # ---------------------------------------------------------------------
+    # Interleaved evaluation (fair timing):
+    # - one shared instance stream (rng_inst)
+    # - evaluate *all* methods per round on the same instance
+    # - randomize method evaluation order each round to reduce drift bias
+    # Loss is hypre-only runtime (solver walltime); overhead is tracked separately.
+    # ---------------------------------------------------------------------
 
-    # Baseline: fixed default parameters (timed independently).
-    res_default = run_amg_setup_experiment(
-        stencil_27_laplace,
-        {"actions": [DEFAULT_PARAMS], "context_dim": 5},
-        FixedPolicy(DEFAULT_PARAMS),
-        lambda **kw: runtime_loss_sec(fail_penalty=fail_penalty, **kw),
-        T=T,
-        trials=TRIALS,
-        seed=SEED,
-        baselines=[],
-        fail_penalty=fail_penalty,
-    )
+    ps_default = {"actions": [DEFAULT_PARAMS], "context_dim": 5}
+    ps_cont3_3 = {"actions": actions_cont3_3, "context_dim": 5}
+    ps_cont3_5 = {"actions": actions_cont3_5, "context_dim": 5}
 
-    # 1) Disjoint LinUCB on 3 continuous parameters.
-    res_disjoint = run_amg_setup_experiment(
-        stencil_27_laplace,
-        {"actions": actions_cont3, "context_dim": 5},
-        DisjointLinUCBFactory(ALPHA, L2),
-        lambda **kw: runtime_loss_sec(fail_penalty=fail_penalty, **kw),
-        T=T,
-        trials=TRIALS,
-        seed=SEED,
-        baselines=[],
-        fail_penalty=fail_penalty,
-    )
+    policy_default = FixedPolicy(DEFAULT_PARAMS)
+    policy_disjoint_3 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10000, T=T, trial=0)
+    policy_shared_3 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10001, T=T, trial=0)
+    policy_disjoint_5 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10002, T=T, trial=0)
+    policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
 
-    # 2) Shared LinUCB on 3 continuous parameters.
-    res_shared = run_amg_setup_experiment(
-        stencil_27_laplace,
-        {"actions": actions_cont3, "context_dim": 5},
-        SharedLinUCBFactory(ALPHA, L2),
-        lambda **kw: runtime_loss_sec(fail_penalty=fail_penalty, **kw),
-        T=T,
-        trials=TRIALS,
-        seed=SEED,
-        baselines=[],
-        fail_penalty=fail_penalty,
-    )
+    methods = [
+        ("default (fixed)", policy_default, ps_default, False),
+        (f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3", policy_disjoint_3, ps_cont3_3, False),
+        (f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3", policy_shared_3, ps_cont3_3, False),
+        (f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3", policy_disjoint_5, ps_cont3_5, False),
+        (f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
+    ]
 
-    # 3) Shared LinUCB on th-only, others default.
-    res_shared_th = run_amg_setup_experiment(
-        stencil_27_laplace,
-        {"actions": actions_th_only, "context_dim": 5},
-        SharedLinUCBFactory(ALPHA, L2),
-        lambda **kw: runtime_loss_sec(fail_penalty=fail_penalty, **kw),
-        T=T,
-        trials=TRIALS,
-        seed=SEED,
-        baselines=[],
-        fail_penalty=fail_penalty,
-    )
+    rt = {name: np.zeros(T, dtype=float) for name, *_ in methods}
+    overhead = {name: np.zeros(T, dtype=float) for name, *_ in methods}
+    trace_keys = ("strong_threshold", "max_row_sum", "trunc_factor")
+    traces = {name: init_param_trace(trace_keys, T) for name, *_ in methods}
 
-    # 4) Tsallis-INF on th-only (19 arms), others default.
-    res_tsallis_th = run_amg_setup_experiment(
-        stencil_27_laplace,
-        {"actions": [], "context_dim": 5},
-        TsallisThPolicy(th_grid_19, T=T, default_params=DEFAULT_PARAMS, seed=SEED + 3),
-        # TsallisINF_AMG expects loss >= 1 (it updates with (loss - 1)).
-        lambda **kw: 1.0 + 1e3 * runtime_loss_sec(fail_penalty=fail_penalty, **kw),
-        T=T,
-        trials=TRIALS,
-        seed=SEED,
-        baselines=[],
-        fail_penalty=fail_penalty,
-    )
+    rng_inst = np.random.default_rng(SEED)
+    rng_order = np.random.default_rng(SEED ^ 0xA5A5A5A5)
+    prev_update_est = {name: 0.0 for name, *_ in methods}
+
+    def safe_solve(params: dict, mkw: dict) -> dict:
+        try:
+            res = solve(params=params, **mkw)
+            return {"wu": float(res.work_units), "runtime": float(res.runtime_sec)}
+        except Exception:
+            return {"wu": float(fail_penalty), "runtime": 1e9}
+
+    for t in range(T):
+        mkw, context, meta = stencil_27_laplace(rng=rng_inst)
+        order = rng_order.permutation(len(methods))
+
+        for i in order:
+            name, policy, parameter_space, is_tsallis = methods[int(i)]
+
+            sel_start = time.perf_counter_ns()
+            selected = policy.select(context=context, parameter_space=parameter_space)
+            sel_sec = (time.perf_counter_ns() - sel_start) / 1e9
+
+            if isinstance(selected, tuple):
+                params = selected[0]
+            else:
+                params = selected
+
+            out = safe_solve(params, mkw)
+            rt[name][t] = float(out["runtime"])
+            record_param_trace(traces[name], t=t, params=params, keys=trace_keys)
+
+            loss_start = time.perf_counter_ns()
+            base_loss_sec = float(runtime_loss_sec(outcome=out, fail_penalty=fail_penalty))
+            loss_sec = (time.perf_counter_ns() - loss_start) / 1e9
+
+            # Loss used for learning: hypre walltime + bandit overhead estimate.
+            # Use previous round's update-time as an estimate to avoid circularity.
+            end_to_end_loss_sec = base_loss_sec + float(sel_sec) + float(loss_sec) + float(prev_update_est[name])
+            loss_value = end_to_end_loss_sec
+
+            upd_sec = 0.0
+            if hasattr(policy, "update"):
+                upd_start = time.perf_counter_ns()
+                policy.update(loss=loss_value, context=context, params=params, outcome=out)
+                upd_sec = (time.perf_counter_ns() - upd_start) / 1e9
+
+            prev_update_est[name] = float(upd_sec)
+            overhead[name][t] = float(sel_sec + loss_sec + upd_sec)
 
     y = T - np.arange(1, T + 1)
-    cum_default = np.mean(np.cumsum(res_default["bandit_total_runtime"], axis=0), axis=1)
-    cum_disjoint = np.mean(np.cumsum(res_disjoint["bandit_total_runtime"], axis=0), axis=1)
-    cum_shared = np.mean(np.cumsum(res_shared["bandit_total_runtime"], axis=0), axis=1)
-    cum_shared_th = np.mean(np.cumsum(res_shared_th["bandit_total_runtime"], axis=0), axis=1)
-    cum_tsallis_th = np.mean(np.cumsum(res_tsallis_th["bandit_total_runtime"], axis=0), axis=1)
+    # Plot end-to-end runtime (hypre walltime + bandit overhead).
+    cum_default = np.cumsum(rt["default (fixed)"] + overhead["default (fixed)"])
+    cum_disjoint_3 = np.cumsum(rt[f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3"] + overhead[f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3"])
+    cum_shared_3 = np.cumsum(rt[f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3"] + overhead[f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3"])
+    cum_disjoint_5 = np.cumsum(rt[f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3"] + overhead[f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3"])
+    cum_shared_5 = np.cumsum(rt[f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3"] + overhead[f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3"])
 
     plt.figure(figsize=(10, 5))
     plt.plot(cum_default, y, "--", linewidth=2.0, label="default (fixed)")
-    plt.plot(cum_disjoint, y, linewidth=2.3, label="LinUCB disjoint: (th,mxrs,tr) 19^3")
-    plt.plot(cum_shared, y, linewidth=2.3, label="LinUCB shared: (th,mxrs,tr) 19^3")
-    plt.plot(cum_shared_th, y, linewidth=2.3, label="LinUCB shared: th-only (19)")
-    plt.plot(cum_tsallis_th, y, linewidth=2.3, label="Tsallis-INF: th-only (19)")
+    plt.plot(cum_disjoint_3, y, linewidth=2.3, label=f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3")
+    plt.plot(cum_shared_3, y, linewidth=2.3, label=f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3")
+    plt.plot(cum_disjoint_5, y, linewidth=2.3, label=f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3")
+    plt.plot(cum_shared_5, y, linewidth=2.3, label=f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3")
 
     plt.xlabel("cumulative runtime (seconds)")
     plt.ylabel("instances remaining")
-    plt.title(f"BoomerAMG Setup runtime cumulative (test 2)  T={T}  2D stencil_27_laplace  [includes bandit overhead]", fontsize=12)
+    plt.title(
+        f"BoomerAMG Setup runtime cumulative (test 2, interleaved)  T={T}  2D stencil_27_laplace  [loss=hypre+overhead runtime]",
+        fontsize=12,
+    )
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / "test2_runtime_cumulative_T5000_disjoint_vs_shared_cont3_vs_shared_th_vs_tsallis_th_vs_default.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T5000_interleaved_end_to_end_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
+
+    # Parameter trace plot (moving average) to see where the bandits drift/converge.
+    ma_window = 25
+    fig, axes = plt.subplots(3, 1, figsize=(10, 7), sharex=True)
+    t_axis = np.arange(1, T + 1)
+    for ax, key in zip(axes, trace_keys):
+        for name, *_ in methods:
+            series = traces[name][key]
+            ax.plot(t_axis, moving_average(series, ma_window), linewidth=1.4, label=name)
+        ax.axhline(float(DEFAULT_PARAMS[key]), color="black", linestyle="--", linewidth=1.0, alpha=0.6, label="default" if key == trace_keys[0] else None)
+        ax.set_ylabel(key)
+        ax.grid(True, alpha=0.25)
+    axes[-1].set_xlabel("t")
+    axes[0].set_title(f"Chosen parameter traces (MA{ma_window})  T={T}  seed={SEED}", fontsize=12)
+    axes[0].legend(fontsize=7, ncol=2, loc="upper right")
+    fig.tight_layout()
+
+    trace_plot_path = out_dir / f"test2_param_trace_T5000_interleaved_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.png"
+    fig.savefig(trace_plot_path, dpi=256)
+    plt.close(fig)
+
+    # Quick “did it match default?” diagnostics on the last window.
+    def _action_key(name: str, idx: int) -> tuple:
+        return tuple(round(float(traces[name][k][idx]), 6) for k in trace_keys)
+
+    def _fraction_default(name: str, window: int = 500) -> float:
+        start = max(0, T - int(window))
+        mask = np.ones(T - start, dtype=bool)
+        for k in trace_keys:
+            mask &= np.isclose(traces[name][k][start:], float(DEFAULT_PARAMS[k]), rtol=0.0, atol=1e-12)
+        return float(np.mean(mask)) if mask.size else 0.0
+
+    def _mode_action(name: str, window: int = 500) -> dict:
+        from collections import Counter
+
+        start = max(0, T - int(window))
+        keys = [_action_key(name, i) for i in range(start, T)]
+        if not keys:
+            return {"action": None, "count": 0, "window": int(window)}
+        action, count = Counter(keys).most_common(1)[0]
+        return {"action": action, "count": int(count), "window": int(window)}
 
     summary = {
         "T": int(T),
         "seed": int(SEED),
         "alpha": float(ALPHA),
         "l2": float(L2),
-        "actions_cont3": int(len(actions_cont3)),
-        "actions_th_only": int(len(actions_th_only)),
-        "total_runtime_sec": {
-            "default": float(np.sum(res_default["bandit_total_runtime"])),
-            "linucb_disjoint_cont3": float(np.sum(res_disjoint["bandit_total_runtime"])),
-            "linucb_shared_cont3": float(np.sum(res_shared["bandit_total_runtime"])),
-            "linucb_shared_th_only": float(np.sum(res_shared_th["bandit_total_runtime"])),
-            "tsallis_th_only": float(np.sum(res_tsallis_th["bandit_total_runtime"])),
-        },
-        "total_overhead_sec": {
-            "default": float(np.sum(res_default["bandit_overhead_runtime"])),
-            "linucb_disjoint_cont3": float(np.sum(res_disjoint["bandit_overhead_runtime"])),
-            "linucb_shared_cont3": float(np.sum(res_shared["bandit_overhead_runtime"])),
-            "linucb_shared_th_only": float(np.sum(res_shared_th["bandit_overhead_runtime"])),
-            "tsallis_th_only": float(np.sum(res_tsallis_th["bandit_overhead_runtime"])),
-        },
+        "actions_cont3_grid3": int(len(actions_cont3_3)),
+        "actions_cont3_grid5": int(len(actions_cont3_5)),
+        "grid3_n": int(grid3_n),
+        "grid5_n": int(grid5_n),
+        "total_hypre_runtime_sec": {k: float(np.sum(v)) for k, v in rt.items()},
+        "total_bandit_overhead_sec": {k: float(np.sum(v)) for k, v in overhead.items()},
+        "total_end_to_end_sec": {k: float(np.sum(rt[k]) + np.sum(overhead[k])) for k in rt},
         "plot": str(plot_path),
+        "trace_plot": str(trace_plot_path),
+        "trace_keys": list(trace_keys),
+        "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
+        "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / "test2_runtime_summary_T5000.json"
+    summary_path = out_dir / f"test2_runtime_summary_T5000_interleaved_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)
     print("SUMMARY:", summary_path)
-    print("TOTAL seconds:", summary["total_runtime_sec"])
+    print("TOTAL hypre seconds:", summary["total_hypre_runtime_sec"])
+    print("TOTAL overhead seconds:", summary["total_bandit_overhead_sec"])
 
 
 if __name__ == "__main__":

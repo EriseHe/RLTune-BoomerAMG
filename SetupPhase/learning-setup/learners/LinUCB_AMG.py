@@ -117,9 +117,9 @@ class LinUCB_AMG:
 
         # Vectorized scoring across all arms.
         # u_a = A_a^{-1} x, mean_a = b_a^T u_a, uncert_a = sqrt(x^T u_a)
-        u = np.einsum("kij,j->ki", self.A_inv, x, optimize=True)
-        mean = np.einsum("ki,ki->k", self.b, u, optimize=True)
-        quad = np.einsum("i,ki->k", x, u, optimize=True)
+        u = self.A_inv @ x
+        mean = np.sum(self.b * u, axis=1)
+        quad = np.sum(u * x, axis=1)
         uncert = np.sqrt(np.maximum(0.0, quad))
 
         score = mean - self.alpha * uncert  # LCB for loss minimization

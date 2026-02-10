@@ -6,18 +6,18 @@
   "actions_cont3": 6859,
   "actions_th_only": 19,
   "total_runtime_sec": {
-    "default": 64.04947167200001,
-    "linucb_disjoint_cont3": 55.984105702,
-    "linucb_shared_cont3": 62.174091579,
-    "linucb_shared_th_only": 66.783885048,
-    "tsallis_th_only": 70.449919311
+    "default": 64.35102182200019,
+    "linucb_disjoint_cont3": 75.09883773600006,
+    "linucb_shared_cont3": 77.15400252900025,
+    "linucb_shared_th_only": 53.96195990900197,
+    "tsallis_th_only": 50.825126994000556
   },
   "total_overhead_sec": {
-    "default": 0.16898966799999998,
-    "linucb_disjoint_cont3": 4.189579178000001,
-    "linucb_shared_cont3": 6.904675992,
-    "linucb_shared_th_only": 3.2759150769999996,
-    "tsallis_th_only": 5.258733467999999
+    "default": 0.21481282200000001,
+    "linucb_disjoint_cont3": 9.020985736,
+    "linucb_shared_cont3": 16.870912529,
+    "linucb_shared_th_only": 1.3606719090000001,
+    "tsallis_th_only": 2.7248879940000004
   },
   "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test2_runtime_cumulative_T5000_disjoint_vs_shared_cont3_vs_shared_th_vs_tsallis_th_vs_default.png"
 }

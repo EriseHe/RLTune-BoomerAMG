@@ -14,6 +14,27 @@ from solver import solve
 # Helper Functions
 # ============================================================================
 
+def init_param_trace(keys: Sequence[str], T: int) -> Dict[str, np.ndarray]:
+    """
+    Initialize a numeric trace for chosen parameters.
+
+    Returns a dict mapping each key -> np.ndarray of length T (float),
+    filled with NaN until recorded.
+    """
+    return {str(k): np.full(int(T), np.nan, dtype=float) for k in keys}
+
+
+def record_param_trace(trace: Dict[str, np.ndarray], *, t: int, params: Dict[str, Any], keys: Sequence[str]) -> None:
+    """
+    Record params[key] into trace[key][t].
+
+    Missing keys are left as NaN.
+    """
+    for k in keys:
+        if k in params and k in trace:
+            trace[k][int(t)] = float(params[k])
+
+
 def progress_bar(current: int, total: int, prefix: str = "", every: int | None = None) -> None:
     width = 30
     if total <= 0:
@@ -155,18 +176,15 @@ def _sample_problem(
 
 def _solve(params: Dict[str, Any], mkw: Dict[str, Any], fail_penalty: float) -> Dict[str, float]:
     """
-    Run the solver and measure work units and runtime.
+    Run the solver and measure work units and hypre-only runtime.
     """
-    start = time.perf_counter_ns()
-    
     try:
-        work_units = float(solve(params=params, **mkw).work_units)
-        runtime_seconds = (time.perf_counter_ns() - start) / 1e9
-        return {"wu": work_units, "runtime": runtime_seconds}
+        res = solve(params=params, **mkw)
+        return {"wu": float(res.work_units), "runtime": float(res.runtime_sec)}
     
     except Exception:
-        runtime_seconds = (time.perf_counter_ns() - start) / 1e9
-        return {"wu": float(fail_penalty), "runtime": runtime_seconds}
+        # Penalize failures heavily under runtime loss too (avoid "fast failure")
+        return {"wu": float(fail_penalty), "runtime": 1e9}
 
 
 # ============================================================================

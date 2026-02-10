@@ -1,0 +1,91 @@
+{
+  "T": 5000,
+  "seed": 20260209,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "actions_cont3": 125,
+  "grid3_n": 5,
+  "actions_th_only": 19,
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 56.35763999999989,
+    "LinUCB disjoint: (th,mxrs,tr) 5^3": 51.60198399999998,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 52.451653999999614,
+    "LinUCB shared: th-only (19)": 60.71500400000021,
+    "Tsallis-INF: th-only (19)": 58.614171000001036
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.132780972,
+    "LinUCB disjoint: (th,mxrs,tr) 5^3": 1.388208741,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 2.4775314340000003,
+    "LinUCB shared: th-only (19)": 2.3024392340000004,
+    "Tsallis-INF: th-only (19)": 4.382885044
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 56.49042097199989,
+    "LinUCB disjoint: (th,mxrs,tr) 5^3": 52.99019274099998,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 54.92918543399961,
+    "LinUCB shared: th-only (19)": 63.017443234000204,
+    "Tsallis-INF: th-only (19)": 62.997056044001035
+  },
+  "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test2_runtime_cumulative_T5000_interleaved_end_to_end_loss_end2end_grid5^3.png",
+  "trace_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test2_param_trace_T5000_interleaved_loss_end2end_grid5^3.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 1.0,
+    "LinUCB disjoint: (th,mxrs,tr) 5^3": 0.01,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 0.0,
+    "LinUCB shared: th-only (19)": 0.0,
+    "Tsallis-INF: th-only (19)": 0.238
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": [
+        0.25,
+        0.9,
+        0.0
+      ],
+      "count": 500,
+      "window": 500
+    },
+    "LinUCB disjoint: (th,mxrs,tr) 5^3": {
+      "action": [
+        0.25,
+        0.5,
+        0.4
+      ],
+      "count": 6,
+      "window": 500
+    },
+    "LinUCB shared: (th,mxrs,tr) 5^3": {
+      "action": [
+        0.05,
+        0.9,
+        0.8
+      ],
+      "count": 36,
+      "window": 500
+    },
+    "LinUCB shared: th-only (19)": {
+      "action": [
+        0.05,
+        0.9,
+        0.0
+      ],
+      "count": 185,
+      "window": 500
+    },
+    "Tsallis-INF: th-only (19)": {
+      "action": [
+        0.25,
+        0.9,
+        0.0
+      ],
+      "count": 119,
+      "window": 500
+    }
+  }
+}
