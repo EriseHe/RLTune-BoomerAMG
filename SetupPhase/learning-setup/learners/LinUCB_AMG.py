@@ -115,22 +115,19 @@ class LinUCB_AMG:
         """
         x = self._validate_x(np.asarray(list(context), dtype=float))
 
-        best_score = float("inf")
-        best_arms: List[int] = []
-        best_mean = 0.0
-        best_unc = 0.0
+        # Vectorized scoring across all arms.
+        # u_a = A_a^{-1} x, mean_a = b_a^T u_a, uncert_a = sqrt(x^T u_a)
+        u = np.einsum("kij,j->ki", self.A_inv, x, optimize=True)
+        mean = np.einsum("ki,ki->k", self.b, u, optimize=True)
+        quad = np.einsum("i,ki->k", x, u, optimize=True)
+        uncert = np.sqrt(np.maximum(0.0, quad))
 
-        for a in range(self.K):
-            mean, uncert = self._arm_stats(a, x)
-            score = mean - self.alpha * uncert  # LCB for loss minimization
-            if score < best_score - 1e-12:
-                best_score = score
-                best_arms = [a]
-                best_mean, best_unc = mean, uncert
-            elif abs(score - best_score) <= 1e-12:
-                best_arms.append(a)
-
-        arm = int(self.rng.choice(best_arms)) if len(best_arms) > 1 else int(best_arms[0])
+        score = mean - self.alpha * uncert  # LCB for loss minimization
+        best_score = float(np.min(score))
+        best_arms = np.flatnonzero(score <= best_score + 1e-12)
+        arm = int(self.rng.choice(best_arms)) if best_arms.size > 1 else int(best_arms[0])
+        best_mean = float(mean[arm])
+        best_unc = float(uncert[arm])
 
         # Cache for update()
         self._last_x = x
@@ -191,4 +188,3 @@ class LinUCB_AMG:
         # Clear cache to prevent accidental double-update.
         self._last_x = None
         self._last_arm = None
-

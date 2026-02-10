@@ -211,6 +211,7 @@ def run_amg_setup_experiment(
     
     bandit_wu = np.zeros((T, trials), dtype=float)
     bandit_rt = np.zeros((T, trials), dtype=float)
+    bandit_overhead_rt = np.zeros((T, trials), dtype=float)
     base_wu = np.zeros((T, trials, num_baselines), dtype=float)
     base_rt = np.zeros((T, trials, num_baselines), dtype=float)
     
@@ -244,7 +245,9 @@ def run_amg_setup_experiment(
             mkw, context, meta = _sample_problem(problem_set, rng, t + 1, trial + 1)
             
             # Select parameters using bandit policy
+            sel_start = time.perf_counter_ns()
             selected = policy.select(context=context, parameter_space=parameter_space)
+            sel_sec = (time.perf_counter_ns() - sel_start) / 1e9
             
             # Parse selection result
             if isinstance(selected, tuple):
@@ -270,6 +273,7 @@ def run_amg_setup_experiment(
             # ================================================================
             # Compute loss and update policy
             # ================================================================
+            loss_start = time.perf_counter_ns()
             loss_value = float(
                 loss(
                     outcome=out_bandit,
@@ -281,14 +285,20 @@ def run_amg_setup_experiment(
                     trial=trial + 1,
                 )
             )
+            loss_sec = (time.perf_counter_ns() - loss_start) / 1e9
             
+            upd_sec = 0.0
             if hasattr(policy, "update"):
+                upd_start = time.perf_counter_ns()
                 policy.update(
                     loss=loss_value,
                     context=context,
                     params=params,
                     outcome=out_bandit,
                 )
+                upd_sec = (time.perf_counter_ns() - upd_start) / 1e9
+
+            bandit_overhead_rt[t, trial] = float(sel_sec + loss_sec + upd_sec)
             
             # ================================================================
             # Log first trial details
@@ -298,6 +308,10 @@ def run_amg_setup_experiment(
                     "trial": trial + 1,
                     "t": t + 1,
                     "loss_used": loss_value,
+                    "overhead_sec": float(sel_sec + loss_sec + upd_sec),
+                    "select_sec": float(sel_sec),
+                    "loss_eval_sec": float(loss_sec),
+                    "update_sec": float(upd_sec),
                 }
                 
                 # Add chosen parameters
@@ -322,6 +336,8 @@ def run_amg_setup_experiment(
         "baseline_names": baseline_names,
         "bandit_wu": bandit_wu,
         "bandit_runtime": bandit_rt,
+        "bandit_overhead_runtime": bandit_overhead_rt,
+        "bandit_total_runtime": bandit_rt + bandit_overhead_rt,
         "baseline_wu": base_wu,
         "baseline_runtime": base_rt,
         "logs": logs,

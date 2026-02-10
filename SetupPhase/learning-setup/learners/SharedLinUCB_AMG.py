@@ -178,26 +178,58 @@ class SharedLinUCB_AMG:
         uncert = float(np.sqrt(max(0.0, quad)))
         return mean, uncert
 
+    def _score_all(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Vectorized (score, mean, uncert) for all arms.
+
+        Uses the structure of phi(x,a) = [x; g; s1*g; s2*g] to compute
+        phi^T A^{-1} phi in O(K*g_dim^2) per round rather than O(K*d_phi^2).
+        """
+        s1 = float(x[self.s1_index])
+        s2 = float(x[self.s2_index])
+        G = self._g_actions  # (K, g_dim)
+
+        theta = self.A_inv @ self.b
+        theta_x = theta[: self.d_x]
+        theta_g = theta[self.d_x : self.d_x + self.g_dim]
+        theta_s1 = theta[self.d_x + self.g_dim : self.d_x + 2 * self.g_dim]
+        theta_s2 = theta[self.d_x + 2 * self.g_dim : self.d_x + 3 * self.g_dim]
+
+        base = float(theta_x @ x)
+        mean = base + (G @ theta_g) + s1 * (G @ theta_s1) + s2 * (G @ theta_s2)
+
+        # Build c and P such that phi = c + P g.
+        c = np.concatenate([x, np.zeros(3 * self.g_dim, dtype=float)], axis=0)
+        I = np.eye(self.g_dim, dtype=float)
+        P = np.vstack(
+            [
+                np.zeros((self.d_x, self.g_dim), dtype=float),
+                I,
+                s1 * I,
+                s2 * I,
+            ]
+        )
+
+        Ac = self.A_inv @ c
+        q0 = float(c @ Ac)
+        AP = self.A_inv @ P
+        u = P.T @ Ac  # (g_dim,)
+        M = P.T @ AP  # (g_dim, g_dim)
+
+        quad = q0 + 2.0 * (G @ u) + np.einsum("ij,jk,ik->i", G, M, G, optimize=True)
+        uncert = np.sqrt(np.maximum(0.0, quad))
+        score = mean - self.alpha * uncert
+        return score, mean, uncert
+
     def predict(self, context: Iterable[float]) -> Dict[str, Any]:
         x = self._validate_x(np.asarray(list(context), dtype=float))
 
-        best_score = float("inf")
-        best_arms: List[int] = []
-        best_mean = 0.0
-        best_unc = 0.0
-
-        # Select arm by LCB on predicted loss.
-        for a in range(self.K):
-            mean, uncert = self._arm_stats(x, a)
-            score = mean - self.alpha * uncert
-            if score < best_score - 1e-12:
-                best_score = score
-                best_arms = [a]
-                best_mean, best_unc = mean, uncert
-            elif abs(score - best_score) <= 1e-12:
-                best_arms.append(a)
-
-        arm = int(self.rng.choice(best_arms)) if len(best_arms) > 1 else int(best_arms[0])
+        score, mean, uncert = self._score_all(x)
+        best_score = float(np.min(score))
+        best_arms = np.flatnonzero(score <= best_score + 1e-12)
+        arm = int(self.rng.choice(best_arms)) if best_arms.size > 1 else int(best_arms[0])
+        best_mean = float(mean[arm])
+        best_unc = float(uncert[arm])
 
         # Cache for update()
         self._last_phi = self._phi(x, arm)
@@ -251,4 +283,3 @@ class SharedLinUCB_AMG:
         # Clear cache to prevent accidental double-update.
         self._last_phi = None
         self._last_arm = None
-
