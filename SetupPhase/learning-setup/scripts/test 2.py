@@ -14,6 +14,7 @@ from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, moving_a
 
 from learners.LinUCB_AMG import LinUCB_AMG
 from learners.SharedLinUCB_AMG import SharedLinUCB_AMG
+from learners.TsallisINF_AMG import TsallisINF_AMG
 from solver import solve
 
 
@@ -22,6 +23,7 @@ SEED = 20260209
 
 ALPHA = 1.0
 L2 = 1.0
+NX, NY, NZ = 120, 120, 1
 
 out_dir = Path(__file__).resolve().parent.parent / "plots" / "Combined"
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -100,6 +102,35 @@ class SharedLinUCBFactory:
         return _Policy(parameter_space["actions"], self.alpha, self.l2, seed)
 
 
+class TsallisThresholdFactory:
+    def __init__(self, threshold_grid):
+        self.threshold_grid = np.asarray(threshold_grid, dtype=float)
+
+    def new_trial(self, *, seed: int, T: int, **_):
+        class _Policy:
+            def __init__(self, threshold_grid, seed, T):
+                self.m = TsallisINF_AMG(threshold_grid, int(T))
+                # Keep behavior deterministic across runs.
+                np.random.seed(int(seed))
+
+            def select(self, **_):
+                th = float(self.m.predict())
+                return {
+                    "strong_threshold": th,
+                    "max_row_sum": DEFAULT_PARAMS["max_row_sum"],
+                    "trunc_factor": DEFAULT_PARAMS["trunc_factor"],
+                    "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
+                    "interp_type": DEFAULT_PARAMS["interp_type"],
+                }, {}
+
+            def update(self, loss, **_):
+                # TsallisINF_AMG assumes updates with (loss - 1).
+                # Runtime loss can be << 1, so shift to keep updates stable.
+                self.m.update(float(loss) + 1.0)
+
+        return _Policy(self.threshold_grid, seed, T)
+
+
 def main() -> None:
     fail_penalty = 1e6
     # Warmup: the first `solve()` in a fresh Python process pays MPI/HYPRE init
@@ -107,11 +138,11 @@ def main() -> None:
     # several seconds and is noisy run-to-run, so do one untimed warmup solve
     # before any timing begins.
     warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_27_laplace(rng=warm_rng)
+    warm_mkw, _, _ = stencil_27_laplace(rng=warm_rng, nx=NX, ny=NY, nz=NZ)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
-    # 2D: utils.problem_amg.NZ defaults to 1, so stencil_27_laplace is already 60x60x1.
-    # Grids: evenly spaced and reduced for 3D tuning (sample-efficiency).
+    # 2D problem size for this experiment.
+    # Grids: evenly spaced and reduced for 3-parameter tuning (sample-efficiency).
     grid3_n = 3
     th_grid_3d = np.linspace(0.05, 0.45, grid3_n)   # includes default th=0.25
     mxrs_grid_3d = np.linspace(0.10, 0.90, grid3_n)  # includes default mxrs=0.90
@@ -121,6 +152,8 @@ def main() -> None:
     th_grid_5d = np.linspace(0.05, 0.85, grid5_n)    # includes default th=0.25
     mxrs_grid_5d = np.linspace(0.10, 0.90, grid5_n)  # includes default mxrs=0.90
     tr_grid_5d = np.linspace(0.00, 0.80, grid5_n)    # includes default tr=0.00
+
+    th_grid_19 = np.linspace(0.05, 0.95, 19)
 
     # Action spaces for (th,mxrs,tr) at two discretization levels.
     actions_cont3_3 = build_actions_th_mxrs_tr(
@@ -135,6 +168,16 @@ def main() -> None:
         tr_grid_5d,
         fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
     )
+    actions_th_19 = [
+        {
+            "strong_threshold": float(th),
+            "max_row_sum": DEFAULT_PARAMS["max_row_sum"],
+            "trunc_factor": DEFAULT_PARAMS["trunc_factor"],
+            "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
+            "interp_type": DEFAULT_PARAMS["interp_type"],
+        }
+        for th in th_grid_19
+    ]
 
     # ---------------------------------------------------------------------
     # Interleaved evaluation (fair timing):
@@ -147,18 +190,19 @@ def main() -> None:
     ps_default = {"actions": [DEFAULT_PARAMS], "context_dim": 5}
     ps_cont3_3 = {"actions": actions_cont3_3, "context_dim": 5}
     ps_cont3_5 = {"actions": actions_cont3_5, "context_dim": 5}
+    ps_th_19 = {"actions": actions_th_19, "context_dim": 5}
 
     policy_default = FixedPolicy(DEFAULT_PARAMS)
     policy_disjoint_3 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10000, T=T, trial=0)
-    policy_shared_3 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10001, T=T, trial=0)
-    policy_disjoint_5 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10002, T=T, trial=0)
+    policy_shared_th_19 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_th_19, seed=SEED + 10001, T=T, trial=0)
+    policy_tsallis_th_19 = TsallisThresholdFactory(th_grid_19).new_trial(parameter_space=ps_th_19, seed=SEED + 10002, T=T, trial=0)
     policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
 
     methods = [
         ("default (fixed)", policy_default, ps_default, False),
         (f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3", policy_disjoint_3, ps_cont3_3, False),
-        (f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3", policy_shared_3, ps_cont3_3, False),
-        (f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3", policy_disjoint_5, ps_cont3_5, False),
+        ("LinUCB shared: (th) 19 arms", policy_shared_th_19, ps_th_19, False),
+        ("Tsallis-INF: (th) 19 arms", policy_tsallis_th_19, ps_th_19, True),
         (f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
     ]
 
@@ -179,7 +223,7 @@ def main() -> None:
             return {"wu": float(fail_penalty), "runtime": 1e9}
 
     for t in range(T):
-        mkw, context, meta = stencil_27_laplace(rng=rng_inst)
+        mkw, context, meta = stencil_27_laplace(rng=rng_inst, nx=NX, ny=NY, nz=NZ)
         order = rng_order.permutation(len(methods))
 
         for i in order:
@@ -218,29 +262,24 @@ def main() -> None:
 
     y = T - np.arange(1, T + 1)
     # Plot end-to-end runtime (hypre walltime + bandit overhead).
-    cum_default = np.cumsum(rt["default (fixed)"] + overhead["default (fixed)"])
-    cum_disjoint_3 = np.cumsum(rt[f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3"] + overhead[f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3"])
-    cum_shared_3 = np.cumsum(rt[f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3"] + overhead[f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3"])
-    cum_disjoint_5 = np.cumsum(rt[f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3"] + overhead[f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3"])
-    cum_shared_5 = np.cumsum(rt[f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3"] + overhead[f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3"])
-
     plt.figure(figsize=(10, 5))
-    plt.plot(cum_default, y, "--", linewidth=2.0, label="default (fixed)")
-    plt.plot(cum_disjoint_3, y, linewidth=2.3, label=f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3")
-    plt.plot(cum_shared_3, y, linewidth=2.3, label=f"LinUCB shared: (th,mxrs,tr) {grid3_n}^3")
-    plt.plot(cum_disjoint_5, y, linewidth=2.3, label=f"LinUCB disjoint: (th,mxrs,tr) {grid5_n}^3")
-    plt.plot(cum_shared_5, y, linewidth=2.3, label=f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3")
+    for name, *_ in methods:
+        cum = np.cumsum(rt[name] + overhead[name])
+        if name == "default (fixed)":
+            plt.plot(cum, y, "--", linewidth=2.0, label=name)
+        else:
+            plt.plot(cum, y, linewidth=2.3, label=name)
 
     plt.xlabel("cumulative runtime (seconds)")
     plt.ylabel("instances remaining")
     plt.title(
-        f"BoomerAMG Setup runtime cumulative (test 2, interleaved)  T={T}  2D stencil_27_laplace  [loss=hypre+overhead runtime]",
+        f"BoomerAMG Setup runtime cumulative (test 2, interleaved)  T={T}  2D {NX}x{NY} stencil_27_laplace  [loss=hypre+overhead runtime]",
         fontsize=12,
     )
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / f"test2_runtime_cumulative_T5000_interleaved_end_to_end_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end_to_end_loss_end2end_{NX}x{NY}_th19mix.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
 
@@ -260,7 +299,7 @@ def main() -> None:
     axes[0].legend(fontsize=7, ncol=2, loc="upper right")
     fig.tight_layout()
 
-    trace_plot_path = out_dir / f"test2_param_trace_T5000_interleaved_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.png"
+    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_loss_end2end_{NX}x{NY}_th19mix.png"
     fig.savefig(trace_plot_path, dpi=256)
     plt.close(fig)
 
@@ -290,8 +329,12 @@ def main() -> None:
         "seed": int(SEED),
         "alpha": float(ALPHA),
         "l2": float(L2),
+        "nx": int(NX),
+        "ny": int(NY),
+        "nz": int(NZ),
         "actions_cont3_grid3": int(len(actions_cont3_3)),
         "actions_cont3_grid5": int(len(actions_cont3_5)),
+        "actions_th_19": int(len(actions_th_19)),
         "grid3_n": int(grid3_n),
         "grid5_n": int(grid5_n),
         "total_hypre_runtime_sec": {k: float(np.sum(v)) for k, v in rt.items()},
@@ -303,7 +346,7 @@ def main() -> None:
         "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
         "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / f"test2_runtime_summary_T5000_interleaved_loss_end2end_grid{grid3_n}^3_vs{grid5_n}^3.json"
+    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_loss_end2end_{NX}x{NY}_th19mix.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)
