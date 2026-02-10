@@ -11,6 +11,12 @@ NOTE: uses a time-varying setting of eta = 2 / sqrt(t)
 import numpy as np
 
 
+def _choice(rng, a, *, p=None):
+    if rng is None:
+        return np.random.choice(a, p=p)
+    return rng.choice(a, p=p)
+
+
 class TsallisINF_AMG:
     """
     Tsallis-INF bandit algorithm for BoomerAMG tuning.
@@ -26,7 +32,7 @@ class TsallisINF_AMG:
         Number of rounds (can be set to zero if not known)
     """
     
-    def __init__(self, grid, T):
+    def __init__(self, grid, T, seed=None):
         self.grid = np.asarray(grid)
         self.d = len(grid)
         self.t = 1
@@ -34,6 +40,10 @@ class TsallisINF_AMG:
         self.index = None
         self.prob = None
         self.scale = 1.0
+
+        # Optional per-bandit RNG. If seed is None, fall back to NumPy global
+        # RNG for backward compatibility with existing scripts.
+        self.rng = np.random.default_rng(int(seed)) if seed is not None else None
         
         self.actions = np.zeros(T, dtype=int)
         self.losses = np.zeros(T)
@@ -97,9 +107,9 @@ class TsallisINF_AMG:
 
         if probs is None:
             self.fallback_count += 1
-            self.index = int(np.random.choice(self.d))
+            self.index = int(_choice(self.rng, self.d))
             self.prob = 1.0 / self.d
-            out = float(self.grid[self.index])
+            out = self.grid[self.index]
             if self.t <= len(self.actions):
                 self.actions[self.t - 1] = self.index
             return out
@@ -108,16 +118,16 @@ class TsallisINF_AMG:
         sum_probs = float(np.sum(probs))
         if not np.isfinite(sum_probs) or sum_probs <= 0.0:
             self.fallback_count += 1
-            self.index = int(np.random.choice(self.d))
+            self.index = int(_choice(self.rng, self.d))
             self.prob = 1.0 / self.d
         else:
             p = probs / sum_probs
             if not np.all(np.isfinite(p)):
                 self.fallback_count += 1
-                self.index = int(np.random.choice(self.d))
+                self.index = int(_choice(self.rng, self.d))
                 self.prob = 1.0 / self.d
             else:
-                self.index = int(np.random.choice(self.d, p=p))
+                self.index = int(_choice(self.rng, self.d, p=p))
                 # Store the actual sampling probability for importance weighting.
                 self.prob = float(p[self.index])
 

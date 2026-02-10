@@ -23,7 +23,7 @@ SEED = 20260209
 
 ALPHA = 1.0
 L2 = 1.0
-NX, NY, NZ = 120, 120, 1
+NX, NY, NZ = 60, 60, 1
 
 out_dir = Path(__file__).resolve().parent.parent / "plots" / "Combined"
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -102,33 +102,27 @@ class SharedLinUCBFactory:
         return _Policy(parameter_space["actions"], self.alpha, self.l2, seed)
 
 
-class TsallisThresholdFactory:
-    def __init__(self, threshold_grid):
-        self.threshold_grid = np.asarray(threshold_grid, dtype=float)
+class TsallisActionFactory:
+    def __init__(self, actions):
+        self.actions = [dict(a) for a in actions]
 
     def new_trial(self, *, seed: int, T: int, **_):
         class _Policy:
-            def __init__(self, threshold_grid, seed, T):
-                self.m = TsallisINF_AMG(threshold_grid, int(T))
+            def __init__(self, actions, seed, T):
+                self.m = TsallisINF_AMG(np.asarray(actions, dtype=object), int(T))
                 # Keep behavior deterministic across runs.
                 np.random.seed(int(seed))
 
             def select(self, **_):
-                th = float(self.m.predict())
-                return {
-                    "strong_threshold": th,
-                    "max_row_sum": DEFAULT_PARAMS["max_row_sum"],
-                    "trunc_factor": DEFAULT_PARAMS["trunc_factor"],
-                    "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
-                    "interp_type": DEFAULT_PARAMS["interp_type"],
-                }, {}
+                params = self.m.predict()
+                return dict(params), {}
 
             def update(self, loss, **_):
                 # TsallisINF_AMG assumes updates with (loss - 1).
                 # Runtime loss can be << 1, so shift to keep updates stable.
                 self.m.update(float(loss) + 1.0)
 
-        return _Policy(self.threshold_grid, seed, T)
+        return _Policy(self.actions, seed, T)
 
 
 def main() -> None:
@@ -195,14 +189,14 @@ def main() -> None:
     policy_default = FixedPolicy(DEFAULT_PARAMS)
     policy_disjoint_3 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10000, T=T, trial=0)
     policy_shared_th_19 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_th_19, seed=SEED + 10001, T=T, trial=0)
-    policy_tsallis_th_19 = TsallisThresholdFactory(th_grid_19).new_trial(parameter_space=ps_th_19, seed=SEED + 10002, T=T, trial=0)
+    policy_tsallis_cont3_3 = TsallisActionFactory(actions_cont3_3).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10002, T=T, trial=0)
     policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
 
     methods = [
         ("default (fixed)", policy_default, ps_default, False),
         (f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3", policy_disjoint_3, ps_cont3_3, False),
         ("LinUCB shared: (th) 19 arms", policy_shared_th_19, ps_th_19, False),
-        ("Tsallis-INF: (th) 19 arms", policy_tsallis_th_19, ps_th_19, True),
+        (f"Tsallis-INF: (th,mxrs,tr) {grid3_n}^3", policy_tsallis_cont3_3, ps_cont3_3, True),
         (f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
     ]
 
@@ -279,7 +273,7 @@ def main() -> None:
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end_to_end_loss_end2end_{NX}x{NY}_th19mix.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end_to_end_loss_end2end_{NX}x{NY}_tsallis3d.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
 
@@ -299,7 +293,7 @@ def main() -> None:
     axes[0].legend(fontsize=7, ncol=2, loc="upper right")
     fig.tight_layout()
 
-    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_loss_end2end_{NX}x{NY}_th19mix.png"
+    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_loss_end2end_{NX}x{NY}_tsallis3d.png"
     fig.savefig(trace_plot_path, dpi=256)
     plt.close(fig)
 
@@ -346,7 +340,7 @@ def main() -> None:
         "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
         "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_loss_end2end_{NX}x{NY}_th19mix.json"
+    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_loss_end2end_{NX}x{NY}_tsallis3d.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)
