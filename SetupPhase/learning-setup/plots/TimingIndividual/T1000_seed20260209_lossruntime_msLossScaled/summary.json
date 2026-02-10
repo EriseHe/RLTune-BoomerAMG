@@ -1,0 +1,19 @@
+{
+  "run_dir": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T1000_seed20260209_lossruntime_msLossScaled",
+  "T": 1000,
+  "logs": [
+    "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T1000_seed20260209_lossruntime_msLossScaled/policy_default.csv",
+    "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T1000_seed20260209_lossruntime_msLossScaled/policy_linucb.csv"
+  ],
+  "totals": {
+    "default": {
+      "total_runtime_sec": 11.46552119
+    },
+    "linucb": {
+      "total_runtime_sec": 32.670195181000004
+    }
+  },
+  "plots": {
+    "cumulative_runtime": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T1000_seed20260209_lossruntime_msLossScaled/cumulative_runtime.png"
+  }
+}

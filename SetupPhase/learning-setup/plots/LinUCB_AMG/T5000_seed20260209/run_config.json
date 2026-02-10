@@ -1,0 +1,50 @@
+{
+  "T": 5000,
+  "alpha": 1.0,
+  "context": "x=[1,s1,s2,s3,c_diag] with s~U(0.5,2.0), c_diag~U(0,5)",
+  "default_params": {
+    "P_max_elmts": 4,
+    "agg_interp_type": 4,
+    "agg_num_levels": 0,
+    "coarsen_type": 10,
+    "interp_type": 6,
+    "strong_threshold": 0.25,
+    "trunc_factor": 0.0
+  },
+  "fail_penalty": 1000000.0,
+  "fixed_params": {
+    "P_max_elmts": 4,
+    "agg_interp_type": 4,
+    "agg_num_levels": 0,
+    "trunc_factor": 0.0
+  },
+  "grid": {
+    "nx": 60,
+    "ny": 60,
+    "nz": 1,
+    "stencil": 27
+  },
+  "l2": 1.0,
+  "ma": 25,
+  "note": "Params not supported by the wrapper remain at BoomerAMG internal defaults.",
+  "seed": 20260209,
+  "tuned": {
+    "coarsen_type": [
+      10,
+      8,
+      6
+    ],
+    "interp_type": [
+      6,
+      8,
+      0
+    ],
+    "strong_threshold": [
+      0.1,
+      0.25,
+      0.4,
+      0.5,
+      0.7
+    ]
+  }
+}

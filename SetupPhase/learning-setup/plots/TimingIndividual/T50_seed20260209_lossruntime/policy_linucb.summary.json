@@ -1,0 +1,15 @@
+{
+  "policy": "linucb",
+  "name": "linucb",
+  "instances": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/instances.csv",
+  "out_csv": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/policy_linucb.csv",
+  "T": 50,
+  "total_wu": 1509.0499621259944,
+  "total_runtime_sec": 0.30593416599999995,
+  "loss": "runtime",
+  "linucb": {
+    "alpha": 1.0,
+    "l2": 1.0
+  },
+  "fixed_params": {}
+}

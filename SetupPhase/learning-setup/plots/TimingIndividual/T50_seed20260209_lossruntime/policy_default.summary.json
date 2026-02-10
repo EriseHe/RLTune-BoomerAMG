@@ -1,0 +1,16 @@
+{
+  "policy": "fixed",
+  "name": "default",
+  "instances": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/instances.csv",
+  "out_csv": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/policy_default.csv",
+  "T": 50,
+  "total_wu": 1420.4291756091407,
+  "total_runtime_sec": 0.24455941899999997,
+  "loss": "",
+  "linucb": {},
+  "fixed_params": {
+    "strong_threshold": 0.25,
+    "coarsen_type": 10,
+    "interp_type": 6
+  }
+}
