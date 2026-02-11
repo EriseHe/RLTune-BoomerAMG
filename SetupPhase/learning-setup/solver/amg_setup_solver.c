@@ -18,6 +18,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
+#ifndef _WIN32
+#include <sys/time.h>
+#endif
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #include "HYPRE_config.h"
 #include "_hypre_utilities.h"
@@ -29,7 +37,15 @@
 #include "HYPRE_IJ_mv.h"
 #include "HYPRE_parcsr_ls.h"
 
+#ifdef HYPRE_HAVE_MPI
 #include <mpi.h>
+#endif
+
+#if defined(_WIN32)
+#define AMG_API __declspec(dllexport)
+#else
+#define AMG_API
+#endif
 
 /*
  * Quiet shim for the HYPRE test-driver builders (amg_cycle.c).
@@ -79,22 +95,46 @@ static int _initialized = 0;
 static void _ensure_init(void)
 {
     if (_initialized) return;
+#ifdef HYPRE_HAVE_MPI
     int mpi_ok = 0;
     MPI_Initialized(&mpi_ok);
-    if (!mpi_ok) { int ac = 0; char **av = NULL; hypre_MPI_Init(&ac, &av); }
+    if (!mpi_ok)
+    {
+        int ac = 0;
+        char **av = NULL;
+        hypre_MPI_Init(&ac, &av);
+    }
+#endif
     HYPRE_Init();
     _initialized = 1;
 }
 
 static double wall_time_sec(void)
 {
-    return (double) hypre_MPI_Wtime();
+#ifdef _WIN32
+    static LARGE_INTEGER freq = {0};
+    LARGE_INTEGER now;
+    if (freq.QuadPart == 0)
+    {
+        QueryPerformanceFrequency(&freq);
+    }
+    QueryPerformanceCounter(&now);
+    return (double) now.QuadPart / (double) freq.QuadPart;
+#elif defined(CLOCK_MONOTONIC)
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double) ts.tv_sec + 1e-9 * (double) ts.tv_nsec;
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double) tv.tv_sec + 1e-6 * (double) tv.tv_usec;
+#endif
 }
 
 /* ------------------------------------------------------------------ */
 /*  Create — same matrix/vector setup as amg_env.c                    */
 /* ------------------------------------------------------------------ */
-AMGSetupEnv* amg_setup_create(
+AMG_API AMGSetupEnv* amg_setup_create(
     int nx, int ny, int nz,
     int stencil_type,
     int rhs_type,
@@ -199,7 +239,7 @@ AMGSetupEnv* amg_setup_create(
 /*  Use -1 (int) / -1.0 (double) to skip a param.                    */
 /*  Resets x=0 each call.                                             */
 /* ------------------------------------------------------------------ */
-int amg_setup_solve(
+AMG_API int amg_setup_solve(
     AMGSetupEnv *env,
     double strong_threshold, int coarsen_type, int interp_type, double max_row_sum,
     int relax_type, int num_sweeps, int cycle_type, int max_levels,
@@ -264,7 +304,7 @@ int amg_setup_solve(
 }
 
 /* ------------------------------------------------------------------ */
-void amg_setup_destroy(AMGSetupEnv *env)
+AMG_API void amg_setup_destroy(AMGSetupEnv *env)
 {
     if (!env) return;
     if (env->ij_x) HYPRE_IJVectorDestroy(env->ij_x);
@@ -273,5 +313,5 @@ void amg_setup_destroy(AMGSetupEnv *env)
     free(env);
 }
 
-int amg_setup_get_n(AMGSetupEnv *e)   { return e ? e->local_num_rows : 0; }
-int amg_setup_get_nnz(AMGSetupEnv *e) { return e ? e->nnz : 0; }
+AMG_API int amg_setup_get_n(AMGSetupEnv *e)   { return e ? e->local_num_rows : 0; }
+AMG_API int amg_setup_get_nnz(AMGSetupEnv *e) { return e ? e->nnz : 0; }

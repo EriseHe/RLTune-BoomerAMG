@@ -10,7 +10,7 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from utils.problem_amg import stencil_27_laplace
-from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, moving_average, record_param_trace
+from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, record_param_trace
 
 from learners.LinUCB_AMG import LinUCB_AMG
 from learners.SharedLinUCB_AMG import SharedLinUCB_AMG
@@ -20,12 +20,19 @@ from learners.TsallisINF_AMG import TsallisINF_AMG
 from solver import solve
 
 
-T = 5000
+T = int(os.environ.get("T", "5000"))
 SEED = int(os.environ.get("SEED", "20260209"))
 
 ALPHA = 1.0
 L2 = 1.0
-NX, NY, NZ = 60, 60, 1
+NX = int(os.environ.get("NX", "60"))
+NY = int(os.environ.get("NY", "60"))
+NZ = int(os.environ.get("NZ", "1"))
+CANDIDATE_POOL_SIZE = int(os.environ.get("CANDIDATE_POOL_SIZE", "512"))
+ELITE_CACHE_SIZE = int(os.environ.get("ELITE_CACHE_SIZE", "64"))
+
+SOLVER_TOL = float(os.environ.get("SOLVER_TOL", "1e-8"))
+SOLVER_MAX_ITER = int(os.environ.get("SOLVER_MAX_ITER", "10000"))
 
 out_dir = Path(__file__).resolve().parent.parent / "plots" / "Combined"
 out_dir.mkdir(parents=True, exist_ok=True)
@@ -39,14 +46,33 @@ DEFAULT_PARAMS = {
     "interp_type": 6,
 }
 
+FIXED_MODE_V2_19CUBE = {
+    # From prior best-performing shared-v2 run.
+    "strong_threshold": 0.50,
+    # NOTE: HYPRE rejects max_row_sum <= 0, so use a tiny positive epsilon.
+    "max_row_sum": 1e-6,
+    # NOTE: HYPRE rejects trunc_factor >= 1, so use a value just below 1.
+    "trunc_factor": 0.999999,
+    "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
+    "interp_type": DEFAULT_PARAMS["interp_type"],
+}
 
-def runtime_loss_sec(*, outcome, fail_penalty: float, **_) -> float:
+FIXED_MODE_TSALLIS_3CUBE = {
+    # From prior Tsallis 3^3 mode action.
+    "strong_threshold": 0.05,
+    "max_row_sum": 0.10,
+    "trunc_factor": 0.80,
+    "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
+    "interp_type": DEFAULT_PARAMS["interp_type"],
+}
+
+
+def runtime_loss_sec(*, outcome, fail_runtime_sec: float, **_) -> float:
     rt = float(outcome["runtime"])
-    wu = float(outcome["wu"])
     if not np.isfinite(rt):
-        return 1e9
+        return float(fail_runtime_sec)
     # Prevent "fast failures" from looking good under runtime loss.
-    if wu >= 0.999 * float(fail_penalty):
+    if bool(outcome.get("failed", False)) or rt >= 0.999 * float(fail_runtime_sec):
         return rt + 10.0
     return rt
 
@@ -133,9 +159,7 @@ class TsallisActionFactory:
     def new_trial(self, *, seed: int, T: int, **_):
         class _Policy:
             def __init__(self, actions, seed, T):
-                self.m = TsallisINF_AMG(np.asarray(actions, dtype=object), int(T))
-                # Keep behavior deterministic across runs.
-                np.random.seed(int(seed))
+                self.m = TsallisINF_AMG(np.asarray(actions, dtype=object), int(T), seed=int(seed))
 
             def select(self, **_):
                 params = self.m.predict()
@@ -150,7 +174,7 @@ class TsallisActionFactory:
 
 
 def main() -> None:
-    fail_penalty = 1e6
+    fail_runtime_sec = 1e9
     # Warmup: the first `solve()` in a fresh Python process pays MPI/HYPRE init
     # inside the C library (amg_setup_solver.c::_ensure_init). This can be
     # several seconds and is noisy run-to-run, so do one untimed warmup solve
@@ -170,13 +194,17 @@ def main() -> None:
     # Note: strong_threshold and max_row_sum are conceptually in (0,1); to
     # avoid potential solver edge-case failures at exactly 0 or 1, we clip
     # them slightly inward while keeping an approximately-uniform grid.
-    grid5_n = 19
-    _eps = 1e-6
-    th_grid_5d = np.clip(np.linspace(0.0, 1.0, grid5_n), _eps, 1.0 - _eps)
-    mxrs_grid_5d = np.clip(np.linspace(0.0, 1.0, grid5_n), _eps, 1.0 - _eps)
-    tr_grid_5d = np.linspace(0.0, 1.0, grid5_n)  # trunc_factor allows 0.0
-
-    th_grid_19 = np.linspace(0.05, 0.95, 19)
+    # Updated discretization: 20 points up to 0.95 (reference-style).
+    # Constraints from HYPRE:
+    # - strong_threshold in [0,1] so 0 is allowed
+    # - trunc_factor in [0,1) so 0 is allowed (1 is not)
+    # - max_row_sum must be in (0,1] so 0 is NOT allowed
+    grid5_n = 20
+    grid5_max = 0.95
+    th_grid_5d = np.linspace(0.0, grid5_max, grid5_n)
+    mxrs_grid_5d = np.linspace(0.0, grid5_max, grid5_n)
+    mxrs_grid_5d[0] = 1e-6
+    tr_grid_5d = np.linspace(0.0, grid5_max, grid5_n)
 
     # Action spaces for (th,mxrs,tr) at two discretization levels.
     actions_cont3_3 = build_actions_th_mxrs_tr(
@@ -191,16 +219,23 @@ def main() -> None:
         tr_grid_5d,
         fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
     )
-    actions_th_19 = [
-        {
-            "strong_threshold": float(th),
-            "max_row_sum": DEFAULT_PARAMS["max_row_sum"],
-            "trunc_factor": DEFAULT_PARAMS["trunc_factor"],
-            "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
-            "interp_type": DEFAULT_PARAMS["interp_type"],
-        }
-        for th in th_grid_19
-    ]
+
+    # Ensure the default configuration is always an available arm (safety baseline).
+    # The uniform grids do not necessarily contain th=0.25 or mxrs=0.90.
+    def _same_action(a: dict, b: dict) -> bool:
+        return (
+            np.isclose(float(a["strong_threshold"]), float(b["strong_threshold"]), rtol=0.0, atol=1e-12)
+            and np.isclose(float(a["max_row_sum"]), float(b["max_row_sum"]), rtol=0.0, atol=1e-12)
+            and np.isclose(float(a["trunc_factor"]), float(b["trunc_factor"]), rtol=0.0, atol=1e-12)
+            and int(a["coarsen_type"]) == int(b["coarsen_type"])
+            and int(a["interp_type"]) == int(b["interp_type"])
+        )
+
+    default_arm = dict(DEFAULT_PARAMS)
+    default_arm_index_5 = next((i for i, a in enumerate(actions_cont3_5) if _same_action(a, default_arm)), None)
+    if default_arm_index_5 is None:
+        actions_cont3_5.append(default_arm)
+        default_arm_index_5 = len(actions_cont3_5) - 1
 
     # ---------------------------------------------------------------------
     # Interleaved evaluation (fair timing):
@@ -213,39 +248,43 @@ def main() -> None:
     ps_default = {"actions": [DEFAULT_PARAMS], "context_dim": 5}
     ps_cont3_3 = {"actions": actions_cont3_3, "context_dim": 5}
     ps_cont3_5 = {"actions": actions_cont3_5, "context_dim": 5}
-    ps_th_19 = {"actions": actions_th_19, "context_dim": 5}
 
     policy_default = FixedPolicy(DEFAULT_PARAMS)
-    policy_disjoint_3 = DisjointLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10000, T=T, trial=0)
-    policy_shared_th_19 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_th_19, seed=SEED + 10001, T=T, trial=0)
-    policy_tsallis_cont3_3 = TsallisActionFactory(actions_cont3_3).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10002, T=T, trial=0)
-    policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
-
-    policy_shared_th_19_v2 = SharedLinUCBFactory(
+    policy_fixed_tsallis_mode = FixedPolicy(FIXED_MODE_TSALLIS_3CUBE)
+    policy_disjoint_5_v2 = DisjointLinUCBFactory(
         ALPHA,
         L2,
-        model_cls=SharedLinUCB_AMG_v2,
-        model_kwargs={"action_center": DEFAULT_PARAMS, "alpha_decay": True},
-    ).new_trial(parameter_space=ps_th_19, seed=SEED + 11001, T=T, trial=0)
+        model_cls=LinUCB_AMG_v2,
+        model_kwargs={"alpha_decay": True},
+    ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 12003, T=T, trial=0)
+    policy_tsallis_cont3_5 = TsallisActionFactory(actions_cont3_5).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10004, T=T, trial=0)
+    policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
+
     policy_shared_5_v2 = SharedLinUCBFactory(
         ALPHA,
         L2,
         model_cls=SharedLinUCB_AMG_v2,
-        model_kwargs={"action_center": DEFAULT_PARAMS, "alpha_decay": True},
+        model_kwargs={
+            "action_center": DEFAULT_PARAMS,
+            "alpha_decay": True,
+            "candidate_pool_size": CANDIDATE_POOL_SIZE,
+            "always_include_arms": [int(default_arm_index_5)],
+            "elite_cache_size": ELITE_CACHE_SIZE,
+        },
     ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 11003, T=T, trial=0)
 
     methods = [
         ("default (fixed)", policy_default, ps_default, False),
-        (f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3", policy_disjoint_3, ps_cont3_3, False),
-        ("LinUCB shared: (th) 19 arms", policy_shared_th_19, ps_th_19, False),
-        ("LinUCB shared v2: (th) 19 arms", policy_shared_th_19_v2, ps_th_19, False),
-        (f"Tsallis-INF: (th,mxrs,tr) {grid3_n}^3", policy_tsallis_cont3_3, ps_cont3_3, True),
-        (f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
-        (f"LinUCB shared v2: (th,mxrs,tr) {grid5_n}^3", policy_shared_5_v2, ps_cont3_5, False),
+        ("fixed: (th,mxrs,tr) = (0.05,0.10,0.80)", policy_fixed_tsallis_mode, ps_default, False),
+        (f"LinUCB disjoint v2: {grid5_n}^3", policy_disjoint_5_v2, ps_cont3_5, False),
+        (f"Tsallis-INF: {grid5_n}^3", policy_tsallis_cont3_5, ps_cont3_5, True),
+        (f"LinUCB shared: {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
+        (f"LinUCB shared v2: {grid5_n}^3", policy_shared_5_v2, ps_cont3_5, False),
     ]
 
     rt = {name: np.zeros(T, dtype=float) for name, *_ in methods}
     overhead = {name: np.zeros(T, dtype=float) for name, *_ in methods}
+    failed_count = {name: 0 for name, *_ in methods}
     trace_keys = ("strong_threshold", "max_row_sum", "trunc_factor")
     traces = {name: init_param_trace(trace_keys, T) for name, *_ in methods}
 
@@ -255,10 +294,18 @@ def main() -> None:
 
     def safe_solve(params: dict, mkw: dict) -> dict:
         try:
-            res = solve(params=params, **mkw)
-            return {"wu": float(res.work_units), "runtime": float(res.runtime_sec)}
+            res = solve(params=params, tol=SOLVER_TOL, max_iter=SOLVER_MAX_ITER, **mkw)
+            res_norm = float(res.residual_norm)
+            iters = int(res.iterations)
+            converged = bool(np.isfinite(res_norm) and res_norm <= float(SOLVER_TOL) and iters < int(SOLVER_MAX_ITER))
+            return {"runtime": float(res.runtime_sec), "failed": (not converged), "residual_norm": res_norm, "iterations": iters}
         except Exception:
-            return {"wu": float(fail_penalty), "runtime": 1e9}
+            return {
+                "runtime": float(fail_runtime_sec),
+                "failed": True,
+                "residual_norm": float("inf"),
+                "iterations": int(SOLVER_MAX_ITER),
+            }
 
     for t in range(T):
         mkw, context, meta = stencil_27_laplace(rng=rng_inst, nx=NX, ny=NY, nz=NZ)
@@ -278,10 +325,11 @@ def main() -> None:
 
             out = safe_solve(params, mkw)
             rt[name][t] = float(out["runtime"])
+            failed_count[name] += int(bool(out.get("failed", False)))
             record_param_trace(traces[name], t=t, params=params, keys=trace_keys)
 
             loss_start = time.perf_counter_ns()
-            base_loss_sec = float(runtime_loss_sec(outcome=out, fail_penalty=fail_penalty))
+            base_loss_sec = float(runtime_loss_sec(outcome=out, fail_runtime_sec=fail_runtime_sec))
             loss_sec = (time.perf_counter_ns() - loss_start) / 1e9
 
             # Loss used for learning: hypre walltime + bandit overhead estimate.
@@ -311,33 +359,62 @@ def main() -> None:
     plt.xlabel("cumulative runtime (seconds)")
     plt.ylabel("instances remaining")
     plt.title(
-        f"BoomerAMG Setup runtime cumulative (test 2, interleaved)  T={T}  2D {NX}x{NY} stencil_27_laplace  [loss=hypre+overhead runtime]",
+        f"BoomerAMG Setup runtime cumulative (test 2, interleaved)  T={T}  {NX}x{NY}x{NZ} stencil_27_laplace  [loss=hypre+overhead runtime]",
         fontsize=12,
     )
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
 
-    # Parameter trace plot (moving average) to see where the bandits drift/converge.
-    ma_window = 25
-    fig, axes = plt.subplots(3, 1, figsize=(10, 7), sharex=True)
+    # Bandit-only parameter trace plot:
+    # - One row per bandit method (no baseline/default/fixed methods).
+    # - Three subplots per bandit (one for each parameter).
+    bandit_names = [name for name, policy, *_ in methods if not isinstance(policy, FixedPolicy)]
+    n_bandits = int(len(bandit_names))
+    nrows = n_bandits if n_bandits else 1
+    ncols = len(trace_keys)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.2 * ncols, 2.2 * nrows), sharex=True, sharey=True)
+    axes = np.atleast_2d(axes)
     t_axis = np.arange(1, T + 1)
-    for ax, key in zip(axes, trace_keys):
-        for name, *_ in methods:
-            series = traces[name][key]
-            ax.plot(t_axis, moving_average(series, ma_window), linewidth=1.4, label=name)
-        ax.axhline(float(DEFAULT_PARAMS[key]), color="black", linestyle="--", linewidth=1.0, alpha=0.6, label="default" if key == trace_keys[0] else None)
-        ax.set_ylabel(key)
-        ax.grid(True, alpha=0.25)
-    axes[-1].set_xlabel("t")
-    axes[0].set_title(f"Chosen parameter traces (MA{ma_window})  T={T}  seed={SEED}", fontsize=12)
-    axes[0].legend(fontsize=7, ncol=2, loc="upper right")
-    fig.tight_layout()
 
-    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.png"
+    # High-contrast, colorblind-friendly colors per parameter.
+    param_colors = {
+        "strong_threshold": "#0072B2",
+        "max_row_sum": "#D55E00",
+        "trunc_factor": "#009E73",
+    }
+
+    for row_i, name in enumerate(bandit_names):
+        for col_i, key in enumerate(trace_keys):
+            ax = axes[row_i, col_i]
+            series = traces[name][key]
+            ax.scatter(
+                t_axis,
+                series,
+                s=14,
+                marker=".",
+                label=None,
+                color=param_colors.get(key, None),
+                alpha=0.9,
+                linewidths=0.0,
+                rasterized=True,
+            )
+            if row_i == 0:
+                ax.set_title(key, fontsize=10)
+            if col_i == 0:
+                ax.set_ylabel(name, fontsize=7)
+            ax.set_ylim(-0.02, 1.02)
+            ax.grid(True, alpha=0.25)
+            if row_i == nrows - 1:
+                ax.set_xlabel("t")
+
+    fig.suptitle(f"Bandit parameter traces (3 panels per bandit)  T={T}  seed={SEED}", fontsize=12)
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.965))
+
+    trace_plot_path = out_dir / f"test2_param_trace_bandits_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.png"
     fig.savefig(trace_plot_path, dpi=256)
     plt.close(fig)
 
@@ -370,21 +447,25 @@ def main() -> None:
         "nx": int(NX),
         "ny": int(NY),
         "nz": int(NZ),
+        "solver_tol": float(SOLVER_TOL),
+        "solver_max_iter": int(SOLVER_MAX_ITER),
+        "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
+        "elite_cache_size": int(ELITE_CACHE_SIZE),
         "actions_cont3_grid3": int(len(actions_cont3_3)),
         "actions_cont3_grid5": int(len(actions_cont3_5)),
-        "actions_th_19": int(len(actions_th_19)),
         "grid3_n": int(grid3_n),
         "grid5_n": int(grid5_n),
         "total_hypre_runtime_sec": {k: float(np.sum(v)) for k, v in rt.items()},
         "total_bandit_overhead_sec": {k: float(np.sum(v)) for k, v in overhead.items()},
         "total_end_to_end_sec": {k: float(np.sum(rt[k]) + np.sum(overhead[k])) for k in rt},
+        "failed_count": {k: int(v) for k, v in failed_count.items()},
         "plot": str(plot_path),
         "trace_plot": str(trace_plot_path),
         "trace_keys": list(trace_keys),
         "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
         "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.json"
+    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)
