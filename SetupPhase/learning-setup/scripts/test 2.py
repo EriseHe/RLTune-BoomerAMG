@@ -14,12 +14,14 @@ from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, moving_a
 
 from learners.LinUCB_AMG import LinUCB_AMG
 from learners.SharedLinUCB_AMG import SharedLinUCB_AMG
+from learners.LinUCB_AMG_v2 import LinUCB_AMG_v2
+from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.TsallisINF_AMG import TsallisINF_AMG
 from solver import solve
 
 
 T = 5000
-SEED = 20260209
+SEED = int(os.environ.get("SEED", "20260209"))
 
 ALPHA = 1.0
 L2 = 1.0
@@ -61,14 +63,23 @@ class FixedPolicy:
 
 
 class DisjointLinUCBFactory:
-    def __init__(self, alpha: float, l2: float):
+    def __init__(self, alpha: float, l2: float, *, model_cls=LinUCB_AMG, model_kwargs=None):
         self.alpha = float(alpha)
         self.l2 = float(l2)
+        self.model_cls = model_cls
+        self.model_kwargs = dict(model_kwargs or {})
 
     def new_trial(self, *, parameter_space, seed: int, **_):
         class _Policy:
             def __init__(self, actions, alpha, l2, seed):
-                self.m = LinUCB_AMG(actions, context_dim=5, alpha=float(alpha), l2_reg=float(l2), seed=int(seed))
+                self.m = model_cls(
+                    actions,
+                    context_dim=5,
+                    alpha=float(alpha),
+                    l2_reg=float(l2),
+                    seed=int(seed),
+                    **model_kwargs,
+                )
 
             def select(self, context, **_):
                 params = self.m.predict(context)
@@ -78,18 +89,29 @@ class DisjointLinUCBFactory:
             def update(self, loss, **_):
                 self.m.update(float(loss))
 
+        model_cls = self.model_cls
+        model_kwargs = self.model_kwargs
         return _Policy(parameter_space["actions"], self.alpha, self.l2, seed)
 
 
 class SharedLinUCBFactory:
-    def __init__(self, alpha: float, l2: float):
+    def __init__(self, alpha: float, l2: float, *, model_cls=SharedLinUCB_AMG, model_kwargs=None):
         self.alpha = float(alpha)
         self.l2 = float(l2)
+        self.model_cls = model_cls
+        self.model_kwargs = dict(model_kwargs or {})
 
     def new_trial(self, *, parameter_space, seed: int, **_):
         class _Policy:
             def __init__(self, actions, alpha, l2, seed):
-                self.m = SharedLinUCB_AMG(actions, context_dim=5, alpha=float(alpha), l2_reg=float(l2), seed=int(seed))
+                self.m = model_cls(
+                    actions,
+                    context_dim=5,
+                    alpha=float(alpha),
+                    l2_reg=float(l2),
+                    seed=int(seed),
+                    **model_kwargs,
+                )
 
             def select(self, context, **_):
                 params = self.m.predict(context)
@@ -99,6 +121,8 @@ class SharedLinUCBFactory:
             def update(self, loss, **_):
                 self.m.update(float(loss))
 
+        model_cls = self.model_cls
+        model_kwargs = self.model_kwargs
         return _Policy(parameter_space["actions"], self.alpha, self.l2, seed)
 
 
@@ -142,10 +166,15 @@ def main() -> None:
     mxrs_grid_3d = np.linspace(0.10, 0.90, grid3_n)  # includes default mxrs=0.90
     tr_grid_3d = np.linspace(0.00, 0.80, grid3_n)    # includes default tr=0.00
 
-    grid5_n = 5
-    th_grid_5d = np.linspace(0.05, 0.85, grid5_n)    # includes default th=0.25
-    mxrs_grid_5d = np.linspace(0.10, 0.90, grid5_n)  # includes default mxrs=0.90
-    tr_grid_5d = np.linspace(0.00, 0.80, grid5_n)    # includes default tr=0.00
+    # User request: 19x19x19 uniform grids over [0, 1] for (th,mxrs,tr).
+    # Note: strong_threshold and max_row_sum are conceptually in (0,1); to
+    # avoid potential solver edge-case failures at exactly 0 or 1, we clip
+    # them slightly inward while keeping an approximately-uniform grid.
+    grid5_n = 19
+    _eps = 1e-6
+    th_grid_5d = np.clip(np.linspace(0.0, 1.0, grid5_n), _eps, 1.0 - _eps)
+    mxrs_grid_5d = np.clip(np.linspace(0.0, 1.0, grid5_n), _eps, 1.0 - _eps)
+    tr_grid_5d = np.linspace(0.0, 1.0, grid5_n)  # trunc_factor allows 0.0
 
     th_grid_19 = np.linspace(0.05, 0.95, 19)
 
@@ -192,12 +221,27 @@ def main() -> None:
     policy_tsallis_cont3_3 = TsallisActionFactory(actions_cont3_3).new_trial(parameter_space=ps_cont3_3, seed=SEED + 10002, T=T, trial=0)
     policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
 
+    policy_shared_th_19_v2 = SharedLinUCBFactory(
+        ALPHA,
+        L2,
+        model_cls=SharedLinUCB_AMG_v2,
+        model_kwargs={"action_center": DEFAULT_PARAMS, "alpha_decay": True},
+    ).new_trial(parameter_space=ps_th_19, seed=SEED + 11001, T=T, trial=0)
+    policy_shared_5_v2 = SharedLinUCBFactory(
+        ALPHA,
+        L2,
+        model_cls=SharedLinUCB_AMG_v2,
+        model_kwargs={"action_center": DEFAULT_PARAMS, "alpha_decay": True},
+    ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 11003, T=T, trial=0)
+
     methods = [
         ("default (fixed)", policy_default, ps_default, False),
         (f"LinUCB disjoint: (th,mxrs,tr) {grid3_n}^3", policy_disjoint_3, ps_cont3_3, False),
         ("LinUCB shared: (th) 19 arms", policy_shared_th_19, ps_th_19, False),
+        ("LinUCB shared v2: (th) 19 arms", policy_shared_th_19_v2, ps_th_19, False),
         (f"Tsallis-INF: (th,mxrs,tr) {grid3_n}^3", policy_tsallis_cont3_3, ps_cont3_3, True),
         (f"LinUCB shared: (th,mxrs,tr) {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
+        (f"LinUCB shared v2: (th,mxrs,tr) {grid5_n}^3", policy_shared_5_v2, ps_cont3_5, False),
     ]
 
     rt = {name: np.zeros(T, dtype=float) for name, *_ in methods}
@@ -273,7 +317,7 @@ def main() -> None:
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end_to_end_loss_end2end_{NX}x{NY}_tsallis3d.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
 
@@ -293,7 +337,7 @@ def main() -> None:
     axes[0].legend(fontsize=7, ncol=2, loc="upper right")
     fig.tight_layout()
 
-    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_loss_end2end_{NX}x{NY}_tsallis3d.png"
+    trace_plot_path = out_dir / f"test2_param_trace_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.png"
     fig.savefig(trace_plot_path, dpi=256)
     plt.close(fig)
 
@@ -340,7 +384,7 @@ def main() -> None:
         "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
         "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_loss_end2end_{NX}x{NY}_tsallis3d.json"
+    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_end2end_{NX}x{NY}_seed{SEED}.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)
