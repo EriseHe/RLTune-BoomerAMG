@@ -1,8 +1,9 @@
-import json
+﻿import json
 import os
 import sys
 import time
 from pathlib import Path
+import argparse
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -197,9 +198,53 @@ class TsallisActionFactory:
         return _Policy(self.actions, seed, T)
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run selected AMG setup bandit methods (default: default only)."
+    )
+    parser.add_argument(
+        "--methods",
+        action="append",
+        default=[],
+        help=(
+            "Comma-separated or repeated list of method IDs to run. "
+            "Use --list-methods to see options. Default: default"
+        ),
+    )
+    parser.add_argument(
+        "--list-methods",
+        action="store_true",
+        help="List available method IDs and exit.",
+    )
+    return parser.parse_args()
+
+
+def _normalize_method_ids(raw: list[str], *, available: list[str]) -> list[str]:
+    if not raw:
+        return ["default"]
+    ids: list[str] = []
+    for entry in raw:
+        for token in str(entry).split(","):
+            token = token.strip()
+            if token:
+                ids.append(token)
+    if not ids:
+        return ["default"]
+    if "all" in ids:
+        return list(available)
+    unknown = sorted(set(ids) - set(available))
+    if unknown:
+        raise ValueError(f"Unknown method id(s): {unknown}. Use --list-methods.")
+    seen = set()
+    ordered: list[str] = []
+    for mid in ids:
+        if mid not in seen:
+            seen.add(mid)
+            ordered.append(mid)
+    return ordered
+
+
 def main() -> None:
-<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
-=======
     args = _parse_args()
 
     # Available method IDs (used for CLI selection).
@@ -223,7 +268,6 @@ def main() -> None:
         return
     selected_methods = _normalize_method_ids(args.methods, available=available_methods)
 
->>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
     fail_runtime_sec = 1e9
     # Warmup: the first `solve()` in a fresh Python process pays MPI/HYPRE init
     # inside the C library (amg_setup_solver.c::_ensure_init). This can be
@@ -273,20 +317,6 @@ def main() -> None:
     mxrs_grid_5d[0] = 1e-6
     tr_grid_5d = np.linspace(0.0, grid5_max, grid5_n)
 
-<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
-    # Action spaces for (th,mxrs,tr) at two discretization levels.
-    actions_cont3_3 = build_actions_th_mxrs_tr(
-        th_grid_3d,
-        mxrs_grid_3d,
-        tr_grid_3d,
-        fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
-    )
-    actions_cont3_5 = build_actions_th_mxrs_tr(
-        th_grid_5d,
-        mxrs_grid_5d,
-        tr_grid_5d,
-        fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
-=======
     needs_actions = any(
         mid in selected_methods
         for mid in [
@@ -300,8 +330,25 @@ def main() -> None:
             "bootstrap_ts",
             "rff_ts",
         ]
->>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
     )
+
+    actions_cont3_3 = []
+    actions_cont3_5 = []
+    default_arm_index_5 = None
+    if needs_actions:
+        # Action spaces for (th,mxrs,tr) at two discretization levels.
+        actions_cont3_3 = build_actions_th_mxrs_tr(
+            th_grid_3d,
+            mxrs_grid_3d,
+            tr_grid_3d,
+            fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
+        )
+        actions_cont3_5 = build_actions_th_mxrs_tr(
+            th_grid_5d,
+            mxrs_grid_5d,
+            tr_grid_5d,
+            fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
+        )
 
     # Ensure the default configuration is always an available arm (safety baseline).
     # The uniform grids do not necessarily contain th=0.25 or mxrs=0.90.
@@ -332,40 +379,10 @@ def main() -> None:
     ps_cont3_3 = {"actions": actions_cont3_3, "context_dim": 5}
     ps_cont3_5 = {"actions": actions_cont3_5, "context_dim": 5}
 
-    policy_default = FixedPolicy(DEFAULT_PARAMS)
-    policy_fixed_tsallis_mode = FixedPolicy(FIXED_MODE_TSALLIS_3CUBE)
-    policy_disjoint_5_v2 = DisjointLinUCBFactory(
-        ALPHA,
-        L2,
-        model_cls=LinUCB_AMG_v2,
-        model_kwargs={"alpha_decay": True},
-    ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 12003, T=T, trial=0)
-    policy_tsallis_cont3_5 = TsallisActionFactory(actions_cont3_5).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10004, T=T, trial=0)
-    policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
+    def _require_actions() -> None:
+        if not actions_cont3_5:
+            raise RuntimeError("Selected methods require action grids, but none were built.")
 
-<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
-    policy_shared_5_v2 = SharedLinUCBFactory(
-        ALPHA,
-        L2,
-        model_cls=SharedLinUCB_AMG_v2,
-        model_kwargs={
-            "action_center": DEFAULT_PARAMS,
-            "alpha_decay": True,
-            "candidate_pool_size": CANDIDATE_POOL_SIZE,
-            "always_include_arms": [int(default_arm_index_5)],
-            "elite_cache_size": ELITE_CACHE_SIZE,
-        },
-    ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 11003, T=T, trial=0)
-
-    methods = [
-        ("default (fixed)", policy_default, ps_default, False),
-        ("fixed: (th,mxrs,tr) = (0.05,0.10,0.80)", policy_fixed_tsallis_mode, ps_default, False),
-        (f"LinUCB disjoint v2: {grid5_n}^3", policy_disjoint_5_v2, ps_cont3_5, False),
-        (f"Tsallis-INF: {grid5_n}^3", policy_tsallis_cont3_5, ps_cont3_5, True),
-        (f"LinUCB shared: {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
-        (f"LinUCB shared v2: {grid5_n}^3", policy_shared_5_v2, ps_cont3_5, False),
-    ]
-=======
     methods: list[tuple[str, object, dict, bool]] = []
     for mid in selected_methods:
         if mid == "default":
@@ -498,7 +515,6 @@ def main() -> None:
             methods.append((f"RFF-TS: {grid5_n}^3", policy, ps_cont3_5, False))
         else:
             raise RuntimeError(f"Unreachable method id: {mid}")
->>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
     rt = {name: np.zeros(T, dtype=float) for name, *_ in methods}
     overhead = {name: np.zeros(T, dtype=float) for name, *_ in methods}
@@ -590,46 +606,23 @@ def main() -> None:
     # Bandit-only parameter trace plot:
     # - One row per bandit method (no baseline/default/fixed methods).
     # - Three subplots per bandit (one for each parameter).
+    trace_plot_path = None
     bandit_names = [name for name, policy, *_ in methods if not isinstance(policy, FixedPolicy)]
-    n_bandits = int(len(bandit_names))
-    nrows = n_bandits if n_bandits else 1
-    ncols = len(trace_keys)
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4.2 * ncols, 2.2 * nrows), sharex=True, sharey=True)
-    axes = np.atleast_2d(axes)
-    t_axis = np.arange(1, T + 1)
+    if bandit_names:
+        n_bandits = int(len(bandit_names))
+        nrows = n_bandits if n_bandits else 1
+        ncols = len(trace_keys)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(4.2 * ncols, 2.2 * nrows), sharex=True, sharey=True)
+        axes = np.atleast_2d(axes)
+        t_axis = np.arange(1, T + 1)
 
-    # High-contrast, colorblind-friendly colors per parameter.
-    param_colors = {
-        "strong_threshold": "#0072B2",
-        "max_row_sum": "#D55E00",
-        "trunc_factor": "#009E73",
-    }
+        # High-contrast, colorblind-friendly colors per parameter.
+        param_colors = {
+            "strong_threshold": "#0072B2",
+            "max_row_sum": "#D55E00",
+            "trunc_factor": "#009E73",
+        }
 
-<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
-    for row_i, name in enumerate(bandit_names):
-        for col_i, key in enumerate(trace_keys):
-            ax = axes[row_i, col_i]
-            series = traces[name][key]
-            ax.scatter(
-                t_axis,
-                series,
-                s=14,
-                marker=".",
-                label=None,
-                color=param_colors.get(key, None),
-                alpha=0.9,
-                linewidths=0.0,
-                rasterized=True,
-            )
-            if row_i == 0:
-                ax.set_title(key, fontsize=10)
-            if col_i == 0:
-                ax.set_ylabel(name, fontsize=7)
-            ax.set_ylim(-0.02, 1.02)
-            ax.grid(True, alpha=0.25)
-            if row_i == nrows - 1:
-                ax.set_xlabel("t")
-=======
         for row_i, name in enumerate(bandit_names):
             for col_i, key in enumerate(trace_keys):
                 ax = axes[row_i, col_i]
@@ -653,22 +646,15 @@ def main() -> None:
                 ax.grid(True, alpha=0.25)
                 if row_i == nrows - 1:
                     ax.set_xlabel("t")
->>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
-    fig.suptitle(f"Bandit parameter traces (3 panels per bandit)  T={T}  seed={SEED}", fontsize=12)
-    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.965))
+        fig.suptitle(f"Bandit parameter traces (3 panels per bandit)  T={T}  seed={SEED}", fontsize=12)
+        fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.965))
 
-<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
-    trace_plot_path = out_dir / f"test2_param_trace_bandits_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.png"
-    fig.savefig(trace_plot_path, dpi=256)
-    plt.close(fig)
-=======
         trace_plot_path = out_dir / f"test2_param_trace_bandits_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}_tag{RUN_TAG}.png"
         fig.savefig(trace_plot_path, dpi=256)
         plt.close(fig)
->>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
-    # Quick “did it match default?” diagnostics on the last window.
+    # Quick 鈥渄id it match default?鈥?diagnostics on the last window.
     def _action_key(name: str, idx: int) -> tuple:
         return tuple(round(float(traces[name][k][idx]), 6) for k in trace_keys)
 
