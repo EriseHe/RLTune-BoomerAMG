@@ -52,6 +52,7 @@ _lib.amg_setup_solve.argtypes = [
     ctypes.POINTER(_I),               # out_iters
     ctypes.POINTER(_D),               # out_complexity
     ctypes.POINTER(_D),               # out_residual
+    ctypes.POINTER(_D),               # out_runtime_sec (hypre_MPI_Wtime around Setup+Solve)
 ]
 
 _lib.amg_setup_destroy.restype = None
@@ -96,6 +97,7 @@ _PARAM_ORDER = [
 class SolveResult:
     iterations: int
     complexity: float
+    runtime_sec: float
     residual_norm: float
     params: Dict[str, Any] = field(default_factory=dict)
 
@@ -159,19 +161,22 @@ def solve(
 
     out_iters = _I()
     out_comp  = _D()
+    out_rt    = _D()
     out_res   = _D()
 
     try:
         rc = _lib.amg_setup_solve(env, *c_args, tol, max_iter,
                                   ctypes.byref(out_iters),
                                   ctypes.byref(out_comp),
-                                  ctypes.byref(out_res))
+                                  ctypes.byref(out_res),
+                                  ctypes.byref(out_rt))
         if rc != 0:
             raise RuntimeError(f"amg_setup_solve returned {rc}")
 
         return SolveResult(
             iterations=out_iters.value,
             complexity=out_comp.value,
+            runtime_sec=out_rt.value,
             residual_norm=out_res.value,
             params=dict(params),
         )

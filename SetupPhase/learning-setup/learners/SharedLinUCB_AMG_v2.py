@@ -1,30 +1,66 @@
 """
-Shared (joint) LinUCB for BoomerAMG setup-phase tuning (continuous knobs).
+Shared (joint) LinUCB for BoomerAMG setup-phase tuning (variant).
 
-This is a *contextual* bandit: each round observes a context vector x_t
-(features describing the current linear-system instance) and selects a
-multi-parameter BoomerAMG setup configuration from a finite action set.
+This file is intentionally separate from `learners/SharedLinUCB_AMG.py` so we
+can compare improvements without modifying the original implementation.
 
-Unlike the existing disjoint LinUCB (per-arm models), this learner uses a
-single shared linear model:
+Feature definition (paper-ready)
+--------------------------------
+We tune continuous BoomerAMG knobs:
 
-    E[loss_t | x_t, a] ≈ phi(x_t, a)^T theta
+    a = (th, mxrs, tr)
 
-so samples gathered from one (nearby) action can generalize to others.
+where:
+- th   = strong_threshold
+- mxrs = max_row_sum
+- tr   = trunc_factor
 
-Feature map (as requested)
---------------------------
-Let a = (th, mxrs, tr) and define:
+We center action features around a reference configuration a0:
 
-    g(a) = [th, mxrs, tr, th^2, mxrs^2, tr^2, th*mxrs, th*tr, mxrs*tr]^T
+    a_tilde = a - a0
 
-and for context x = [1, s1, s2, ...], define:
+In experiments we set a0 to the BoomerAMG defaults used in the scripts
+(pass `action_center=DEFAULT_PARAMS`). If `action_center` is omitted, a0 is
+set to the coordinate-wise mean of the provided finite action set.
 
-    phi(x, a) = [ x ; g(a) ; s1*g(a) ; s2*g(a) ].
+Let a_tilde = (th~, mxrs~, tr~). Define:
 
-We use LinUCB-style lower confidence bounds (LCB) to *minimize* loss:
+    g(a_tilde) = [ th~,
+                   mxrs~,
+                   tr~,
+                   th~^2,
+                   mxrs~^2,
+                   tr~^2,
+                   th~*mxrs~,
+                   th~*tr~,
+                   mxrs~*tr~ ]^T   in R^9.
 
-    choose a_t = argmin_a ( phi^T theta_hat - alpha * sqrt(phi^T A^{-1} phi) ).
+Context x is taken directly from `utils.problem_amg.stencil_27_laplace`:
+
+    x = [1, s1, s2, s3, c_diag]^T.
+
+We do not normalize or clip s1,s2; they are used as-is.
+
+The shared feature map is the concatenation:
+
+    phi(x,a) = [ x ; g(a_tilde) ; s1*g(a_tilde) ; s2*g(a_tilde) ]   in R^(5+27)=R^32.
+
+Improvements in this variant
+----------------------------
+1) Center action features around a reference configuration (default-ish):
+   build g(a) from (a - a0) instead of a, to reduce early-round corner-seeking.
+2) Optional exploration decay: alpha_t = alpha / sqrt(t+1).
+3) Optional candidate subsampling: score only M randomly sampled arms per
+   round (useful when the action set is huge).
+
+Exploration schedule (paper-ready)
+----------------------------------
+If `alpha_decay=True`:
+
+    alpha_t = alpha / sqrt(t+1)
+
+where t starts at 0 internally (so the first round uses alpha_0 = alpha).
+No explicit cap is applied; the formula ensures alpha_t <= alpha.
 """
 
 from __future__ import annotations
@@ -44,33 +80,7 @@ class SharedLinUCBStep:
     pred_uncert: float
 
 
-class SharedLinUCB_AMG:
-    """
-    Shared (joint) LinUCB for minimizing a scalar loss.
-
-    Parameters
-    ----------
-    actions
-        List of BoomerAMG parameter dicts. Each entry is passed to
-        solver.solve(params=...).
-        For this learner, each action must contain:
-          - strong_threshold
-          - max_row_sum
-          - trunc_factor
-    context_dim
-        Dimension of the context feature vector x_t.
-    alpha
-        Exploration strength (higher => more exploration).
-    l2_reg
-        Ridge regularization parameter (lambda). Starts with A = lambda * I.
-    s1_index, s2_index
-        Indices inside the context vector corresponding to s1 and s2.
-        Defaults match utils.problem_amg.stencil_27_laplace context:
-          x = [1, s1, s2, s3, c_diag]
-    seed
-        RNG seed used only for tie-breaking.
-    """
-
+class SharedLinUCB_AMG_v2:
     _G_DIM = 9
 
     def __init__(
@@ -79,9 +89,12 @@ class SharedLinUCB_AMG:
         context_dim: int,
         *,
         alpha: float = 1.0,
+        alpha_decay: bool = False,
         l2_reg: float = 1.0,
         s1_index: int = 1,
         s2_index: int = 2,
+        action_center: Optional[Dict[str, Any]] = None,
+        candidate_pool_size: Optional[int] = None,
         seed: Optional[int] = None,
     ) -> None:
         if context_dim <= 0:
@@ -98,6 +111,7 @@ class SharedLinUCB_AMG:
         self.d_phi = self.d_x + 3 * self.g_dim
 
         self.alpha = float(alpha)
+        self.alpha_decay = bool(alpha_decay)
         self.l2_reg = float(l2_reg)
         self.s1_index = int(s1_index)
         self.s2_index = int(s2_index)
@@ -105,12 +119,13 @@ class SharedLinUCB_AMG:
             raise ValueError("s1_index/s2_index must be within [0, context_dim)")
 
         self.rng = np.random.default_rng(seed)
+        self.candidate_pool_size = int(candidate_pool_size) if candidate_pool_size is not None else None
 
-        # Shared ridge inverse (Sherman-Morrison updates).
+        self._a_center = self._compute_action_center(action_center)
+
         self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
         self.b = np.zeros(self.d_phi, dtype=float)
 
-        # Precompute g(a) for all actions (depends only on action dict).
         self._g_actions = np.zeros((self.K, self.g_dim), dtype=float)
         for i, a in enumerate(self.actions):
             self._g_actions[i] = self._g_from_action(a)
@@ -119,6 +134,22 @@ class SharedLinUCB_AMG:
         self._last_phi: Optional[np.ndarray] = None
         self._last_arm: Optional[int] = None
         self.history: List[SharedLinUCBStep] = []
+
+    def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
+        if action_center is not None:
+            return np.array(
+                [
+                    float(action_center["strong_threshold"]),
+                    float(action_center["max_row_sum"]),
+                    float(action_center["trunc_factor"]),
+                ],
+                dtype=float,
+            )
+
+        th = np.array([float(a["strong_threshold"]) for a in self.actions], dtype=float)
+        mxrs = np.array([float(a["max_row_sum"]) for a in self.actions], dtype=float)
+        tr = np.array([float(a["trunc_factor"]) for a in self.actions], dtype=float)
+        return np.array([float(np.mean(th)), float(np.mean(mxrs)), float(np.mean(tr))], dtype=float)
 
     def _validate_x(self, x: np.ndarray) -> np.ndarray:
         x = np.asarray(x, dtype=float).reshape(-1)
@@ -134,12 +165,16 @@ class SharedLinUCB_AMG:
             mxrs = float(params["max_row_sum"])
             tr = float(params["trunc_factor"])
         except KeyError as e:
-            raise KeyError(f"SharedLinUCB_AMG action missing required key: {e}") from e
+            raise KeyError(f"SharedLinUCB_AMG_v2 action missing required key: {e}") from e
 
         if not (np.isfinite(th) and np.isfinite(mxrs) and np.isfinite(tr)):
             raise ValueError("action parameters must be finite")
 
-        g = np.array(
+        th -= float(self._a_center[0])
+        mxrs -= float(self._a_center[1])
+        tr -= float(self._a_center[2])
+
+        return np.array(
             [
                 th,
                 mxrs,
@@ -153,7 +188,6 @@ class SharedLinUCB_AMG:
             ],
             dtype=float,
         )
-        return g
 
     def _phi(self, x: np.ndarray, arm: int) -> np.ndarray:
         s1 = float(x[self.s1_index])
@@ -170,20 +204,12 @@ class SharedLinUCB_AMG:
         phi[o : o + self.g_dim] = s2 * g
         return phi
 
-    def _arm_stats(self, x: np.ndarray, arm: int) -> Tuple[float, float]:
-        phi = self._phi(x, arm)
-        theta = self.A_inv @ self.b
-        mean = float(theta @ phi)
-        quad = float(phi @ (self.A_inv @ phi))
-        uncert = float(np.sqrt(max(0.0, quad)))
-        return mean, uncert
-
-    def _score_all(self, x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _score_all(self, x: np.ndarray, *, alpha: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Vectorized (score, mean, uncert) for all arms.
 
-        Uses the structure of phi(x,a) = [x; g; s1*g; s2*g] to compute
-        phi^T A^{-1} phi in O(K*g_dim^2) per round rather than O(K*d_phi^2).
+        This mirrors the fast implementation in `SharedLinUCB_AMG` and keeps
+        overhead small when scoring the full action set.
         """
         s1 = float(x[self.s1_index])
         s2 = float(x[self.s2_index])
@@ -196,7 +222,6 @@ class SharedLinUCB_AMG:
         theta_s2 = theta[self.d_x + 2 * self.g_dim : self.d_x + 3 * self.g_dim]
 
         base = float(theta_x @ x)
-        # Avoid BLAS for these small contractions; OpenBLAS can be very slow here.
         mean = (
             base
             + np.einsum("ij,j->i", G, theta_g, optimize=False)
@@ -204,7 +229,6 @@ class SharedLinUCB_AMG:
             + s2 * np.einsum("ij,j->i", G, theta_s2, optimize=False)
         )
 
-        # Build c and P such that phi = c + P g.
         c = np.concatenate([x, np.zeros(3 * self.g_dim, dtype=float)], axis=0)
         I = np.eye(self.g_dim, dtype=float)
         P = np.vstack(
@@ -219,25 +243,49 @@ class SharedLinUCB_AMG:
         Ac = self.A_inv @ c
         q0 = float(c @ Ac)
         AP = self.A_inv @ P
-        u = P.T @ Ac  # (g_dim,)
-        M = P.T @ AP  # (g_dim, g_dim)
+        u = P.T @ Ac
+        M = P.T @ AP
 
         quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
         uncert = np.sqrt(np.maximum(0.0, quad))
-        score = mean - self.alpha * uncert
+        score = mean - float(alpha) * uncert
         return score, mean, uncert
 
     def predict(self, context: Iterable[float]) -> Dict[str, Any]:
         x = self._validate_x(np.asarray(list(context), dtype=float))
 
-        score, mean, uncert = self._score_all(x)
-        best_score = float(np.min(score))
-        best_arms = np.flatnonzero(score <= best_score + 1e-12)
-        arm = int(self.rng.choice(best_arms)) if best_arms.size > 1 else int(best_arms[0])
-        best_mean = float(mean[arm])
-        best_unc = float(uncert[arm])
+        alpha_eff = float(self.alpha) / np.sqrt(self.t + 1.0) if self.alpha_decay else float(self.alpha)
+        if self.candidate_pool_size is None or self.candidate_pool_size >= self.K:
+            score, mean, uncert = self._score_all(x, alpha=alpha_eff)
+            best_score = float(np.min(score))
+            best_arms = np.flatnonzero(score <= best_score + 1e-12)
+            arm = int(self.rng.choice(best_arms)) if best_arms.size > 1 else int(best_arms[0])
+            best_mean = float(mean[arm])
+            best_unc = float(uncert[arm])
+        else:
+            theta = self.A_inv @ self.b
+            cand = self.rng.choice(self.K, size=self.candidate_pool_size, replace=False)
 
-        # Cache for update()
+            best_score = float("inf")
+            best_mean = float("inf")
+            best_unc = float("inf")
+            best_arms: List[int] = []
+            for a in cand:
+                phi = self._phi(x, int(a))
+                mean_a = float(theta @ phi)
+                quad_a = float(phi @ (self.A_inv @ phi))
+                unc_a = float(np.sqrt(max(0.0, quad_a)))
+                score_a = mean_a - alpha_eff * unc_a
+                if score_a < best_score - 1e-12:
+                    best_score = float(score_a)
+                    best_mean = float(mean_a)
+                    best_unc = float(unc_a)
+                    best_arms = [int(a)]
+                elif abs(score_a - best_score) <= 1e-12:
+                    best_arms.append(int(a))
+
+            arm = int(self.rng.choice(best_arms)) if len(best_arms) > 1 else int(best_arms[0])
+
         self._last_phi = self._phi(x, arm)
         self._last_arm = arm
 
@@ -258,12 +306,10 @@ class SharedLinUCB_AMG:
             raise RuntimeError("update() called before predict()")
 
         phi = self._last_phi
-        arm = self._last_arm
         y = float(loss)
         if not np.isfinite(y):
             raise ValueError("loss must be finite")
 
-        # Sherman-Morrison update for shared A_inv.
         u = self.A_inv @ phi
         denom = 1.0 + float(phi @ u)
         if denom <= 0.0 or not np.isfinite(denom):
@@ -278,14 +324,12 @@ class SharedLinUCB_AMG:
         last = self.history[-1]
         self.history[-1] = SharedLinUCBStep(
             t=last.t,
-            arm_index=arm,
+            arm_index=last.arm_index,
             loss=y,
             pred_mean=last.pred_mean,
             pred_uncert=last.pred_uncert,
         )
 
         self.t += 1
-
-        # Clear cache to prevent accidental double-update.
         self._last_phi = None
         self._last_arm = None

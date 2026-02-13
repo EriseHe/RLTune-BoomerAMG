@@ -86,6 +86,11 @@ static void _ensure_init(void)
     _initialized = 1;
 }
 
+static double wall_time_sec(void)
+{
+    return (double) hypre_MPI_Wtime();
+}
+
 /* ------------------------------------------------------------------ */
 /*  Create — same matrix/vector setup as amg_env.c                    */
 /* ------------------------------------------------------------------ */
@@ -202,7 +207,7 @@ int amg_setup_solve(
     int agg_num_levels, int agg_interp_type,
     double relax_wt, int relax_order, int max_coarse_size,
     double tol, int max_iter,
-    int *out_iters, double *out_complexity, double *out_residual)
+    int *out_iters, double *out_complexity, double *out_residual, double *out_runtime)
 {
     if (!env) return -1;
     int n = env->local_num_rows;
@@ -237,8 +242,12 @@ int amg_setup_solve(
     if (relax_order >= 0)        HYPRE_BoomerAMGSetRelaxOrder(solver, relax_order);
     if (max_coarse_size >= 0)    HYPRE_BoomerAMGSetMaxCoarseSize(solver, max_coarse_size);
 
+    /* hypre-only timing: Setup + Solve (exclude matrix build and x reset) */
+    double t0 = wall_time_sec();
     HYPRE_BoomerAMGSetup(solver, env->A, env->b, env->x);
     HYPRE_BoomerAMGSolve(solver, env->A, env->b, env->x);
+    double t1 = wall_time_sec();
+    if (out_runtime) { *out_runtime = (double) (t1 - t0); }
 
     HYPRE_Int k = 0; HYPRE_Real res = 0.0, cum = 0.0;
     HYPRE_BoomerAMGGetNumIterations(solver, &k);

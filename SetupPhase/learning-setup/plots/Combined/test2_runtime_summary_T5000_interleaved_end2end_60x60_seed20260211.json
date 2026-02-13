@@ -1,0 +1,122 @@
+{
+  "T": 5000,
+  "seed": 20260211,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "nx": 60,
+  "ny": 60,
+  "nz": 1,
+  "actions_cont3_grid3": 27,
+  "actions_cont3_grid5": 125,
+  "actions_th_19": 19,
+  "grid3_n": 3,
+  "grid5_n": 5,
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 38.883689000000004,
+    "LinUCB disjoint: (th,mxrs,tr) 3^3": 35.02506200000071,
+    "LinUCB shared: (th) 19 arms": 42.63298400000061,
+    "LinUCB shared v2: (th) 19 arms": 39.9686480000018,
+    "Tsallis-INF: (th,mxrs,tr) 3^3": 34.23931200000051,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 37.049053999999884,
+    "LinUCB shared v2: (th,mxrs,tr) 5^3": 32.661503999998544
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.028308222,
+    "LinUCB disjoint: (th,mxrs,tr) 3^3": 0.373860358,
+    "LinUCB shared: (th) 19 arms": 0.7130289439999999,
+    "LinUCB shared v2: (th) 19 arms": 0.652378083,
+    "Tsallis-INF: (th,mxrs,tr) 3^3": 2.173835844,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 0.881637767,
+    "LinUCB shared v2: (th,mxrs,tr) 5^3": 0.904529412
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 38.911997222000004,
+    "LinUCB disjoint: (th,mxrs,tr) 3^3": 35.39892235800071,
+    "LinUCB shared: (th) 19 arms": 43.34601294400061,
+    "LinUCB shared v2: (th) 19 arms": 40.6210260830018,
+    "Tsallis-INF: (th,mxrs,tr) 3^3": 36.41314784400051,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 37.930691766999885,
+    "LinUCB shared v2: (th,mxrs,tr) 5^3": 33.566033411998546
+  },
+  "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test2_runtime_cumulative_T5000_interleaved_end2end_60x60_seed20260211.png",
+  "trace_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test2_param_trace_T5000_interleaved_end2end_60x60_seed20260211.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 1.0,
+    "LinUCB disjoint: (th,mxrs,tr) 3^3": 0.036,
+    "LinUCB shared: (th) 19 arms": 0.0,
+    "LinUCB shared v2: (th) 19 arms": 0.0,
+    "Tsallis-INF: (th,mxrs,tr) 3^3": 0.034,
+    "LinUCB shared: (th,mxrs,tr) 5^3": 0.0,
+    "LinUCB shared v2: (th,mxrs,tr) 5^3": 0.0
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": [
+        0.25,
+        0.9,
+        0.0
+      ],
+      "count": 500,
+      "window": 500
+    },
+    "LinUCB disjoint: (th,mxrs,tr) 3^3": {
+      "action": [
+        0.25,
+        0.1,
+        0.4
+      ],
+      "count": 21,
+      "window": 500
+    },
+    "LinUCB shared: (th) 19 arms": {
+      "action": [
+        0.05,
+        0.9,
+        0.0
+      ],
+      "count": 180,
+      "window": 500
+    },
+    "LinUCB shared v2: (th) 19 arms": {
+      "action": [
+        0.05,
+        0.9,
+        0.0
+      ],
+      "count": 142,
+      "window": 500
+    },
+    "Tsallis-INF: (th,mxrs,tr) 3^3": {
+      "action": [
+        0.05,
+        0.5,
+        0.4
+      ],
+      "count": 112,
+      "window": 500
+    },
+    "LinUCB shared: (th,mxrs,tr) 5^3": {
+      "action": [
+        0.05,
+        0.1,
+        0.0
+      ],
+      "count": 36,
+      "window": 500
+    },
+    "LinUCB shared v2: (th,mxrs,tr) 5^3": {
+      "action": [
+        0.45,
+        0.5,
+        0.4
+      ],
+      "count": 149,
+      "window": 500
+    }
+  }
+}

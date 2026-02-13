@@ -1,0 +1,30 @@
+{
+  "T": 5000,
+  "seed": 20260210,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "actions_cont3": 6859,
+  "actions_th_only": 19,
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 51.81159800000022,
+    "LinUCB disjoint: (th,mxrs,tr) 19^3": 50.54462399999982,
+    "LinUCB shared: (th,mxrs,tr) 19^3": 51.139412000000725,
+    "LinUCB shared: th-only (19)": 56.645667999999944,
+    "Tsallis-INF: th-only (19)": 54.81476600000004
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.108085579,
+    "LinUCB disjoint: (th,mxrs,tr) 19^3": 5.8243015399999996,
+    "LinUCB shared: (th,mxrs,tr) 19^3": 12.403793265000001,
+    "LinUCB shared: th-only (19)": 1.4595729689999999,
+    "Tsallis-INF: th-only (19)": 3.635267175
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 51.919683579000214,
+    "LinUCB disjoint: (th,mxrs,tr) 19^3": 56.36892553999982,
+    "LinUCB shared: (th,mxrs,tr) 19^3": 63.54320526500072,
+    "LinUCB shared: th-only (19)": 58.105240968999944,
+    "Tsallis-INF: th-only (19)": 58.450033175000044
+  },
+  "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/seed20260210/test2_runtime_cumulative_T5000_interleaved_end_to_end.png"
+}
