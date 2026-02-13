@@ -1,0 +1,148 @@
+{
+  "T": 5000,
+  "seed": 20260209,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "nx": 60,
+  "ny": 60,
+  "nz": 1,
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "action_scales": [
+    0.25,
+    0.1,
+    0.2
+  ],
+  "baseline_runtime_sec": 0.0036154999979771674,
+  "lints_sigma": null,
+  "lints_sigma_mult": 0.15,
+  "bootstrap_heads": 10,
+  "rff_dim": 128,
+  "rff_lengthscale": 1.0,
+  "rff_cdiag_scale": 2.5,
+  "rff_sigma": null,
+  "rff_sigma_mult": 0.15,
+  "actions_cont3_grid3": 27,
+  "actions_cont3_grid5": 8000,
+  "grid3_n": 3,
+  "grid5_n": 20,
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 19.96836389996315,
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": 15.122055800093221,
+    "LinUCB shared v2: 20^3": 14.814384600016638,
+    "LinUCB shared v3: 20^3": 12.85416319975775,
+    "LinTS: 20^3": 11.713234899878444,
+    "BootstrapTS: 20^3": 12.390083299949765,
+    "RFF-TS: 20^3": 14.58101149975846
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.0233731,
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": 0.0215206,
+    "LinUCB shared v2: 20^3": 2.5944657,
+    "LinUCB shared v3: 20^3": 2.7340831,
+    "LinTS: 20^3": 2.5239624999999997,
+    "BootstrapTS: 20^3": 2.7477665,
+    "RFF-TS: 20^3": 8.449369
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 19.991736999963152,
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": 15.143576400093222,
+    "LinUCB shared v2: 20^3": 17.40885030001664,
+    "LinUCB shared v3: 20^3": 15.58824629975775,
+    "LinTS: 20^3": 14.237197399878443,
+    "BootstrapTS: 20^3": 15.137849799949766,
+    "RFF-TS: 20^3": 23.03038049975846
+  },
+  "failed_count": {
+    "default (fixed)": 0,
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": 0,
+    "LinUCB shared v2: 20^3": 0,
+    "LinUCB shared v3: 20^3": 0,
+    "LinTS: 20^3": 0,
+    "BootstrapTS: 20^3": 0,
+    "RFF-TS: 20^3": 0
+  },
+  "plot": "D:\\Github\\RLTune-BoomerAMG\\SetupPhase\\learning-setup\\plots\\Combined\\test2_runtime_cumulative_T5000_interleaved_end2end_60x60x1_seed20260209.png",
+  "trace_plot": "D:\\Github\\RLTune-BoomerAMG\\SetupPhase\\learning-setup\\plots\\Combined\\test2_param_trace_bandits_T5000_interleaved_end2end_60x60x1_seed20260209.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 1.0,
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": 0.0,
+    "LinUCB shared v2: 20^3": 0.0,
+    "LinUCB shared v3: 20^3": 0.0,
+    "LinTS: 20^3": 0.0,
+    "BootstrapTS: 20^3": 0.0,
+    "RFF-TS: 20^3": 0.0
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": [
+        0.25,
+        0.9,
+        0.0
+      ],
+      "count": 500,
+      "window": 500
+    },
+    "fixed: (th,mxrs,tr) = (0.05,0.10,0.80)": {
+      "action": [
+        0.05,
+        0.1,
+        0.8
+      ],
+      "count": 500,
+      "window": 500
+    },
+    "LinUCB shared v2: 20^3": {
+      "action": [
+        0.0,
+        0.7,
+        0.95
+      ],
+      "count": 65,
+      "window": 500
+    },
+    "LinUCB shared v3: 20^3": {
+      "action": [
+        0.0,
+        1e-06,
+        0.95
+      ],
+      "count": 146,
+      "window": 500
+    },
+    "LinTS: 20^3": {
+      "action": [
+        0.0,
+        1e-06,
+        0.0
+      ],
+      "count": 72,
+      "window": 500
+    },
+    "BootstrapTS: 20^3": {
+      "action": [
+        0.0,
+        1e-06,
+        0.95
+      ],
+      "count": 46,
+      "window": 500
+    },
+    "RFF-TS: 20^3": {
+      "action": [
+        0.95,
+        1e-06,
+        0.95
+      ],
+      "count": 193,
+      "window": 500
+    }
+  }
+}

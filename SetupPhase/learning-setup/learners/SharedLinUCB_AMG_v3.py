@@ -1,0 +1,341 @@
+"""
+Shared (joint) LinUCB for BoomerAMG setup-phase tuning (v3).
+
+Changes vs v2:
+- Scale action coordinates before building quadratic action features.
+- Use full context-action interactions: s1,s2,s3,c_diag.
+
+Feature definition (paper-ready)
+--------------------------------
+We tune:
+
+    a = (th, mxrs, tr)
+
+Center at a0 and scale by s:
+
+    a_hat = (a - a0) / s
+
+Let a_hat = (th~, mxrs~, tr~). Define g(a_hat) in R^9:
+
+    g = [ th~, mxrs~, tr~, th~^2, mxrs~^2, tr~^2, th~*mxrs~, th~*tr~, mxrs~*tr~ ]^T
+
+Context x in R^5 from `utils.problem_amg.stencil_27_laplace`:
+
+    x = [1, s1, s2, s3, c_diag]^T
+
+Shared feature map:
+
+    phi(x,a) = [ x ; g ; s1*g ; s2*g ; s3*g ; c_diag*g ] in R^(5+5*9)=R^50
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+import numpy as np
+
+from ._candidate_subset import CandidateSelector
+
+
+@dataclass(frozen=True)
+class SharedLinUCBv3Step:
+    t: int
+    arm_index: int
+    loss: float
+    pred_mean: float
+    pred_uncert: float
+
+
+class SharedLinUCB_AMG_v3:
+    _G_DIM = 9
+
+    def __init__(
+        self,
+        actions: Sequence[Dict[str, Any]],
+        context_dim: int,
+        *,
+        alpha: float = 1.0,
+        alpha_decay: bool = False,
+        l2_reg: float = 1.0,
+        s1_index: int = 1,
+        s2_index: int = 2,
+        s3_index: int = 3,
+        cdiag_index: int = 4,
+        action_center: Optional[Dict[str, Any]] = None,
+        action_scales: Sequence[float] = (0.25, 0.1, 0.2),
+        candidate_pool_size: Optional[int] = None,
+        always_include_arms: Optional[Sequence[int]] = None,
+        elite_cache_size: int = 0,
+        seed: Optional[int] = None,
+    ) -> None:
+        if context_dim <= 0:
+            raise ValueError("context_dim must be positive")
+        if not actions:
+            raise ValueError("actions must be non-empty")
+        if l2_reg <= 0.0:
+            raise ValueError("l2_reg must be > 0")
+
+        self.actions: List[Dict[str, Any]] = [dict(a) for a in actions]
+        self.K = len(self.actions)
+        self.d_x = int(context_dim)
+        self.g_dim = int(self._G_DIM)
+        # x + (g + 4 context interactions) => 5 g-blocks
+        self.d_phi = self.d_x + 5 * self.g_dim
+
+        self.alpha = float(alpha)
+        self.alpha_decay = bool(alpha_decay)
+        self.l2_reg = float(l2_reg)
+
+        self.s1_index = int(s1_index)
+        self.s2_index = int(s2_index)
+        self.s3_index = int(s3_index)
+        self.cdiag_index = int(cdiag_index)
+        for idx_name, idx in [
+            ("s1_index", self.s1_index),
+            ("s2_index", self.s2_index),
+            ("s3_index", self.s3_index),
+            ("cdiag_index", self.cdiag_index),
+        ]:
+            if not (0 <= int(idx) < self.d_x):
+                raise ValueError(f"{idx_name} must be within [0, context_dim)")
+
+        scales = np.asarray(list(action_scales), dtype=float).reshape(-1)
+        if scales.size != 3:
+            raise ValueError("action_scales must have length 3")
+        if not np.all(np.isfinite(scales)) or np.any(scales <= 0.0):
+            raise ValueError("action_scales must be finite and > 0")
+        self._a_scales = scales
+
+        self.rng = np.random.default_rng(seed)
+        self._cand = CandidateSelector(
+            self.K,
+            candidate_pool_size=candidate_pool_size,
+            always_include_arms=always_include_arms,
+            elite_cache_size=int(elite_cache_size),
+            rng=self.rng,
+        )
+
+        self._a_center = self._compute_action_center(action_center)
+
+        self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
+        self.b = np.zeros(self.d_phi, dtype=float)
+
+        self._g_actions = np.zeros((self.K, self.g_dim), dtype=float)
+        for i, a in enumerate(self.actions):
+            self._g_actions[i] = self._g_from_action(a)
+
+        self.t = 0
+        self._last_phi: Optional[np.ndarray] = None
+        self._last_arm: Optional[int] = None
+        self.history: List[SharedLinUCBv3Step] = []
+
+    def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
+        if action_center is not None:
+            return np.array(
+                [
+                    float(action_center["strong_threshold"]),
+                    float(action_center["max_row_sum"]),
+                    float(action_center["trunc_factor"]),
+                ],
+                dtype=float,
+            )
+
+        th = np.array([float(a["strong_threshold"]) for a in self.actions], dtype=float)
+        mxrs = np.array([float(a["max_row_sum"]) for a in self.actions], dtype=float)
+        tr = np.array([float(a["trunc_factor"]) for a in self.actions], dtype=float)
+        return np.array([float(np.mean(th)), float(np.mean(mxrs)), float(np.mean(tr))], dtype=float)
+
+    def _validate_x(self, x: np.ndarray) -> np.ndarray:
+        x = np.asarray(x, dtype=float).reshape(-1)
+        if x.size != self.d_x:
+            raise ValueError(f"context has dim {x.size}, expected {self.d_x}")
+        if not np.all(np.isfinite(x)):
+            raise ValueError("context contains non-finite values")
+        return x
+
+    def _g_from_action(self, params: Dict[str, Any]) -> np.ndarray:
+        try:
+            th = float(params["strong_threshold"])
+            mxrs = float(params["max_row_sum"])
+            tr = float(params["trunc_factor"])
+        except KeyError as e:
+            raise KeyError(f"SharedLinUCB_AMG_v3 action missing required key: {e}") from e
+
+        if not (np.isfinite(th) and np.isfinite(mxrs) and np.isfinite(tr)):
+            raise ValueError("action parameters must be finite")
+
+        th = (th - float(self._a_center[0])) / float(self._a_scales[0])
+        mxrs = (mxrs - float(self._a_center[1])) / float(self._a_scales[1])
+        tr = (tr - float(self._a_center[2])) / float(self._a_scales[2])
+
+        return np.array(
+            [
+                th,
+                mxrs,
+                tr,
+                th * th,
+                mxrs * mxrs,
+                tr * tr,
+                th * mxrs,
+                th * tr,
+                mxrs * tr,
+            ],
+            dtype=float,
+        )
+
+    def _phi(self, x: np.ndarray, arm: int) -> np.ndarray:
+        s1 = float(x[self.s1_index])
+        s2 = float(x[self.s2_index])
+        s3 = float(x[self.s3_index])
+        cd = float(x[self.cdiag_index])
+        g = self._g_actions[int(arm)]
+
+        phi = np.empty(self.d_phi, dtype=float)
+        phi[: self.d_x] = x
+        o = self.d_x
+        phi[o : o + self.g_dim] = g
+        o += self.g_dim
+        phi[o : o + self.g_dim] = s1 * g
+        o += self.g_dim
+        phi[o : o + self.g_dim] = s2 * g
+        o += self.g_dim
+        phi[o : o + self.g_dim] = s3 * g
+        o += self.g_dim
+        phi[o : o + self.g_dim] = cd * g
+        return phi
+
+    def _score_subset(
+        self,
+        x: np.ndarray,
+        *,
+        arms: Optional[np.ndarray],
+        alpha: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        s1 = float(x[self.s1_index])
+        s2 = float(x[self.s2_index])
+        s3 = float(x[self.s3_index])
+        cd = float(x[self.cdiag_index])
+        G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]  # (K', g_dim)
+
+        theta = self.A_inv @ self.b
+        theta_x = theta[: self.d_x]
+        off = self.d_x
+        theta_g = theta[off : off + self.g_dim]
+        off += self.g_dim
+        theta_s1 = theta[off : off + self.g_dim]
+        off += self.g_dim
+        theta_s2 = theta[off : off + self.g_dim]
+        off += self.g_dim
+        theta_s3 = theta[off : off + self.g_dim]
+        off += self.g_dim
+        theta_cd = theta[off : off + self.g_dim]
+
+        base = float(theta_x @ x)
+        mean = (
+            base
+            + np.einsum("ij,j->i", G, theta_g, optimize=False)
+            + s1 * np.einsum("ij,j->i", G, theta_s1, optimize=False)
+            + s2 * np.einsum("ij,j->i", G, theta_s2, optimize=False)
+            + s3 * np.einsum("ij,j->i", G, theta_s3, optimize=False)
+            + cd * np.einsum("ij,j->i", G, theta_cd, optimize=False)
+        )
+
+        # Structured uncertainty: phi = c + P g, where g varies per arm.
+        c = np.concatenate([x, np.zeros(5 * self.g_dim, dtype=float)], axis=0)
+        I = np.eye(self.g_dim, dtype=float)
+        P = np.vstack(
+            [
+                np.zeros((self.d_x, self.g_dim), dtype=float),
+                I,
+                s1 * I,
+                s2 * I,
+                s3 * I,
+                cd * I,
+            ]
+        )
+
+        Ainv = self.A_inv
+        Ac = Ainv @ c
+        q0 = float(c @ Ac)
+        AP = Ainv @ P
+        u = P.T @ Ac
+        M = P.T @ AP
+
+        quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
+        uncert = np.sqrt(np.maximum(0.0, quad))
+        score = mean - float(alpha) * uncert
+        return score, mean, uncert
+
+    def predict(self, context: Iterable[float]) -> Dict[str, Any]:
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+
+        alpha_eff = float(self.alpha) / np.sqrt(self.t + 1.0) if self.alpha_decay else float(self.alpha)
+        M = self._cand.candidate_pool_size
+        if M is None or int(M) >= self.K:
+            score, mean, uncert = self._score_subset(x, arms=None, alpha=alpha_eff)
+            best_score = float(np.min(score))
+            best_arms = np.flatnonzero(score <= best_score + 1e-12)
+            arm = int(np.min(best_arms))
+            best_mean = float(mean[arm])
+            best_unc = float(uncert[arm])
+        else:
+            cand = self._cand.candidate_subset()
+            score, mean, uncert = self._score_subset(x, arms=cand, alpha=alpha_eff)
+            best_score = float(np.min(score))
+            best_loc = np.flatnonzero(score <= best_score + 1e-12)
+            loc = int(best_loc[np.argmin(cand[best_loc])])
+            arm = int(cand[loc])
+            best_mean = float(mean[loc])
+            best_unc = float(uncert[loc])
+
+        self._last_phi = self._phi(x, arm)
+        self._last_arm = arm
+
+        self.history.append(
+            SharedLinUCBv3Step(
+                t=self.t + 1,
+                arm_index=arm,
+                loss=float("nan"),
+                pred_mean=best_mean,
+                pred_uncert=best_unc,
+            )
+        )
+        return dict(self.actions[arm])
+
+    def update(self, loss: float) -> None:
+        if self._last_phi is None or self._last_arm is None:
+            raise RuntimeError("update() called before predict()")
+
+        phi = self._last_phi
+        arm = int(self._last_arm)
+        y = float(loss)
+        if not np.isfinite(y):
+            raise ValueError("loss must be finite")
+
+        self._cand.observe(arm, y)
+
+        u = self.A_inv @ phi
+        denom = 1.0 + float(phi @ u)
+        if denom <= 0.0 or not np.isfinite(denom):
+            A = np.linalg.inv(self.A_inv)
+            A = A + np.outer(phi, phi)
+            self.A_inv = np.linalg.inv(A)
+        else:
+            self.A_inv = self.A_inv - np.outer(u, u) / denom
+
+        self.b = self.b + y * phi
+
+        last = self.history[-1]
+        self.history[-1] = SharedLinUCBv3Step(
+            t=last.t,
+            arm_index=last.arm_index,
+            loss=y,
+            pred_mean=last.pred_mean,
+            pred_uncert=last.pred_uncert,
+        )
+
+        self.t += 1
+        self._last_phi = None
+        self._last_arm = None
+

@@ -1,0 +1,177 @@
+{
+  "T": 1000,
+  "seed": 20260209,
+  "run_tag": "20260213_044548_404",
+  "alpha": 1.0,
+  "l2": 1.0,
+  "nx": 30,
+  "ny": 30,
+  "nz": 30,
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "action_scales": [
+    0.25,
+    0.1,
+    0.2
+  ],
+  "baseline_runtime_sec": 0.08717849999084137,
+  "lints_sigma": null,
+  "lints_sigma_mult": 0.15,
+  "bootstrap_heads": 10,
+  "rff_dim": 128,
+  "rff_lengthscale": 1.0,
+  "rff_cdiag_scale": 2.5,
+  "rff_sigma": null,
+  "rff_sigma_mult": 0.15,
+  "actions_cont3_grid3": 27,
+  "actions_cont3_grid5": 8000,
+  "grid3_n": 3,
+  "grid5_n": 20,
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 92.42384929960826,
+    "Tsallis-INF: 20^3": 78.40400849973958,
+    "LinUCB disjoint v2: 20^3": 79.64824110023619,
+    "LinUCB shared: 20^3": 81.99715219986683,
+    "LinUCB shared v2: 20^3": 72.62657530012075,
+    "LinUCB shared v3: 20^3": 57.426244399583084,
+    "LinTS: 20^3": 58.70604080031626,
+    "BootstrapTS: 20^3": 60.26958819992433,
+    "RFF-TS: 20^3": 68.42297029949259
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.0066586,
+    "Tsallis-INF: 20^3": 4.0296638,
+    "LinUCB disjoint v2: 20^3": 0.7755649,
+    "LinUCB shared: 20^3": 1.8369237999999999,
+    "LinUCB shared v2: 20^3": 0.6805188,
+    "LinUCB shared v3: 20^3": 0.7123089,
+    "LinTS: 20^3": 0.6829978000000001,
+    "BootstrapTS: 20^3": 0.7260127000000001,
+    "RFF-TS: 20^3": 1.892239
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 92.43050789960826,
+    "Tsallis-INF: 20^3": 82.43367229973957,
+    "LinUCB disjoint v2: 20^3": 80.4238060002362,
+    "LinUCB shared: 20^3": 83.83407599986683,
+    "LinUCB shared v2: 20^3": 73.30709410012075,
+    "LinUCB shared v3: 20^3": 58.13855329958308,
+    "LinTS: 20^3": 59.38903860031626,
+    "BootstrapTS: 20^3": 60.99560089992433,
+    "RFF-TS: 20^3": 70.3152092994926
+  },
+  "failed_count": {
+    "default (fixed)": 0,
+    "Tsallis-INF: 20^3": 0,
+    "LinUCB disjoint v2: 20^3": 0,
+    "LinUCB shared: 20^3": 0,
+    "LinUCB shared v2: 20^3": 0,
+    "LinUCB shared v3: 20^3": 0,
+    "LinTS: 20^3": 0,
+    "BootstrapTS: 20^3": 0,
+    "RFF-TS: 20^3": 0
+  },
+  "plot": "D:\\Github\\RLTune-BoomerAMG\\SetupPhase\\learning-setup\\plots\\Combined\\test_2_seed20260209_30x30x30_T1000_tag20260213_044548_404\\test2_runtime_cumulative_T1000_interleaved_end2end_30x30x30_seed20260209_tag20260213_044548_404.png",
+  "trace_plot": "D:\\Github\\RLTune-BoomerAMG\\SetupPhase\\learning-setup\\plots\\Combined\\test_2_seed20260209_30x30x30_T1000_tag20260213_044548_404\\test2_param_trace_bandits_T1000_interleaved_end2end_30x30x30_seed20260209_tag20260213_044548_404.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 1.0,
+    "Tsallis-INF: 20^3": 0.0,
+    "LinUCB disjoint v2: 20^3": 0.0,
+    "LinUCB shared: 20^3": 0.0,
+    "LinUCB shared v2: 20^3": 0.0,
+    "LinUCB shared v3: 20^3": 0.0,
+    "LinTS: 20^3": 0.004,
+    "BootstrapTS: 20^3": 0.0,
+    "RFF-TS: 20^3": 0.0
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": [
+        0.25,
+        0.9,
+        0.0
+      ],
+      "count": 500,
+      "window": 500
+    },
+    "Tsallis-INF: 20^3": {
+      "action": [
+        0.75,
+        0.85,
+        0.3
+      ],
+      "count": 2,
+      "window": 500
+    },
+    "LinUCB disjoint v2: 20^3": {
+      "action": [
+        0.6,
+        0.45,
+        0.0
+      ],
+      "count": 1,
+      "window": 500
+    },
+    "LinUCB shared: 20^3": {
+      "action": [
+        0.95,
+        1e-06,
+        0.0
+      ],
+      "count": 61,
+      "window": 500
+    },
+    "LinUCB shared v2: 20^3": {
+      "action": [
+        0.95,
+        1e-06,
+        0.95
+      ],
+      "count": 115,
+      "window": 500
+    },
+    "LinUCB shared v3: 20^3": {
+      "action": [
+        0.5,
+        1e-06,
+        0.3
+      ],
+      "count": 29,
+      "window": 500
+    },
+    "LinTS: 20^3": {
+      "action": [
+        0.45,
+        1e-06,
+        0.95
+      ],
+      "count": 48,
+      "window": 500
+    },
+    "BootstrapTS: 20^3": {
+      "action": [
+        0.35,
+        1e-06,
+        0.95
+      ],
+      "count": 22,
+      "window": 500
+    },
+    "RFF-TS: 20^3": {
+      "action": [
+        0.95,
+        1e-06,
+        0.95
+      ],
+      "count": 71,
+      "window": 500
+    }
+  }
+}

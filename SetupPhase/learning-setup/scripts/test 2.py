@@ -16,12 +16,17 @@ from learners.LinUCB_AMG import LinUCB_AMG
 from learners.SharedLinUCB_AMG import SharedLinUCB_AMG
 from learners.LinUCB_AMG_v2 import LinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
+from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
+from learners.SharedLinTS_AMG import SharedLinTS_AMG
+from learners.SharedBootstrapTS_AMG import SharedBootstrapTS_AMG
+from learners.RFF_TS_AMG import RFF_TS_AMG
 from learners.TsallisINF_AMG import TsallisINF_AMG
 from solver import solve
 
 
 T = int(os.environ.get("T", "5000"))
 SEED = int(os.environ.get("SEED", "20260209"))
+RUN_TAG = os.environ.get("RUN_TAG", "").strip() or time.strftime("%Y%m%d_%H%M%S")
 
 ALPHA = 1.0
 L2 = 1.0
@@ -34,7 +39,26 @@ ELITE_CACHE_SIZE = int(os.environ.get("ELITE_CACHE_SIZE", "64"))
 SOLVER_TOL = float(os.environ.get("SOLVER_TOL", "1e-8"))
 SOLVER_MAX_ITER = int(os.environ.get("SOLVER_MAX_ITER", "10000"))
 
-out_dir = Path(__file__).resolve().parent.parent / "plots" / "Combined"
+# Shared action scaling (v3 linear models, TS, bootstrap, RFF).
+ACTION_SCALE_TH = float(os.environ.get("ACTION_SCALE_TH", "0.25"))
+ACTION_SCALE_MXRS = float(os.environ.get("ACTION_SCALE_MXRS", "0.1"))
+ACTION_SCALE_TR = float(os.environ.get("ACTION_SCALE_TR", "0.2"))
+
+LINTS_SIGMA = os.environ.get("LINTS_SIGMA", "").strip()
+LINTS_SIGMA_MULT = float(os.environ.get("LINTS_SIGMA_MULT", "0.15"))
+
+BOOTSTRAP_HEADS = int(os.environ.get("BOOTSTRAP_HEADS", "10"))
+
+RFF_DIM = int(os.environ.get("RFF_DIM", "128"))
+RFF_LENGTHSCALE = float(os.environ.get("RFF_LENGTHSCALE", "1.0"))
+RFF_CDIAG_SCALE = float(os.environ.get("RFF_CDIAG_SCALE", "2.5"))
+RFF_SIGMA = os.environ.get("RFF_SIGMA", "").strip()
+RFF_SIGMA_MULT = float(os.environ.get("RFF_SIGMA_MULT", "0.15"))
+
+plots_root = Path(__file__).resolve().parent.parent / "plots" / "Combined"
+# One folder per run to avoid overwriting plots/results (and to keep runs grouped).
+run_dir_name = f"{Path(__file__).stem}_seed{SEED}_{NX}x{NY}x{NZ}_T{T}_tag{RUN_TAG}"
+out_dir = plots_root / run_dir_name
 out_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -174,6 +198,32 @@ class TsallisActionFactory:
 
 
 def main() -> None:
+<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
+=======
+    args = _parse_args()
+
+    # Available method IDs (used for CLI selection).
+    available_methods = [
+        "default",
+        "fixed_tsallis_3cube",
+        "linucb_disjoint_v1",
+        "linucb_disjoint_v2",
+        "tsallis",
+        "linucb_shared",
+        "linucb_shared_v2",
+        "linucb_shared_v3",
+        "lints",
+        "bootstrap_ts",
+        "rff_ts",
+    ]
+    if args.list_methods:
+        print("Available method IDs:")
+        for mid in available_methods:
+            print(" -", mid)
+        return
+    selected_methods = _normalize_method_ids(args.methods, available=available_methods)
+
+>>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
     fail_runtime_sec = 1e9
     # Warmup: the first `solve()` in a fresh Python process pays MPI/HYPRE init
     # inside the C library (amg_setup_solver.c::_ensure_init). This can be
@@ -182,6 +232,23 @@ def main() -> None:
     warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
     warm_mkw, _, _ = stencil_27_laplace(rng=warm_rng, nx=NX, ny=NY, nz=NZ)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
+
+    # Baseline runtime (for TS sigma defaults): median of 3 solves on the warmup matrix.
+    # Note: runtime_sec is hypre-only (setup+solve) measured inside C; matrix build is excluded.
+    baseline_runtime_sec = None
+    if any(mid in selected_methods for mid in ["lints", "rff_ts"]):
+        rts: list[float] = []
+        for _ in range(10):
+            try:
+                res = solve(params=DEFAULT_PARAMS, tol=SOLVER_TOL, max_iter=SOLVER_MAX_ITER, **warm_mkw)
+                rt = float(res.runtime_sec)
+            except Exception:
+                rt = float("nan")
+            if np.isfinite(rt):
+                rts.append(rt)
+            if len(rts) >= 3:
+                break
+        baseline_runtime_sec = float(np.median(np.asarray(rts, dtype=float))) if rts else 1.0
 
     # 2D problem size for this experiment.
     # Grids: evenly spaced and reduced for 3-parameter tuning (sample-efficiency).
@@ -206,6 +273,7 @@ def main() -> None:
     mxrs_grid_5d[0] = 1e-6
     tr_grid_5d = np.linspace(0.0, grid5_max, grid5_n)
 
+<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
     # Action spaces for (th,mxrs,tr) at two discretization levels.
     actions_cont3_3 = build_actions_th_mxrs_tr(
         th_grid_3d,
@@ -218,6 +286,21 @@ def main() -> None:
         mxrs_grid_5d,
         tr_grid_5d,
         fixed_params={"coarsen_type": DEFAULT_PARAMS["coarsen_type"], "interp_type": DEFAULT_PARAMS["interp_type"]},
+=======
+    needs_actions = any(
+        mid in selected_methods
+        for mid in [
+            "linucb_disjoint_v1",
+            "linucb_disjoint_v2",
+            "tsallis",
+            "linucb_shared",
+            "linucb_shared_v2",
+            "linucb_shared_v3",
+            "lints",
+            "bootstrap_ts",
+            "rff_ts",
+        ]
+>>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
     )
 
     # Ensure the default configuration is always an available arm (safety baseline).
@@ -260,6 +343,7 @@ def main() -> None:
     policy_tsallis_cont3_5 = TsallisActionFactory(actions_cont3_5).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10004, T=T, trial=0)
     policy_shared_5 = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
 
+<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
     policy_shared_5_v2 = SharedLinUCBFactory(
         ALPHA,
         L2,
@@ -281,6 +365,140 @@ def main() -> None:
         (f"LinUCB shared: {grid5_n}^3", policy_shared_5, ps_cont3_5, False),
         (f"LinUCB shared v2: {grid5_n}^3", policy_shared_5_v2, ps_cont3_5, False),
     ]
+=======
+    methods: list[tuple[str, object, dict, bool]] = []
+    for mid in selected_methods:
+        if mid == "default":
+            methods.append(("default (fixed)", FixedPolicy(DEFAULT_PARAMS), ps_default, False))
+        elif mid == "fixed_tsallis_3cube":
+            methods.append(("fixed: (th,mxrs,tr) = (0.05,0.10,0.80)", FixedPolicy(FIXED_MODE_TSALLIS_3CUBE), ps_default, False))
+        elif mid == "linucb_disjoint_v2":
+            _require_actions()
+            policy = DisjointLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=LinUCB_AMG_v2,
+                model_kwargs={"alpha_decay": True},
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 12003, T=T, trial=0)
+            methods.append((f"LinUCB disjoint v2: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "linucb_disjoint_v1":
+            _require_actions()
+            policy = DisjointLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=LinUCB_AMG,
+                model_kwargs={},
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 12001, T=T, trial=0)
+            methods.append((f"LinUCB disjoint v1: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "tsallis":
+            _require_actions()
+            policy = TsallisActionFactory(actions_cont3_5).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10004, T=T, trial=0)
+            methods.append((f"Tsallis-INF: {grid5_n}^3", policy, ps_cont3_5, True))
+        elif mid == "linucb_shared":
+            _require_actions()
+            policy = SharedLinUCBFactory(ALPHA, L2).new_trial(parameter_space=ps_cont3_5, seed=SEED + 10003, T=T, trial=0)
+            methods.append((f"LinUCB shared: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "linucb_shared_v2":
+            _require_actions()
+            if default_arm_index_5 is None:
+                raise RuntimeError("default_arm_index_5 not set; action grid may be missing default arm.")
+            policy = SharedLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=SharedLinUCB_AMG_v2,
+                model_kwargs={
+                    "action_center": DEFAULT_PARAMS,
+                    "alpha_decay": True,
+                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
+                    "always_include_arms": [int(default_arm_index_5)],
+                    "elite_cache_size": ELITE_CACHE_SIZE,
+                },
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 11003, T=T, trial=0)
+            methods.append((f"LinUCB shared v2: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "linucb_shared_v3":
+            _require_actions()
+            if default_arm_index_5 is None:
+                raise RuntimeError("default_arm_index_5 not set; action grid may be missing default arm.")
+            policy = SharedLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=SharedLinUCB_AMG_v3,
+                model_kwargs={
+                    "action_center": DEFAULT_PARAMS,
+                    "action_scales": (ACTION_SCALE_TH, ACTION_SCALE_MXRS, ACTION_SCALE_TR),
+                    "alpha_decay": True,
+                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
+                    "always_include_arms": [int(default_arm_index_5)],
+                    "elite_cache_size": ELITE_CACHE_SIZE,
+                },
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 21003, T=T, trial=0)
+            methods.append((f"LinUCB shared v3: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "lints":
+            _require_actions()
+            if default_arm_index_5 is None:
+                raise RuntimeError("default_arm_index_5 not set; action grid may be missing default arm.")
+            if baseline_runtime_sec is None:
+                raise RuntimeError("baseline_runtime_sec not computed")
+            sigma = float(LINTS_SIGMA) if LINTS_SIGMA else float(LINTS_SIGMA_MULT) * float(baseline_runtime_sec)
+            policy = SharedLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=SharedLinTS_AMG,
+                model_kwargs={
+                    "action_center": DEFAULT_PARAMS,
+                    "action_scales": (ACTION_SCALE_TH, ACTION_SCALE_MXRS, ACTION_SCALE_TR),
+                    "sigma": float(sigma),
+                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
+                    "always_include_arms": [int(default_arm_index_5)],
+                    "elite_cache_size": ELITE_CACHE_SIZE,
+                },
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 22003, T=T, trial=0)
+            methods.append((f"LinTS: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "bootstrap_ts":
+            _require_actions()
+            if default_arm_index_5 is None:
+                raise RuntimeError("default_arm_index_5 not set; action grid may be missing default arm.")
+            policy = SharedLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=SharedBootstrapTS_AMG,
+                model_kwargs={
+                    "action_center": DEFAULT_PARAMS,
+                    "action_scales": (ACTION_SCALE_TH, ACTION_SCALE_MXRS, ACTION_SCALE_TR),
+                    "heads": int(BOOTSTRAP_HEADS),
+                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
+                    "always_include_arms": [int(default_arm_index_5)],
+                    "elite_cache_size": ELITE_CACHE_SIZE,
+                },
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 23003, T=T, trial=0)
+            methods.append((f"BootstrapTS: {grid5_n}^3", policy, ps_cont3_5, False))
+        elif mid == "rff_ts":
+            _require_actions()
+            if default_arm_index_5 is None:
+                raise RuntimeError("default_arm_index_5 not set; action grid may be missing default arm.")
+            if baseline_runtime_sec is None:
+                raise RuntimeError("baseline_runtime_sec not computed")
+            sigma = float(RFF_SIGMA) if RFF_SIGMA else float(RFF_SIGMA_MULT) * float(baseline_runtime_sec)
+            policy = SharedLinUCBFactory(
+                ALPHA,
+                L2,
+                model_cls=RFF_TS_AMG,
+                model_kwargs={
+                    "action_center": DEFAULT_PARAMS,
+                    "action_scales": (ACTION_SCALE_TH, ACTION_SCALE_MXRS, ACTION_SCALE_TR),
+                    "sigma": float(sigma),
+                    "rff_dim": int(RFF_DIM),
+                    "lengthscale": float(RFF_LENGTHSCALE),
+                    "cdiag_scale": float(RFF_CDIAG_SCALE),
+                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
+                    "always_include_arms": [int(default_arm_index_5)],
+                    "elite_cache_size": ELITE_CACHE_SIZE,
+                },
+            ).new_trial(parameter_space=ps_cont3_5, seed=SEED + 24003, T=T, trial=0)
+            methods.append((f"RFF-TS: {grid5_n}^3", policy, ps_cont3_5, False))
+        else:
+            raise RuntimeError(f"Unreachable method id: {mid}")
+>>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
     rt = {name: np.zeros(T, dtype=float) for name, *_ in methods}
     overhead = {name: np.zeros(T, dtype=float) for name, *_ in methods}
@@ -365,7 +583,7 @@ def main() -> None:
     plt.legend(fontsize=9)
     plt.tight_layout()
 
-    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.png"
+    plot_path = out_dir / f"test2_runtime_cumulative_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}_tag{RUN_TAG}.png"
     plt.savefig(plot_path, dpi=256)
     plt.close()
 
@@ -387,6 +605,7 @@ def main() -> None:
         "trunc_factor": "#009E73",
     }
 
+<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
     for row_i, name in enumerate(bandit_names):
         for col_i, key in enumerate(trace_keys):
             ax = axes[row_i, col_i]
@@ -410,13 +629,44 @@ def main() -> None:
             ax.grid(True, alpha=0.25)
             if row_i == nrows - 1:
                 ax.set_xlabel("t")
+=======
+        for row_i, name in enumerate(bandit_names):
+            for col_i, key in enumerate(trace_keys):
+                ax = axes[row_i, col_i]
+                series = traces[name][key]
+                ax.scatter(
+                    t_axis,
+                    series,
+                    s=14,
+                    marker=".",
+                    label=None,
+                    color=param_colors.get(key, None),
+                    alpha=0.9,
+                    linewidths=0.0,
+                    rasterized=True,
+                )
+                if row_i == 0:
+                    ax.set_title(key, fontsize=10)
+                if col_i == 0:
+                    ax.set_ylabel(name, fontsize=10)
+                ax.set_ylim(-0.02, 1.02)
+                ax.grid(True, alpha=0.25)
+                if row_i == nrows - 1:
+                    ax.set_xlabel("t")
+>>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
     fig.suptitle(f"Bandit parameter traces (3 panels per bandit)  T={T}  seed={SEED}", fontsize=12)
     fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.965))
 
+<<<<<<< Updated upstream:SetupPhase/learning-setup/scripts/test 2.py
     trace_plot_path = out_dir / f"test2_param_trace_bandits_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.png"
     fig.savefig(trace_plot_path, dpi=256)
     plt.close(fig)
+=======
+        trace_plot_path = out_dir / f"test2_param_trace_bandits_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}_tag{RUN_TAG}.png"
+        fig.savefig(trace_plot_path, dpi=256)
+        plt.close(fig)
+>>>>>>> Stashed changes:SetupPhase/learning-setup/scripts/test_2.py
 
     # Quick “did it match default?” diagnostics on the last window.
     def _action_key(name: str, idx: int) -> tuple:
@@ -442,6 +692,7 @@ def main() -> None:
     summary = {
         "T": int(T),
         "seed": int(SEED),
+        "run_tag": str(RUN_TAG),
         "alpha": float(ALPHA),
         "l2": float(L2),
         "nx": int(NX),
@@ -451,6 +702,16 @@ def main() -> None:
         "solver_max_iter": int(SOLVER_MAX_ITER),
         "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
         "elite_cache_size": int(ELITE_CACHE_SIZE),
+        "action_scales": [float(ACTION_SCALE_TH), float(ACTION_SCALE_MXRS), float(ACTION_SCALE_TR)],
+        "baseline_runtime_sec": float(baseline_runtime_sec) if baseline_runtime_sec is not None else None,
+        "lints_sigma": (float(LINTS_SIGMA) if LINTS_SIGMA else None),
+        "lints_sigma_mult": float(LINTS_SIGMA_MULT),
+        "bootstrap_heads": int(BOOTSTRAP_HEADS),
+        "rff_dim": int(RFF_DIM),
+        "rff_lengthscale": float(RFF_LENGTHSCALE),
+        "rff_cdiag_scale": float(RFF_CDIAG_SCALE),
+        "rff_sigma": (float(RFF_SIGMA) if RFF_SIGMA else None),
+        "rff_sigma_mult": float(RFF_SIGMA_MULT),
         "actions_cont3_grid3": int(len(actions_cont3_3)),
         "actions_cont3_grid5": int(len(actions_cont3_5)),
         "grid3_n": int(grid3_n),
@@ -465,7 +726,7 @@ def main() -> None:
         "last500_fraction_equal_default": {name: _fraction_default(name, window=500) for name, *_ in methods},
         "last500_mode_action": {name: _mode_action(name, window=500) for name, *_ in methods},
     }
-    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}.json"
+    summary_path = out_dir / f"test2_runtime_summary_T{T}_interleaved_end2end_{NX}x{NY}x{NZ}_seed{SEED}_tag{RUN_TAG}.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
 
     print("PLOT:", plot_path)

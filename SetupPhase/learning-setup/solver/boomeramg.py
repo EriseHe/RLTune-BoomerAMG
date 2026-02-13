@@ -14,19 +14,43 @@ RL environment, ensuring identical problem instances.
 from __future__ import annotations
 
 import ctypes
+import os
+import platform
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 # ---- load compiled C library ------------------------------------------------
 
-_LIB_PATH = Path(__file__).parent / "libamg_setup_solver.dylib"
+def _default_lib_path() -> Path:
+    # Allow overriding the solver shim library path for local setups.
+    env = os.environ.get("AMG_SETUP_SOLVER_LIB", "").strip()
+    if env:
+        return Path(env)
+
+    sysname = platform.system()
+    if sysname == "Windows":
+        ext = ".dll"
+    elif sysname == "Darwin":
+        ext = ".dylib"
+    else:
+        ext = ".so"
+    return Path(__file__).parent / f"libamg_setup_solver{ext}"
+
+
+_LIB_PATH = _default_lib_path()
 if not _LIB_PATH.exists():
     raise RuntimeError(
         f"Compiled library not found at {_LIB_PATH}.\n"
-        "Build it with: mpicc -shared -fPIC -O2 -o libamg_setup_solver.dylib "
-        "amg_setup_solver.c <HYPRE_SRC>/test/amg_cycle.c -I... -lHYPRE"
+        "Build it from `amg_setup_solver.c` and `SolvePhase/hypre/src/test/amg_cycle.c` "
+        "and link it against HYPRE.\n"
+        "On Windows, build a `libamg_setup_solver.dll` and keep it next to this file."
     )
+
+# On Windows, ensure dependencies (e.g. HYPRE.dll) in this directory can be resolved.
+if platform.system() == "Windows":
+    os.add_dll_directory(str(Path(__file__).parent))
+
 _lib = ctypes.CDLL(str(_LIB_PATH))
 
 _VP = ctypes.c_void_p
