@@ -95,6 +95,8 @@ class SharedLinUCB_AMG_v2:
         s2_index: int = 2,
         action_center: Optional[Dict[str, Any]] = None,
         candidate_pool_size: Optional[int] = None,
+        always_include_arms: Optional[Sequence[int]] = None,
+        elite_cache_size: int = 0,
         seed: Optional[int] = None,
     ) -> None:
         if context_dim <= 0:
@@ -121,6 +123,13 @@ class SharedLinUCB_AMG_v2:
         self.rng = np.random.default_rng(seed)
         self.candidate_pool_size = int(candidate_pool_size) if candidate_pool_size is not None else None
 
+        self._always_include_arms = self._validate_always_include_arms(always_include_arms)
+        self.elite_cache_size = int(elite_cache_size)
+        if self.elite_cache_size < 0:
+            raise ValueError("elite_cache_size must be >= 0")
+        self._elite_arms = np.zeros(0, dtype=int)
+        self._arm_best_loss = np.full(self.K, np.inf, dtype=float) if self.elite_cache_size > 0 else None
+
         self._a_center = self._compute_action_center(action_center)
 
         self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
@@ -134,6 +143,68 @@ class SharedLinUCB_AMG_v2:
         self._last_phi: Optional[np.ndarray] = None
         self._last_arm: Optional[int] = None
         self.history: List[SharedLinUCBStep] = []
+
+    def _validate_always_include_arms(self, always_include_arms: Optional[Sequence[int]]) -> np.ndarray:
+        if always_include_arms is None:
+            return np.zeros(0, dtype=int)
+        out: List[int] = []
+        seen = set()
+        for a in always_include_arms:
+            ai = int(a)
+            if not (0 <= ai < self.K):
+                raise ValueError("always_include_arms contains out-of-range index")
+            if ai not in seen:
+                out.append(ai)
+                seen.add(ai)
+        return np.asarray(out, dtype=int)
+
+    def _merged_include_arms(self) -> np.ndarray:
+        """
+        Merge always-include and elite arms, preserving priority:
+        always-include first, then elite.
+        """
+        if self._always_include_arms.size == 0 and self._elite_arms.size == 0:
+            return np.zeros(0, dtype=int)
+        out: List[int] = []
+        seen = set()
+        for a in self._always_include_arms:
+            ai = int(a)
+            if ai not in seen:
+                out.append(ai)
+                seen.add(ai)
+        for a in self._elite_arms:
+            ai = int(a)
+            if ai not in seen:
+                out.append(ai)
+                seen.add(ai)
+        return np.asarray(out, dtype=int)
+
+    def _candidate_subset(self) -> np.ndarray:
+        """
+        Return a candidate subset of arms to score when candidate_pool_size is set.
+        Always includes the configured always-include arms and the current elite cache.
+        """
+        M = int(self.candidate_pool_size) if self.candidate_pool_size is not None else self.K
+        if M >= self.K:
+            return np.arange(self.K, dtype=int)
+
+        include = self._merged_include_arms()
+        if include.size > M:
+            include = include[:M]
+
+        cand = self.rng.choice(self.K, size=M, replace=False)
+        if include.size:
+            cand = np.unique(np.concatenate([cand, include]))
+            if cand.size > M:
+                remaining = np.setdiff1d(cand, include, assume_unique=False)
+                need = M - int(include.size)
+                if need <= 0:
+                    cand = include
+                else:
+                    if remaining.size > need:
+                        remaining = self.rng.choice(remaining, size=need, replace=False)
+                    cand = np.concatenate([include, remaining])
+        return np.asarray(cand, dtype=int)
 
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
         if action_center is not None:
@@ -211,9 +282,23 @@ class SharedLinUCB_AMG_v2:
         This mirrors the fast implementation in `SharedLinUCB_AMG` and keeps
         overhead small when scoring the full action set.
         """
+        return self._score_subset(x, arms=None, alpha=alpha)
+
+    def _score_subset(
+        self,
+        x: np.ndarray,
+        *,
+        arms: Optional[np.ndarray],
+        alpha: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Vectorized (score, mean, uncert) for either:
+        - all arms  (arms is None)
+        - a subset  (arms is an array of arm indices)
+        """
         s1 = float(x[self.s1_index])
         s2 = float(x[self.s2_index])
-        G = self._g_actions  # (K, g_dim)
+        G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]  # (K', g_dim)
 
         theta = self.A_inv @ self.b
         theta_x = theta[: self.d_x]
@@ -263,28 +348,14 @@ class SharedLinUCB_AMG_v2:
             best_mean = float(mean[arm])
             best_unc = float(uncert[arm])
         else:
-            theta = self.A_inv @ self.b
-            cand = self.rng.choice(self.K, size=self.candidate_pool_size, replace=False)
-
-            best_score = float("inf")
-            best_mean = float("inf")
-            best_unc = float("inf")
-            best_arms: List[int] = []
-            for a in cand:
-                phi = self._phi(x, int(a))
-                mean_a = float(theta @ phi)
-                quad_a = float(phi @ (self.A_inv @ phi))
-                unc_a = float(np.sqrt(max(0.0, quad_a)))
-                score_a = mean_a - alpha_eff * unc_a
-                if score_a < best_score - 1e-12:
-                    best_score = float(score_a)
-                    best_mean = float(mean_a)
-                    best_unc = float(unc_a)
-                    best_arms = [int(a)]
-                elif abs(score_a - best_score) <= 1e-12:
-                    best_arms.append(int(a))
-
-            arm = int(self.rng.choice(best_arms)) if len(best_arms) > 1 else int(best_arms[0])
+            cand = self._candidate_subset()
+            score, mean, uncert = self._score_subset(x, arms=cand, alpha=alpha_eff)
+            best_score = float(np.min(score))
+            best_loc = np.flatnonzero(score <= best_score + 1e-12)
+            loc = int(self.rng.choice(best_loc)) if best_loc.size > 1 else int(best_loc[0])
+            arm = int(cand[loc])
+            best_mean = float(mean[loc])
+            best_unc = float(uncert[loc])
 
         self._last_phi = self._phi(x, arm)
         self._last_arm = arm
@@ -306,9 +377,13 @@ class SharedLinUCB_AMG_v2:
             raise RuntimeError("update() called before predict()")
 
         phi = self._last_phi
+        arm = int(self._last_arm)
         y = float(loss)
         if not np.isfinite(y):
             raise ValueError("loss must be finite")
+
+        if self._arm_best_loss is not None:
+            self._arm_best_loss[arm] = min(float(self._arm_best_loss[arm]), float(y))
 
         u = self.A_inv @ phi
         denom = 1.0 + float(phi @ u)
@@ -320,6 +395,17 @@ class SharedLinUCB_AMG_v2:
             self.A_inv = self.A_inv - np.outer(u, u) / denom
 
         self.b = self.b + y * phi
+
+        if self._arm_best_loss is not None:
+            finite = np.flatnonzero(np.isfinite(self._arm_best_loss))
+            if finite.size:
+                k = min(int(self.elite_cache_size), int(finite.size))
+                if k > 0:
+                    vals = self._arm_best_loss[finite]
+                    top_loc = np.argpartition(vals, kth=k - 1)[:k]
+                    elite = finite[top_loc]
+                    elite = elite[np.argsort(self._arm_best_loss[elite])]
+                    self._elite_arms = elite.astype(int)
 
         last = self.history[-1]
         self.history[-1] = SharedLinUCBStep(

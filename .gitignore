@@ -15,3 +15,11 @@ __pycache__/
 .venv/
 venv/
 .env/
+
+# generated artifacts
+SetupPhase/learning-setup/plots/
+*.log
+*.png
+*.json
+*.zip
+*.pkl

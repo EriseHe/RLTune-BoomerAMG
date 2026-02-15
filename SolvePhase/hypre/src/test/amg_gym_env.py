@@ -20,7 +20,7 @@ class BoomerAMGRelaxEnv(gym.Env):
         log(r_k / r_{k-1}),
         sign(r_{k-1} - r_k),
         cycle_frac,
-        a1/a0, a2/a0, a3/a0,     (problem descriptor; constant if A fixed)
+        a1/a0, a2/a0, a3/a0,     (Laplacian) OR c_x,c_y,c_z normalized (difconv)
         last_w                    (previous action memory)
       ]
     Reward (paper-like):
@@ -38,17 +38,41 @@ class BoomerAMGRelaxEnv(gym.Env):
         tol=1e-8,
         max_cycles=20,
         seed=0,
-        w_center=1.25,
-        w_scale=0.75,
+        # Default w range ~[0.8, 1.3]
+        w_center=1.05,
+        w_scale=0.25,
+        sweeps_min=1,
+        sweeps_max=3,
         w_smooth_alpha=0.0,
         w_change_penalty=0.0,
         sweeps_change_penalty=0.0,
+        cycle_penalty=0.0,
+        sweep_penalty=0.0,
         randomize_A=True,
         randomize_b=True,
         fixed_rhs_seed=123456789,
+        randomize_grid=False,
+        grid_min=10,
+        grid_max=80,
+        use_grid_bias=False,
+        grid_bias=1.0,
+        difconv_c=(1.0, 100.0, 100.0),
+        difconv_c_range=(1.0, 1000.0),
+        difconv_a=(0.0, 0.0, 0.0),
+        difconv_atype=0,
     ):
         super().__init__()
         self.rng = np.random.default_rng(seed)
+
+        self.randomize_grid = bool(randomize_grid)
+        self.grid_min = int(grid_min)
+        self.grid_max = int(grid_max)
+        self.use_grid_bias = bool(use_grid_bias)
+        self.grid_bias = float(grid_bias)
+        if self.grid_min <= 0 or self.grid_max < self.grid_min:
+            raise ValueError("grid_min/grid_max must be positive with grid_max >= grid_min")
+        if self.use_grid_bias and self.grid_bias <= 0.0:
+            raise ValueError("grid_bias must be > 0 when use_grid_bias is enabled")
 
         self.grid_choices = self._normalize_grid_choices(fixed_grid)
         self.fixed_grid = self.grid_choices[0]
@@ -60,18 +84,32 @@ class BoomerAMGRelaxEnv(gym.Env):
 
         self.w_center = float(w_center)
         self.w_scale = float(w_scale)
+        self.sweeps_min = int(sweeps_min)
+        self.sweeps_max = int(sweeps_max)
+        if self.sweeps_min < 1 or self.sweeps_max < self.sweeps_min:
+            raise ValueError("sweeps_min/sweeps_max must satisfy 1 <= min <= max")
+        self.sweeps_center = 0.5 * (self.sweeps_min + self.sweeps_max)
+        self.sweeps_half = 0.5 * (self.sweeps_max - self.sweeps_min)
+        self.sweeps_default = int(np.clip(np.round(self.sweeps_center),
+                                          self.sweeps_min, self.sweeps_max))
 
         # 27pt defaults
         self.a0_base = 26.0
         self.a1_base = -4.0
         self.a2_base = -0.15
         self.a3_base = -0.0125
+        self.difconv_c = tuple(float(x) for x in difconv_c)
+        self.difconv_c_range = tuple(float(x) for x in difconv_c_range)
+        self.difconv_a = tuple(float(x) for x in difconv_a)
+        self.difconv_atype = int(difconv_atype)
 
         self.episode_id = 0
 
         self.w_smooth_alpha = float(w_smooth_alpha)
         self.w_change_penalty = float(w_change_penalty)
         self.sweeps_change_penalty = float(sweeps_change_penalty)
+        self.cycle_penalty = float(cycle_penalty)
+        self.sweep_penalty = float(sweep_penalty)
         self.randomize_A = bool(randomize_A)
         self.randomize_b = bool(randomize_b)
         self.fixed_rhs_seed = int(fixed_rhs_seed)
@@ -102,14 +140,16 @@ class BoomerAMGRelaxEnv(gym.Env):
 
         # last action memory
         self.last_w = self.w_center
-        self.last_sweeps_down = 3
-        self.last_sweeps_up = 3
+        self.last_sweeps_down = self.sweeps_default
+        self.last_sweeps_up = self.sweeps_default
 
         # coefficients used (fixed per reset)
         self.a0 = self.a0_base
         self.a1 = self.a1_base
         self.a2 = self.a2_base
         self.a3 = self.a3_base
+        self.cx, self.cy, self.cz = self.difconv_c
+        self.ax, self.ay, self.az = self.difconv_a
 
         # problem descriptor (computed from a’s)
         self.s1 = 0.0
@@ -118,6 +158,15 @@ class BoomerAMGRelaxEnv(gym.Env):
         self.nx_norm = 0.0
         self.ny_norm = 0.0
         self.nz_norm = 0.0
+        if self.randomize_grid:
+            self.grid_norm_div = float(self.grid_max)
+        else:
+            self.grid_norm_div = float(max(max(g) for g in self.grid_choices))
+        if self.grid_norm_div <= 0.0:
+            self.grid_norm_div = 1.0
+        self.c_norm_div = float(self.difconv_c_range[1]) if self.difconv_c_range else 1.0
+        if self.c_norm_div <= 0.0:
+            self.c_norm_div = 1.0
 
         self.residual_curve = None
 
@@ -159,6 +208,14 @@ class BoomerAMGRelaxEnv(gym.Env):
         lib.amg_env_destroy.argtypes = [AMGEnv_p]
 
     def _coeff_ratios(self):
+        if int(self.stencil or 0) == 0:
+            eps = 1e-30
+            denom = max(math.log(self.c_norm_div + eps), eps)
+            return (
+                math.log(float(self.cx) + eps) / denom,
+                math.log(float(self.cy) + eps) / denom,
+                math.log(float(self.cz) + eps) / denom,
+            )
         eps = 1e-30
         a0 = float(self.a0)
         return (
@@ -168,6 +225,9 @@ class BoomerAMGRelaxEnv(gym.Env):
         )
 
     def _normalize_grid_choices(self, fixed_grid):
+        if fixed_grid is None:
+            # Placeholder; real grid chosen in reset when randomize_grid=True
+            return [(self.grid_min, self.grid_min, self.grid_min)]
         if isinstance(fixed_grid, (list, tuple)) and fixed_grid:
             first = fixed_grid[0]
             if isinstance(first, (list, tuple)) and len(first) == 3:
@@ -218,13 +278,23 @@ class BoomerAMGRelaxEnv(gym.Env):
             self.lib.amg_env_destroy(self.env_ptr)
             self.env_ptr = None
 
-        grid_idx = int(self.rng.integers(0, len(self.grid_choices)))
-        self.fixed_grid = self.grid_choices[grid_idx]
+        if self.randomize_grid:
+            u = float(self.rng.random())
+            if self.use_grid_bias and abs(self.grid_bias - 1.0) > 1e-12:
+                u = u ** (1.0 / self.grid_bias)
+            n = self.grid_min + int(np.floor(u * (self.grid_max - self.grid_min + 1)))
+            if n > self.grid_max:
+                n = self.grid_max
+            self.fixed_grid = (n, n, n)
+        else:
+            grid_idx = int(self.rng.integers(0, len(self.grid_choices)))
+            self.fixed_grid = self.grid_choices[grid_idx]
         nx, ny, nz = self.fixed_grid
-        max_dim = float(max(self.fixed_grid))
-        self.nx_norm = float(nx) / max_dim
-        self.ny_norm = float(ny) / max_dim
-        self.nz_norm = float(nz) / max_dim
+        eps = 1e-30
+        denom = max(math.log(self.grid_norm_div + eps), eps)
+        self.nx_norm = math.log(float(nx) + eps) / denom
+        self.ny_norm = math.log(float(ny) + eps) / denom
+        self.nz_norm = math.log(float(nz) + eps) / denom
         self.stencil = self.fixed_stencil
         rhs_type = self.fixed_rhs_type
 
@@ -248,7 +318,20 @@ class BoomerAMGRelaxEnv(gym.Env):
         # -------------------------
         # A: fixed or randomized
         # -------------------------
-        if self.randomize_A:
+        if self.stencil == 0:
+            # DifConv: sample diffusion coefficients if randomize_A
+            c_min, c_max = self.difconv_c_range
+            if self.randomize_A:
+                self.cx = float(self.rng.uniform(c_min, c_max))
+                self.cy = float(self.rng.uniform(c_min, c_max))
+                self.cz = float(self.rng.uniform(c_min, c_max))
+            else:
+                self.cx, self.cy, self.cz = self.difconv_c
+            self.ax, self.ay, self.az = self.difconv_a
+            # Map difconv params into amg_env_create slots: k,c,a0..a3
+            self.a0, self.a1, self.a2, self.a3 = self.cz, self.ax, self.ay, self.az
+            k, c = float(self.cx), float(self.cy)
+        elif self.randomize_A:
             if self.stencil == 27:
                 # sample positive multipliers (range is your choice)
                 s1 = float(self.rng.uniform(0.5, 2.0))
@@ -284,10 +367,7 @@ class BoomerAMGRelaxEnv(gym.Env):
                 k, c = 1.0, 0.0
         # Problem descriptor for policy input
         # (If A fixed, these are constants; that’s OK and matches “training on one problem”)
-        a0_eps = float(self.a0) if abs(self.a0) > 1e-30 else 1.0
-        self.s1 = float(self.a1 / a0_eps)
-        self.s2 = float(self.a2 / a0_eps)
-        self.s3 = float(self.a3 / a0_eps)
+        self.s1, self.s2, self.s3 = self._coeff_ratios()
 
         # -------------------------
         # FIX b (deterministic)
@@ -314,8 +394,8 @@ class BoomerAMGRelaxEnv(gym.Env):
         self.cycle = 0
 
         self.last_w = self.w_center
-        self.last_sweeps_down = 3
-        self.last_sweeps_up = 3
+        self.last_sweeps_down = self.sweeps_default
+        self.last_sweeps_up = self.sweeps_default
 
         self.residual_curve = [self.r0]
         r = float(self.lib.amg_env_get_r(self.env_ptr))
@@ -329,6 +409,8 @@ class BoomerAMGRelaxEnv(gym.Env):
             "rhs_seed": rhs_seed,
             "r0": self.r0,
             "a0": float(self.a0), "a1": float(self.a1), "a2": float(self.a2), "a3": float(self.a3),
+            "cx": float(self.cx), "cy": float(self.cy), "cz": float(self.cz),
+            "ax": float(self.ax), "ay": float(self.ay), "az": float(self.az),
         }
         return obs, info
 
@@ -349,9 +431,19 @@ class BoomerAMGRelaxEnv(gym.Env):
             alpha = float(np.clip(self.w_smooth_alpha, 0.0, 1.0))
             w = alpha * self.last_w + (1.0 - alpha) * w
 
-        # sweeps mapping: map [-1,1] -> {1..5} via round(3 + 2*a)
-        sweeps_down = int(np.clip(np.round(3.0 + 2.0 * a_d), 1, 5))
-        sweeps_up   = int(np.clip(np.round(3.0 + 2.0 * a_u), 1, 5))
+        # sweeps mapping: map [-1,1] -> {sweeps_min..sweeps_max}
+        if self.sweeps_half <= 0.0:
+            sweeps_down = self.sweeps_min
+            sweeps_up = self.sweeps_min
+        else:
+            sweeps_down = int(np.clip(
+                np.round(self.sweeps_center + self.sweeps_half * a_d),
+                self.sweeps_min, self.sweeps_max
+            ))
+            sweeps_up = int(np.clip(
+                np.round(self.sweeps_center + self.sweeps_half * a_u),
+                self.sweeps_min, self.sweeps_max
+            ))
 
         prev_w = self.last_w
         prev_sd = self.last_sweeps_down
@@ -431,9 +523,15 @@ class BoomerAMGRelaxEnv(gym.Env):
         truncated  = (st_c.value == 2)
 
         if terminated:
-            reward += 1.0     # small bonus for actually converging
+            reward += 2.0     # bonus for actually converging
         if truncated:
-            reward -= 1.0     # penalty for failing to reach tol
+            reward -= 2.0     # penalty for failing to reach tol
+
+        if self.cycle_penalty > 0.0:
+            reward -= self.cycle_penalty
+
+        if self.sweep_penalty > 0.0:
+            reward -= self.sweep_penalty * float(sweeps_down + sweeps_up)
 
         if self.w_change_penalty > 0.0:
             reward -= self.w_change_penalty * abs(w - prev_w)
@@ -461,6 +559,12 @@ class BoomerAMGRelaxEnv(gym.Env):
             "a1": float(self.a1),
             "a2": float(self.a2),
             "a3": float(self.a3),
+            "cx": float(self.cx),
+            "cy": float(self.cy),
+            "cz": float(self.cz),
+            "ax": float(self.ax),
+            "ay": float(self.ay),
+            "az": float(self.az),
         }
         if terminated or truncated:
             info["residual_curve"] = np.array(self.residual_curve, dtype=np.float64)

@@ -6,16 +6,15 @@ others can reproduce your exact A/b sampling and eval-case construction.
 """
 
 from dataclasses import dataclass
-from typing import List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 from pathlib import Path
-import sys
+import ctypes
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]  # parent of utilities/
-print(ROOT)
-lib_path=str(ROOT / "SolvePhase"/ "hypre" / "src" / "test" / "libamg_env.dylib")
-print(lib_path)
-sys.path.insert(0, lib_path)
+_DEFAULT_LIB_PATH = ROOT / "SolvePhase" / "hypre" / "src" / "test" / "libamg_env.dylib"
+
+_AMG_ENV_LIB_CACHE: Dict[str, ctypes.CDLL] = {}
 
 @dataclass(frozen=True)
 class CaseSpec:
@@ -185,23 +184,188 @@ def build_env_case(
     return env, info
 
 
-def _main():
-    rng = np.random.default_rng(0)
-    grid = sample_grid_choice(rng, [(60, 60, 60)])
-    env, info = build_env_case(
-        lib_path="../SolvePhase/hypre/src/test/libamg_env.dylib",
-        fixed_grid=grid,
-        fixed_stencil=27,
-        randomize_A=True,
-        randomize_b=True,
-        fixed_rhs_seed=123456789,
-        fixed_rhs_type=1,
-        seed=0,
+def _resolve_lib_path(lib_path: str) -> Path:
+    p = Path(lib_path)
+    if not p.is_absolute():
+        p = (ROOT / p).resolve()
+    return p
+
+
+def _load_amg_env_lib(lib_path: str) -> ctypes.CDLL:
+    lib_path = str(_resolve_lib_path(lib_path))
+    lib = _AMG_ENV_LIB_CACHE.get(lib_path)
+    if lib is None:
+        lib = ctypes.CDLL(lib_path)
+
+        AMGEnv_p = ctypes.c_void_p
+        lib.amg_env_create.restype = AMGEnv_p
+        lib.amg_env_create.argtypes = [
+            ctypes.c_int, ctypes.c_int, ctypes.c_int,   # nx ny nz
+            ctypes.c_int, ctypes.c_int,                 # stencil rhs_type
+            ctypes.c_double, ctypes.c_int,              # tol max_cycles
+            ctypes.c_ulonglong,                         # rhs_seed
+            ctypes.c_double, ctypes.c_double,           # k c (7pt)
+            ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double  # a0..a3 (27pt)
+        ]
+
+        lib.amg_env_get_r0.restype = ctypes.c_double
+        lib.amg_env_get_r0.argtypes = [AMGEnv_p]
+
+        lib.amg_env_get_r.restype = ctypes.c_double
+        lib.amg_env_get_r.argtypes = [AMGEnv_p]
+
+        lib.amg_env_destroy.restype = None
+        lib.amg_env_destroy.argtypes = [AMGEnv_p]
+
+        _AMG_ENV_LIB_CACHE[lib_path] = lib
+    return lib
+
+
+def build_laplacian_env_ij(
+    lib_path: str,
+    nx: int,
+    ny: int,
+    nz: int,
+    stencil: int = 27,
+    rhs_type: int = 1,
+    rhs_seed: int = 123456789,
+    tol: float = 1e-8,
+    max_cycles: int = 30,
+    k: float = 1.0,
+    c: float = 0.0,
+    a0: float = 1.0,
+    a1: float = 1.0,
+    a2: float = 1.0,
+    a3: float = 0.0,
+):
+    """
+    Build a Laplacian A via the IJ builders inside libamg_env.
+
+    Returns (lib, env_ptr, info). Caller must destroy env_ptr.
+    """
+    lib = _load_amg_env_lib(lib_path)
+    env = lib.amg_env_create(
+        int(nx), int(ny), int(nz),
+        int(stencil), int(rhs_type),
+        float(tol), int(max_cycles),
+        int(rhs_seed),
+        float(k), float(c),
+        float(a0), float(a1), float(a2), float(a3),
     )
-    print("Env info (A/b built in C):", info)
-    env.close()
+    info = {
+        "nx": int(nx),
+        "ny": int(ny),
+        "nz": int(nz),
+        "stencil": int(stencil),
+        "rhs_type": int(rhs_type),
+        "rhs_seed": int(rhs_seed),
+        "r0": float(lib.amg_env_get_r0(env)),
+    }
+    return lib, env, info
+
+
+def build_difconv_env_ij(
+    lib_path: str,
+    nx: int,
+    ny: int,
+    nz: int,
+    rhs_type: int = 1,
+    rhs_seed: int = 123456789,
+    tol: float = 1e-8,
+    max_cycles: int = 30,
+    cx: float = 1.0,
+    cy: float = 100.0,
+    cz: float = 100.0,
+    ax: float = 0.0,
+    ay: float = 0.0,
+    az: float = 0.0,
+):
+    """
+    Build a DifConv A via the IJ builders inside libamg_env (stencil=0).
+
+    Matches amg_gym_env reset mapping:
+      k,c,a0..a3  <=  cx,cy,cz,ax,ay,az
+    Returns (lib, env_ptr, info). Caller must destroy env_ptr.
+    """
+    lib = _load_amg_env_lib(lib_path)
+    env = lib.amg_env_create(
+        int(nx), int(ny), int(nz),
+        0, int(rhs_type),                 # stencil=0 for difconv
+        float(tol), int(max_cycles),
+        int(rhs_seed),
+        float(cx), float(cy),
+        float(cz), float(ax), float(ay), float(az),
+    )
+    info = {
+        "nx": int(nx),
+        "ny": int(ny),
+        "nz": int(nz),
+        "stencil": 0,
+        "rhs_type": int(rhs_type),
+        "rhs_seed": int(rhs_seed),
+        "cx": float(cx),
+        "cy": float(cy),
+        "cz": float(cz),
+        "ax": float(ax),
+        "ay": float(ay),
+        "az": float(az),
+        "r0": float(lib.amg_env_get_r0(env)),
+    }
+    return lib, env, info
+
+
+def sample_random_difconv_case(
+    rng: np.random.Generator,
+    grid_min: int = 10,
+    grid_max: int = 80,
+    c_min: float = 1.0,
+    c_max: float = 1000.0,
+):
+    """
+    Sample (n, cx, cy, cz) the same way as BoomerAMGRelaxEnv:
+      n ~ UniformInt[grid_min, grid_max]
+      c* ~ Uniform[c_min, c_max]
+    """
+    n = int(rng.integers(int(grid_min), int(grid_max) + 1))
+    cx = float(rng.uniform(float(c_min), float(c_max)))
+    cy = float(rng.uniform(float(c_min), float(c_max)))
+    cz = float(rng.uniform(float(c_min), float(c_max)))
+    return n, cx, cy, cz
+
+
+def _main():
+    # lib, env, info = build_laplacian_env_ij(
+    #     lib_path=str(_DEFAULT_LIB_PATH),
+    #     nx=20,
+    #     ny=20,
+    #     nz=20,
+    #     rhs_type=0,
+    #     rhs_seed=123456789,
+    #     tol=1e-8,
+    #     max_cycles=30,
+    #     k=1.0,
+    #     c=0.0,
+    # )
+    # print("IJ Laplacian env info:", info)
+    # lib.amg_env_destroy(env)
+
+    rng = np.random.default_rng(0)
+    n, cx, cy, cz = sample_random_difconv_case(
+        rng, grid_min=10, grid_max=80, c_min=1.0, c_max=1000.0
+    )
+    lib2, env2, info2 = build_difconv_env_ij(
+        lib_path=str(_DEFAULT_LIB_PATH),
+        nx=n, ny=n, nz=n,
+        rhs_type=1,
+        rhs_seed=123456789,
+        tol=1e-8,
+        max_cycles=30,
+        cx=cx, cy=cy, cz=cz,
+        ax=0.0, ay=0.0, az=0.0,
+    )
+    print("IJ DifConv env info:", info2)
+    lib2.amg_env_destroy(env2)
 
 
 if __name__ == "__main__":
     _main()
-

@@ -6,7 +6,11 @@ from stable_baselines3 import PPO
 from sb3_contrib import RecurrentPPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-from SolvePhase.hypre.src.test.amg_gym_env import BoomerAMGRelaxEnv
+from amg_gym_env import BoomerAMGRelaxEnv
+
+
+def _set_relax_type(value: int) -> None:
+    os.environ["AMG_RELAX_TYPE"] = str(int(value))
 
 
 def _unwrap_single(x):
@@ -25,8 +29,56 @@ def _maybe_batch_action(env, action):
     return action
 
 
+def _cfg_to_action(env, w, sd, su):
+    if env.w_scale == 0:
+        a_w = 0.0
+    else:
+        a_w = (w - env.w_center) / env.w_scale
+    sweeps_half = 0.5 * (env.sweeps_max - env.sweeps_min)
+    sweeps_center = 0.5 * (env.sweeps_max + env.sweeps_min)
+    if sweeps_half <= 0:
+        a_d = 0.0
+        a_u = 0.0
+    else:
+        a_d = (sd - sweeps_center) / sweeps_half
+        a_u = (su - sweeps_center) / sweeps_half
+    a_w = float(np.clip(a_w, -1.0, 1.0))
+    a_d = float(np.clip(a_d, -1.0, 1.0))
+    a_u = float(np.clip(a_u, -1.0, 1.0))
+    return np.array([a_w, a_d, a_u], dtype=np.float32)
+
+
 def _env_flag(name, default="1"):
     return os.environ.get(name, default).strip().lower() not in ("0", "false", "no")
+
+
+def _parse_triplet_env(name: str, default: str):
+    raw = os.environ.get(name, default)
+    parts = [p for p in raw.replace("x", ",").replace(" ", ",").split(",") if p.strip()]
+    if len(parts) != 3:
+        raise ValueError(f"{name} must be 3 values (got: {raw})")
+    return tuple(float(p) for p in parts)
+
+
+def _parse_range_env(name: str, default: str):
+    raw = os.environ.get(name, default)
+    parts = [p for p in raw.replace("x", ",").replace(" ", ",").split(",") if p.strip()]
+    if len(parts) != 2:
+        raise ValueError(f"{name} must be 2 values (got: {raw})")
+    lo, hi = (float(p) for p in parts)
+    if hi < lo:
+        raise ValueError(f"{name} must be lo,hi with hi>=lo (got: {raw})")
+    return (lo, hi)
+
+
+def _expand_seeds(eval_seeds, instances, stride):
+    if instances <= 1:
+        return list(eval_seeds)
+    expanded = []
+    for s in eval_seeds:
+        for i in range(instances):
+            expanded.append(int(s) + int(i) * int(stride))
+    return expanded
 
 
 def run_episode(
@@ -52,10 +104,7 @@ def run_episode(
     fixed_action = None
     if fixed_cfg is not None:
         w, sd, su = fixed_cfg
-        a_w = (w - env.w_center) / env.w_scale
-        a_d = (sd - 3.0) / 2.0
-        a_u = (su - 3.0) / 2.0
-        fixed_action = np.array([a_w, a_d, a_u], dtype=np.float32)
+        fixed_action = _cfg_to_action(env, w, sd, su)
 
     while not done:
         if fixed_action is not None:
@@ -117,15 +166,50 @@ def _summarize(results):
     }
 
 
-def _make_env(lib_path, seed, grid, randomize_A, randomize_b, fixed_rhs_seed, fixed_rhs_type):
+def _make_env(
+    lib_path,
+    seed,
+    grid,
+    randomize_A,
+    randomize_b,
+    fixed_rhs_seed,
+    fixed_rhs_type,
+    *,
+    relax_type,
+    fixed_stencil,
+    randomize_grid,
+    grid_min,
+    grid_max,
+    difconv_c,
+    difconv_c_range,
+    difconv_a,
+    difconv_atype,
+    w_center,
+    w_scale,
+    sweeps_min,
+    sweeps_max,
+):
+    _set_relax_type(relax_type)
     return BoomerAMGRelaxEnv(
         lib_path=lib_path,
         seed=seed,
-        fixed_grid=grid,
+        fixed_grid=(None if randomize_grid else grid),
         randomize_A=randomize_A,
         randomize_b=randomize_b,
         fixed_rhs_seed=fixed_rhs_seed,
         fixed_rhs_type=fixed_rhs_type,
+        fixed_stencil=fixed_stencil,
+        randomize_grid=randomize_grid,
+        grid_min=grid_min,
+        grid_max=grid_max,
+        difconv_c=difconv_c,
+        difconv_c_range=difconv_c_range,
+        difconv_a=difconv_a,
+        difconv_atype=difconv_atype,
+        w_center=w_center,
+        w_scale=w_scale,
+        sweeps_min=sweeps_min,
+        sweeps_max=sweeps_max,
     )
 
 
@@ -134,7 +218,7 @@ def main():
     seed_start = int(os.environ.get("EVAL_SEED_START", "100"))
     seed_count = int(os.environ.get("EVAL_SEED_COUNT", "6"))
     eval_seeds = list(range(seed_start, seed_start + seed_count))
-    # Matrix size fixed at 60^3 for all eval runs
+    # Default grid size; can be overridden by RANDOMIZE_GRID
     grid_sizes = [(60, 60, 60)]
 
     fixed_a_mode = _env_flag("EVAL_FIXED_A", "0")
@@ -142,15 +226,45 @@ def main():
     randomize_b = _env_flag("RANDOMIZE_B", "1")
     fixed_rhs_seed = int(os.environ.get("FIXED_RHS_SEED", "123456789"))
     fixed_rhs_type = int(os.environ.get("FIXED_RHS_TYPE", "1"))
+    fixed_stencil = int(os.environ.get("FIXED_STENCIL", "0"))
+    baseline_relax_type = int(os.environ.get("BASELINE_RELAX_TYPE", "18"))
+    rl_relax_type = int(os.environ.get("RL_RELAX_TYPE", "18"))
+    a_instances = int(os.environ.get("EVAL_A_INSTANCES", "3"))
+    seed_stride = int(os.environ.get("EVAL_SEED_STRIDE", "100000"))
+    randomize_grid = _env_flag("RANDOMIZE_GRID", "1")
+    grid_min = int(os.environ.get("GRID_MIN", "10"))
+    grid_max = int(os.environ.get("GRID_MAX", "80"))
+    difconv_c = _parse_triplet_env("DIFCONV_C", "1,100,100")
+    difconv_c_range = _parse_range_env("DIFCONV_C_RANGE", "1,1000")
+    difconv_a = _parse_triplet_env("DIFCONV_A", "0,0,0")
+    difconv_atype = int(os.environ.get("DIFCONV_ATYPE", "0"))
+    sweeps_min = int(os.environ.get("SWEEPS_MIN", "1"))
+    sweeps_max = int(os.environ.get("SWEEPS_MAX", "3"))
+    w_center = float(os.environ.get("W_CENTER", "1.05"))
+    w_scale = float(os.environ.get("W_SCALE", "0.25"))
     if fixed_a_mode:
         randomize_A = False
         randomize_b = False
         fixed_rhs_type = 1
         grid_sizes = [(60, 60, 60)]
         eval_seeds = [seed_start]
+    elif randomize_A:
+        eval_seeds = _expand_seeds(eval_seeds, a_instances, seed_stride)
 
     grid_mode = os.environ.get("EVAL_GRID_MODE", "zip").lower()
-    if grid_mode == "full":
+    if randomize_grid:
+        eval_cases = [
+            {
+                "seed": s,
+                "grid": (grid_min, grid_min, grid_min),
+                "randomize_A": randomize_A,
+                "randomize_b": randomize_b,
+                "fixed_rhs_seed": fixed_rhs_seed,
+                "fixed_rhs_type": fixed_rhs_type,
+            }
+            for s in eval_seeds
+        ]
+    elif grid_mode == "full":
         eval_cases = [
             {
                 "seed": s,
@@ -196,6 +310,19 @@ def main():
                         randomize_b,
                         fixed_rhs_seed,
                         fixed_rhs_type,
+                        relax_type=rl_relax_type,
+                        fixed_stencil=fixed_stencil,
+                        randomize_grid=randomize_grid,
+                        grid_min=grid_min,
+                        grid_max=grid_max,
+                        difconv_c=difconv_c,
+                        difconv_c_range=difconv_c_range,
+                        difconv_a=difconv_a,
+                        difconv_atype=difconv_atype,
+                        w_center=w_center,
+                        w_scale=w_scale,
+                        sweeps_min=sweeps_min,
+                        sweeps_max=sweeps_max,
                     )
                 ]
             )
@@ -225,6 +352,19 @@ def main():
             case["randomize_b"],
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
+            relax_type=baseline_relax_type,
+            fixed_stencil=fixed_stencil,
+            randomize_grid=randomize_grid,
+            grid_min=grid_min,
+            grid_max=grid_max,
+            difconv_c=difconv_c,
+            difconv_c_range=difconv_c_range,
+            difconv_a=difconv_a,
+            difconv_atype=difconv_atype,
+            w_center=w_center,
+            w_scale=w_scale,
+            sweeps_min=sweeps_min,
+            sweeps_max=sweeps_max,
         )
         out_base = run_episode(env, fixed_cfg=baseline_cfg, record_curve=(i < plot_count))
         env.close()
@@ -239,6 +379,19 @@ def main():
             case["randomize_b"],
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
+            relax_type=rl_relax_type,
+            fixed_stencil=fixed_stencil,
+            randomize_grid=randomize_grid,
+            grid_min=grid_min,
+            grid_max=grid_max,
+            difconv_c=difconv_c,
+            difconv_c_range=difconv_c_range,
+            difconv_a=difconv_a,
+            difconv_atype=difconv_atype,
+            w_center=w_center,
+            w_scale=w_scale,
+            sweeps_min=sweeps_min,
+            sweeps_max=sweeps_max,
         )
         out_rl = run_episode(
             env2,
@@ -257,7 +410,10 @@ def main():
         print("Baseline lib:", baseline_lib_path)
     print("Baseline:", _summarize(base_results))
     print("RL      :", _summarize(rl_results))
-    print("Eval grid sizes:", grid_sizes)
+    if randomize_grid:
+        print(f"Eval grid range: [{grid_min}, {grid_max}] (uniform, cubic)")
+    else:
+        print("Eval grid sizes:", grid_sizes)
     print("Eval cases:", len(eval_cases))
     if fixed_a_mode:
         print("Fixed-A mode: ON (A coefficients and size fixed)")

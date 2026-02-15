@@ -1,4 +1,6 @@
 import os
+import sys
+import time
 import numpy as np
 import torch as th
 import csv  
@@ -9,9 +11,11 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv, VecNorm
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList
 from paper_policy import PaperPPOPolicy
-from SolvePhase.hypre.src.test.custom_policy import CustomPPOPolicy
+from custom_policy import CustomPPOPolicy
+from amg_gym_env import BoomerAMGRelaxEnv
 
-from SolvePhase.hypre.src.test.amg_gym_env import BoomerAMGRelaxEnv
+# Training default: relax type 18 (override with AMG_RELAX_TYPE)
+os.environ.setdefault("AMG_RELAX_TYPE", "18")
 
 
 def _parse_grid_sizes(spec):
@@ -42,6 +46,25 @@ def _parse_grid_range(spec):
 
 def _env_flag(name, default="1"):
     return os.environ.get(name, default).strip().lower() not in ("0", "false", "no")
+
+
+def _parse_triplet_env(name: str, default: str):
+    raw = os.environ.get(name, default)
+    parts = [p for p in raw.replace("x", ",").replace(" ", ",").split(",") if p.strip()]
+    if len(parts) != 3:
+        raise ValueError(f"{name} must be 3 values (got: {raw})")
+    return tuple(float(p) for p in parts)
+
+
+def _parse_range_env(name: str, default: str):
+    raw = os.environ.get(name, default)
+    parts = [p for p in raw.replace("x", ",").replace(" ", ",").split(",") if p.strip()]
+    if len(parts) != 2:
+        raise ValueError(f"{name} must be 2 values (got: {raw})")
+    lo, hi = (float(p) for p in parts)
+    if hi < lo:
+        raise ValueError(f"{name} must be lo,hi with hi>=lo (got: {raw})")
+    return (lo, hi)
 
 
 class StepLoggerCallback(BaseCallback):
@@ -239,13 +262,66 @@ class EvalTrajCallback(BaseCallback):
         return True
 
 
+class ProgressCallback(BaseCallback):
+    def __init__(self, total_timesteps, update_every=1000, verbose=0):
+        super().__init__(verbose)
+        self.total_timesteps = int(total_timesteps)
+        self.update_every = int(update_every)
+        self._t0 = None
+        self._last = 0
+
+    def _on_training_start(self) -> None:
+        self._t0 = time.perf_counter()
+        self._last = 0
+
+    def _on_step(self) -> bool:
+        if self.total_timesteps <= 0:
+            return True
+        if (self.num_timesteps - self._last) < self.update_every and self.num_timesteps < self.total_timesteps:
+            return True
+
+        self._last = int(self.num_timesteps)
+        elapsed = max(1e-6, time.perf_counter() - (self._t0 or time.perf_counter()))
+        frac = min(self.num_timesteps / self.total_timesteps, 1.0)
+        rate = self.num_timesteps / elapsed
+        remaining = (self.total_timesteps - self.num_timesteps) / rate if rate > 0 else float("inf")
+
+        bar_len = 28
+        filled = int(round(bar_len * frac))
+        bar = "#" * filled + "-" * (bar_len - filled)
+        msg = (f"\r[{bar}] {self.num_timesteps}/{self.total_timesteps} "
+               f"({frac*100:5.1f}%) | {rate:,.1f} steps/s | ETA {remaining/60:5.1f} min")
+        sys.stdout.write(msg)
+        sys.stdout.flush()
+        if self.num_timesteps >= self.total_timesteps:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        return True
+
+
 def make_env(rank, seed=0):
-    # Matrix size fixed at 60^3 for all training runs
+    # Default grid size; can be overridden by RANDOMIZE_GRID
     grid_sizes = [(60, 60, 60)]
     randomize_A = _env_flag("RANDOMIZE_A", "1")
     randomize_b = _env_flag("RANDOMIZE_B", "1")
     fixed_rhs_seed = int(os.environ.get("FIXED_RHS_SEED", "123456789"))
     fixed_rhs_type = int(os.environ.get("FIXED_RHS_TYPE", "1"))
+    fixed_stencil = int(os.environ.get("FIXED_STENCIL", "0"))
+    randomize_grid = _env_flag("RANDOMIZE_GRID", "1")
+    grid_min = int(os.environ.get("GRID_MIN", "10"))
+    grid_max = int(os.environ.get("GRID_MAX", "80"))
+    use_grid_bias = _env_flag("USE_GRID_BIAS", "0")
+    grid_bias = float(os.environ.get("GRID_BIAS", "1.0"))
+    difconv_c = _parse_triplet_env("DIFCONV_C", "1,100,100")
+    difconv_c_range = _parse_range_env("DIFCONV_C_RANGE", "1,1000")
+    difconv_a = _parse_triplet_env("DIFCONV_A", "0,0,0")
+    difconv_atype = int(os.environ.get("DIFCONV_ATYPE", "0"))
+    cycle_penalty = float(os.environ.get("CYCLE_PENALTY", "0.0"))
+    sweep_penalty = float(os.environ.get("SWEEP_PENALTY", "0.0"))
+    w_center = float(os.environ.get("W_CENTER", "1.05"))
+    w_scale = float(os.environ.get("W_SCALE", "0.25"))
+    sweeps_min = int(os.environ.get("SWEEPS_MIN", "1"))
+    sweeps_max = int(os.environ.get("SWEEPS_MAX", "3"))
 
     if not randomize_A:
         grid_sizes = [(60, 60, 60)]
@@ -254,12 +330,30 @@ def make_env(rank, seed=0):
 
     def _init():
         kwargs = {}
-        if grid_sizes:
+        if randomize_grid:
+            kwargs["fixed_grid"] = None
+        elif grid_sizes:
             kwargs["fixed_grid"] = grid_sizes
+        kwargs["randomize_grid"] = randomize_grid
+        kwargs["grid_min"] = grid_min
+        kwargs["grid_max"] = grid_max
+        kwargs["use_grid_bias"] = use_grid_bias
+        kwargs["grid_bias"] = grid_bias
+        kwargs["fixed_stencil"] = fixed_stencil
         kwargs["randomize_A"] = randomize_A
         kwargs["randomize_b"] = randomize_b
         kwargs["fixed_rhs_seed"] = fixed_rhs_seed
         kwargs["fixed_rhs_type"] = fixed_rhs_type
+        kwargs["difconv_c"] = difconv_c
+        kwargs["difconv_c_range"] = difconv_c_range
+        kwargs["difconv_a"] = difconv_a
+        kwargs["difconv_atype"] = difconv_atype
+        kwargs["cycle_penalty"] = cycle_penalty
+        kwargs["sweep_penalty"] = sweep_penalty
+        kwargs["w_center"] = w_center
+        kwargs["w_scale"] = w_scale
+        kwargs["sweeps_min"] = sweeps_min
+        kwargs["sweeps_max"] = sweeps_max
         env = BoomerAMGRelaxEnv(
             lib_path="./libamg_env.dylib",
             seed=seed + rank,
@@ -275,6 +369,22 @@ def main():
 
     randomize_A = _env_flag("RANDOMIZE_A", "1")
     randomize_b = _env_flag("RANDOMIZE_B", "1")
+    fixed_stencil = int(os.environ.get("FIXED_STENCIL", "0"))
+    randomize_grid = _env_flag("RANDOMIZE_GRID", "1")
+    grid_min = int(os.environ.get("GRID_MIN", "10"))
+    grid_max = int(os.environ.get("GRID_MAX", "80"))
+    use_grid_bias = _env_flag("USE_GRID_BIAS", "0")
+    grid_bias = float(os.environ.get("GRID_BIAS", "1.0"))
+    difconv_c = _parse_triplet_env("DIFCONV_C", "1,100,100")
+    difconv_c_range = _parse_range_env("DIFCONV_C_RANGE", "1,1000")
+    difconv_a = _parse_triplet_env("DIFCONV_A", "0,0,0")
+    difconv_atype = int(os.environ.get("DIFCONV_ATYPE", "0"))
+    cycle_penalty = float(os.environ.get("CYCLE_PENALTY", "0.0"))
+    sweep_penalty = float(os.environ.get("SWEEP_PENALTY", "0.0"))
+    w_center = float(os.environ.get("W_CENTER", "1.05"))
+    w_scale = float(os.environ.get("W_SCALE", "0.25"))
+    sweeps_min = int(os.environ.get("SWEEPS_MIN", "1"))
+    sweeps_max = int(os.environ.get("SWEEPS_MAX", "3"))
 
     # Parallel envs help SPEED (CPU), especially if your C env step is heavy.
     n_envs = int(os.environ.get("N_ENVS", "8"))
@@ -294,6 +404,22 @@ def main():
         seed=123,
         randomize_A=randomize_A,
         randomize_b=randomize_b,
+        randomize_grid=randomize_grid,
+        grid_min=grid_min,
+        grid_max=grid_max,
+        use_grid_bias=False,
+        grid_bias=1.0,
+        fixed_stencil=fixed_stencil,
+        difconv_c=difconv_c,
+        difconv_c_range=difconv_c_range,
+        difconv_a=difconv_a,
+        difconv_atype=difconv_atype,
+        cycle_penalty=cycle_penalty,
+        sweep_penalty=sweep_penalty,
+        w_center=w_center,
+        w_scale=w_scale,
+        sweeps_min=sweeps_min,
+        sweeps_max=sweeps_max,
         fixed_rhs_seed=int(os.environ.get("FIXED_RHS_SEED", "123456789")),
         fixed_rhs_type=int(os.environ.get("FIXED_RHS_TYPE", "1")),
     )])
@@ -311,13 +437,21 @@ def main():
 
     # Episodes = 10,000; your episode length is <= max_cycles (e.g., 30)
     # Approx total timesteps:
-    max_cycles = BoomerAMGRelaxEnv().max_cycles
-    total_timesteps = 700 * max_cycles
+    max_cycles = BoomerAMGRelaxEnv(
+        fixed_stencil=fixed_stencil,
+        randomize_grid=randomize_grid,
+        grid_min=grid_min,
+        grid_max=grid_max,
+        use_grid_bias=False,
+        grid_bias=1.0,
+    ).max_cycles
+    total_timesteps = int(os.environ.get("TOTAL_TIMESTEPS", str(700 * max_cycles)))
 
     device = "cuda" if th.cuda.is_available() else "cpu"
     print("Device:", device, "| n_envs:", n_envs)
 
-    model_type = os.environ.get("MODEL_TYPE", "lstm").strip().lower()
+    model_type = os.environ.get("MODEL_TYPE", "mlp").strip().lower()
+    ent_coef = float(os.environ.get("ENT_COEF", "0.0"))
     common_kwargs = dict(
         env=venv,
         n_steps=16,
@@ -328,7 +462,7 @@ def main():
         n_epochs=10,
         gae_lambda=0.95,
         vf_coef=0.5,
-        ent_coef=0.0,
+        ent_coef=ent_coef,
         max_grad_norm=0.5,
         verbose=1,
         device=device,
@@ -380,8 +514,10 @@ def main():
     # )
     step_logger = StepLoggerCallback(log_path="logs/train_steps.csv")
     eval_callback = EvalTrajCallback(eval_env=eval_env, eval_freq=50_000)
+    progress_every = int(os.environ.get("PROGRESS_EVERY", "1000"))
+    progress_cb = ProgressCallback(total_timesteps, update_every=progress_every)
 
-    callback = CallbackList([step_logger, eval_callback])
+    callback = CallbackList([step_logger, eval_callback, progress_cb])
 
     model.learn(total_timesteps=total_timesteps, callback=callback)
 

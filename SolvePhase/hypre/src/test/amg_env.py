@@ -38,11 +38,12 @@ lib.amg_env_destroy.argtypes = [AMGEnv_p]
 
 
 env = lib.amg_env_create(
-    20,20,20,
-    7, 0,
+    20, 20, 20,
+    0, 0,                    # stencil=0 => difconv, rhs_type=0
     1e-8, 30,
-    1.0, 0.0,               # k, c (7pt)
-    26.0, -4.0, -0.15, -0.0125  # a0..a3 (dummy for 7pt)
+    1234567,                 # rhs_seed
+    1.0, 100.0,              # k,c -> cx,cy
+    100.0, 0.0, 0.0, 0.0      # a0..a3 -> cz,ax,ay,az
 )
 
 print("r0 =", lib.amg_env_get_r0(env))

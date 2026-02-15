@@ -17,6 +17,12 @@
 
 /* ---------- small utilities ---------- */
 
+/* returns the sign of a real number: 1 positive, 0 zero, -1 negative */
+static inline HYPRE_Int sign_double(HYPRE_Real a)
+{
+    return ( (0.0 < a) - (0.0 > a) );
+}
+
 static HYPRE_Real parvec_norm2(HYPRE_ParVector v)
 {
     HYPRE_Real dot = 0.0;
@@ -38,6 +44,16 @@ static HYPRE_Real compute_residual_norm(HYPRE_ParCSRMatrix A,
 static double wall_time_sec(void)
 {
     return (double) hypre_MPI_Wtime();
+}
+
+static int get_relax_type(void)
+{
+    const char *env = getenv("AMG_RELAX_TYPE");
+    if (!env || !env[0]) return 18;  /* training default */
+    char *end = NULL;
+    long v = strtol(env, &end, 10);
+    if (end == env || v <= 0 || v > 50) return 18;
+    return (int) v;
 }
 
 /* Reuse Laplacian builders defined in amg_cycle.c */
@@ -76,7 +92,7 @@ typedef struct
     int                cycles_done;
 
     int                nx, ny, nz;
-    int                stencil_type;  // 7 or 27
+    int                stencil_type;  // 7 or 27 (Laplacian), 0 = difconv
     int                rhs_type;      // 0=ones, 1=random
     double b_norm;
     double cos_br;  // cosine between b and current residual r
@@ -101,6 +117,191 @@ static void ensure_hypre_init(void)
 
     HYPRE_Init();
     hypre_initialized = 1;
+}
+
+/* ---------- Matrix builders ---------- */
+
+static HYPRE_IJMatrix build_ij_laplacian(
+    int nx, int ny, int nz,
+    int stencil_type,
+    double k, double c,
+    double a0, double a1, double a2, double a3)
+{
+    HYPRE_BigInt system_size = 0;
+    HYPRE_IJMatrix ij_A = NULL;
+
+    /* Fake argv for the builder */
+    char *argv[32];
+    int argc = 0;
+    char nx_str[32], ny_str[32], nz_str[32];
+
+    sprintf(nx_str, "%d", nx);
+    sprintf(ny_str, "%d", ny);
+    sprintf(nz_str, "%d", nz);
+
+    argv[argc++] = (char*) "amg_env";
+    argv[argc++] = (char*) "-n";
+    argv[argc++] = nx_str;
+    argv[argc++] = ny_str;
+    argv[argc++] = nz_str;
+
+    if (stencil_type == 7)
+    {
+        char k_str[64], c_str[64];
+        sprintf(k_str, "%.17g", k);
+        sprintf(c_str, "%.17g", c);
+        argv[argc++] = (char*) "-k"; argv[argc++] = k_str;
+        argv[argc++] = (char*) "-c"; argv[argc++] = c_str;
+
+        BuildIJLaplacian7pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+    }
+    else
+    {
+        char a0s[64], a1s[64], a2s[64], a3s[64];
+        sprintf(a0s, "%.17g", a0);
+        sprintf(a1s, "%.17g", a1);
+        sprintf(a2s, "%.17g", a2);
+        sprintf(a3s, "%.17g", a3);
+        argv[argc++] = (char*) "-coef27";
+        argv[argc++] = a0s; argv[argc++] = a1s; argv[argc++] = a2s; argv[argc++] = a3s;
+
+        BuildIJLaplacian27pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+    }
+
+    return ij_A;
+}
+
+static HYPRE_ParCSRMatrix build_difconv_matrix(
+    MPI_Comm comm,
+    HYPRE_BigInt nx, HYPRE_BigInt ny, HYPRE_BigInt nz,
+    HYPRE_Real cx, HYPRE_Real cy, HYPRE_Real cz,
+    HYPRE_Real ax, HYPRE_Real ay, HYPRE_Real az,
+    HYPRE_Int atype)
+{
+    HYPRE_Int num_procs, myid;
+    HYPRE_Int P, Q, R;
+    HYPRE_Int p, q, r;
+    HYPRE_Real hinx, hiny, hinz;
+    HYPRE_Int sign_prod;
+    HYPRE_Real *values;
+
+    hypre_MPI_Comm_size(comm, &num_procs);
+    hypre_MPI_Comm_rank(comm, &myid);
+
+    /* Default processor topology (matches ij.c defaults) */
+    P = 1;
+    Q = num_procs;
+    R = 1;
+
+    p = myid % P;
+    q = (( myid - p) / P) % Q;
+    r = ( myid - p - P * q) / ( P * Q );
+
+    hinx = 1. / (HYPRE_Real)(nx + 1);
+    hiny = 1. / (HYPRE_Real)(ny + 1);
+    hinz = 1. / (HYPRE_Real)(nz + 1);
+
+    /* values[7]:
+     *    [0]: center
+     *    [1]: X-
+     *    [2]: Y-
+     *    [3]: Z-
+     *    [4]: X+
+     *    [5]: Y+
+     *    [6]: Z+
+     */
+    values = hypre_CTAlloc(HYPRE_Real, 7, HYPRE_MEMORY_HOST);
+    values[0] = 0.0;
+
+    if (0 == atype) /* forward scheme for conv */
+    {
+        values[1] = -cx / (hinx * hinx);
+        values[2] = -cy / (hiny * hiny);
+        values[3] = -cz / (hinz * hinz);
+        values[4] = -cx / (hinx * hinx) + ax / hinx;
+        values[5] = -cy / (hiny * hiny) + ay / hiny;
+        values[6] = -cz / (hinz * hinz) + az / hinz;
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) - 1. * ax / hinx; }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) - 1. * ay / hiny; }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) - 1. * az / hinz; }
+    }
+    else if (1 == atype) /* backward scheme for conv */
+    {
+        values[1] = -cx / (hinx * hinx) - ax / hinx;
+        values[2] = -cy / (hiny * hiny) - ay / hiny;
+        values[3] = -cz / (hinz * hinz) - az / hinz;
+        values[4] = -cx / (hinx * hinx);
+        values[5] = -cy / (hiny * hiny);
+        values[6] = -cz / (hinz * hinz);
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) + 1. * ax / hinx; }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) + 1. * ay / hiny; }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) + 1. * az / hinz; }
+    }
+    else if (3 == atype) /* upwind scheme */
+    {
+        sign_prod = sign_double(cx) * sign_double(ax);
+        if (sign_prod == 1) /* same sign use back scheme */
+        {
+            values[1] = -cx / (hinx * hinx) - ax / hinx;
+            values[4] = -cx / (hinx * hinx);
+            if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) + 1. * ax / hinx; }
+        }
+        else /* diff sign use forward scheme */
+        {
+            values[1] = -cx / (hinx * hinx);
+            values[4] = -cx / (hinx * hinx) + ax / hinx;
+            if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) - 1. * ax / hinx; }
+        }
+
+        sign_prod = sign_double(cy) * sign_double(ay);
+        if (sign_prod == 1)
+        {
+            values[2] = -cy / (hiny * hiny) - ay / hiny;
+            values[5] = -cy / (hiny * hiny);
+            if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) + 1. * ay / hiny; }
+        }
+        else
+        {
+            values[2] = -cy / (hiny * hiny);
+            values[5] = -cy / (hiny * hiny) + ay / hiny;
+            if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) - 1. * ay / hiny; }
+        }
+
+        sign_prod = sign_double(cz) * sign_double(az);
+        if (sign_prod == 1)
+        {
+            values[3] = -cz / (hinz * hinz) - az / hinz;
+            values[6] = -cz / (hinz * hinz);
+            if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) + 1. * az / hinz; }
+        }
+        else
+        {
+            values[3] = -cz / (hinz * hinz);
+            values[6] = -cz / (hinz * hinz) + az / hinz;
+            if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) - 1. * az / hinz; }
+        }
+    }
+    else /* centered difference scheme */
+    {
+        values[1] = -cx / (hinx * hinx) - ax / (2. * hinx);
+        values[2] = -cy / (hiny * hiny) - ay / (2. * hiny);
+        values[3] = -cz / (hinz * hinz) - az / (2. * hinz);
+        values[4] = -cx / (hinx * hinx) + ax / (2. * hinx);
+        values[5] = -cy / (hiny * hiny) + ay / (2. * hiny);
+        values[6] = -cz / (hinz * hinz) + az / (2. * hinz);
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx); }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny); }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz); }
+    }
+
+    HYPRE_ParCSRMatrix A = (HYPRE_ParCSRMatrix) GenerateDifConv(
+        comm, nx, ny, nz, P, Q, R, p, q, r, values);
+
+    hypre_TFree(values, HYPRE_MEMORY_HOST);
+    return A;
 }
 
 /* ---------- Public API ---------- */
@@ -130,53 +331,31 @@ AMGEnv* amg_env_create(int nx, int ny, int nz,
     env->b_norm = 0.0;
     env->cos_br = 0.0;
 
-    /* ----------- Build matrix A (reuse amg_cycle.c builders) ----------- */
-    HYPRE_BigInt system_size = 0;
+    /* ----------- Build matrix A ----------- */
     HYPRE_IJMatrix ij_A = NULL;
 
-    /* Fake argv for the builder */
-    char *argv[32];
-    int argc = 0;
-    char nx_str[32], ny_str[32], nz_str[32];
-
-    sprintf(nx_str, "%d", nx);
-    sprintf(ny_str, "%d", ny);
-    sprintf(nz_str, "%d", nz);
-
-    argv[argc++] = (char*) "amg_env";
-    argv[argc++] = (char*) "-n";
-    argv[argc++] = nx_str;
-    argv[argc++] = ny_str;
-    argv[argc++] = nz_str;
-
-    if (stencil_type == 7)
+    if (stencil_type == 0)
     {
-    char k_str[64], c_str[64];
-    sprintf(k_str, "%.17g", k);
-    sprintf(c_str, "%.17g", c);
-    argv[argc++] = (char*) "-k"; argv[argc++] = k_str;
-    argv[argc++] = (char*) "-c"; argv[argc++] = c_str;
-
-    BuildIJLaplacian7pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        /* DifConv matrix (from ij.c):
+           Map args as: cx=k, cy=c, cz=a0, ax=a1, ay=a2, az=a3, atype=0. */
+        env->A = build_difconv_matrix(
+            env->comm,
+            (HYPRE_BigInt) nx, (HYPRE_BigInt) ny, (HYPRE_BigInt) nz,
+            (HYPRE_Real) k, (HYPRE_Real) c, (HYPRE_Real) a0,
+            (HYPRE_Real) a1, (HYPRE_Real) a2, (HYPRE_Real) a3,
+            0);
+        env->ij_A = NULL;
     }
     else
     {
-    char a0s[64], a1s[64], a2s[64], a3s[64];
-    sprintf(a0s, "%.17g", a0);
-    sprintf(a1s, "%.17g", a1);
-    sprintf(a2s, "%.17g", a2);
-    sprintf(a3s, "%.17g", a3);
-    argv[argc++] = (char*) "-coef27";
-    argv[argc++] = a0s; argv[argc++] = a1s; argv[argc++] = a2s; argv[argc++] = a3s;
+        /* Reuse Laplacian builders from amg_cycle.c (IJ interface) */
+        ij_A = build_ij_laplacian(nx, ny, nz, stencil_type, k, c, a0, a1, a2, a3);
+        env->ij_A = ij_A;
 
-    BuildIJLaplacian27pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        void *object = NULL;
+        HYPRE_IJMatrixGetObject(env->ij_A, &object);
+        env->A = (HYPRE_ParCSRMatrix) object;
     }
-
-    env->ij_A = ij_A;
-
-    void *object = NULL;
-    HYPRE_IJMatrixGetObject(env->ij_A, &object);
-    env->A = (HYPRE_ParCSRMatrix) object;
 
     /* ----------- Create vectors b, x, r ----------- */
     HYPRE_BigInt first_row, last_row, first_col, last_col;
@@ -244,6 +423,7 @@ AMGEnv* amg_env_create(int nx, int ny, int nz,
     free(rows);
 
     /* Grab ParVector objects */
+    void *object = NULL;
     HYPRE_IJVectorGetObject(env->ij_b, &object);
     env->b = (HYPRE_ParVector) object;
 
@@ -257,13 +437,14 @@ AMGEnv* amg_env_create(int nx, int ny, int nz,
 
     /* ----------- AMG setup: 1 V-cycle per Solve call ----------- */
     HYPRE_BoomerAMGCreate(&env->amg_solver);
-    HYPRE_BoomerAMGSetRelaxType(env->amg_solver, 18);
+    int relax_type = get_relax_type();
+    HYPRE_BoomerAMGSetRelaxType(env->amg_solver, relax_type);
     HYPRE_BoomerAMGSetTol(env->amg_solver, 0.0);   /* solve exactly one V-cycle per step */
     HYPRE_BoomerAMGSetMaxIter(env->amg_solver, 1); /* ONE V-cycle */
     HYPRE_BoomerAMGSetNumSweeps(env->amg_solver, 1);
-    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, 18, 1); /* down */
-    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, 18, 2); /* up */
-    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, 18, 3); /* coarse */
+    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, relax_type, 1); /* down */
+    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, relax_type, 2); /* up */
+    HYPRE_BoomerAMGSetCycleRelaxType(env->amg_solver, relax_type, 3); /* coarse */
 
     /* IMPORTANT FIX:
        These functions expect ParCSRMatrix/ParVector, so pass env->A/env->b/env->x directly. */
@@ -364,7 +545,14 @@ void amg_env_destroy(AMGEnv *env)
     HYPRE_IJVectorDestroy(env->ij_b);
     HYPRE_IJVectorDestroy(env->ij_x);
     HYPRE_IJVectorDestroy(env->ij_r);
-    HYPRE_IJMatrixDestroy(env->ij_A);
+    if (env->ij_A)
+    {
+        HYPRE_IJMatrixDestroy(env->ij_A);
+    }
+    else if (env->A)
+    {
+        HYPRE_ParCSRMatrixDestroy(env->A);
+    }
 
     free(env);
 }
