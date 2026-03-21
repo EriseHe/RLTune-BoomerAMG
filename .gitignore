@@ -15,3 +15,32 @@ __pycache__/
 .venv/
 venv/
 .env/
+
+# Windows local build artifacts
+*.dll
+*.dll.local
+*.lib
+*.exp
+*.obj
+*.o
+
+# One-time local native builds
+build/native/
+build/hypre/
+
+# Generated experiment outputs
+SetupPhase/learning-setup/plots/
+diagnosis/out/
+SolvePhase/hypre/src/test/logs/
+SolvePhase/hypre/src/test/pltos/
+SolvePhase/hypre/src/test/eval_traj/
+SolvePhase/hypre/src/test/ppo_logs/
+SolvePhase/hypre/src/test/*.csv
+SolvePhase/hypre/src/test/*.json
+SolvePhase/hypre/src/test/*.npz
+SolvePhase/hypre/src/test/*.pkl
+SolvePhase/hypre/src/test/*.zip
+
+# Local review / import scratch files
+_mac_import_preview/
+mac_to_win_port_review_*.md
