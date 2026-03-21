@@ -70,6 +70,13 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
+from ._amg_action_features import (
+    ACTION_FEATURE_DIM,
+    action_center_from_actions,
+    action_param_vector,
+    poly2_features,
+)
+
 
 @dataclass(frozen=True)
 class SharedLinUCBStep:
@@ -81,7 +88,7 @@ class SharedLinUCBStep:
 
 
 class SharedLinUCB_AMG_v2:
-    _G_DIM = 9
+    _G_DIM = ACTION_FEATURE_DIM
 
     def __init__(
         self,
@@ -207,20 +214,7 @@ class SharedLinUCB_AMG_v2:
         return np.asarray(cand, dtype=int)
 
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
-        if action_center is not None:
-            return np.array(
-                [
-                    float(action_center["strong_threshold"]),
-                    float(action_center["max_row_sum"]),
-                    float(action_center["trunc_factor"]),
-                ],
-                dtype=float,
-            )
-
-        th = np.array([float(a["strong_threshold"]) for a in self.actions], dtype=float)
-        mxrs = np.array([float(a["max_row_sum"]) for a in self.actions], dtype=float)
-        tr = np.array([float(a["trunc_factor"]) for a in self.actions], dtype=float)
-        return np.array([float(np.mean(th)), float(np.mean(mxrs)), float(np.mean(tr))], dtype=float)
+        return action_center_from_actions(self.actions, action_center)
 
     def _validate_x(self, x: np.ndarray) -> np.ndarray:
         x = np.asarray(x, dtype=float).reshape(-1)
@@ -231,34 +225,9 @@ class SharedLinUCB_AMG_v2:
         return x
 
     def _g_from_action(self, params: Dict[str, Any]) -> np.ndarray:
-        try:
-            th = float(params["strong_threshold"])
-            mxrs = float(params["max_row_sum"])
-            tr = float(params["trunc_factor"])
-        except KeyError as e:
-            raise KeyError(f"SharedLinUCB_AMG_v2 action missing required key: {e}") from e
-
-        if not (np.isfinite(th) and np.isfinite(mxrs) and np.isfinite(tr)):
-            raise ValueError("action parameters must be finite")
-
-        th -= float(self._a_center[0])
-        mxrs -= float(self._a_center[1])
-        tr -= float(self._a_center[2])
-
-        return np.array(
-            [
-                th,
-                mxrs,
-                tr,
-                th * th,
-                mxrs * mxrs,
-                tr * tr,
-                th * mxrs,
-                th * tr,
-                mxrs * tr,
-            ],
-            dtype=float,
-        )
+        a = action_param_vector(params, err_prefix="SharedLinUCB_AMG_v2")
+        a = a - self._a_center
+        return poly2_features(a)
 
     def _phi(self, x: np.ndarray, arm: int) -> np.ndarray:
         s1 = float(x[self.s1_index])

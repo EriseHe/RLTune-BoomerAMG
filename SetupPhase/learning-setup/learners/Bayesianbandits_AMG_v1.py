@@ -1,37 +1,25 @@
 """
-Shared (joint) LinUCB for BoomerAMG setup-phase tuning (v3).
+Bayesianbandits-style shared linear Thompson Sampling for BoomerAMG tuning.
 
-Changes vs v2:
-- Scale action coordinates before building quadratic action features.
-- Use full context-action interactions: s1,s2,s3,c_diag.
+This learner follows the same public API as the other setup-phase learners:
+`predict(context) -> action_dict` and `update(loss)`.
 
-Feature definition (paper-ready)
---------------------------------
-We tune:
+Model:
+  y_t = phi(x_t, a_t)^T theta + eps_t,    eps_t ~ N(0, sigma^2)
 
-    a = (th, mxrs, tr)
+Posterior:
+  (theta, sigma^2) use a Normal-Inverse-Gamma conjugate posterior and
+  Thompson sampling for arm selection, inspired by the `bayesianbandits`
+  package's linear contextual examples.
 
-Center at a0 and scale by s:
-
-    a_hat = (a - a0) / s
-
-Let a_hat = (th~, mxrs~, tr~). Define g(a_hat) in R^9:
-
-    g = [ th~, mxrs~, tr~, th~^2, mxrs~^2, tr~^2, th~*mxrs~, th~*tr~, mxrs~*tr~ ]^T
-
-Context x in R^5 from `utils.problem_amg.stencil_27_laplace`:
-
-    x = [1, s1, s2, s3, c_diag]^T
-
-Shared feature map:
-
-    phi(x,a) = [ x ; g ; s1*g ; s2*g ; s3*g ; c_diag*g ] in R^(5+5*9)=R^50
+Feature map (same as SharedLinUCB_AMG_v3 / SharedLinTS_AMG):
+  phi(x,a) = [ x ; g ; s1*g ; s2*g ; s3*g ; c_diag*g ] in R^50
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
@@ -47,7 +35,7 @@ from ._candidate_subset import CandidateSelector
 
 
 @dataclass(frozen=True)
-class SharedLinUCBv3Step:
+class BayesianbanditsStep:
     t: int
     arm_index: int
     loss: float
@@ -55,7 +43,27 @@ class SharedLinUCBv3Step:
     pred_uncert: float
 
 
-class SharedLinUCB_AMG_v3:
+def _robust_cholesky(A: np.ndarray) -> np.ndarray:
+    """
+    Compute a Cholesky factor with jitter/eigendecomposition fallback.
+    Returns L such that A ~= L L^T.
+    """
+    A = 0.5 * (A + A.T)
+    n = A.shape[0]
+    I = np.eye(n, dtype=float)
+    jitter = 0.0
+    for exp in range(6):
+        try:
+            return np.linalg.cholesky(A + jitter * I)
+        except np.linalg.LinAlgError:
+            jitter = 10.0 ** (-12 + 2 * exp)
+
+    w, V = np.linalg.eigh(A)
+    w = np.maximum(w, 1e-12)
+    return (V * np.sqrt(w)) @ V.T
+
+
+class Bayesianbandits_AMG_v1:
     _G_DIM = ACTION_FEATURE_DIM
 
     def __init__(
@@ -63,9 +71,11 @@ class SharedLinUCB_AMG_v3:
         actions: Sequence[Dict[str, Any]],
         context_dim: int,
         *,
+        # Keep alpha in signature for compatibility with existing factories.
         alpha: float = 1.0,
-        alpha_decay: bool = False,
         l2_reg: float = 1.0,
+        prior_a: float = 2.0,
+        prior_b: float = 1.0,
         s1_index: int = 1,
         s2_index: int = 2,
         s3_index: int = 3,
@@ -81,19 +91,26 @@ class SharedLinUCB_AMG_v3:
             raise ValueError("context_dim must be positive")
         if not actions:
             raise ValueError("actions must be non-empty")
-        if l2_reg <= 0.0:
-            raise ValueError("l2_reg must be > 0")
+        if not np.isfinite(l2_reg) or float(l2_reg) <= 0.0:
+            raise ValueError("l2_reg must be finite and > 0")
+        if not np.isfinite(alpha) or float(alpha) <= 0.0:
+            raise ValueError("alpha must be finite and > 0")
+        if not np.isfinite(prior_a) or float(prior_a) <= 0.0:
+            raise ValueError("prior_a must be finite and > 0")
+        if not np.isfinite(prior_b) or float(prior_b) <= 0.0:
+            raise ValueError("prior_b must be finite and > 0")
 
         self.actions: List[Dict[str, Any]] = [dict(a) for a in actions]
         self.K = len(self.actions)
         self.d_x = int(context_dim)
         self.g_dim = int(self._G_DIM)
-        # x + (g + 4 context interactions) => 5 g-blocks
         self.d_phi = self.d_x + 5 * self.g_dim
 
+        # `alpha` acts as posterior sample scale (temperature-like).
         self.alpha = float(alpha)
-        self.alpha_decay = bool(alpha_decay)
         self.l2_reg = float(l2_reg)
+        self.prior_a = float(prior_a)
+        self.prior_b = float(prior_b)
 
         self.s1_index = int(s1_index)
         self.s2_index = int(s2_index)
@@ -120,18 +137,30 @@ class SharedLinUCB_AMG_v3:
         )
 
         self._a_center = self._compute_action_center(action_center)
-
-        self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
-        self.b = np.zeros(self.d_phi, dtype=float)
-
         self._g_actions = np.zeros((self.K, self.g_dim), dtype=float)
         for i, a in enumerate(self.actions):
             self._g_actions[i] = self._g_from_action(a)
 
+        # Normal-Inverse-Gamma posterior state.
+        self._A0 = self.l2_reg * np.eye(self.d_phi, dtype=float)
+        self._m0 = np.zeros(self.d_phi, dtype=float)
+        self._A0_m0 = self._A0 @ self._m0
+        self._m0_quad = float(self._m0 @ self._A0_m0)
+
+        self.A = self._A0.copy()
+        self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
+        self.rhs = self._A0_m0.copy()
+        self.y_sq_sum = 0.0
+        self.n_obs = 0
+
+        self._theta_mean = self._m0.copy()
+        self._a_post = self.prior_a
+        self._b_post = self.prior_b
+
         self.t = 0
         self._last_phi: Optional[np.ndarray] = None
         self._last_arm: Optional[int] = None
-        self.history: List[SharedLinUCBv3Step] = []
+        self.history: List[BayesianbanditsStep] = []
 
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
         return action_center_from_actions(self.actions, action_center)
@@ -145,7 +174,7 @@ class SharedLinUCB_AMG_v3:
         return x
 
     def _g_from_action(self, params: Dict[str, Any]) -> np.ndarray:
-        a = action_param_vector(params, err_prefix="SharedLinUCB_AMG_v3")
+        a = action_param_vector(params, err_prefix="Bayesianbandits_AMG_v1")
         a = (a - self._a_center) / self._a_scales
         return poly2_features(a)
 
@@ -170,20 +199,13 @@ class SharedLinUCB_AMG_v3:
         phi[o : o + self.g_dim] = cd * g
         return phi
 
-    def _score_subset(
-        self,
-        x: np.ndarray,
-        *,
-        arms: Optional[np.ndarray],
-        alpha: float,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def _eval_theta_dot_phi_subset(self, x: np.ndarray, *, arms: np.ndarray, theta: np.ndarray) -> np.ndarray:
         s1 = float(x[self.s1_index])
         s2 = float(x[self.s2_index])
         s3 = float(x[self.s3_index])
         cd = float(x[self.cdiag_index])
-        G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]  # (K', g_dim)
+        G = self._g_actions[np.asarray(arms, dtype=int)]
 
-        theta = self.A_inv @ self.b
         theta_x = theta[: self.d_x]
         off = self.d_x
         theta_g = theta[off : off + self.g_dim]
@@ -197,7 +219,7 @@ class SharedLinUCB_AMG_v3:
         theta_cd = theta[off : off + self.g_dim]
 
         base = float(theta_x @ x)
-        mean = (
+        vals = (
             base
             + np.einsum("ij,j->i", G, theta_g, optimize=False)
             + s1 * np.einsum("ij,j->i", G, theta_s1, optimize=False)
@@ -205,65 +227,53 @@ class SharedLinUCB_AMG_v3:
             + s3 * np.einsum("ij,j->i", G, theta_s3, optimize=False)
             + cd * np.einsum("ij,j->i", G, theta_cd, optimize=False)
         )
+        return vals
 
-        # Structured uncertainty: phi = c + P g, where g varies per arm.
-        c = np.concatenate([x, np.zeros(5 * self.g_dim, dtype=float)], axis=0)
-        I = np.eye(self.g_dim, dtype=float)
-        P = np.vstack(
-            [
-                np.zeros((self.d_x, self.g_dim), dtype=float),
-                I,
-                s1 * I,
-                s2 * I,
-                s3 * I,
-                cd * I,
-            ]
-        )
+    def _refresh_posterior(self) -> None:
+        self._theta_mean = self.A_inv @ self.rhs
+        self._a_post = self.prior_a + 0.5 * float(self.n_obs)
 
-        Ainv = self.A_inv
-        Ac = Ainv @ c
-        q0 = float(c @ Ac)
-        AP = Ainv @ P
-        u = P.T @ Ac
-        M = P.T @ AP
+        quad = float(self._theta_mean @ (self.A @ self._theta_mean))
+        b_post = self.prior_b + 0.5 * (float(self.y_sq_sum) + self._m0_quad - quad)
+        if (not np.isfinite(b_post)) or b_post <= 1e-12:
+            b_post = 1e-12
+        self._b_post = float(b_post)
 
-        quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
-        uncert = np.sqrt(np.maximum(0.0, quad))
-        score = mean - float(alpha) * uncert
-        return score, mean, uncert
+    def _sample_theta(self) -> np.ndarray:
+        # sigma^2 ~ InvGamma(a,b), sampled via precision tau ~ Gamma(a, rate=b)
+        tau = self.rng.gamma(shape=self._a_post, scale=1.0 / self._b_post)
+        sigma2 = 1.0 / float(tau)
+
+        L = _robust_cholesky(self.A_inv)
+        z = self.rng.standard_normal(self.d_phi)
+        return self._theta_mean + float(self.alpha) * np.sqrt(sigma2) * (L @ z)
 
     def predict(self, context: Iterable[float]) -> Dict[str, Any]:
         x = self._validate_x(np.asarray(list(context), dtype=float))
+        theta = self._sample_theta()
 
-        alpha_eff = float(self.alpha) / np.sqrt(self.t + 1.0) if self.alpha_decay else float(self.alpha)
-        M = self._cand.candidate_pool_size
-        if M is None or int(M) >= self.K:
-            score, mean, uncert = self._score_subset(x, arms=None, alpha=alpha_eff)
-            best_score = float(np.min(score))
-            best_arms = np.flatnonzero(score <= best_score + 1e-12)
-            arm = int(np.min(best_arms))
-            best_mean = float(mean[arm])
-            best_unc = float(uncert[arm])
-        else:
-            cand = self._cand.candidate_subset()
-            score, mean, uncert = self._score_subset(x, arms=cand, alpha=alpha_eff)
-            best_score = float(np.min(score))
-            best_loc = np.flatnonzero(score <= best_score + 1e-12)
-            loc = int(best_loc[np.argmin(cand[best_loc])])
-            arm = int(cand[loc])
-            best_mean = float(mean[loc])
-            best_unc = float(uncert[loc])
+        cand = self._cand.candidate_subset()
+        vals = self._eval_theta_dot_phi_subset(x, arms=cand, theta=theta)
+        best_val = float(np.min(vals))
+        best_loc = np.flatnonzero(vals <= best_val + 1e-12)
+        loc = int(best_loc[np.argmin(cand[best_loc])])
+        arm = int(cand[loc])
 
-        self._last_phi = self._phi(x, arm)
+        phi = self._phi(x, arm)
+        pred_mean = float(self._theta_mean @ phi)
+        quad = float(phi @ (self.A_inv @ phi))
+        mean_var_scale = self._b_post / max(self._a_post - 1.0, 1e-12)
+        pred_unc = float(np.sqrt(max(0.0, mean_var_scale * quad)))
+
+        self._last_phi = phi
         self._last_arm = arm
-
         self.history.append(
-            SharedLinUCBv3Step(
+            BayesianbanditsStep(
                 t=self.t + 1,
                 arm_index=arm,
                 loss=float("nan"),
-                pred_mean=best_mean,
-                pred_uncert=best_unc,
+                pred_mean=pred_mean,
+                pred_uncert=pred_unc,
             )
         )
         return dict(self.actions[arm])
@@ -280,19 +290,22 @@ class SharedLinUCB_AMG_v3:
 
         self._cand.observe(arm, y)
 
+        self.A = self.A + np.outer(phi, phi)
+
         u = self.A_inv @ phi
         denom = 1.0 + float(phi @ u)
         if denom <= 0.0 or not np.isfinite(denom):
-            A = np.linalg.inv(self.A_inv)
-            A = A + np.outer(phi, phi)
-            self.A_inv = np.linalg.inv(A)
+            self.A_inv = np.linalg.inv(self.A)
         else:
             self.A_inv = self.A_inv - np.outer(u, u) / denom
 
-        self.b = self.b + y * phi
+        self.rhs = self.rhs + y * phi
+        self.y_sq_sum += y * y
+        self.n_obs += 1
+        self._refresh_posterior()
 
         last = self.history[-1]
-        self.history[-1] = SharedLinUCBv3Step(
+        self.history[-1] = BayesianbanditsStep(
             t=last.t,
             arm_index=last.arm_index,
             loss=y,

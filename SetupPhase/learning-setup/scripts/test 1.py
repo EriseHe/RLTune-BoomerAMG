@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from utils.setup_amg import run_amg_setup_experiment
 from utils.setup_amg import build_actions_th_coarsen_interp, build_actions_th_mxrs_tr
-from utils.problem_amg import stencil_27_laplace
+from utils.problem_amg import CONTEXT_DIM, stencil_27_laplace
 from learners.LinUCB_AMG import LinUCB_AMG
 
 T = 5000
@@ -46,7 +46,7 @@ class LinFactory:
     def new_trial(self, *, parameter_space, seed, **kwargs):
         class P:
             def __init__(self, actions, alpha, l2, seed):
-                self.m = LinUCB_AMG(actions, context_dim=5, alpha=float(alpha), l2_reg=float(l2), seed=int(seed))
+                self.m = LinUCB_AMG(actions, context_dim=CONTEXT_DIM, alpha=float(alpha), l2_reg=float(l2), seed=int(seed))
             def select(self, context, **kwargs):
                 return self.m.predict(context), {}
             def update(self, loss, **kwargs):
@@ -56,7 +56,7 @@ class LinFactory:
 # Default baseline timed independently (no interleaving bias)
 res_default = run_amg_setup_experiment(
     stencil_27_laplace,
-    {"actions": [default_params], "context_dim": 5},
+    {"actions": [default_params], "context_dim": CONTEXT_DIM},
     FixedPolicy(default_params),
     runtime_loss_ms,
     T=T, trials=TRIALS, seed=SEED, baselines=[],
@@ -75,7 +75,7 @@ actions_cont3 = build_actions_th_mxrs_tr(
 
 res_cont3 = run_amg_setup_experiment(
     stencil_27_laplace,
-    {"actions": actions_cont3, "context_dim": 5},
+    {"actions": actions_cont3, "context_dim": CONTEXT_DIM},
     LinFactory(alpha=1.0, l2=1.0),
     runtime_loss_ms,
     T=T, trials=TRIALS, seed=SEED, baselines=[],
@@ -92,7 +92,7 @@ actions_th = build_actions_th_coarsen_interp(
 
 res_th = run_amg_setup_experiment(
     stencil_27_laplace,
-    {"actions": actions_th, "context_dim": 5},
+    {"actions": actions_th, "context_dim": CONTEXT_DIM},
     LinFactory(alpha=1.0, l2=1.0),
     runtime_loss_ms,
     T=T, trials=TRIALS, seed=SEED, baselines=[],

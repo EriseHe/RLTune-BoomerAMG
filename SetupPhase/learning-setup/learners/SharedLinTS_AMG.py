@@ -16,6 +16,14 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
+from ._amg_action_features import (
+    ACTION_FEATURE_DEFAULT_SCALES,
+    ACTION_FEATURE_DIM,
+    action_center_from_actions,
+    action_param_vector,
+    normalize_action_scales,
+    poly2_features,
+)
 from ._candidate_subset import CandidateSelector
 
 
@@ -50,7 +58,7 @@ def _robust_cholesky(A: np.ndarray) -> np.ndarray:
 
 
 class SharedLinTS_AMG:
-    _G_DIM = 9
+    _G_DIM = ACTION_FEATURE_DIM
 
     def __init__(
         self,
@@ -66,7 +74,7 @@ class SharedLinTS_AMG:
         s3_index: int = 3,
         cdiag_index: int = 4,
         action_center: Optional[Dict[str, Any]] = None,
-        action_scales: Sequence[float] = (0.25, 0.1, 0.2),
+        action_scales: Sequence[float] = ACTION_FEATURE_DEFAULT_SCALES,
         candidate_pool_size: Optional[int] = None,
         always_include_arms: Optional[Sequence[int]] = None,
         elite_cache_size: int = 0,
@@ -103,12 +111,7 @@ class SharedLinTS_AMG:
             if not (0 <= int(idx) < self.d_x):
                 raise ValueError(f"{idx_name} must be within [0, context_dim)")
 
-        scales = np.asarray(list(action_scales), dtype=float).reshape(-1)
-        if scales.size != 3:
-            raise ValueError("action_scales must have length 3")
-        if not np.all(np.isfinite(scales)) or np.any(scales <= 0.0):
-            raise ValueError("action_scales must be finite and > 0")
-        self._a_scales = scales
+        self._a_scales = normalize_action_scales(action_scales)
 
         self.rng = np.random.default_rng(seed)
         self._cand = CandidateSelector(
@@ -134,19 +137,7 @@ class SharedLinTS_AMG:
         self.history: List[SharedLinTSStep] = []
 
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
-        if action_center is not None:
-            return np.array(
-                [
-                    float(action_center["strong_threshold"]),
-                    float(action_center["max_row_sum"]),
-                    float(action_center["trunc_factor"]),
-                ],
-                dtype=float,
-            )
-        th = np.array([float(a["strong_threshold"]) for a in self.actions], dtype=float)
-        mxrs = np.array([float(a["max_row_sum"]) for a in self.actions], dtype=float)
-        tr = np.array([float(a["trunc_factor"]) for a in self.actions], dtype=float)
-        return np.array([float(np.mean(th)), float(np.mean(mxrs)), float(np.mean(tr))], dtype=float)
+        return action_center_from_actions(self.actions, action_center)
 
     def _validate_x(self, x: np.ndarray) -> np.ndarray:
         x = np.asarray(x, dtype=float).reshape(-1)
@@ -157,34 +148,9 @@ class SharedLinTS_AMG:
         return x
 
     def _g_from_action(self, params: Dict[str, Any]) -> np.ndarray:
-        try:
-            th = float(params["strong_threshold"])
-            mxrs = float(params["max_row_sum"])
-            tr = float(params["trunc_factor"])
-        except KeyError as e:
-            raise KeyError(f"SharedLinTS_AMG action missing required key: {e}") from e
-
-        if not (np.isfinite(th) and np.isfinite(mxrs) and np.isfinite(tr)):
-            raise ValueError("action parameters must be finite")
-
-        th = (th - float(self._a_center[0])) / float(self._a_scales[0])
-        mxrs = (mxrs - float(self._a_center[1])) / float(self._a_scales[1])
-        tr = (tr - float(self._a_center[2])) / float(self._a_scales[2])
-
-        return np.array(
-            [
-                th,
-                mxrs,
-                tr,
-                th * th,
-                mxrs * mxrs,
-                tr * tr,
-                th * mxrs,
-                th * tr,
-                mxrs * tr,
-            ],
-            dtype=float,
-        )
+        a = action_param_vector(params, err_prefix="SharedLinTS_AMG")
+        a = (a - self._a_center) / self._a_scales
+        return poly2_features(a)
 
     def _phi(self, x: np.ndarray, arm: int) -> np.ndarray:
         s1 = float(x[self.s1_index])
@@ -333,4 +299,3 @@ class SharedLinTS_AMG:
         self.t += 1
         self._last_phi = None
         self._last_arm = None
-
