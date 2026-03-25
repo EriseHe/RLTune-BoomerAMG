@@ -19,7 +19,7 @@ Let a_hat = (th~, mxrs~, tr~). Define g(a_hat) in R^9:
 
     g = [ th~, mxrs~, tr~, th~^2, mxrs~^2, tr~^2, th~*mxrs~, th~*tr~, mxrs~*tr~ ]^T
 
-Context x in R^5 from `utils.problem_amg.stencil_27_laplace`:
+Context x in R^5 from `utils.stencil27_laplace.stencil_27_laplace`:
 
     x = [1, s1, s2, s3, c_diag]^T
 

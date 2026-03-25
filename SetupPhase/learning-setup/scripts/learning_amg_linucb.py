@@ -21,7 +21,7 @@ from utils.setup_amg import (
     save_logs,
     summarize_totals,
 )
-from utils.problem_amg import NX, NY, NZ, STENCIL, stencil_27_laplace
+from utils.stencil27_laplace import NX, NY, NZ, STENCIL, stencil_27_laplace
 from learners.LinUCB_AMG import LinUCB_AMG
 
 

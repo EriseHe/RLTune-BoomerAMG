@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from utils.setup_amg import run_amg_setup_experiment
 from utils.setup_amg import build_actions_th_coarsen_interp, build_actions_th_mxrs_tr
-from utils.problem_amg import CONTEXT_DIM, stencil_27_laplace
+from utils.stencil27_laplace import CONTEXT_DIM, stencil_27_laplace
 from learners.LinUCB_AMG import LinUCB_AMG
 
 T = 5000

@@ -27,7 +27,10 @@ from learners.SharedLinTS_AMG import SharedLinTS_AMG
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from solver import solve
-from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
+from utils.scalar_anisotropic_diffusion import (
+    SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM,
+    stencil_0_scalar_anisotropic_diffusion_rl,
+)
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from utils.setup_amg import (
     build_actions_th_mxrs_tr,
@@ -166,7 +169,7 @@ def main() -> None:
         actions.append(dict(DEFAULT_PARAMS))
         default_arm_index = len(actions) - 1
 
-    parameter_space = {"actions": actions, "context_dim": DIFCONV_CONTEXT_DIM}
+    parameter_space = {"actions": actions, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
 
     sampler_kwargs = dict(n_min=N_MIN, n_max=N_MAX, c_min=C_MIN, c_max=C_MAX)
     if FIXED_N > 0:
@@ -181,7 +184,7 @@ def main() -> None:
         )
 
     warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_0_difconv_rl(rng=warm_rng, **sampler_kwargs)
+    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=warm_rng, **sampler_kwargs)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
     methods = [
@@ -287,7 +290,7 @@ def main() -> None:
             }
 
     for t in range(T):
-        mkw, context, _meta = stencil_0_difconv_rl(rng=rng_inst, **sampler_kwargs)
+        mkw, context, _meta = stencil_0_scalar_anisotropic_diffusion_rl(rng=rng_inst, **sampler_kwargs)
         order = rng_order.permutation(len(methods))
 
         for i in order:
@@ -326,7 +329,7 @@ def main() -> None:
     run_dir = create_run_output_dir(
         base_dir=plots_base_dir,
         script_name=Path(__file__).stem,
-        problem_name="difconv",
+    problem_name="scalar_anisotropic_diffusion",
         size_tag=size_tag,
         T=T,
         seed=SEED,
@@ -340,7 +343,7 @@ def main() -> None:
         overhead_sec=overhead,
         T=T,
         title=(
-            f"BoomerAMG Setup runtime cumulative (test 4, difconv)  "
+        f"BoomerAMG Setup runtime cumulative (test 4, scalar anisotropic diffusion)  "
             f"T={T}  {n_desc}  c={C_MIN:g}..{C_MAX:g}"
         ),
         default_method_name="default (fixed)",
@@ -359,7 +362,7 @@ def main() -> None:
             "fixed_n": int(FIXED_N),
             "c_min": float(C_MIN),
             "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
+    "context_dim": int(SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM),
             "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
             "elite_cache_size": int(ELITE_CACHE_SIZE),
             "actions_grid_n": int(grid_n),

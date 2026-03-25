@@ -1,9 +1,9 @@
 """
-High-level BoomerAMG solver for bandit experiments.
+High-level BoomerAMG solver for setup-phase bandit experiments.
 
-Thin Python wrapper around libamg_setup_solver.dylib (C calling HYPRE).
-Matrix is built in C using the same Laplacian builders as the solve-phase
-RL environment, ensuring identical problem instances.
+Thin Python wrapper around the compiled `libamg_setup_solver` shared library.
+Matrix construction happens in C so the setup-phase scripts can share the same
+native problem builders across platforms.
 
     from solver import solve, SolveResult, TUNABLE_PARAMS
 
@@ -61,17 +61,17 @@ _ULL = ctypes.c_ulonglong
 _lib.amg_setup_create.restype = _VP
 _lib.amg_setup_create.argtypes = [
     _I, _I, _I,       # nx, ny, nz
-    _I,               # stencil_type (7 or 27)
+    _I,               # stencil_type (0, 7, or 27)
     _I, _ULL,         # rhs_type, rhs_seed
-    _D, _D,           # k, c         (7pt coeffs)
-    _D, _D, _D, _D,   # a0, a1, a2, a3  (27pt coeffs)
+    _D, _D,           # k, c
+    _D, _D, _D, _D,   # a0, a1, a2, a3
 ]
 
 _lib.amg_setup_solve.restype = _I
 _lib.amg_setup_solve.argtypes = [
     _VP,                              # env
     _D, _I, _I, _D, _I, _I, _I, _I,  # strong_threshold..max_levels (incl. max_row_sum)
-    _D, _I, _I, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
+    _D, _I, _I, _I, _D, _I, _D, _I, _I,  # trunc_factor..max_coarse_size
     _D, _I,                           # tol, max_iter
     ctypes.POINTER(_I),               # out_iters
     ctypes.POINTER(_D),               # out_complexity
@@ -103,6 +103,8 @@ TUNABLE_PARAMS = {
     "P_max_elmts":      int,
     "agg_num_levels":   int,
     "agg_interp_type":  int,
+    "agg_tr":           float,
+    "agg_Pmx":          int,
     "relax_wt":         float,
     "relax_order":      int,
     "max_coarse_size":  int,
@@ -112,6 +114,7 @@ _PARAM_ORDER = [
     "strong_threshold", "coarsen_type", "interp_type", "max_row_sum",
     "relax_type", "num_sweeps", "cycle_type", "max_levels",
     "trunc_factor", "P_max_elmts", "agg_num_levels", "agg_interp_type",
+    "agg_tr", "agg_Pmx",
     "relax_wt", "relax_order", "max_coarse_size",
 ]
 
@@ -144,16 +147,16 @@ def solve(
     max_iter: int = 10_000,
 ) -> SolveResult:
     """
-    Build a Laplacian and solve with BoomerAMG using the given setup params.
+    Build a matrix and solve with BoomerAMG using the given setup params.
 
     Parameters
     ----------
     params    : dict of setup-phase knobs (keys from TUNABLE_PARAMS).
     nx,ny,nz  : grid dimensions  (same as solve-phase environment).
-    stencil   : 7 or 27 point stencil.
+    stencil   : 7 or 27 point Laplacian stencil, or 0 for DifConv.
     rhs_type  : 0 = ones, 1 = random.
-    k,c       : 7pt Laplacian coefficients.
-    a0..a3    : 27pt Laplacian coefficients.
+    k,c       : 7pt coefficients, or DifConv cx/cy when stencil=0.
+    a0..a3    : 27pt coefficients, or DifConv cz/ax/ay/az when stencil=0.
     tol       : relative convergence tolerance.
     max_iter  : V-cycle cap.
 

@@ -20,20 +20,26 @@ class CandidateSelector:
         candidate_pool_size: Optional[int],
         always_include_arms: Optional[Sequence[int]],
         elite_cache_size: int,
+        elite_rank_metric: str = "best_loss",
         rng: np.random.Generator,
     ) -> None:
         if K <= 0:
             raise ValueError("K must be positive")
         if elite_cache_size < 0:
             raise ValueError("elite_cache_size must be >= 0")
+        if elite_rank_metric not in {"best_loss", "mean_loss"}:
+            raise ValueError("elite_rank_metric must be 'best_loss' or 'mean_loss'")
         self.K = int(K)
         self.rng = rng
         self.candidate_pool_size = int(candidate_pool_size) if candidate_pool_size is not None else None
+        self.elite_rank_metric = str(elite_rank_metric)
 
         self._always_include_arms = self._validate_always_include_arms(always_include_arms)
         self.elite_cache_size = int(elite_cache_size)
         self._elite_arms = np.zeros(0, dtype=int)
         self._arm_best_loss = np.full(self.K, np.inf, dtype=float) if self.elite_cache_size > 0 else None
+        self._arm_loss_sum = np.zeros(self.K, dtype=float) if self.elite_cache_size > 0 else None
+        self._arm_obs_count = np.zeros(self.K, dtype=int) if self.elite_cache_size > 0 else None
 
     def _validate_always_include_arms(self, always_include_arms: Optional[Sequence[int]]) -> np.ndarray:
         if always_include_arms is None:
@@ -70,12 +76,31 @@ class CandidateSelector:
                 seen.add(ai)
         return np.asarray(out, dtype=int)
 
-    def candidate_subset(self) -> np.ndarray:
+    @property
+    def always_include_arms(self) -> np.ndarray:
+        return np.asarray(self._always_include_arms, dtype=int)
+
+    @property
+    def elite_arms(self) -> np.ndarray:
+        return np.asarray(self._elite_arms, dtype=int)
+
+    @property
+    def arm_mean_loss(self) -> np.ndarray:
+        if self._arm_loss_sum is None or self._arm_obs_count is None:
+            return np.full(self.K, np.inf, dtype=float)
+        out = np.full(self.K, np.inf, dtype=float)
+        mask = self._arm_obs_count > 0
+        out[mask] = self._arm_loss_sum[mask] / self._arm_obs_count[mask]
+        return out
+
+    def candidate_subset(self, *, pool_size: Optional[int] = None) -> np.ndarray:
         """
         Return a candidate subset of arms to score when candidate_pool_size is set.
         Always includes the configured always-include arms and the current elite cache.
         """
-        M = int(self.candidate_pool_size) if self.candidate_pool_size is not None else self.K
+        M = int(pool_size) if pool_size is not None else (
+            int(self.candidate_pool_size) if self.candidate_pool_size is not None else self.K
+        )
         if M >= self.K:
             return np.arange(self.K, dtype=int)
 
@@ -111,8 +136,13 @@ class CandidateSelector:
             return
 
         self._arm_best_loss[a] = min(float(self._arm_best_loss[a]), y)
+        self._arm_loss_sum[a] += y
+        self._arm_obs_count[a] += 1
 
-        finite = np.flatnonzero(np.isfinite(self._arm_best_loss))
+        if self.elite_rank_metric == "mean_loss":
+            finite = np.flatnonzero(self._arm_obs_count > 0)
+        else:
+            finite = np.flatnonzero(np.isfinite(self._arm_best_loss))
         if finite.size == 0:
             return
 
@@ -120,9 +150,13 @@ class CandidateSelector:
         if k <= 0:
             return
 
-        vals = self._arm_best_loss[finite]
+        if self.elite_rank_metric == "mean_loss":
+            vals = self.arm_mean_loss[finite]
+        else:
+            vals = self._arm_best_loss[finite]
         top_loc = np.argpartition(vals, kth=k - 1)[:k]
         elite = finite[top_loc]
-        elite = elite[np.argsort(self._arm_best_loss[elite])]
+        elite_vals = vals[top_loc]
+        elite = elite[np.argsort(elite_vals)]
         self._elite_arms = elite.astype(int)
 

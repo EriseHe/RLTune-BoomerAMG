@@ -27,7 +27,10 @@ from learners.SharedLinTS_AMG import SharedLinTS_AMG
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from solver import solve
-from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
+from utils.scalar_anisotropic_diffusion import (
+    SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM,
+    stencil_0_scalar_anisotropic_diffusion_rl,
+)
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, record_param_trace
 
@@ -274,7 +277,7 @@ def _generate_instances(*, T: int, seed: int, sampler_kwargs: Dict[str, Any]):
     rng = np.random.default_rng(seed)
     instances = []
     for t in range(int(T)):
-        mkw, context, _meta = stencil_0_difconv_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
+        mkw, context, _meta = stencil_0_scalar_anisotropic_diffusion_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
         instances.append((mkw, np.asarray(context, dtype=float)))
     return instances
 
@@ -298,7 +301,7 @@ def _run_experiment(
         actions = [*actions, dict(DEFAULT_PARAMS)]
         default_arm_index = len(actions) - 1
 
-    parameter_space = {"actions": actions, "context_dim": DIFCONV_CONTEXT_DIM}
+    parameter_space = {"actions": actions, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
     methods = _make_methods(parameter_space=parameter_space, default_arm_index=int(default_arm_index), seed_base=seed_base)
 
     rt = {name: np.zeros(T, dtype=float) for name, _ in methods}
@@ -373,7 +376,7 @@ def _run_experiment(
         overhead_sec=overhead,
         T=T,
         title=(
-            f"BoomerAMG Setup runtime cumulative ({experiment_label}, difconv)  "
+        f"BoomerAMG Setup runtime cumulative ({experiment_label}, scalar anisotropic diffusion)  "
             f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
         ),
         default_method_name="default (fixed)",
@@ -393,7 +396,7 @@ def _run_experiment(
             "fixed_n": int(FIXED_N),
             "c_min": float(C_MIN),
             "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
+    "context_dim": int(SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM),
             "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
             "elite_cache_size": int(ELITE_CACHE_SIZE),
             "solver_tol": float(SOLVER_TOL),
@@ -453,7 +456,7 @@ def main() -> None:
     }
 
     # Warm-up one solve to avoid measuring first-call overhead in the experiments.
-    warm_mkw, _, _ = stencil_0_difconv_rl(rng=fail_warm_rng, t=0, trial=0, **sampler_kwargs)
+    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=fail_warm_rng, t=0, trial=0, **sampler_kwargs)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
     grid_n, _grid_max, th_grid, mxrs_grid, tr_grid = _build_grids()
@@ -465,7 +468,7 @@ def main() -> None:
     run_dir = create_run_output_dir(
         base_dir=plots_base_dir,
         script_name=Path(__file__).stem,
-        problem_name="difconv",
+    problem_name="scalar_anisotropic_diffusion",
         size_tag=f"{FIXED_N}x{FIXED_N}x{FIXED_N}",
         T=T,
         seed=SEED,

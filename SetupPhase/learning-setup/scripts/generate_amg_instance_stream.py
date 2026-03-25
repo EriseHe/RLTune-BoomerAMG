@@ -36,7 +36,7 @@ os.environ.setdefault("OMPI_MCA_btl", "self,sm")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from utils.problem_amg import A1_BASE, A2_BASE, A3_BASE, stencil_27_laplace
+from utils.stencil27_laplace import A1_BASE, A2_BASE, A3_BASE, stencil_27_laplace
 
 
 def sample_instance(rng: np.random.Generator, *, nz: int) -> Dict[str, Any]:

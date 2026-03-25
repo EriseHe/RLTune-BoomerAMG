@@ -71,6 +71,135 @@ extern HYPRE_Int BuildIJLaplacian27pt(HYPRE_Int argc, char *argv[],
                                       HYPRE_IJMatrix *A_ptr,
                                       HYPRE_MemoryLocation memory_location);
 
+static inline HYPRE_Int sign_double(HYPRE_Real a)
+{
+    return ((0.0 < a) - (0.0 > a));
+}
+
+static HYPRE_ParCSRMatrix build_difconv_matrix(
+    MPI_Comm comm,
+    HYPRE_BigInt nx, HYPRE_BigInt ny, HYPRE_BigInt nz,
+    HYPRE_Real cx, HYPRE_Real cy, HYPRE_Real cz,
+    HYPRE_Real ax, HYPRE_Real ay, HYPRE_Real az,
+    HYPRE_Int atype)
+{
+    HYPRE_Int num_procs, myid;
+    HYPRE_Int P, Q, R;
+    HYPRE_Int p, q, r;
+    HYPRE_Real hinx, hiny, hinz;
+    HYPRE_Int sign_prod;
+    HYPRE_Real *values;
+
+    hypre_MPI_Comm_size(comm, &num_procs);
+    hypre_MPI_Comm_rank(comm, &myid);
+
+    P = 1;
+    Q = num_procs;
+    R = 1;
+
+    p = myid % P;
+    q = ((myid - p) / P) % Q;
+    r = (myid - p - P * q) / (P * Q);
+
+    hinx = 1. / (HYPRE_Real)(nx + 1);
+    hiny = 1. / (HYPRE_Real)(ny + 1);
+    hinz = 1. / (HYPRE_Real)(nz + 1);
+
+    values = hypre_CTAlloc(HYPRE_Real, 7, HYPRE_MEMORY_HOST);
+    values[0] = 0.0;
+
+    if (0 == atype)
+    {
+        values[1] = -cx / (hinx * hinx);
+        values[2] = -cy / (hiny * hiny);
+        values[3] = -cz / (hinz * hinz);
+        values[4] = -cx / (hinx * hinx) + ax / hinx;
+        values[5] = -cy / (hiny * hiny) + ay / hiny;
+        values[6] = -cz / (hinz * hinz) + az / hinz;
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) - 1. * ax / hinx; }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) - 1. * ay / hiny; }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) - 1. * az / hinz; }
+    }
+    else if (1 == atype)
+    {
+        values[1] = -cx / (hinx * hinx) - ax / hinx;
+        values[2] = -cy / (hiny * hiny) - ay / hiny;
+        values[3] = -cz / (hinz * hinz) - az / hinz;
+        values[4] = -cx / (hinx * hinx);
+        values[5] = -cy / (hiny * hiny);
+        values[6] = -cz / (hinz * hinz);
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) + 1. * ax / hinx; }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) + 1. * ay / hiny; }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) + 1. * az / hinz; }
+    }
+    else if (3 == atype)
+    {
+        sign_prod = sign_double(cx) * sign_double(ax);
+        if (sign_prod == 1)
+        {
+            values[1] = -cx / (hinx * hinx) - ax / hinx;
+            values[4] = -cx / (hinx * hinx);
+            if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) + 1. * ax / hinx; }
+        }
+        else
+        {
+            values[1] = -cx / (hinx * hinx);
+            values[4] = -cx / (hinx * hinx) + ax / hinx;
+            if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx) - 1. * ax / hinx; }
+        }
+
+        sign_prod = sign_double(cy) * sign_double(ay);
+        if (sign_prod == 1)
+        {
+            values[2] = -cy / (hiny * hiny) - ay / hiny;
+            values[5] = -cy / (hiny * hiny);
+            if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) + 1. * ay / hiny; }
+        }
+        else
+        {
+            values[2] = -cy / (hiny * hiny);
+            values[5] = -cy / (hiny * hiny) + ay / hiny;
+            if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny) - 1. * ay / hiny; }
+        }
+
+        sign_prod = sign_double(cz) * sign_double(az);
+        if (sign_prod == 1)
+        {
+            values[3] = -cz / (hinz * hinz) - az / hinz;
+            values[6] = -cz / (hinz * hinz);
+            if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) + 1. * az / hinz; }
+        }
+        else
+        {
+            values[3] = -cz / (hinz * hinz);
+            values[6] = -cz / (hinz * hinz) + az / hinz;
+            if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz) - 1. * az / hinz; }
+        }
+    }
+    else
+    {
+        values[1] = -cx / (hinx * hinx) - ax / (2. * hinx);
+        values[2] = -cy / (hiny * hiny) - ay / (2. * hiny);
+        values[3] = -cz / (hinz * hinz) - az / (2. * hinz);
+        values[4] = -cx / (hinx * hinx) + ax / (2. * hinx);
+        values[5] = -cy / (hiny * hiny) + ay / (2. * hiny);
+        values[6] = -cz / (hinz * hinz) + az / (2. * hinz);
+
+        if (nx > 1) { values[0] += 2.0 * cx / (hinx * hinx); }
+        if (ny > 1) { values[0] += 2.0 * cy / (hiny * hiny); }
+        if (nz > 1) { values[0] += 2.0 * cz / (hinz * hinz); }
+    }
+
+    {
+        HYPRE_ParCSRMatrix A = (HYPRE_ParCSRMatrix) GenerateDifConv(
+            comm, nx, ny, nz, P, Q, R, p, q, r, values);
+        hypre_TFree(values, HYPRE_MEMORY_HOST);
+        return A;
+    }
+}
+
 /* ------------------------------------------------------------------ */
 typedef struct
 {
@@ -148,39 +277,52 @@ AMG_API AMGSetupEnv* amg_setup_create(
     env->comm = hypre_MPI_COMM_WORLD;
 
     /* Build matrix A — identical to amg_env.c */
-    HYPRE_BigInt system_size = 0;
-    HYPRE_IJMatrix ij_A = NULL;
-    char *argv[32]; int argc = 0;
-    char nx_s[32], ny_s[32], nz_s[32];
-    sprintf(nx_s, "%d", nx); sprintf(ny_s, "%d", ny); sprintf(nz_s, "%d", nz);
-    argv[argc++] = (char*) "amg_setup";
-    argv[argc++] = (char*) "-n"; argv[argc++] = nx_s; argv[argc++] = ny_s; argv[argc++] = nz_s;
-
-    if (stencil_type == 7)
+    void *obj = NULL;
+    if (stencil_type == 0)
     {
-        char ks[64], cs[64];
-        sprintf(ks, "%.17g", k); sprintf(cs, "%.17g", c);
-        argv[argc++] = (char*) "-k"; argv[argc++] = ks;
-        argv[argc++] = (char*) "-c"; argv[argc++] = cs;
-        BuildIJLaplacian7pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        env->A = build_difconv_matrix(
+            env->comm,
+            (HYPRE_BigInt) nx, (HYPRE_BigInt) ny, (HYPRE_BigInt) nz,
+            (HYPRE_Real) k, (HYPRE_Real) c, (HYPRE_Real) a0,
+            (HYPRE_Real) a1, (HYPRE_Real) a2, (HYPRE_Real) a3,
+            0);
+        env->ij_A = NULL;
     }
     else
     {
-        char s0[64], s1[64], s2[64], s3[64];
-        sprintf(s0, "%.17g", a0); sprintf(s1, "%.17g", a1);
-        sprintf(s2, "%.17g", a2); sprintf(s3, "%.17g", a3);
-        argv[argc++] = (char*) "-coef27";
-        argv[argc++] = s0; argv[argc++] = s1; argv[argc++] = s2; argv[argc++] = s3;
-        BuildIJLaplacian27pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        HYPRE_BigInt system_size = 0;
+        HYPRE_IJMatrix ij_A = NULL;
+        char *argv[32]; int argc = 0;
+        char nx_s[32], ny_s[32], nz_s[32];
+        sprintf(nx_s, "%d", nx); sprintf(ny_s, "%d", ny); sprintf(nz_s, "%d", nz);
+        argv[argc++] = (char*) "amg_setup";
+        argv[argc++] = (char*) "-n"; argv[argc++] = nx_s; argv[argc++] = ny_s; argv[argc++] = nz_s;
+
+        if (stencil_type == 7)
+        {
+            char ks[64], cs[64];
+            sprintf(ks, "%.17g", k); sprintf(cs, "%.17g", c);
+            argv[argc++] = (char*) "-k"; argv[argc++] = ks;
+            argv[argc++] = (char*) "-c"; argv[argc++] = cs;
+            BuildIJLaplacian7pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        }
+        else
+        {
+            char s0[64], s1[64], s2[64], s3[64];
+            sprintf(s0, "%.17g", a0); sprintf(s1, "%.17g", a1);
+            sprintf(s2, "%.17g", a2); sprintf(s3, "%.17g", a3);
+            argv[argc++] = (char*) "-coef27";
+            argv[argc++] = s0; argv[argc++] = s1; argv[argc++] = s2; argv[argc++] = s3;
+            BuildIJLaplacian27pt(argc, argv, &system_size, &ij_A, HYPRE_MEMORY_HOST);
+        }
+
+        env->ij_A = ij_A;
+        HYPRE_IJMatrixGetObject(ij_A, &obj);
+        env->A = (HYPRE_ParCSRMatrix) obj;
     }
 
-    env->ij_A = ij_A;
-    void *obj = NULL;
-    HYPRE_IJMatrixGetObject(ij_A, &obj);
-    env->A = (HYPRE_ParCSRMatrix) obj;
-
     /* nnz for complexity */
-    hypre_ParCSRMatrix *pA = (hypre_ParCSRMatrix*) obj;
+    hypre_ParCSRMatrix *pA = (hypre_ParCSRMatrix*) env->A;
     env->nnz = (int)(hypre_CSRMatrixNumNonzeros(hypre_ParCSRMatrixDiag(pA))
                     + hypre_CSRMatrixNumNonzeros(hypre_ParCSRMatrixOffd(pA)));
 
@@ -245,6 +387,7 @@ AMG_API int amg_setup_solve(
     int relax_type, int num_sweeps, int cycle_type, int max_levels,
     double trunc_factor, int P_max_elmts,
     int agg_num_levels, int agg_interp_type,
+    double agg_tr, int agg_Pmx,
     double relax_wt, int relax_order, int max_coarse_size,
     double tol, int max_iter,
     int *out_iters, double *out_complexity, double *out_residual, double *out_runtime)
@@ -278,6 +421,8 @@ AMG_API int amg_setup_solve(
     if (P_max_elmts >= 0)        HYPRE_BoomerAMGSetPMaxElmts(solver, P_max_elmts);
     if (agg_num_levels >= 0)     HYPRE_BoomerAMGSetAggNumLevels(solver, agg_num_levels);
     if (agg_interp_type >= 0)    HYPRE_BoomerAMGSetAggInterpType(solver, agg_interp_type);
+    if (agg_tr >= 0.0)           HYPRE_BoomerAMGSetAggTruncFactor(solver, agg_tr);
+    if (agg_Pmx >= 0)            HYPRE_BoomerAMGSetAggPMaxElmts(solver, agg_Pmx);
     if (relax_wt >= 0.0)         HYPRE_BoomerAMGSetRelaxWt(solver, relax_wt);
     if (relax_order >= 0)        HYPRE_BoomerAMGSetRelaxOrder(solver, relax_order);
     if (max_coarse_size >= 0)    HYPRE_BoomerAMGSetMaxCoarseSize(solver, max_coarse_size);
@@ -310,6 +455,7 @@ AMG_API void amg_setup_destroy(AMGSetupEnv *env)
     if (env->ij_x) HYPRE_IJVectorDestroy(env->ij_x);
     if (env->ij_b) HYPRE_IJVectorDestroy(env->ij_b);
     if (env->ij_A) HYPRE_IJMatrixDestroy(env->ij_A);
+    else if (env->A) HYPRE_ParCSRMatrixDestroy(env->A);
     free(env);
 }
 

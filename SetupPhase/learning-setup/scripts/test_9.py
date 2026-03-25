@@ -31,11 +31,17 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 # Render plots headlessly by default (safe for local runs too).
 os.environ.setdefault("MPLBACKEND", "Agg")
+TEST9_SOLVE_MODES = os.environ.get("TEST9_SOLVE_MODES", "both").strip().lower()
+if TEST9_SOLVE_MODES not in {"both", "rl", "no_rl"}:
+    raise ValueError("TEST9_SOLVE_MODES must be one of: both, rl, no_rl")
+RUN_RL_SOLVE = TEST9_SOLVE_MODES in {"both", "rl"}
+RUN_NO_RL_SOLVE = TEST9_SOLVE_MODES in {"both", "no_rl"}
 
 import numpy as np
-from stable_baselines3 import PPO
-from sb3_contrib import RecurrentPPO
-from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
+if RUN_RL_SOLVE:
+    from stable_baselines3 import PPO
+    from sb3_contrib import RecurrentPPO
+    from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -46,9 +52,15 @@ from learners.Bayesianbandits_AMG_v2 import Bayesianbandits_AMG_v2
 from learners.SharedLinTS_AMG import SharedLinTS_AMG
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
-from amg_gym_env import BoomerAMGRelaxEnv
-from solver import create_env, solve
-from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
+if RUN_RL_SOLVE:
+    from amg_gym_env import BoomerAMGRelaxEnv
+    from solver import create_env, solve
+else:
+    from solver import solve
+from utils.scalar_anisotropic_diffusion import (
+    SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM,
+    stencil_0_scalar_anisotropic_diffusion_rl,
+)
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
 
@@ -186,6 +198,8 @@ class SharedFactory:
 
 class SolvePolicyRunner:
     def __init__(self) -> None:
+        if not RUN_RL_SOLVE:
+            raise RuntimeError("SolvePolicyRunner is unavailable when TEST9_SOLVE_MODES=no_rl")
         if SOLVE_MODEL_TYPE == "lstm":
             self.model = RecurrentPPO.load(str(SOLVE_MODEL_PATH))
             self.use_lstm = True
@@ -504,7 +518,7 @@ def _generate_instances(*, T: int, seed: int, sampler_kwargs: Dict[str, Any]):
     rng = np.random.default_rng(seed)
     instances = []
     for t in range(int(T)):
-        mkw, context, _meta = stencil_0_difconv_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
+        mkw, context, _meta = stencil_0_scalar_anisotropic_diffusion_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
         instances.append((mkw, np.asarray(context, dtype=float)))
     return instances
 
@@ -763,9 +777,9 @@ def main() -> None:
     }
 
     warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_0_difconv_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
+    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
-    solve_policy = SolvePolicyRunner()
+    solve_policy = SolvePolicyRunner() if RUN_RL_SOLVE else None
 
     grid_n, th_grid, mxrs_grid, tr_grid = _build_grids()
     actions_tune3 = _build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
@@ -775,8 +789,8 @@ def main() -> None:
 
     instances = _generate_instances(T=T, seed=SEED, sampler_kwargs=sampler_kwargs)
 
-    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": DIFCONV_CONTEXT_DIM}
-    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": DIFCONV_CONTEXT_DIM}
+    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
+    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
 
     methods_tune3_rl = _filter_methods(_make_methods(
         parameter_space=parameter_space_tune3,
@@ -805,7 +819,7 @@ def main() -> None:
     run_dir = create_run_output_dir(
         base_dir=plots_base_dir,
         script_name=Path(__file__).stem,
-        problem_name="difconv",
+    problem_name="scalar_anisotropic_diffusion",
         size_tag=f"{FIXED_N}x{FIXED_N}x{FIXED_N}",
         T=T,
         seed=SEED,
@@ -839,14 +853,21 @@ def main() -> None:
 
     branch_entries_rl, label_meta_rl = _build_branch_entries(methods_tune3_rl, methods_tune5_rl)
     branch_entries_no_rl, label_meta_no_rl = _build_branch_entries(methods_tune3_no_rl, methods_tune5_no_rl)
-    if [entry[0] for entry in branch_entries_rl] != [entry[0] for entry in branch_entries_no_rl]:
-        raise RuntimeError("RL / non-RL branch labels do not match")
-    branch_labels = [entry[0] for entry in branch_entries_rl]
+    if RUN_RL_SOLVE and RUN_NO_RL_SOLVE:
+        if [entry[0] for entry in branch_entries_rl] != [entry[0] for entry in branch_entries_no_rl]:
+            raise RuntimeError("RL / non-RL branch labels do not match")
+        branch_labels = [entry[0] for entry in branch_entries_rl]
+    elif RUN_RL_SOLVE:
+        branch_labels = [entry[0] for entry in branch_entries_rl]
+    elif RUN_NO_RL_SOLVE:
+        branch_labels = [entry[0] for entry in branch_entries_no_rl]
+    else:
+        raise RuntimeError("At least one solve mode must be enabled")
 
     permutation_seed = int(SEED ^ 0x1A2B3C4D)
     print("Within-step permutation over all branches: enabled")
 
-    def _alloc_metrics():
+    def _alloc_metrics(branch_entries_for_traces: Sequence[Tuple[str, str, str, Any, Dict[str, Any]]]):
         return (
             {label: np.zeros(T, dtype=float) for label in branch_labels},
             {label: np.zeros(T, dtype=float) for label in branch_labels},
@@ -854,180 +875,187 @@ def main() -> None:
             {label: np.zeros(T, dtype=float) for label in branch_labels},
             {label: np.zeros(T, dtype=bool) for label in branch_labels},
             {label: init_param_trace(TRACE_KEYS_5, T)
-             for label, _base, _set, policy, _ps in branch_entries_rl
+             for label, _base, _set, policy, _ps in branch_entries_for_traces
              if not isinstance(policy, FixedPolicy)},
             {label: 0.0 for label in branch_labels},
         )
 
-    runtime_sec_rl, setup_runtime_sec_rl, solve_runtime_sec_rl, overhead_sec_rl, failed_flags_rl, traces_rl, prev_update_est_rl = _alloc_metrics()
-    runtime_sec_no_rl, setup_runtime_sec_no_rl, solve_runtime_sec_no_rl, overhead_sec_no_rl, failed_flags_no_rl, traces_no_rl, prev_update_est_no_rl = _alloc_metrics()
+    summary_rl = None
+    summary_no_rl = None
+    data_csv_path_rl = None
+    data_csv_path_no_rl = None
 
-    print(f"Single run: tune3 + tune5 separate branches with RL solve, T={T}")
-    _run_phase_dual_interleaved(
-        phase_label="  dual run rl",
-        branch_entries=branch_entries_rl,
-        instances=instances,
-        solve_policy=solve_policy,
-        solve_mode=SOLVE_MODE_RL,
-        runtime_sec=runtime_sec_rl,
-        setup_runtime_sec=setup_runtime_sec_rl,
-        solve_runtime_sec=solve_runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        failed_flags=failed_flags_rl,
-        traces=traces_rl,
-        prev_update_est=prev_update_est_rl,
-        rng_order=np.random.default_rng(permutation_seed),
-    )
+    if RUN_RL_SOLVE:
+        runtime_sec_rl, setup_runtime_sec_rl, solve_runtime_sec_rl, overhead_sec_rl, failed_flags_rl, traces_rl, prev_update_est_rl = _alloc_metrics(branch_entries_rl)
+        print(f"Single run: tune3 + tune5 separate branches with RL solve, T={T}")
+        _run_phase_dual_interleaved(
+            phase_label="  dual run rl",
+            branch_entries=branch_entries_rl,
+            instances=instances,
+            solve_policy=solve_policy,
+            solve_mode=SOLVE_MODE_RL,
+            runtime_sec=runtime_sec_rl,
+            setup_runtime_sec=setup_runtime_sec_rl,
+            solve_runtime_sec=solve_runtime_sec_rl,
+            overhead_sec=overhead_sec_rl,
+            failed_flags=failed_flags_rl,
+            traces=traces_rl,
+            prev_update_est=prev_update_est_rl,
+            rng_order=np.random.default_rng(permutation_seed),
+        )
 
-    print(f"Single run: tune3 + tune5 separate branches with non-RL solve, T={T}")
-    _run_phase_dual_interleaved(
-        phase_label="  dual run no-rl",
-        branch_entries=branch_entries_no_rl,
-        instances=instances,
-        solve_policy=solve_policy,
-        solve_mode=SOLVE_MODE_NO_RL,
-        runtime_sec=runtime_sec_no_rl,
-        setup_runtime_sec=setup_runtime_sec_no_rl,
-        solve_runtime_sec=solve_runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        failed_flags=failed_flags_no_rl,
-        traces=traces_no_rl,
-        prev_update_est=prev_update_est_no_rl,
-        rng_order=np.random.default_rng(permutation_seed),
-    )
+        summary_rl = save_runtime_artifacts(
+            run_dir=run_dir,
+            run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_rlsolve",
+            method_names=branch_labels,
+            runtime_sec=runtime_sec_rl,
+            overhead_sec=overhead_sec_rl,
+            T=T,
+            title=(
+                f"BoomerAMG setup + RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
+                f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
+            ),
+            default_method_name="default (fixed)",
+            traces=traces_rl,
+            trace_keys=(),
+            default_params=DEFAULT_PARAMS,
+            diagnostics_window=500,
+            summary_extra={
+                "script": Path(__file__).name,
+                "seed": int(SEED),
+                "alpha": float(ALPHA),
+                "l2": float(L2),
+                "sigma": float(SIGMA),
+                "fixed_n": int(FIXED_N),
+                "c_min": float(C_MIN),
+                "c_max": float(C_MAX),
+    "context_dim": int(SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM),
+                "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
+                "elite_cache_size": int(ELITE_CACHE_SIZE),
+                "method_filter": str(METHOD_FILTER),
+                "solver_tol": float(SOLVER_TOL),
+                "solver_max_iter": int(SOLVER_MAX_ITER),
+                "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
+                "solve_model_type": str(SOLVE_MODEL_TYPE),
+                "solve_model_path": str(SOLVE_MODEL_PATH),
+                "solve_vec_path": str(SOLVE_VEC_PATH),
+                "solve_lib_path": str(SOLVE_LIB_PATH),
+                "solve_tol": float(SOLVE_TOL),
+                "solve_max_cycles": int(SOLVE_MAX_CYCLES),
+                "solve_w_center": float(SOLVE_W_CENTER),
+                "solve_w_scale": float(SOLVE_W_SCALE),
+                "solve_sweeps_min": int(SOLVE_SWEEPS_MIN),
+                "solve_sweeps_max": int(SOLVE_SWEEPS_MAX),
+                "actions_grid_n": int(grid_n),
+                "actions_count_tune3": int(len(actions_tune3)),
+                "actions_count_tune5": int(len(actions_tune5)),
+                "p_max_values": [int(v) for v in p_max_values],
+                "agg_num_levels_values": [int(v) for v in agg_nl_values],
+                "T": int(T),
+                "continuation": False,
+                "bias_mitigation": "within-step permutation on identical instance stream across method+tune_set branches",
+                "within_step_method_permutation": True,
+                "within_step_tune_set_permutation": True,
+                "permutation_seed": permutation_seed,
+                "solve_mode": SOLVE_MODE_RL,
+                "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_rl.items()},
+                "total_setup_runtime_sec": {k: float(np.sum(v)) for k, v in setup_runtime_sec_rl.items()},
+                "mean_setup_runtime_sec": {k: float(np.mean(v)) for k, v in setup_runtime_sec_rl.items()},
+                "total_rl_solve_runtime_sec": {k: float(np.sum(v)) for k, v in solve_runtime_sec_rl.items()},
+                "mean_rl_solve_runtime_sec": {k: float(np.mean(v)) for k, v in solve_runtime_sec_rl.items()},
+                "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_rl.items()},
+            },
+        )
 
-    summary_rl = save_runtime_artifacts(
-        run_dir=run_dir,
-        run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_rlsolve",
-        method_names=branch_labels,
-        runtime_sec=runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        T=T,
-        title=(
-            f"BoomerAMG setup + RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
-            f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
-        ),
-        default_method_name="default (fixed)",
-        traces=traces_rl,
-        trace_keys=(),
-        default_params=DEFAULT_PARAMS,
-        diagnostics_window=500,
-        summary_extra={
-            "script": Path(__file__).name,
-            "seed": int(SEED),
-            "alpha": float(ALPHA),
-            "l2": float(L2),
-            "sigma": float(SIGMA),
-            "fixed_n": int(FIXED_N),
-            "c_min": float(C_MIN),
-            "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
-            "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
-            "elite_cache_size": int(ELITE_CACHE_SIZE),
-            "method_filter": str(METHOD_FILTER),
-            "solver_tol": float(SOLVER_TOL),
-            "solver_max_iter": int(SOLVER_MAX_ITER),
-            "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
-            "solve_model_type": str(SOLVE_MODEL_TYPE),
-            "solve_model_path": str(SOLVE_MODEL_PATH),
-            "solve_vec_path": str(SOLVE_VEC_PATH),
-            "solve_lib_path": str(SOLVE_LIB_PATH),
-            "solve_tol": float(SOLVE_TOL),
-            "solve_max_cycles": int(SOLVE_MAX_CYCLES),
-            "solve_w_center": float(SOLVE_W_CENTER),
-            "solve_w_scale": float(SOLVE_W_SCALE),
-            "solve_sweeps_min": int(SOLVE_SWEEPS_MIN),
-            "solve_sweeps_max": int(SOLVE_SWEEPS_MAX),
-            "actions_grid_n": int(grid_n),
-            "actions_count_tune3": int(len(actions_tune3)),
-            "actions_count_tune5": int(len(actions_tune5)),
-            "p_max_values": [int(v) for v in p_max_values],
-            "agg_num_levels_values": [int(v) for v in agg_nl_values],
-            "T": int(T),
-            "continuation": False,
-            "bias_mitigation": "within-step permutation on identical instance stream across method+tune_set branches",
-            "within_step_method_permutation": True,
-            "within_step_tune_set_permutation": True,
-            "permutation_seed": permutation_seed,
-            "solve_mode": SOLVE_MODE_RL,
-            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_rl.items()},
-            "total_setup_runtime_sec": {k: float(np.sum(v)) for k, v in setup_runtime_sec_rl.items()},
-            "mean_setup_runtime_sec": {k: float(np.mean(v)) for k, v in setup_runtime_sec_rl.items()},
-            "total_rl_solve_runtime_sec": {k: float(np.sum(v)) for k, v in solve_runtime_sec_rl.items()},
-            "mean_rl_solve_runtime_sec": {k: float(np.mean(v)) for k, v in solve_runtime_sec_rl.items()},
-            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_rl.items()},
-        },
-    )
+        data_csv_path_rl = run_dir / "per_instance_runtime_data_rlsolve.csv"
+        _save_dual_csv(
+            out_csv=data_csv_path_rl,
+            solve_mode=SOLVE_MODE_RL,
+            labels=branch_labels,
+            label_meta=label_meta_rl,
+            runtime_sec=runtime_sec_rl,
+            setup_runtime_sec=setup_runtime_sec_rl,
+            solve_runtime_sec=solve_runtime_sec_rl,
+            overhead_sec=overhead_sec_rl,
+            failed=failed_flags_rl,
+            traces=traces_rl,
+            t_total=T,
+        )
 
-    summary_no_rl = save_runtime_artifacts(
-        run_dir=run_dir,
-        run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_norlsolve",
-        method_names=branch_labels,
-        runtime_sec=runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        T=T,
-        title=(
-            f"BoomerAMG setup + non-RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
-            f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
-        ),
-        default_method_name="default (fixed)",
-        traces=traces_no_rl,
-        trace_keys=(),
-        default_params=DEFAULT_PARAMS,
-        diagnostics_window=500,
-        summary_extra={
-            "script": Path(__file__).name,
-            "seed": int(SEED),
-            "alpha": float(ALPHA),
-            "l2": float(L2),
-            "sigma": float(SIGMA),
-            "fixed_n": int(FIXED_N),
-            "c_min": float(C_MIN),
-            "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
-            "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
-            "elite_cache_size": int(ELITE_CACHE_SIZE),
-            "method_filter": str(METHOD_FILTER),
-            "solver_tol": float(SOLVER_TOL),
-            "solver_max_iter": int(SOLVER_MAX_ITER),
-            "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
-            "solve_mode": SOLVE_MODE_NO_RL,
-            "within_step_method_permutation": True,
-            "within_step_tune_set_permutation": True,
-            "permutation_seed": permutation_seed,
-            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_no_rl.items()},
-            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_no_rl.items()},
-        },
-    )
+    if RUN_NO_RL_SOLVE:
+        runtime_sec_no_rl, setup_runtime_sec_no_rl, solve_runtime_sec_no_rl, overhead_sec_no_rl, failed_flags_no_rl, traces_no_rl, prev_update_est_no_rl = _alloc_metrics(branch_entries_no_rl)
+        print(f"Single run: tune3 + tune5 separate branches with non-RL solve, T={T}")
+        _run_phase_dual_interleaved(
+            phase_label="  dual run no-rl",
+            branch_entries=branch_entries_no_rl,
+            instances=instances,
+            solve_policy=solve_policy,
+            solve_mode=SOLVE_MODE_NO_RL,
+            runtime_sec=runtime_sec_no_rl,
+            setup_runtime_sec=setup_runtime_sec_no_rl,
+            solve_runtime_sec=solve_runtime_sec_no_rl,
+            overhead_sec=overhead_sec_no_rl,
+            failed_flags=failed_flags_no_rl,
+            traces=traces_no_rl,
+            prev_update_est=prev_update_est_no_rl,
+            rng_order=np.random.default_rng(permutation_seed),
+        )
 
-    data_csv_path_rl = run_dir / "per_instance_runtime_data_rlsolve.csv"
-    _save_dual_csv(
-        out_csv=data_csv_path_rl,
-        solve_mode=SOLVE_MODE_RL,
-        labels=branch_labels,
-        label_meta=label_meta_rl,
-        runtime_sec=runtime_sec_rl,
-        setup_runtime_sec=setup_runtime_sec_rl,
-        solve_runtime_sec=solve_runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        failed=failed_flags_rl,
-        traces=traces_rl,
-        t_total=T,
-    )
-    data_csv_path_no_rl = run_dir / "per_instance_runtime_data_norlsolve.csv"
-    _save_dual_csv(
-        out_csv=data_csv_path_no_rl,
-        solve_mode=SOLVE_MODE_NO_RL,
-        labels=branch_labels,
-        label_meta=label_meta_no_rl,
-        runtime_sec=runtime_sec_no_rl,
-        setup_runtime_sec=setup_runtime_sec_no_rl,
-        solve_runtime_sec=solve_runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        failed=failed_flags_no_rl,
-        traces=traces_no_rl,
-        t_total=T,
-    )
+        summary_no_rl = save_runtime_artifacts(
+            run_dir=run_dir,
+            run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_norlsolve",
+            method_names=branch_labels,
+            runtime_sec=runtime_sec_no_rl,
+            overhead_sec=overhead_sec_no_rl,
+            T=T,
+            title=(
+                f"BoomerAMG setup + non-RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
+                f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
+            ),
+            default_method_name="default (fixed)",
+            traces=traces_no_rl,
+            trace_keys=(),
+            default_params=DEFAULT_PARAMS,
+            diagnostics_window=500,
+            summary_extra={
+                "script": Path(__file__).name,
+                "seed": int(SEED),
+                "alpha": float(ALPHA),
+                "l2": float(L2),
+                "sigma": float(SIGMA),
+                "fixed_n": int(FIXED_N),
+                "c_min": float(C_MIN),
+                "c_max": float(C_MAX),
+    "context_dim": int(SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM),
+                "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
+                "elite_cache_size": int(ELITE_CACHE_SIZE),
+                "method_filter": str(METHOD_FILTER),
+                "solver_tol": float(SOLVER_TOL),
+                "solver_max_iter": int(SOLVER_MAX_ITER),
+                "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
+                "solve_mode": SOLVE_MODE_NO_RL,
+                "within_step_method_permutation": True,
+                "within_step_tune_set_permutation": True,
+                "permutation_seed": permutation_seed,
+                "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_no_rl.items()},
+                "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_no_rl.items()},
+            },
+        )
+
+        data_csv_path_no_rl = run_dir / "per_instance_runtime_data_norlsolve.csv"
+        _save_dual_csv(
+            out_csv=data_csv_path_no_rl,
+            solve_mode=SOLVE_MODE_NO_RL,
+            labels=branch_labels,
+            label_meta=label_meta_no_rl,
+            runtime_sec=runtime_sec_no_rl,
+            setup_runtime_sec=setup_runtime_sec_no_rl,
+            solve_runtime_sec=solve_runtime_sec_no_rl,
+            overhead_sec=overhead_sec_no_rl,
+            failed=failed_flags_no_rl,
+            traces=traces_no_rl,
+            t_total=T,
+        )
 
     bundle_summary = {
         "script": Path(__file__).name,
@@ -1043,27 +1071,33 @@ def main() -> None:
         "within_step_method_permutation": True,
         "within_step_tune_set_permutation": True,
         "permutation_seed": permutation_seed,
-        "runtime_plot_rlsolve": str(summary_rl["plot"]),
-        "runtime_summary_rlsolve": str(summary_rl["summary_path"]),
-        "data_csv_rlsolve": str(data_csv_path_rl),
-        "runtime_plot_norlsolve": str(summary_no_rl["plot"]),
-        "runtime_summary_norlsolve": str(summary_no_rl["summary_path"]),
-        "data_csv_norlsolve": str(data_csv_path_no_rl),
     }
+    if summary_rl is not None and data_csv_path_rl is not None:
+        bundle_summary["runtime_plot_rlsolve"] = str(summary_rl["plot"])
+        bundle_summary["runtime_summary_rlsolve"] = str(summary_rl["summary_path"])
+        bundle_summary["data_csv_rlsolve"] = str(data_csv_path_rl)
+    if summary_no_rl is not None and data_csv_path_no_rl is not None:
+        bundle_summary["runtime_plot_norlsolve"] = str(summary_no_rl["plot"])
+        bundle_summary["runtime_summary_norlsolve"] = str(summary_no_rl["summary_path"])
+        bundle_summary["data_csv_norlsolve"] = str(data_csv_path_no_rl)
     bundle_summary_path = run_dir / "test_9_export_summary.json"
     bundle_summary_path.write_text(json.dumps(bundle_summary, indent=2) + "\n")
 
-    print("RUNTIME PLOT (RL SOLVE):", summary_rl["plot"])
-    print("RUNTIME SUMMARY (RL SOLVE):", summary_rl["summary_path"])
-    print("DATA CSV (RL SOLVE):", data_csv_path_rl)
-    print("RUNTIME PLOT (NO RL SOLVE):", summary_no_rl["plot"])
-    print("RUNTIME SUMMARY (NO RL SOLVE):", summary_no_rl["summary_path"])
-    print("DATA CSV (NO RL SOLVE):", data_csv_path_no_rl)
+    if summary_rl is not None and data_csv_path_rl is not None:
+        print("RUNTIME PLOT (RL SOLVE):", summary_rl["plot"])
+        print("RUNTIME SUMMARY (RL SOLVE):", summary_rl["summary_path"])
+        print("DATA CSV (RL SOLVE):", data_csv_path_rl)
+    if summary_no_rl is not None and data_csv_path_no_rl is not None:
+        print("RUNTIME PLOT (NO RL SOLVE):", summary_no_rl["plot"])
+        print("RUNTIME SUMMARY (NO RL SOLVE):", summary_no_rl["summary_path"])
+        print("DATA CSV (NO RL SOLVE):", data_csv_path_no_rl)
     print("EXPORT SUMMARY:", bundle_summary_path)
-    print("TOTAL TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["total_hypre_runtime_sec"])
-    print("MEAN TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["mean_test_problem_runtime_sec"])
-    print("TOTAL TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["total_hypre_runtime_sec"])
-    print("MEAN TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["mean_test_problem_runtime_sec"])
+    if summary_rl is not None:
+        print("TOTAL TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["total_hypre_runtime_sec"])
+        print("MEAN TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["mean_test_problem_runtime_sec"])
+    if summary_no_rl is not None:
+        print("TOTAL TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["total_hypre_runtime_sec"])
+        print("MEAN TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["mean_test_problem_runtime_sec"])
 
 
 if __name__ == "__main__":

@@ -37,7 +37,10 @@ from learners.SharedLinTS_AMG import SharedLinTS_AMG
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from solver import solve
-from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
+from utils.scalar_anisotropic_diffusion import (
+    SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM,
+    stencil_0_scalar_anisotropic_diffusion_rl,
+)
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
 
@@ -294,7 +297,7 @@ def _generate_instances(*, T: int, seed: int, sampler_kwargs: Dict[str, Any]):
     rng = np.random.default_rng(seed)
     instances = []
     for t in range(int(T)):
-        mkw, context, _meta = stencil_0_difconv_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
+        mkw, context, _meta = stencil_0_scalar_anisotropic_diffusion_rl(rng=rng, t=t, trial=0, **sampler_kwargs)
         instances.append((mkw, np.asarray(context, dtype=float)))
     return instances
 
@@ -470,7 +473,7 @@ def main() -> None:
     }
 
     warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_0_difconv_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
+    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
     _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
     grid_n, th_grid, mxrs_grid, tr_grid = _build_grids()
@@ -481,8 +484,8 @@ def main() -> None:
 
     instances = _generate_instances(T=T, seed=SEED, sampler_kwargs=sampler_kwargs)
 
-    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": DIFCONV_CONTEXT_DIM}
-    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": DIFCONV_CONTEXT_DIM}
+    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
+    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
 
     methods_tune3 = _make_methods(
         parameter_space=parameter_space_tune3,
@@ -501,7 +504,7 @@ def main() -> None:
     run_dir = create_run_output_dir(
         base_dir=plots_base_dir,
         script_name=Path(__file__).stem,
-        problem_name="difconv",
+    problem_name="scalar_anisotropic_diffusion",
         size_tag=f"{FIXED_N}x{FIXED_N}x{FIXED_N}",
         T=T,
         seed=SEED,
@@ -578,7 +581,7 @@ def main() -> None:
             "fixed_n": int(FIXED_N),
             "c_min": float(C_MIN),
             "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
+    "context_dim": int(SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM),
             "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
             "elite_cache_size": int(ELITE_CACHE_SIZE),
             "solver_tol": float(SOLVER_TOL),

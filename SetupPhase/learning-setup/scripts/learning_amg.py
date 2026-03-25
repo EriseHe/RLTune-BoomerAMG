@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 
 from learners import TsallisINF_AMG
 from solver import solve
-from utils.problem_amg import NX, NY, NZ, STENCIL, stencil_27_laplace
+from utils.stencil27_laplace import NX, NY, NZ, STENCIL, stencil_27_laplace
 
 # ---- Progress bar -----------------------------------------------------------
 

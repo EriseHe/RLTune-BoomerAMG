@@ -8,6 +8,12 @@ import numpy as np
 from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple
 from pathlib import Path
 
+from learners._amg_action_features import (
+    ParameterSpaceSpec,
+    action_key_from_parameter_space_spec,
+    default_action_from_parameter_space_spec,
+    enumerate_actions_from_parameter_space_spec,
+)
 from solver import solve
 
 # ============================================================================
@@ -140,6 +146,55 @@ def build_actions_th_mxrs_tr(
                     }
                 )
                 actions.append(params)
+    return actions
+
+
+def default_action_from_spec(
+    parameter_spec: ParameterSpaceSpec,
+    *,
+    fixed_params: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    """
+    Build the default action implied by a generic parameter spec.
+
+    `fixed_params` are merged after the tuned-parameter defaults.
+    """
+    params = default_action_from_parameter_space_spec(parameter_spec)
+    out = dict(fixed_params or {})
+    out.update(params)
+    return out
+
+
+def build_actions_from_spec(
+    parameter_spec: ParameterSpaceSpec,
+    *,
+    fixed_params: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Build a stable action list from a generic parameter spec.
+
+    Parameter enumeration follows the spec order. Conditional inactive knobs
+    are pinned to defaults. The spec-implied default action is appended if the
+    enumerated grid misses it.
+    """
+    fixed = dict(fixed_params or {})
+    actions = []
+    seen = set()
+    for tuned_action in enumerate_actions_from_parameter_space_spec(parameter_spec):
+        key = action_key_from_parameter_space_spec(tuned_action, parameter_spec)
+        if key in seen:
+            continue
+        seen.add(key)
+        out = dict(fixed)
+        out.update(tuned_action)
+        actions.append(out)
+
+    default_tuned = default_action_from_parameter_space_spec(parameter_spec)
+    default_key = action_key_from_parameter_space_spec(default_tuned, parameter_spec)
+    if default_key not in seen:
+        out = dict(fixed)
+        out.update(default_tuned)
+        actions.append(out)
     return actions
 
 

@@ -25,8 +25,21 @@ venv/
 *.o
 
 # One-time local native builds
+build/
 build/native/
 build/hypre/
+build/hypre-mingw-mpi-shared-*/
+build/setup-solver-mingw-*/
+build/native-alignment-backup-*/
+
+# Generated CMake / Make build trees
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/CMakeConfigureLog.yaml
+**/compile_commands.json
+*.dll.a
 
 # Generated experiment outputs
 SetupPhase/learning-setup/plots/

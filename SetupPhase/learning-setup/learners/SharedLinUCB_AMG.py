@@ -65,7 +65,7 @@ class SharedLinUCB_AMG:
         Ridge regularization parameter (lambda). Starts with A = lambda * I.
     s1_index, s2_index
         Indices inside the context vector corresponding to s1 and s2.
-        Defaults match utils.problem_amg.stencil_27_laplace context:
+        Defaults match `utils.stencil27_laplace.stencil_27_laplace` context:
           x = [1, s1, s2, s3, c_diag]
     seed
         RNG seed used only for tie-breaking.

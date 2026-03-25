@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from learners.TsallisINF_AMG import TsallisINF_AMG
 from solver import solve
-from utils.problem_amg import stencil_27_laplace
+from utils.stencil27_laplace import stencil_27_laplace
 from utils.setup_amg import build_actions_th_mxrs_tr
 
 
