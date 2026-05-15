@@ -23,6 +23,15 @@ Outputs
 1) One cumulative runtime plot
 2) One summary JSON
 3) One per-instance CSV
+
+Branches
+--------
+- default (fixed)
+- Shared LinUCB v2 | tune3
+- Shared LinUCB v2 | tune5
+- Shared LinUCB v3 | tune3
+- Shared LinUCB v3 | tune5
+- Shared LinUCB v4 | tune7
 """
 
 from __future__ import annotations
@@ -133,10 +142,7 @@ DEFAULT_PARAMS = {
 DEFAULT_COARSEN_TYPE_VALUES = (0, 2, 6, 8, 10)
 DEFAULT_P_MAX_ELMTS_VALUES = (2, 4, 6, 8, 12, 16)
 DEFAULT_AGG_NUM_LEVELS_VALUES = (0, 1, 2, 3, 4, 5)
-DEFAULT_AGG_TR_VALUES = (0.0, 0.1)
-DEFAULT_AGG_PMX_VALUES = (0, 4)
 DEFAULT_TUNE7_INTERP_TYPES = (6, 8)
-DEFAULT_TUNE7_AGG_INTERP_TYPES = (4, 6)
 TRACE_KEYS_FINAL = (
     "strong_threshold",
     "max_row_sum",
@@ -149,7 +155,6 @@ TRACE_KEYS_FINAL = (
     "agg_tr",
     "agg_Pmx",
 )
-TUNE7_VARIANT = os.environ.get("TUNE7_VARIANT", "categorical").strip().lower()
 TUNE7_CANDIDATE_STRATEGY = os.environ.get("TUNE7_CANDIDATE_STRATEGY", "").strip().lower()
 TUNE7_CANDIDATE_POOL_SIZE = int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE", "1024"))
 TUNE7_CANDIDATE_POOL_SIZE_BURNIN = int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE_BURNIN", "4096"))
@@ -381,13 +386,6 @@ def _parse_int_list_env(name: str, default_values: Sequence[int]) -> List[int]:
     vals = [int(x.strip()) for x in raw.split(",") if x.strip()]
     return vals or [int(v) for v in default_values]
 
-
-def _parse_float_list_env(name: str, default_values: Sequence[float]) -> List[float]:
-    raw = os.environ.get(name, ",".join(str(v) for v in default_values))
-    vals = [float(x.strip()) for x in raw.split(",") if x.strip()]
-    return vals or [float(v) for v in default_values]
-
-
 def _select_trace_keys(
     traces: Dict[str, Dict[str, np.ndarray]],
     keys: Sequence[str],
@@ -538,7 +536,7 @@ def _build_actions_tune5(*, th_grid, mxrs_grid, tr_grid) -> Tuple[List[Dict[str,
     return actions, p_max_values, agg_nl_values
 
 
-def _build_actions_tune7_categorical(
+def _build_actions_tune7(
     *,
     th_grid,
     mxrs_grid,
@@ -615,92 +613,6 @@ def _build_actions_tune7_categorical(
         },
     )
     return actions, p_max_values, agg_nl_values, coarsen_type_values, interp_values, parameter_spec
-
-
-def _build_actions_tune7_agg_conditional(
-    *,
-    th_grid,
-    mxrs_grid,
-    tr_grid,
-) -> Tuple[List[Dict[str, Any]], List[int], List[int], List[float], List[int], ParameterSpaceSpec]:
-    p_max_values = _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = _parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
-    agg_tr_values = _parse_float_list_env("TUNE7_AGG_TR_VALUES", DEFAULT_AGG_TR_VALUES)
-    agg_pmx_values = _parse_int_list_env("TUNE7_AGG_PMX_VALUES", DEFAULT_AGG_PMX_VALUES)
-
-    active_agg_levels = tuple(int(v) for v in agg_nl_values if int(v) != int(DEFAULT_PARAMS["agg_num_levels"]))
-    parameter_spec = ParameterSpaceSpec(
-        (
-            ParameterSpec(
-                name="strong_threshold",
-                kind="continuous",
-                values=tuple(float(v) for v in th_grid),
-                default=float(DEFAULT_PARAMS["strong_threshold"]),
-                center=float(DEFAULT_PARAMS["strong_threshold"]),
-                scale=0.25,
-            ),
-            ParameterSpec(
-                name="max_row_sum",
-                kind="continuous",
-                values=tuple(float(v) for v in mxrs_grid),
-                default=float(DEFAULT_PARAMS["max_row_sum"]),
-                center=float(DEFAULT_PARAMS["max_row_sum"]),
-                scale=0.10,
-            ),
-            ParameterSpec(
-                name="trunc_factor",
-                kind="continuous",
-                values=tuple(float(v) for v in tr_grid),
-                default=float(DEFAULT_PARAMS["trunc_factor"]),
-                center=float(DEFAULT_PARAMS["trunc_factor"]),
-                scale=0.20,
-            ),
-            ParameterSpec(
-                name="P_max_elmts",
-                kind="integer",
-                values=tuple(int(v) for v in p_max_values),
-                default=int(DEFAULT_PARAMS["P_max_elmts"]),
-                center=float(DEFAULT_PARAMS["P_max_elmts"]),
-                scale=4.0,
-            ),
-            ParameterSpec(
-                name="agg_num_levels",
-                kind="integer",
-                values=tuple(int(v) for v in agg_nl_values),
-                default=int(DEFAULT_PARAMS["agg_num_levels"]),
-                center=float(DEFAULT_PARAMS["agg_num_levels"]),
-                scale=1.0,
-            ),
-            ParameterSpec(
-                name="agg_tr",
-                kind="continuous",
-                values=tuple(float(v) for v in agg_tr_values),
-                default=float(DEFAULT_PARAMS["agg_tr"]),
-                center=float(DEFAULT_PARAMS["agg_tr"]),
-                scale=0.10,
-                active_if={"agg_num_levels": active_agg_levels},
-            ),
-            ParameterSpec(
-                name="agg_Pmx",
-                kind="integer",
-                values=tuple(int(v) for v in agg_pmx_values),
-                default=int(DEFAULT_PARAMS["agg_Pmx"]),
-                center=float(DEFAULT_PARAMS["agg_Pmx"]),
-                scale=4.0,
-                active_if={"agg_num_levels": active_agg_levels},
-            ),
-        )
-    )
-
-    actions = build_actions_from_spec(
-        parameter_spec,
-        fixed_params={
-            "coarsen_type": int(DEFAULT_PARAMS["coarsen_type"]),
-            "interp_type": int(DEFAULT_PARAMS["interp_type"]),
-            "agg_interp_type": int(DEFAULT_PARAMS["agg_interp_type"]),
-        },
-    )
-    return actions, p_max_values, agg_nl_values, agg_tr_values, agg_pmx_values, parameter_spec
 
 
 def _ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
@@ -967,40 +879,21 @@ def main() -> None:
     actions_tune7 = []
     coarsen_type_values_tune7: List[int] = []
     interp_values_tune7: List[int] = []
-    agg_interp_values_tune7: List[int] = []
-    agg_tr_values_tune7: List[float] = []
-    agg_pmx_values_tune7: List[int] = []
     parameter_spec_tune7 = None
     default_arm_index_tune7 = -1
     if 7 in FINAL_TUNE_DIMS:
-        if TUNE7_VARIANT == "categorical":
-            (
-                actions_tune7,
-                p_max_values,
-                agg_nl_values,
-                coarsen_type_values_tune7,
-                interp_values_tune7,
-                parameter_spec_tune7,
-            ) = _build_actions_tune7_categorical(
-                th_grid=th_grid,
-                mxrs_grid=mxrs_grid,
-                tr_grid=tr_grid,
-            )
-        elif TUNE7_VARIANT == "agg_conditional":
-            (
-                actions_tune7,
-                p_max_values,
-                agg_nl_values,
-                agg_tr_values_tune7,
-                agg_pmx_values_tune7,
-                parameter_spec_tune7,
-            ) = _build_actions_tune7_agg_conditional(
-                th_grid=th_grid,
-                mxrs_grid=mxrs_grid,
-                tr_grid=tr_grid,
-            )
-        else:
-            raise RuntimeError(f"Unsupported TUNE7_VARIANT: {TUNE7_VARIANT}")
+        (
+            actions_tune7,
+            p_max_values,
+            agg_nl_values,
+            coarsen_type_values_tune7,
+            interp_values_tune7,
+            parameter_spec_tune7,
+        ) = _build_actions_tune7(
+            th_grid=th_grid,
+            mxrs_grid=mxrs_grid,
+            tr_grid=tr_grid,
+        )
         actions_tune7, default_arm_index_tune7 = _ensure_default_arm(actions_tune7)
 
     instances = _generate_instances(T=T, seed=SEED, sampler_kwargs=sampler_kwargs)
@@ -1115,7 +1008,7 @@ def main() -> None:
     if 7 in FINAL_TUNE_DIMS and parameter_space_tune7 is not None and parameter_spec_tune7 is not None:
         family_name = "Shared LinUCB v4"
         family_seed = int(seed_map_by_family[family_name])
-        tune7_label = f"{family_name} | tune7" if TUNE7_VARIANT == "agg_conditional" else f"{family_name} | tune7-categorical"
+        tune7_label = f"{family_name} | tune7"
         tune7_model_kwargs: Dict[str, Any] = {
             "parameter_spec": parameter_spec_tune7,
             "context_interaction_indices": (1, 2, 3, 4),
@@ -1126,7 +1019,7 @@ def main() -> None:
         }
         tune7_candidate_strategy = str(TUNE7_CANDIDATE_STRATEGY)
         if not tune7_candidate_strategy:
-            tune7_candidate_strategy = "adaptive_local" if TUNE7_VARIANT == "agg_conditional" else "uniform"
+            tune7_candidate_strategy = "uniform"
         if tune7_candidate_strategy == "adaptive_local":
             tune7_model_kwargs.update(
                 {
@@ -1308,18 +1201,14 @@ def main() -> None:
             "coarsen_type_values": [int(v) for v in DEFAULT_COARSEN_TYPE_VALUES],
             "p_max_values": [int(v) for v in p_max_values],
             "agg_num_levels_values": [int(v) for v in agg_nl_values],
-            "tune7_variant": str(TUNE7_VARIANT),
             "tune7_alpha": (float(TUNE7_ALPHA_OVERRIDE) if TUNE7_ALPHA_OVERRIDE else float(ALPHA)),
             "tune7_candidate_strategy": (
                 str(TUNE7_CANDIDATE_STRATEGY)
                 if TUNE7_CANDIDATE_STRATEGY
-                else ("adaptive_local" if TUNE7_VARIANT == "agg_conditional" else "uniform")
+                else "uniform"
             ),
             "tune7_coarsen_types": [int(v) for v in coarsen_type_values_tune7],
             "tune7_interp_types": [int(v) for v in interp_values_tune7],
-            "tune7_agg_interp_types": [int(v) for v in agg_interp_values_tune7],
-            "tune7_agg_tr_values": [float(v) for v in agg_tr_values_tune7],
-            "tune7_agg_pmx_values": [int(v) for v in agg_pmx_values_tune7],
             "tune7_candidate_pool_size": int(TUNE7_CANDIDATE_POOL_SIZE),
             "tune7_candidate_pool_size_burnin": int(TUNE7_CANDIDATE_POOL_SIZE_BURNIN),
             "tune7_candidate_pool_burnin_rounds": int(TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS),

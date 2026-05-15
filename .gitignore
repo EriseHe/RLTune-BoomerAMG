@@ -24,6 +24,10 @@ venv/
 *.obj
 *.o
 
+# macOS local runtime builds for setup-phase solver
+SetupPhase/learning-setup/solver/libamg_setup_solver.dylib
+SetupPhase/learning-setup/solver/libHYPRE*.dylib
+
 # One-time local native builds
 build/
 build/native/

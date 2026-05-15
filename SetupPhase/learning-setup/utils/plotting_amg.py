@@ -129,7 +129,7 @@ def save_runtime_artifacts(
     run_dir = Path(run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # Plot as "instance index" (left: 0, right: T) vs cumulative runtime.
+    # Plot as "instance index" (left: 0, right: T) vs cumulative end-to-end runtime.
     # Include the natural start point (t=0, 0 runtime).
     x = np.arange(0, int(T) + 1, dtype=int)  # 0..T
     plt.figure(figsize=(10, 5))
@@ -150,6 +150,26 @@ def save_runtime_artifacts(
     plt.tight_layout()
     plot_path = run_dir / f"{run_prefix}_runtime_cumulative.png"
     plt.savefig(plot_path, dpi=256)
+    plt.close()
+
+    # Also save a runtime-only cumulative plot so raw solver/runtime trends are
+    # visible separately from tuner overhead.
+    plt.figure(figsize=(10, 5))
+    for name in method_names:
+        per_round = np.asarray(runtime_sec[name], dtype=float)
+        cum = np.concatenate(([0.0], np.cumsum(per_round)))
+        if name == default_method_name:
+            plt.plot(x, cum, "--", linewidth=2.0, label=name)
+        else:
+            plt.plot(x, cum, linewidth=2.3, label=name)
+
+    plt.xlabel("instance")
+    plt.ylabel("cumulative runtime (seconds)")
+    plt.title(f"{title}  [runtime only]", fontsize=12)
+    plt.legend(fontsize=9)
+    plt.tight_layout()
+    runtime_only_plot_path = run_dir / f"{run_prefix}_runtime_only_cumulative.png"
+    plt.savefig(runtime_only_plot_path, dpi=256)
     plt.close()
 
     trace_plot_path: Path | None = None
@@ -247,6 +267,7 @@ def save_runtime_artifacts(
         "total_bandit_overhead_sec": total_overhead,
         "total_end_to_end_sec": total_end_to_end,
         "plot": str(plot_path),
+        "runtime_only_plot": str(runtime_only_plot_path),
         "trace_plot": str(trace_plot_path) if trace_plot_path is not None else None,
         "trace_keys": list(trace_keys),
         "last500_fraction_equal_default": frac_default,

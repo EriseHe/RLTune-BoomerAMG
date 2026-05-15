@@ -1,9 +1,10 @@
 """
 BoomerAMG solver interface for bandit experiments.
 
-Thin Python binding to libamg_setup_solver.dylib (C calling HYPRE).
-Matrix built in C using the same Laplacian builders as the solve-phase RL env.
-Supports multi-parameter tuning. Loss is computed by the caller.
+Thin Python binding to the platform-specific `libamg_setup_solver` shared
+library (C calling HYPRE). Matrix construction happens in C using the same
+Laplacian builders as the solve-phase RL environment. Supports multi-parameter
+tuning. Loss is computed by the caller.
 
     from solver import solve, SolveResult, TUNABLE_PARAMS
 

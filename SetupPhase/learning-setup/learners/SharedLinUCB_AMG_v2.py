@@ -145,6 +145,10 @@ class SharedLinUCB_AMG_v2:
         self._g_actions = np.zeros((self.K, self.g_dim), dtype=float)
         for i, a in enumerate(self.actions):
             self._g_actions[i] = self._g_from_action(a)
+        self._arm_by_key = {
+            tuple(np.round(action_param_vector(action, err_prefix="SharedLinUCB_AMG_v2"), 12)): int(i)
+            for i, action in enumerate(self.actions)
+        }
 
         self.t = 0
         self._last_phi: Optional[np.ndarray] = None
@@ -228,6 +232,13 @@ class SharedLinUCB_AMG_v2:
         a = action_param_vector(params, err_prefix="SharedLinUCB_AMG_v2")
         a = a - self._a_center
         return poly2_features(a)
+
+    def _arm_from_params(self, params: Dict[str, Any]) -> int:
+        key = tuple(np.round(action_param_vector(params, err_prefix="SharedLinUCB_AMG_v2"), 12))
+        arm = self._arm_by_key.get(key)
+        if arm is None:
+            raise ValueError("params do not match any action in the provided action set")
+        return int(arm)
 
     def _phi(self, x: np.ndarray, arm: int) -> np.ndarray:
         s1 = float(x[self.s1_index])
@@ -341,18 +352,21 @@ class SharedLinUCB_AMG_v2:
 
         return dict(self.actions[arm])
 
-    def update(self, loss: float) -> None:
+    def update(self, loss: float, *, bounded_loss: Optional[float] = None) -> None:
         if self._last_phi is None or self._last_arm is None:
             raise RuntimeError("update() called before predict()")
 
         phi = self._last_phi
         arm = int(self._last_arm)
-        y = float(loss)
-        if not np.isfinite(y):
+        raw_loss = float(loss)
+        if not np.isfinite(raw_loss):
             raise ValueError("loss must be finite")
+        y = float(raw_loss if bounded_loss is None else bounded_loss)
+        if not np.isfinite(y):
+            raise ValueError("bounded_loss must be finite")
 
         if self._arm_best_loss is not None:
-            self._arm_best_loss[arm] = min(float(self._arm_best_loss[arm]), float(y))
+            self._arm_best_loss[arm] = min(float(self._arm_best_loss[arm]), float(raw_loss))
 
         u = self.A_inv @ phi
         denom = 1.0 + float(phi @ u)
@@ -380,7 +394,7 @@ class SharedLinUCB_AMG_v2:
         self.history[-1] = SharedLinUCBStep(
             t=last.t,
             arm_index=last.arm_index,
-            loss=y,
+            loss=raw_loss,
             pred_mean=last.pred_mean,
             pred_uncert=last.pred_uncert,
         )
@@ -388,3 +402,26 @@ class SharedLinUCB_AMG_v2:
         self.t += 1
         self._last_phi = None
         self._last_arm = None
+
+    def observe(
+        self,
+        *,
+        context: Iterable[float],
+        params: Dict[str, Any],
+        loss: float,
+        bounded_loss: Optional[float] = None,
+    ) -> None:
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+        arm = self._arm_from_params(params)
+        self._last_phi = self._phi(x, arm)
+        self._last_arm = int(arm)
+        self.history.append(
+            SharedLinUCBStep(
+                t=self.t + 1,
+                arm_index=int(arm),
+                loss=float("nan"),
+                pred_mean=float("nan"),
+                pred_uncert=float("nan"),
+            )
+        )
+        self.update(float(loss), bounded_loss=bounded_loss)

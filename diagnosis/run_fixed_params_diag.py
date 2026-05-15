@@ -143,13 +143,17 @@ def _main() -> int:
     from utils.problem_amg import stencil_27_laplace  # noqa: WPS433 (runtime import)
 
     solver_dir = learning_setup_dir / "solver"
-    amg_lib_path = solver_dir / "libamg_setup_solver.dylib"
-    hypre_dll_path = solver_dir / "HYPRE.dll"
+    if os.name == "nt":
+        amg_lib_path = solver_dir / "libamg_setup_solver.dll"
+        hypre_lib_path = solver_dir / "HYPRE.dll"
+    else:
+        amg_lib_path = solver_dir / "libamg_setup_solver.dylib"
+        hypre_lib_path = solver_dir / "libHYPRE.3.0.0.dylib"
 
     if not amg_lib_path.exists():
         raise FileNotFoundError(f"Missing compiled solver library: {amg_lib_path}")
-    if not hypre_dll_path.exists():
-        raise FileNotFoundError(f"Missing HYPRE dll: {hypre_dll_path}")
+    if not hypre_lib_path.exists():
+        raise FileNotFoundError(f"Missing HYPRE runtime library: {hypre_lib_path}")
 
     if os.name == "nt" and hasattr(os, "add_dll_directory"):
         os.add_dll_directory(str(solver_dir))
@@ -164,7 +168,7 @@ def _main() -> int:
 
     # -- load libraries -----------------------------------------------------
     amg = ctypes.CDLL(str(amg_lib_path))
-    hypre = ctypes.CDLL(str(hypre_dll_path))
+    hypre = ctypes.CDLL(str(hypre_lib_path))
 
     # -- amg_setup_solver exports ------------------------------------------
     amg.amg_setup_create.restype = _VP

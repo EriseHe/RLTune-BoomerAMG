@@ -40,18 +40,37 @@ def _default_lib_path() -> Path:
 
 _LIB_PATH = _default_lib_path()
 if not _LIB_PATH.exists():
+    platform_hint = ""
+    if platform.system() == "Darwin":
+        platform_hint = (
+            "\nOn macOS, build it locally with "
+            "`./SetupPhase/learning-setup/solver/build_macos_solver.sh`."
+        )
     raise RuntimeError(
         f"Compiled library not found at {_LIB_PATH}.\n"
         "Build it from `amg_setup_solver.c` and `SolvePhase/hypre/src/test/amg_cycle.c` "
         "and link it against HYPRE.\n"
         "On Windows, build a `libamg_setup_solver.dll` and keep it next to this file."
+        f"{platform_hint}"
     )
 
 # On Windows, ensure dependencies (e.g. HYPRE.dll) in this directory can be resolved.
 if platform.system() == "Windows":
     os.add_dll_directory(str(Path(__file__).parent))
 
-_lib = ctypes.CDLL(str(_LIB_PATH))
+try:
+    _lib = ctypes.CDLL(str(_LIB_PATH))
+except OSError as exc:
+    platform_hint = ""
+    if platform.system() == "Darwin":
+        platform_hint = (
+            "\nOn macOS, rebuild the local runtime with "
+            "`./SetupPhase/learning-setup/solver/build_macos_solver.sh`."
+        )
+    raise RuntimeError(
+        f"Failed to load compiled library at {_LIB_PATH}.\n"
+        f"Original error: {exc}{platform_hint}"
+    ) from exc
 
 _VP = ctypes.c_void_p
 _I = ctypes.c_int

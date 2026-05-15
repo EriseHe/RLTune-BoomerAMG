@@ -9,6 +9,11 @@ v4 keeps the LinUCB v3 architecture:
 
 The difference is that action encoding is driven by a ParameterSpaceSpec
 instead of a hardcoded 3- or 5-knob feature map.
+
+The learner remains generic. In the final comparison harness it is currently
+instantiated with the 7-knob categorical BoomerAMG setup spec:
+strong_threshold, max_row_sum, trunc_factor, P_max_elmts, agg_num_levels,
+coarsen_type, and interp_type.
 """
 
 from __future__ import annotations
@@ -132,6 +137,10 @@ class SharedLinUCB_AMG_v4:
             param.name: {value: idx for idx, value in enumerate(param.values)}
             for param in self.parameter_spec.parameters
         }
+        self._arm_by_key = {
+            action_key_from_parameter_space_spec(action, self.parameter_spec): int(i)
+            for i, action in enumerate(self.actions)
+        }
         self.initial_guess_rounds = int(initial_guess_rounds)
         self._initial_guess_arm: Optional[int] = None
         self._initial_guess_action: Optional[Dict[str, Any]] = None
@@ -151,10 +160,7 @@ class SharedLinUCB_AMG_v4:
                 raise ValueError("initial_guess does not match any action in the provided action set")
         self._action_key_to_arm = None
         if self.candidate_strategy == "adaptive_local":
-            self._action_key_to_arm = {
-                action_key_from_parameter_space_spec(action, self.parameter_spec): int(i)
-                for i, action in enumerate(self.actions)
-            }
+            self._action_key_to_arm = dict(self._arm_by_key)
 
         self.t = 0
         self._last_phi: Optional[np.ndarray] = None
@@ -238,6 +244,13 @@ class SharedLinUCB_AMG_v4:
         if self.candidate_pool_size_burnin is not None and self.t < self.candidate_pool_burnin_rounds:
             return int(self.candidate_pool_size_burnin)
         return self._cand.candidate_pool_size
+
+    def _arm_from_params(self, params: Mapping[str, Any]) -> int:
+        key = action_key_from_parameter_space_spec(params, self.parameter_spec)
+        arm = self._arm_by_key.get(key)
+        if arm is None:
+            raise ValueError("params do not match any action in the provided action set")
+        return int(arm)
 
     def _is_param_active(self, param, action: Dict[str, Any]) -> bool:
         for dep_name, allowed in param.active_if:
@@ -365,26 +378,65 @@ class SharedLinUCB_AMG_v4:
         }
         return candidate, stats
 
+    def _record_prediction(
+        self,
+        *,
+        x: np.ndarray,
+        arm: int,
+        pred_mean: float,
+        pred_uncert: float,
+    ) -> Dict[str, Any]:
+        self._last_phi = self._phi(x, arm)
+        self._last_arm = int(arm)
+        self.history.append(
+            SharedLinUCBv4Step(
+                t=self.t + 1,
+                arm_index=int(arm),
+                loss=float("nan"),
+                pred_mean=float(pred_mean),
+                pred_uncert=float(pred_uncert),
+            )
+        )
+        return dict(self.actions[int(arm)])
+
+    def predict_from_candidate_arms(
+        self,
+        context: Iterable[float],
+        candidate_arms: Sequence[int],
+    ) -> Tuple[Dict[str, Any], Dict[str, float]]:
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+        cand = np.asarray(candidate_arms, dtype=int).reshape(-1)
+        if cand.size == 0:
+            raise ValueError("candidate_arms must be non-empty")
+        alpha_eff = self._effective_alpha()
+        score, mean, uncert = self._score_subset(x, arms=cand, alpha=alpha_eff)
+        best_score = float(np.min(score))
+        best_loc = np.flatnonzero(score <= best_score + 1e-12)
+        loc = int(self.rng.choice(best_loc))
+        arm = int(cand[loc])
+        params = self._record_prediction(
+            x=x,
+            arm=arm,
+            pred_mean=float(mean[loc]),
+            pred_uncert=float(uncert[loc]),
+        )
+        return params, {"pred_mean": float(mean[loc]), "pred_uncert": float(uncert[loc])}
+
     def predict(self, context: Iterable[float]) -> Dict[str, Any]:
         x = self._validate_x(np.asarray(list(context), dtype=float))
 
         if self._initial_guess_arm is not None and self.t < self.initial_guess_rounds:
             arm = int(self._initial_guess_arm)
-            self._last_phi = self._phi(x, arm)
-            self._last_arm = arm
-            self.history.append(
-                SharedLinUCBv4Step(
-                    t=self.t + 1,
-                    arm_index=arm,
-                    loss=float("nan"),
-                    pred_mean=float("nan"),
-                    pred_uncert=float("nan"),
-                )
+            params = self._record_prediction(
+                x=x,
+                arm=arm,
+                pred_mean=float("nan"),
+                pred_uncert=float("nan"),
             )
             self.candidate_stats_history.append(
                 {"strategy": "initial_guess", "candidate_count": 1, "elite": 0, "local": 0, "global": 1}
             )
-            return dict(self.actions[arm])
+            return params
 
         alpha_eff = self._effective_alpha()
         M = self._effective_candidate_pool_size()
@@ -421,31 +473,27 @@ class SharedLinUCB_AMG_v4:
             best_unc = float(uncert[loc])
             self.candidate_stats_history.append(cand_stats)
 
-        self._last_phi = self._phi(x, arm)
-        self._last_arm = arm
-
-        self.history.append(
-            SharedLinUCBv4Step(
-                t=self.t + 1,
-                arm_index=arm,
-                loss=float("nan"),
-                pred_mean=best_mean,
-                pred_uncert=best_unc,
-            )
+        return self._record_prediction(
+            x=x,
+            arm=arm,
+            pred_mean=best_mean,
+            pred_uncert=best_unc,
         )
-        return dict(self.actions[arm])
 
-    def update(self, loss: float) -> None:
+    def update(self, loss: float, *, bounded_loss: Optional[float] = None) -> None:
         if self._last_phi is None or self._last_arm is None:
             raise RuntimeError("update() called before predict()")
 
         phi = self._last_phi
         arm = int(self._last_arm)
-        y = float(loss)
-        if not np.isfinite(y):
+        raw_loss = float(loss)
+        if not np.isfinite(raw_loss):
             raise ValueError("loss must be finite")
+        y = float(raw_loss if bounded_loss is None else bounded_loss)
+        if not np.isfinite(y):
+            raise ValueError("bounded_loss must be finite")
 
-        self._cand.observe(arm, y)
+        self._cand.observe(arm, raw_loss)
 
         u = self.A_inv @ phi
         denom = 1.0 + float(phi @ u)
@@ -462,7 +510,7 @@ class SharedLinUCB_AMG_v4:
         self.history[-1] = SharedLinUCBv4Step(
             t=last.t,
             arm_index=last.arm_index,
-            loss=y,
+            loss=raw_loss,
             pred_mean=last.pred_mean,
             pred_uncert=last.pred_uncert,
         )
@@ -470,3 +518,26 @@ class SharedLinUCB_AMG_v4:
         self.t += 1
         self._last_phi = None
         self._last_arm = None
+
+    def observe(
+        self,
+        *,
+        context: Iterable[float],
+        params: Mapping[str, Any],
+        loss: float,
+        bounded_loss: Optional[float] = None,
+    ) -> None:
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+        arm = self._arm_from_params(params)
+        self._last_phi = self._phi(x, arm)
+        self._last_arm = int(arm)
+        self.history.append(
+            SharedLinUCBv4Step(
+                t=self.t + 1,
+                arm_index=int(arm),
+                loss=float("nan"),
+                pred_mean=float("nan"),
+                pred_uncert=float("nan"),
+            )
+        )
+        self.update(float(loss), bounded_loss=bounded_loss)
