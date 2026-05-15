@@ -1,0 +1,51 @@
+{
+  "T": 20,
+  "method_names": [
+    "Shared LinUCB v3 | tune3",
+    "Shared LinUCB v3 | tune5"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "Shared LinUCB v3 | tune3": 19.12588000000001,
+    "Shared LinUCB v3 | tune5": 17.482326999999998
+  },
+  "total_bandit_overhead_sec": {
+    "Shared LinUCB v3 | tune3": 0.015263668999999999,
+    "Shared LinUCB v3 | tune5": 0.022789547000000004
+  },
+  "total_end_to_end_sec": {
+    "Shared LinUCB v3 | tune3": 19.14114366900001,
+    "Shared LinUCB v3 | tune5": 17.505116546999997
+  },
+  "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_9_difconv_50x50x50_T20_39393939/dual_tune3_tune5_interleaved_permuted_runtime_norlsolve_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_9.py",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 50,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "method_filter": "linucbv3",
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "solve_mode": "no_rl_solve",
+  "within_step_method_permutation": true,
+  "within_step_tune_set_permutation": true,
+  "permutation_seed": 410134238,
+  "failed_count_total": {
+    "Shared LinUCB v3 | tune3": 0,
+    "Shared LinUCB v3 | tune5": 0
+  },
+  "mean_test_problem_runtime_sec": {
+    "Shared LinUCB v3 | tune3": 0.9562940000000004,
+    "Shared LinUCB v3 | tune5": 0.8741163499999999
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "run_dir": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime",
+  "T": 50,
+  "logs": [
+    "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/policy_default.csv",
+    "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/policy_linucb.csv"
+  ],
+  "totals": {
+    "default": {
+      "total_wu": 1420.4291756091404,
+      "total_runtime_sec": 0.244559419
+    },
+    "linucb": {
+      "total_wu": 1509.0499621259942,
+      "total_runtime_sec": 0.305934166
+    }
+  },
+  "fit_time_ms": {
+    "a_per_WU": 0.08262424783171926,
+    "b_ms": 3.084475747059211
+  },
+  "pearson_corr": 0.18755290408306532,
+  "r2": 0.035176091829991374,
+  "plots": {
+    "cumulative_runtime": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/cumulative_runtime.png",
+    "cumulative_wu": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/cumulative_wu.png",
+    "wu_vs_time_scatter": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/TimingIndividual/T50_seed20260209_lossruntime/wu_vs_time_scatter.png"
+  }
+}

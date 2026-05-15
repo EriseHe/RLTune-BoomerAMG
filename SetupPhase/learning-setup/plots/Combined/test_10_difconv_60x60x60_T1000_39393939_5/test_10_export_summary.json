@@ -1,0 +1,274 @@
+{
+  "script": "test_10.py",
+  "seed": 39393939,
+  "T": 1000,
+  "fixed_n": 60,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "grid_n": 10,
+  "final_tune_dims": [
+    5
+  ],
+  "method_filter": "linucbv3",
+  "branch_filter": "shared linucb v3 | tune5",
+  "test9_relax_type": 18,
+  "solve_model_type": "mlp",
+  "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_setup_random",
+  "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_setup_random.pkl",
+  "solve_tol": 1e-06,
+  "solve_max_cycles": 50,
+  "solver_tol": 1e-06,
+  "solver_max_iter": 50,
+  "scenarios": [
+    {
+      "T": 1000,
+      "method_names": [
+        "Shared LinUCB v3 | tune5"
+      ],
+      "default_method_name": "Shared LinUCB v3 | tune5",
+      "total_hypre_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 401.4379139999992
+      },
+      "total_bandit_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 1.842723653
+      },
+      "total_end_to_end_sec": {
+        "Shared LinUCB v3 | tune5": 403.2806376529992
+      },
+      "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T1000_39393939_5/rl_bandit_interleaved_runtime_runtime_cumulative.png",
+      "trace_plot": null,
+      "trace_keys": [],
+      "last500_fraction_equal_default": {},
+      "last500_mode_action": {},
+      "script": "test_10.py",
+      "scenario_name": "rl_bandit",
+      "scenario_desc": "RL + Bandit (bandit setup + RL solve)",
+      "seed": 39393939,
+      "alpha": 1.0,
+      "l2": 1.0,
+      "sigma": 0.1,
+      "fixed_n": 60,
+      "c_min": 1.0,
+      "c_max": 1000.0,
+      "context_dim": 8,
+      "candidate_pool_size": 512,
+      "elite_cache_size": 64,
+      "method_filter": "linucbv3",
+      "branch_filter": "shared linucb v3 | tune5",
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50,
+      "test9_relax_type": 18,
+      "solve_model_type": "mlp",
+      "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_setup_random",
+      "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_setup_random.pkl",
+      "solve_tol": 1e-06,
+      "solve_max_cycles": 50,
+      "solve_w_center": 1.25,
+      "solve_w_scale": 0.75,
+      "solve_sweeps_min": 1,
+      "solve_sweeps_max": 1,
+      "actions_grid_n": 10,
+      "actions_count_tune3": 1001,
+      "actions_count_tune5": 36001,
+      "p_max_values": [
+        2,
+        4,
+        6,
+        8,
+        12,
+        16
+      ],
+      "agg_num_levels_values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "continuation": false,
+      "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
+      "within_step_method_permutation": true,
+      "within_step_tune_set_permutation": true,
+      "permutation_seed": 410135247,
+      "solve_mode": "rl",
+      "failed_count_total": {
+        "Shared LinUCB v3 | tune5": 0
+      },
+      "failed_reason_counts": {
+        "Shared LinUCB v3 | tune5": {}
+      },
+      "total_setup_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 112.44048799999953
+      },
+      "mean_setup_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.11244048799999953
+      },
+      "total_solve_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 268.8379569999997
+      },
+      "mean_solve_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.2688379569999997
+      },
+      "total_select_sec": {
+        "Shared LinUCB v3 | tune5": 1.0134440690000002
+      },
+      "mean_select_sec": {
+        "Shared LinUCB v3 | tune5": 0.0010134440690000002
+      },
+      "total_loss_eval_sec": {
+        "Shared LinUCB v3 | tune5": 0.089539227
+      },
+      "mean_loss_eval_sec": {
+        "Shared LinUCB v3 | tune5": 8.9539227e-05
+      },
+      "total_update_sec": {
+        "Shared LinUCB v3 | tune5": 0.661681275
+      },
+      "mean_update_sec": {
+        "Shared LinUCB v3 | tune5": 0.000661681275
+      },
+      "total_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 1.842723653
+      },
+      "mean_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 0.0018427236529999999
+      },
+      "mean_end_to_end_sec": {
+        "Shared LinUCB v3 | tune5": 0.4032806376529992
+      },
+      "mean_test_problem_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.4014379139999992
+      },
+      "bandit_logic": "test_final_shared",
+      "summary_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T1000_39393939_5/rl_bandit_interleaved_runtime_summary.json",
+      "scenario_wall_time_sec": 457.39441766613163,
+      "mean_scenario_wall_time_per_instance_sec": 0.45739441766613165
+    },
+    {
+      "T": 1000,
+      "method_names": [
+        "Shared LinUCB v3 | tune5"
+      ],
+      "default_method_name": "Shared LinUCB v3 | tune5",
+      "total_hypre_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 365.96851499999883
+      },
+      "total_bandit_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 1.6639857980000001
+      },
+      "total_end_to_end_sec": {
+        "Shared LinUCB v3 | tune5": 367.63250079799883
+      },
+      "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T1000_39393939_5/bandit_only_interleaved_runtime_runtime_cumulative.png",
+      "trace_plot": null,
+      "trace_keys": [],
+      "last500_fraction_equal_default": {},
+      "last500_mode_action": {},
+      "script": "test_10.py",
+      "scenario_name": "bandit_only",
+      "scenario_desc": "Bandit only (bandit setup + non-RL solve)",
+      "seed": 39393939,
+      "alpha": 1.0,
+      "l2": 1.0,
+      "sigma": 0.1,
+      "fixed_n": 60,
+      "c_min": 1.0,
+      "c_max": 1000.0,
+      "context_dim": 8,
+      "candidate_pool_size": 512,
+      "elite_cache_size": 64,
+      "method_filter": "linucbv3",
+      "branch_filter": "shared linucb v3 | tune5",
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50,
+      "test9_relax_type": 18,
+      "solve_model_type": "mlp",
+      "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_setup_random",
+      "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_setup_random.pkl",
+      "solve_tol": 1e-06,
+      "solve_max_cycles": 50,
+      "solve_w_center": 1.25,
+      "solve_w_scale": 0.75,
+      "solve_sweeps_min": 1,
+      "solve_sweeps_max": 1,
+      "actions_grid_n": 10,
+      "actions_count_tune3": 1001,
+      "actions_count_tune5": 36001,
+      "p_max_values": [
+        2,
+        4,
+        6,
+        8,
+        12,
+        16
+      ],
+      "agg_num_levels_values": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "continuation": false,
+      "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
+      "within_step_method_permutation": true,
+      "within_step_tune_set_permutation": true,
+      "permutation_seed": 410136256,
+      "solve_mode": "no_rl",
+      "failed_count_total": {
+        "Shared LinUCB v3 | tune5": 0
+      },
+      "failed_reason_counts": {
+        "Shared LinUCB v3 | tune5": {}
+      },
+      "total_setup_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 111.29619600000018
+      },
+      "mean_setup_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.11129619600000018
+      },
+      "total_solve_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 230.94263299999852
+      },
+      "mean_solve_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.2309426329999985
+      },
+      "total_select_sec": {
+        "Shared LinUCB v3 | tune5": 0.909504792
+      },
+      "mean_select_sec": {
+        "Shared LinUCB v3 | tune5": 0.000909504792
+      },
+      "total_loss_eval_sec": {
+        "Shared LinUCB v3 | tune5": 0.093585266
+      },
+      "mean_loss_eval_sec": {
+        "Shared LinUCB v3 | tune5": 9.3585266e-05
+      },
+      "total_update_sec": {
+        "Shared LinUCB v3 | tune5": 0.576342116
+      },
+      "mean_update_sec": {
+        "Shared LinUCB v3 | tune5": 0.000576342116
+      },
+      "total_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 1.6639857980000001
+      },
+      "mean_overhead_sec": {
+        "Shared LinUCB v3 | tune5": 0.001663985798
+      },
+      "mean_end_to_end_sec": {
+        "Shared LinUCB v3 | tune5": 0.3676325007979988
+      },
+      "mean_test_problem_runtime_sec": {
+        "Shared LinUCB v3 | tune5": 0.36596851499999883
+      },
+      "bandit_logic": "test_final_shared",
+      "summary_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T1000_39393939_5/bandit_only_interleaved_runtime_summary.json",
+      "scenario_wall_time_sec": 381.0409597910475,
+      "mean_scenario_wall_time_per_instance_sec": 0.3810409597910475
+    }
+  ]
+}

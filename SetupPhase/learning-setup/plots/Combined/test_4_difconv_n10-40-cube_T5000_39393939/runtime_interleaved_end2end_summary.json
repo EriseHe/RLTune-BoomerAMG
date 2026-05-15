@@ -1,0 +1,127 @@
+{
+  "T": 5000,
+  "method_names": [
+    "default (fixed)",
+    "Shared LinUCB v2: 20^3",
+    "Shared LinUCB v3: 20^3",
+    "Shared LinTS: 20^3",
+    "Bayesianbandits v1: 20^3",
+    "Bayesianbandits v2: 20^3"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 216.6013880000025,
+    "Shared LinUCB v2: 20^3": 157.88555300000195,
+    "Shared LinUCB v3: 20^3": 170.33763400000117,
+    "Shared LinTS: 20^3": 186.74015400000206,
+    "Bayesianbandits v1: 20^3": 168.44540299999872,
+    "Bayesianbandits v2: 20^3": 161.6231599999984
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.018291233,
+    "Shared LinUCB v2: 20^3": 2.434310313,
+    "Shared LinUCB v3: 20^3": 2.572785905,
+    "Shared LinTS: 20^3": 2.084735671,
+    "Bayesianbandits v1: 20^3": 2.006892951,
+    "Bayesianbandits v2: 20^3": 2.048739272
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 216.6196792330025,
+    "Shared LinUCB v2: 20^3": 160.31986331300195,
+    "Shared LinUCB v3: 20^3": 172.91041990500116,
+    "Shared LinTS: 20^3": 188.82488967100207,
+    "Bayesianbandits v1: 20^3": 170.45229595099872,
+    "Bayesianbandits v2: 20^3": 163.6718992719984
+  },
+  "plot": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_4_difconv_n10-40-cube_T5000_39393939/runtime_interleaved_end2end_runtime_cumulative.png",
+  "trace_plot": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_4_difconv_n10-40-cube_T5000_39393939/runtime_interleaved_end2end_param_trace.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 0.0,
+    "Shared LinUCB v2: 20^3": 0.0,
+    "Shared LinUCB v3: 20^3": 0.0,
+    "Shared LinTS: 20^3": 0.0,
+    "Bayesianbandits v1: 20^3": 0.0,
+    "Bayesianbandits v2: 20^3": 0.0
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": null,
+      "count": 0,
+      "window": 500
+    },
+    "Shared LinUCB v2: 20^3": {
+      "action": [
+        0.95,
+        0.95,
+        0.0
+      ],
+      "count": 493,
+      "window": 500
+    },
+    "Shared LinUCB v3: 20^3": {
+      "action": [
+        0.95,
+        0.95,
+        0.95
+      ],
+      "count": 208,
+      "window": 500
+    },
+    "Shared LinTS: 20^3": {
+      "action": [
+        0.95,
+        0.75,
+        0.0
+      ],
+      "count": 49,
+      "window": 500
+    },
+    "Bayesianbandits v1: 20^3": {
+      "action": [
+        0.95,
+        0.9,
+        0.0
+      ],
+      "count": 47,
+      "window": 500
+    },
+    "Bayesianbandits v2: 20^3": {
+      "action": [
+        0.95,
+        0.8,
+        0.45
+      ],
+      "count": 81,
+      "window": 500
+    }
+  },
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "n_min": 10,
+  "n_max": 40,
+  "fixed_n": 0,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "actions_grid_n": 20,
+  "actions_count": 8000,
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "failed_count": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2: 20^3": 0,
+    "Shared LinUCB v3: 20^3": 0,
+    "Shared LinTS: 20^3": 0,
+    "Bayesianbandits v1: 20^3": 0,
+    "Bayesianbandits v2: 20^3": 0
+  }
+}

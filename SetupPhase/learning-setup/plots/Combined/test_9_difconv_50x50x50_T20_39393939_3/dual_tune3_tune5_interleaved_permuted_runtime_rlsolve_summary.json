@@ -1,0 +1,324 @@
+{
+  "T": 20,
+  "method_names": [
+    "default (fixed)",
+    "hypre default (fixed)",
+    "Shared LinUCB v2 | tune3",
+    "Shared LinUCB v3 | tune3",
+    "Bayesianbandits v2 | tune3",
+    "Shared LinUCB v2 | tune5",
+    "Shared LinUCB v3 | tune5",
+    "Shared LinTS | tune5",
+    "Bayesianbandits v2 | tune5"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 5.4359030000000566,
+    "hypre default (fixed)": 5.72043900000007,
+    "Shared LinUCB v2 | tune3": 6.150231000000002,
+    "Shared LinUCB v3 | tune3": 3.8854360000000874,
+    "Bayesianbandits v2 | tune3": 4.439217999999901,
+    "Shared LinUCB v2 | tune5": 3.2958659999999718,
+    "Shared LinUCB v3 | tune5": 2.9971900000000886,
+    "Shared LinTS | tune5": 2.8013419999999094,
+    "Bayesianbandits v2 | tune5": 2.501360999999971
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.00010641599999999999,
+    "hypre default (fixed)": 9.412e-05,
+    "Shared LinUCB v2 | tune3": 0.023838629,
+    "Shared LinUCB v3 | tune3": 0.022938958000000002,
+    "Bayesianbandits v2 | tune3": 0.018180207,
+    "Shared LinUCB v2 | tune5": 0.066799588,
+    "Shared LinUCB v3 | tune5": 0.056844040000000005,
+    "Shared LinTS | tune5": 0.06826953799999999,
+    "Bayesianbandits v2 | tune5": 0.054891707
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 5.436009416000058,
+    "hypre default (fixed)": 5.720533120000069,
+    "Shared LinUCB v2 | tune3": 6.174069629000001,
+    "Shared LinUCB v3 | tune3": 3.9083749580000875,
+    "Bayesianbandits v2 | tune3": 4.4573982069999,
+    "Shared LinUCB v2 | tune5": 3.3626655879999716,
+    "Shared LinUCB v3 | tune5": 3.054034040000089,
+    "Shared LinTS | tune5": 2.8696115379999094,
+    "Bayesianbandits v2 | tune5": 2.5562527069999708
+  },
+  "plot": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_9_difconv_50x50x50_T20_39393939_3/dual_tune3_tune5_interleaved_permuted_runtime_rlsolve_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_9.py",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 50,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "method_filter": "",
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "test9_relax_type": 18,
+  "solve_model_type": "mlp",
+  "solve_model_path": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_gen_2",
+  "solve_vec_path": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_gen_2.pkl",
+  "solve_lib_path": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SolvePhase/hypre/src/test/libamg_env.dylib",
+  "solve_tol": 1e-08,
+  "solve_max_cycles": 20,
+  "solve_w_center": 1.25,
+  "solve_w_scale": 0.75,
+  "solve_sweeps_min": 1,
+  "solve_sweeps_max": 1,
+  "actions_grid_n": 20,
+  "actions_count_tune3": 8000,
+  "actions_count_tune5": 288000,
+  "p_max_values": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "agg_num_levels_values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "continuation": false,
+  "bias_mitigation": "within-step permutation on identical instance stream across method+tune_set branches",
+  "within_step_method_permutation": true,
+  "within_step_tune_set_permutation": true,
+  "permutation_seed": 410134238,
+  "solve_mode": "rl_solve",
+  "failed_count_total": {
+    "default (fixed)": 15,
+    "hypre default (fixed)": 15,
+    "Shared LinUCB v2 | tune3": 17,
+    "Shared LinUCB v3 | tune3": 20,
+    "Bayesianbandits v2 | tune3": 18,
+    "Shared LinUCB v2 | tune5": 20,
+    "Shared LinUCB v3 | tune5": 19,
+    "Shared LinTS | tune5": 20,
+    "Bayesianbandits v2 | tune5": 20
+  },
+  "failed_reason_counts": {
+    "default (fixed)": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 11,
+      "hit_or_exceeded_solve_max_cycles": 4
+    },
+    "hypre default (fixed)": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 11,
+      "hit_or_exceeded_solve_max_cycles": 4
+    },
+    "Shared LinUCB v2 | tune3": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 15,
+      "hit_or_exceeded_solve_max_cycles": 2
+    },
+    "Shared LinUCB v3 | tune3": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 19,
+      "hit_or_exceeded_solve_max_cycles": 1
+    },
+    "Bayesianbandits v2 | tune3": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 15,
+      "hit_or_exceeded_solve_max_cycles": 3
+    },
+    "Shared LinUCB v2 | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 20
+    },
+    "Shared LinUCB v3 | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 19
+    },
+    "Shared LinTS | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 20
+    },
+    "Bayesianbandits v2 | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 20
+    }
+  },
+  "total_setup_runtime_sec": {
+    "default (fixed)": 3.323758000000012,
+    "hypre default (fixed)": 3.3720110000000183,
+    "Shared LinUCB v2 | tune3": 4.215477999999994,
+    "Shared LinUCB v3 | tune3": 1.8529910000000136,
+    "Bayesianbandits v2 | tune3": 2.2450009999999985,
+    "Shared LinUCB v2 | tune5": 1.7165920000000057,
+    "Shared LinUCB v3 | tune5": 1.581833999999997,
+    "Shared LinTS | tune5": 1.2624830000000031,
+    "Bayesianbandits v2 | tune5": 1.2214280000000173
+  },
+  "mean_setup_runtime_sec": {
+    "default (fixed)": 0.1661879000000006,
+    "hypre default (fixed)": 0.1686005500000009,
+    "Shared LinUCB v2 | tune3": 0.21077389999999968,
+    "Shared LinUCB v3 | tune3": 0.09264955000000068,
+    "Bayesianbandits v2 | tune3": 0.11225004999999992,
+    "Shared LinUCB v2 | tune5": 0.08582960000000028,
+    "Shared LinUCB v3 | tune5": 0.07909169999999985,
+    "Shared LinTS | tune5": 0.06312415000000016,
+    "Bayesianbandits v2 | tune5": 0.061071400000000865
+  },
+  "total_solve_runtime_sec": {
+    "default (fixed)": 2.1121450000000443,
+    "hypre default (fixed)": 2.3484280000000517,
+    "Shared LinUCB v2 | tune3": 1.9347530000000077,
+    "Shared LinUCB v3 | tune3": 2.0324450000000738,
+    "Bayesianbandits v2 | tune3": 2.1942169999999024,
+    "Shared LinUCB v2 | tune5": 1.579273999999966,
+    "Shared LinUCB v3 | tune5": 1.4153560000000915,
+    "Shared LinTS | tune5": 1.5388589999999063,
+    "Bayesianbandits v2 | tune5": 1.2799329999999536
+  },
+  "mean_solve_runtime_sec": {
+    "default (fixed)": 0.10560725000000222,
+    "hypre default (fixed)": 0.11742140000000259,
+    "Shared LinUCB v2 | tune3": 0.09673765000000038,
+    "Shared LinUCB v3 | tune3": 0.10162225000000369,
+    "Bayesianbandits v2 | tune3": 0.10971084999999511,
+    "Shared LinUCB v2 | tune5": 0.0789636999999983,
+    "Shared LinUCB v3 | tune5": 0.07076780000000457,
+    "Shared LinTS | tune5": 0.07694294999999532,
+    "Bayesianbandits v2 | tune5": 0.06399664999999768
+  },
+  "total_select_sec": {
+    "default (fixed)": 4.308300000000001e-05,
+    "hypre default (fixed)": 2.5791000000000004e-05,
+    "Shared LinUCB v2 | tune3": 0.019894294,
+    "Shared LinUCB v3 | tune3": 0.018987333999999998,
+    "Bayesianbandits v2 | tune3": 0.011707040999999998,
+    "Shared LinUCB v2 | tune5": 0.058166791,
+    "Shared LinUCB v3 | tune5": 0.045736501,
+    "Shared LinTS | tune5": 0.049235747999999996,
+    "Bayesianbandits v2 | tune5": 0.045143122
+  },
+  "mean_select_sec": {
+    "default (fixed)": 2.1541500000000004e-06,
+    "hypre default (fixed)": 1.2895500000000002e-06,
+    "Shared LinUCB v2 | tune3": 0.0009947147,
+    "Shared LinUCB v3 | tune3": 0.0009493666999999999,
+    "Bayesianbandits v2 | tune3": 0.0005853520499999999,
+    "Shared LinUCB v2 | tune5": 0.00290833955,
+    "Shared LinUCB v3 | tune5": 0.00228682505,
+    "Shared LinTS | tune5": 0.0024617873999999997,
+    "Bayesianbandits v2 | tune5": 0.0022571561
+  },
+  "total_loss_eval_sec": {
+    "default (fixed)": 4.4584e-05,
+    "hypre default (fixed)": 4.8161e-05,
+    "Shared LinUCB v2 | tune3": 4.671e-05,
+    "Shared LinUCB v3 | tune3": 4.4458e-05,
+    "Bayesianbandits v2 | tune3": 6.1333e-05,
+    "Shared LinUCB v2 | tune5": 4.658599999999999e-05,
+    "Shared LinUCB v3 | tune5": 4.0499e-05,
+    "Shared LinTS | tune5": 4.2041999999999995e-05,
+    "Bayesianbandits v2 | tune5": 4.2418000000000006e-05
+  },
+  "mean_loss_eval_sec": {
+    "default (fixed)": 2.2291999999999998e-06,
+    "hypre default (fixed)": 2.40805e-06,
+    "Shared LinUCB v2 | tune3": 2.3355e-06,
+    "Shared LinUCB v3 | tune3": 2.2229e-06,
+    "Bayesianbandits v2 | tune3": 3.06665e-06,
+    "Shared LinUCB v2 | tune5": 2.3292999999999995e-06,
+    "Shared LinUCB v3 | tune5": 2.02495e-06,
+    "Shared LinTS | tune5": 2.1020999999999997e-06,
+    "Bayesianbandits v2 | tune5": 2.1209000000000003e-06
+  },
+  "total_update_sec": {
+    "default (fixed)": 1.8749000000000003e-05,
+    "hypre default (fixed)": 2.0168000000000004e-05,
+    "Shared LinUCB v2 | tune3": 0.003897624999999999,
+    "Shared LinUCB v3 | tune3": 0.003907166,
+    "Bayesianbandits v2 | tune3": 0.006411833,
+    "Shared LinUCB v2 | tune5": 0.008586211,
+    "Shared LinUCB v3 | tune5": 0.011067039999999998,
+    "Shared LinTS | tune5": 0.018991748,
+    "Bayesianbandits v2 | tune5": 0.009706167
+  },
+  "mean_update_sec": {
+    "default (fixed)": 9.374500000000001e-07,
+    "hypre default (fixed)": 1.0084000000000002e-06,
+    "Shared LinUCB v2 | tune3": 0.00019488124999999997,
+    "Shared LinUCB v3 | tune3": 0.00019535830000000002,
+    "Bayesianbandits v2 | tune3": 0.00032059164999999996,
+    "Shared LinUCB v2 | tune5": 0.00042931055,
+    "Shared LinUCB v3 | tune5": 0.0005533519999999999,
+    "Shared LinTS | tune5": 0.0009495873999999999,
+    "Bayesianbandits v2 | tune5": 0.00048530835
+  },
+  "total_overhead_sec": {
+    "default (fixed)": 0.00010641599999999999,
+    "hypre default (fixed)": 9.412e-05,
+    "Shared LinUCB v2 | tune3": 0.023838629,
+    "Shared LinUCB v3 | tune3": 0.022938958000000002,
+    "Bayesianbandits v2 | tune3": 0.018180207,
+    "Shared LinUCB v2 | tune5": 0.066799588,
+    "Shared LinUCB v3 | tune5": 0.056844040000000005,
+    "Shared LinTS | tune5": 0.06826953799999999,
+    "Bayesianbandits v2 | tune5": 0.054891707
+  },
+  "mean_overhead_sec": {
+    "default (fixed)": 5.3208e-06,
+    "hypre default (fixed)": 4.706e-06,
+    "Shared LinUCB v2 | tune3": 0.00119193145,
+    "Shared LinUCB v3 | tune3": 0.0011469479,
+    "Bayesianbandits v2 | tune3": 0.00090901035,
+    "Shared LinUCB v2 | tune5": 0.0033399793999999996,
+    "Shared LinUCB v3 | tune5": 0.0028422020000000003,
+    "Shared LinTS | tune5": 0.0034134768999999994,
+    "Bayesianbandits v2 | tune5": 0.00274458535
+  },
+  "mean_end_to_end_sec": {
+    "default (fixed)": 0.2718004708000029,
+    "hypre default (fixed)": 0.28602665600000343,
+    "Shared LinUCB v2 | tune3": 0.30870348145000004,
+    "Shared LinUCB v3 | tune3": 0.19541874790000438,
+    "Bayesianbandits v2 | tune3": 0.222869910349995,
+    "Shared LinUCB v2 | tune5": 0.1681332793999986,
+    "Shared LinUCB v3 | tune5": 0.15270170200000446,
+    "Shared LinTS | tune5": 0.14348057689999547,
+    "Bayesianbandits v2 | tune5": 0.12781263534999854
+  },
+  "total_rl_solve_runtime_sec": {
+    "default (fixed)": 2.1121450000000443,
+    "hypre default (fixed)": 2.3484280000000517,
+    "Shared LinUCB v2 | tune3": 1.9347530000000077,
+    "Shared LinUCB v3 | tune3": 2.0324450000000738,
+    "Bayesianbandits v2 | tune3": 2.1942169999999024,
+    "Shared LinUCB v2 | tune5": 1.579273999999966,
+    "Shared LinUCB v3 | tune5": 1.4153560000000915,
+    "Shared LinTS | tune5": 1.5388589999999063,
+    "Bayesianbandits v2 | tune5": 1.2799329999999536
+  },
+  "mean_rl_solve_runtime_sec": {
+    "default (fixed)": 0.10560725000000222,
+    "hypre default (fixed)": 0.11742140000000259,
+    "Shared LinUCB v2 | tune3": 0.09673765000000038,
+    "Shared LinUCB v3 | tune3": 0.10162225000000369,
+    "Bayesianbandits v2 | tune3": 0.10971084999999511,
+    "Shared LinUCB v2 | tune5": 0.0789636999999983,
+    "Shared LinUCB v3 | tune5": 0.07076780000000457,
+    "Shared LinTS | tune5": 0.07694294999999532,
+    "Bayesianbandits v2 | tune5": 0.06399664999999768
+  },
+  "mean_test_problem_runtime_sec": {
+    "default (fixed)": 0.2717951500000028,
+    "hypre default (fixed)": 0.2860219500000035,
+    "Shared LinUCB v2 | tune3": 0.3075115500000001,
+    "Shared LinUCB v3 | tune3": 0.19427180000000438,
+    "Bayesianbandits v2 | tune3": 0.22196089999999505,
+    "Shared LinUCB v2 | tune5": 0.1647932999999986,
+    "Shared LinUCB v3 | tune5": 0.14985950000000442,
+    "Shared LinTS | tune5": 0.14006709999999548,
+    "Bayesianbandits v2 | tune5": 0.12506804999999854
+  }
+}

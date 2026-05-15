@@ -1,0 +1,11 @@
+{
+  "T": 20,
+  "alpha": 1.0,
+  "fail_penalty": 1000000.0,
+  "l2": 1.0,
+  "loss": "runtime",
+  "ma": 5,
+  "note": "Wrapper delegates to scripts/learning_amg_linucb.py",
+  "seed": 42,
+  "tune": "th_mxrs_tr"
+}

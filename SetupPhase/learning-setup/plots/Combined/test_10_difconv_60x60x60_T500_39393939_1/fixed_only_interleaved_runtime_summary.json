@@ -1,0 +1,124 @@
+{
+  "T": 500,
+  "method_names": [
+    "default (fixed)"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 227.80649299999777
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.003331595
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 227.8098245949978
+  },
+  "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T500_39393939_1/fixed_only_interleaved_runtime_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_10.py",
+  "scenario_name": "fixed_only",
+  "scenario_desc": "Fixed only (fixed setup + non-RL solve)",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 60,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "method_filter": "",
+  "solver_tol": 1e-06,
+  "solver_max_iter": 50,
+  "test9_relax_type": 18,
+  "solve_model_type": "mlp",
+  "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_setup_random",
+  "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_setup_random.pkl",
+  "solve_lib_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/libamg_env.dylib",
+  "solve_tol": 1e-06,
+  "solve_max_cycles": 50,
+  "solve_w_center": 1.25,
+  "solve_w_scale": 0.75,
+  "solve_sweeps_min": 1,
+  "solve_sweeps_max": 1,
+  "actions_grid_n": 10,
+  "actions_count_tune3": 1001,
+  "actions_count_tune5": 36001,
+  "p_max_values": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "agg_num_levels_values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "continuation": false,
+  "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
+  "within_step_method_permutation": true,
+  "within_step_tune_set_permutation": true,
+  "permutation_seed": 410134238,
+  "solve_mode": "no_rl_solve",
+  "failed_count_total": {
+    "default (fixed)": 0
+  },
+  "failed_reason_counts": {
+    "default (fixed)": {}
+  },
+  "total_setup_runtime_sec": {
+    "default (fixed)": 157.41062600000305
+  },
+  "mean_setup_runtime_sec": {
+    "default (fixed)": 0.3148212520000061
+  },
+  "total_solve_runtime_sec": {
+    "default (fixed)": 70.39586699999472
+  },
+  "mean_solve_runtime_sec": {
+    "default (fixed)": 0.14079173399998945
+  },
+  "total_select_sec": {
+    "default (fixed)": 0.000813832
+  },
+  "mean_select_sec": {
+    "default (fixed)": 1.627664e-06
+  },
+  "total_loss_eval_sec": {
+    "default (fixed)": 0.0018338809999999999
+  },
+  "mean_loss_eval_sec": {
+    "default (fixed)": 3.6677619999999996e-06
+  },
+  "total_update_sec": {
+    "default (fixed)": 0.000683882
+  },
+  "mean_update_sec": {
+    "default (fixed)": 1.3677640000000001e-06
+  },
+  "total_overhead_sec": {
+    "default (fixed)": 0.003331595
+  },
+  "mean_overhead_sec": {
+    "default (fixed)": 6.66319e-06
+  },
+  "mean_end_to_end_sec": {
+    "default (fixed)": 0.4556196491899956
+  },
+  "mean_test_problem_runtime_sec": {
+    "default (fixed)": 0.45561298599999556
+  },
+  "summary_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_10_difconv_60x60x60_T500_39393939_1/fixed_only_interleaved_runtime_summary.json",
+  "scenario_wall_time_sec": 234.24191837501712,
+  "mean_scenario_wall_time_per_instance_sec": 0.46848383675003424
+}

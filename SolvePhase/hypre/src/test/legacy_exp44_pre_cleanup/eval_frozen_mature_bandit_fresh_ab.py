@@ -1,0 +1,319 @@
+from __future__ import annotations
+
+import json
+import os
+from collections import Counter, deque
+from pathlib import Path
+from statistics import mean
+from typing import Any, Dict, List, Sequence, Tuple
+
+import numpy as np
+
+from explore_bandit_solve_control import _augment_params
+from explore_step_rl_dynamic_control import _classify_rl_failure, _solve_schedule_case
+from setup_aware_compare_common import (
+    DEFAULT_SETUP_PARAMS,
+    SetupAwareRLConfig,
+    SetupAwareSolvePolicyRunner,
+    build_test10_branches,
+    compute_failure_scale_min_runtime_sec,
+    default_branch_label,
+    default_test_final_bandit_config_from_env,
+    generate_difconv_instances,
+    run_bandit_step_test_final,
+    solve_no_rl_case,
+    solve_setup_aware_rl_case,
+)
+
+
+def _env_int(name: str, default: int) -> int:
+    return int(os.environ.get(name, str(default)))
+
+
+def _env_float(name: str, default: float) -> float:
+    return float(os.environ.get(name, str(default)))
+
+
+def _env_str(name: str, default: str) -> str:
+    return str(os.environ.get(name, default))
+
+
+def _param_key(params: Dict[str, Any]) -> Tuple[Tuple[str, Any], ...]:
+    items = []
+    for k, v in sorted(dict(params).items()):
+        if isinstance(v, float):
+            items.append((k, round(float(v), 12)))
+        else:
+            items.append((k, v))
+    return tuple(items)
+
+
+def _summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    runtimes = [float(r["runtime"]) for r in results]
+    setup_runtimes = [float(r["setup_runtime"]) for r in results]
+    solve_runtimes = [float(r["solve_runtime"]) for r in results]
+    failures = [bool(r.get("failed", False)) for r in results]
+    iterations = [int(r.get("iterations", -1)) for r in results if int(r.get("iterations", -1)) >= 0]
+    final_ws = [float(r.get("final_w")) for r in results if np.isfinite(float(r.get("final_w", np.nan)))]
+    return {
+        "cases": int(len(results)),
+        "mean_runtime": float(mean(runtimes)),
+        "total_runtime": float(sum(runtimes)),
+        "mean_setup_runtime": float(mean(setup_runtimes)),
+        "mean_solve_runtime": float(mean(solve_runtimes)),
+        "failed_count": int(sum(failures)),
+        "mean_iterations": (float(mean(iterations)) if iterations else float("nan")),
+        "mean_final_w": (float(mean(final_ws)) if final_ws else float("nan")),
+    }
+
+
+def _build_mature_bandit() -> Any:
+    grid_n = _env_int("GRID_N", 40)
+    tune_dim = _env_int("SETUP_TUNE_DIM", 7)
+    bandit_method = _env_str("SETUP_BANDIT_METHOD", "linucbv4").strip().lower()
+    tune7_variant = _env_str("TUNE7_VARIANT", "categorical").strip().lower()
+    seed = _env_int("TRAIN_SEED", 39393939)
+    warmup_cases = _env_int("WARMUP_CASES", 1500)
+    c_min = _env_float("C_MIN", 1.0)
+    c_max = _env_float("C_MAX", 1000.0)
+    difconv_a = tuple(float(x) for x in _env_str("DIFCONV_A", "0,0,0").split(","))
+
+    print(
+        json.dumps(
+            {
+                "stage": "warmup_start",
+                "grid_n": grid_n,
+                "tune_dim": tune_dim,
+                "bandit_method": bandit_method,
+                "tune7_variant": tune7_variant,
+                "seed": seed,
+                "warmup_cases": warmup_cases,
+            }
+        ),
+        flush=True,
+    )
+
+    bandit_cfg = default_test_final_bandit_config_from_env()
+    branches, _bundle = build_test10_branches(
+        final_tune_dims=[int(tune_dim)],
+        tune7_variant=tune7_variant,
+        seed=int(seed),
+        solver_tol=_env_float("SOLVER_TOL", 1e-6),
+        solver_max_iter=_env_int("SOLVER_MAX_ITER", 50),
+        include_default=False,
+        method_filter=bandit_method,
+        branch_filter=_env_str(
+            "BRANCH_FILTER",
+            default_branch_label(method=bandit_method, tune_dim=tune_dim, tune7_variant=tune7_variant),
+        ),
+        bandit_cfg=bandit_cfg,
+    )
+    if len(branches) != 1:
+        raise RuntimeError(f"Expected exactly one bandit branch, got {[b.label for b in branches]}")
+    branch = branches[0]
+
+    instances = generate_difconv_instances(
+        T=warmup_cases,
+        seed=seed,
+        grid_choices=[(grid_n, grid_n, grid_n)],
+        c_min=c_min,
+        c_max=c_max,
+        difconv_a=(float(difconv_a[0]), float(difconv_a[1]), float(difconv_a[2])),
+    )
+
+    prev_update_est = 0.0
+    success_runtime_history = deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
+    failure_scale_min_runtime_sec = None
+    for i, (mkw, context) in enumerate(instances, 1):
+        def solver_fn(selected_params: Dict[str, Any]) -> Dict[str, Any]:
+            return solve_no_rl_case(
+                params=selected_params,
+                mkw=dict(mkw),
+                solver_tol=_env_float("SOLVER_TOL", 1e-6),
+                solver_max_iter=_env_int("SOLVER_MAX_ITER", 50),
+                augment_params=_augment_params,
+            )
+
+        if failure_scale_min_runtime_sec is None:
+            failure_scale_min_runtime_sec = compute_failure_scale_min_runtime_sec(
+                solver_fn=solver_fn,
+                params=DEFAULT_SETUP_PARAMS,
+                mkw=dict(mkw),
+                override_value=float(bandit_cfg.failure_scale_min_runtime_sec_override),
+            )
+
+        _params, _out, _timing, _failed_attempts, prev_update_est = run_bandit_step_test_final(
+            policy=branch.policy,
+            parameter_space=branch.parameter_space,
+            context=np.asarray(context, dtype=float),
+            solver_fn=solver_fn,
+            prev_update_est=float(prev_update_est),
+            success_runtime_history=success_runtime_history,
+            b_min_runtime_sec=float(failure_scale_min_runtime_sec),
+            solver_tol=_env_float("SOLVER_TOL", 1e-6),
+            cfg=bandit_cfg,
+        )
+        if i % 50 == 0:
+            print(json.dumps({"stage": "warmup_progress", "done": i, "total": warmup_cases}), flush=True)
+
+    print(json.dumps({"stage": "warmup_done", "warmup_cases": warmup_cases, "branch": branch.label}), flush=True)
+    return branch
+
+
+def _load_solve_policy() -> SetupAwareSolvePolicyRunner:
+    model_path = Path(_env_str("MODEL_PATH", "ppo_frozen_bandit_step.zip"))
+    vec_path = Path(_env_str("VEC_PATH", "vecnormalize_frozen_bandit_step.pkl"))
+    cfg = SetupAwareRLConfig(
+        tune_dim=_env_int("SETUP_TUNE_DIM", 7),
+        tune7_variant=_env_str("TUNE7_VARIANT", "categorical").strip().lower(),
+        algo=_env_str("ALGO", "ppo"),
+        model_type=_env_str("MODEL_TYPE", "mlp"),
+        model_path=model_path,
+        vec_path=vec_path,
+        fixed_grid=(_env_int("GRID_N", 40),) * 3,
+        difconv_c_range=(_env_float("C_MIN", 1.0), _env_float("C_MAX", 1000.0)),
+        w_only=True,
+        w_center=_env_float("W_CENTER", 1.65),
+        w_scale=_env_float("W_SCALE", 0.1),
+        sweeps_min=1,
+        sweeps_max=1,
+        w_init=None,
+        sweeps_init=None,
+        solve_max_cycles=_env_int("SOLVE_MAX_CYCLES", 50),
+        solve_tol=_env_float("SOLVE_TOL", 1e-6),
+        default_setup_params=dict(DEFAULT_SETUP_PARAMS),
+        obs_mode=_env_str("OBS_MODE", "solve_only"),
+        action_mode="continuous",
+    )
+    return SetupAwareSolvePolicyRunner(cfg)
+
+
+def main() -> None:
+    branch = _build_mature_bandit()
+    solve_policy = _load_solve_policy()
+    print(json.dumps({"stage": "eval_start"}), flush=True)
+
+    grid_n = _env_int("GRID_N", 40)
+    eval_seed = _env_int("EVAL_SEED", 39394939)
+    eval_cases = _env_int("EVAL_CASES", 500)
+    c_min = _env_float("C_MIN", 1.0)
+    c_max = _env_float("C_MAX", 1000.0)
+    difconv_a = tuple(float(x) for x in _env_str("DIFCONV_A", "0,0,0").split(","))
+    solve_tol = _env_float("SOLVE_TOL", 1e-6)
+    solve_max_cycles = _env_int("SOLVE_MAX_CYCLES", 50)
+    solver_tol = _env_float("SOLVER_TOL", 1e-6)
+    solver_max_iter = _env_int("SOLVER_MAX_ITER", 50)
+    fixed_w = _env_float("FIXED_W", 1.60)
+
+    instances = generate_difconv_instances(
+        T=eval_cases,
+        seed=eval_seed,
+        grid_choices=[(grid_n, grid_n, grid_n)],
+        c_min=c_min,
+        c_max=c_max,
+        difconv_a=(float(difconv_a[0]), float(difconv_a[1]), float(difconv_a[2])),
+    )
+
+    default_results: List[Dict[str, Any]] = []
+    fixed_results: List[Dict[str, Any]] = []
+    ppo_results: List[Dict[str, Any]] = []
+    selected_params: List[Dict[str, Any]] = []
+
+    for i, (mkw, context) in enumerate(instances, 1):
+        params, _info = branch.policy.select(context=np.asarray(context, dtype=float), parameter_space=branch.parameter_space)
+        params = dict(params)
+        selected_params.append(dict(params))
+
+        default_results.append(
+            solve_no_rl_case(
+                params=dict(params),
+                mkw=dict(mkw),
+                solver_tol=solver_tol,
+                solver_max_iter=solver_max_iter,
+                augment_params=_augment_params,
+            )
+        )
+        fixed_results.append(
+            _solve_schedule_case(
+                params=dict(params),
+                mkw=dict(mkw),
+                schedule=[(solve_max_cycles, float(fixed_w), 1, 1)],
+                solve_tol=solve_tol,
+                solve_max_cycles=solve_max_cycles,
+            )
+        )
+        ppo_results.append(
+            solve_setup_aware_rl_case(
+                params=dict(params),
+                mkw=dict(mkw),
+                solve_policy=solve_policy,
+                augment_params=_augment_params,
+                classify_rl_failure=lambda *, residual_norm, iterations: _classify_rl_failure(
+                    residual_norm=float(residual_norm),
+                    iterations=int(iterations),
+                    solve_tol=solve_tol,
+                    solve_max_cycles=solve_max_cycles,
+                ),
+                solve_max_cycles=solve_max_cycles,
+            )
+        )
+        if i % 50 == 0:
+            print(json.dumps({"stage": "eval_progress", "done": i, "total": eval_cases}), flush=True)
+
+    param_counter = Counter(_param_key(p) for p in selected_params)
+    total = len(selected_params)
+    top = []
+    for key, count in param_counter.most_common(10):
+        params = dict(key)
+        top.append(
+            {
+                "count": int(count),
+                "share_pct": float(100.0 * count / total),
+                "params": params,
+            }
+        )
+
+    s_default = _summarize(default_results)
+    s_fixed = _summarize(fixed_results)
+    s_ppo = _summarize(ppo_results)
+
+    print(
+        json.dumps(
+            {
+                "stage": "final",
+                "protocol": {
+                    "freeze_bandit_after_cases": _env_int("WARMUP_CASES", 1500),
+                    "eval_cases": eval_cases,
+                    "grid": [grid_n, grid_n, grid_n],
+                    "new_eval_seed": eval_seed,
+                    "bandit_updates_during_eval": False,
+                },
+                "methods": {
+                    "mature_bandit_plus_default_solve": s_default,
+                    f"mature_bandit_plus_fixed_w_{fixed_w:.2f}": s_fixed,
+                    "mature_bandit_plus_best_ppo": s_ppo,
+                },
+                "relative": {
+                    f"fixed_w_{fixed_w:.2f}_vs_default_pct": float(
+                        100.0 * (s_default["mean_runtime"] - s_fixed["mean_runtime"]) / s_default["mean_runtime"]
+                    ),
+                    "ppo_vs_default_pct": float(
+                        100.0 * (s_default["mean_runtime"] - s_ppo["mean_runtime"]) / s_default["mean_runtime"]
+                    ),
+                    f"ppo_vs_fixed_w_{fixed_w:.2f}_pct": float(
+                        100.0 * (s_fixed["mean_runtime"] - s_ppo["mean_runtime"]) / s_fixed["mean_runtime"]
+                    ),
+                },
+                "mature_bandit_selected_setup_distribution": {
+                    "unique_setups": int(len(param_counter)),
+                    "top10": top,
+                },
+            },
+            indent=2,
+        ),
+        flush=True,
+    )
+
+
+if __name__ == "__main__":
+    main()

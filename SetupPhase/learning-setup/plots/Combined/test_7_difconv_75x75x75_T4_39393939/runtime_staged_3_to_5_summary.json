@@ -1,0 +1,161 @@
+{
+  "T": 4,
+  "method_names": [
+    "default (fixed)",
+    "Shared LinUCB v2",
+    "Shared LinUCB v3",
+    "Shared LinTS",
+    "Bayesianbandits v2"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 4.020700999999999,
+    "Shared LinUCB v2": 7.8991839999999955,
+    "Shared LinUCB v3": 16.315376999999998,
+    "Shared LinTS": 10.95582,
+    "Bayesianbandits v2": 6.400093999999999
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 4.3124e-05,
+    "Shared LinUCB v2": 0.003782918,
+    "Shared LinUCB v3": 0.11285916500000001,
+    "Shared LinTS": 0.266752043,
+    "Bayesianbandits v2": 0.239329833
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 4.020744123999999,
+    "Shared LinUCB v2": 7.902966917999995,
+    "Shared LinUCB v3": 16.428236164999998,
+    "Shared LinTS": 11.222572043,
+    "Bayesianbandits v2": 6.6394238329999995
+  },
+  "plot": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_7_difconv_75x75x75_T4_39393939/runtime_staged_3_to_5_runtime_cumulative.png",
+  "trace_plot": "/Users/zhijiang/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_7_difconv_75x75x75_T4_39393939/runtime_staged_3_to_5_param_trace.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor",
+    "P_max_elmts",
+    "agg_num_levels"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 0.0,
+    "Shared LinUCB v2": 0.25,
+    "Shared LinUCB v3": 0.0,
+    "Shared LinTS": 0.0,
+    "Bayesianbandits v2": 0.25
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": null,
+      "count": 0,
+      "window": 500
+    },
+    "Shared LinUCB v2": {
+      "action": [
+        0.95,
+        1e-06,
+        0.95,
+        4.0,
+        0.0
+      ],
+      "count": 1,
+      "window": 500
+    },
+    "Shared LinUCB v3": {
+      "action": [
+        0.95,
+        1e-06,
+        0.95,
+        4.0,
+        0.0
+      ],
+      "count": 1,
+      "window": 500
+    },
+    "Shared LinTS": {
+      "action": [
+        0.95,
+        1e-06,
+        0.475,
+        4.0,
+        0.0
+      ],
+      "count": 1,
+      "window": 500
+    },
+    "Bayesianbandits v2": {
+      "action": [
+        0.25,
+        0.9,
+        0.0,
+        4.0,
+        0.0
+      ],
+      "count": 1,
+      "window": 500
+    }
+  },
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 75,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 16,
+  "elite_cache_size": 4,
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "t_stage1": 2,
+  "t_stage2": 2,
+  "t_total": 4,
+  "stage_switch_t": 2,
+  "actions_grid_n": 3,
+  "actions_count_stage1": 28,
+  "actions_count_stage2": 109,
+  "p_max_values_stage2": [
+    2,
+    4
+  ],
+  "agg_num_levels_values_stage2": [
+    0,
+    1
+  ],
+  "failed_count": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2": 0,
+    "Shared LinUCB v3": 0,
+    "Shared LinTS": 0,
+    "Bayesianbandits v2": 0
+  },
+  "hypre_runtime_stage1_sec": {
+    "default (fixed)": 2.205952,
+    "Shared LinUCB v2": 5.779872000000002,
+    "Shared LinUCB v3": 8.329096999999999,
+    "Shared LinTS": 5.423120000000001,
+    "Bayesianbandits v2": 2.0298670000000034
+  },
+  "hypre_runtime_stage2_sec": {
+    "default (fixed)": 1.814748999999999,
+    "Shared LinUCB v2": 2.1193119999999936,
+    "Shared LinUCB v3": 7.986280000000001,
+    "Shared LinTS": 5.532699999999998,
+    "Bayesianbandits v2": 4.370226999999996
+  },
+  "overhead_stage1_sec": {
+    "default (fixed)": 3.3583e-05,
+    "Shared LinUCB v2": 0.001991959,
+    "Shared LinUCB v3": 0.071369915,
+    "Shared LinTS": 0.164216,
+    "Bayesianbandits v2": 0.108829167
+  },
+  "overhead_stage2_sec": {
+    "default (fixed)": 9.541e-06,
+    "Shared LinUCB v2": 0.001790959,
+    "Shared LinUCB v3": 0.04148924999999999,
+    "Shared LinTS": 0.102536043,
+    "Bayesianbandits v2": 0.13050066600000002
+  }
+}

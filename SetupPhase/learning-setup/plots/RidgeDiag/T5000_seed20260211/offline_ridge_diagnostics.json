@@ -1,0 +1,38 @@
+{
+  "csv": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/RidgeDiag/T5000_seed20260211/log_linucb_amg.csv",
+  "out_dir": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/RidgeDiag/T5000_seed20260211",
+  "n": 5000,
+  "n_train": 4000,
+  "n_test": 1000,
+  "train_frac": 0.8,
+  "y_col": "loss_used",
+  "lam": 1.0,
+  "a0": {
+    "th": 0.25,
+    "mxrs": 0.9,
+    "tr": 0.0
+  },
+  "r2_test": {
+    "noctx": 0.07854120031873935,
+    "ctx": 0.570038723788461,
+    "full": 0.5911226648821624
+  },
+  "residuals_full_test": {
+    "mean": -8.097539239684737e-05,
+    "std": 0.0014452381927362841,
+    "quantiles": {
+      "q01": -0.0021719137136236794,
+      "q05": -0.00178262798287273,
+      "q50": -0.0003736226476131893,
+      "q95": 0.002160109110521038,
+      "q99": 0.005397292134317938
+    },
+    "y_test_quantiles": {
+      "q01": 0.0024039800000127797,
+      "q05": 0.003098399999991841,
+      "q50": 0.007559999999983802,
+      "q95": 0.010813250000012431,
+      "q99": 0.014654730000009691
+    }
+  }
+}

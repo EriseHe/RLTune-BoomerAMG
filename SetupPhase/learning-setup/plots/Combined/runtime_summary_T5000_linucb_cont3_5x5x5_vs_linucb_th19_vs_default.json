@@ -1,0 +1,10 @@
+{
+  "T": 5000,
+  "seed": 20260209,
+  "totals_sec": {
+    "default": 154.462037234,
+    "linucb_cont3_5x5x5": 124.296433953,
+    "linucb_th_only_19grid": 41.800311201999996
+  },
+  "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/Combined/runtime_cumulative_T5000_linucb_cont3_5x5x5_vs_linucb_th19_vs_default.png"
+}

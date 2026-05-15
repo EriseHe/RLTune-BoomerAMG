@@ -1,0 +1,3 @@
+phase,solve_mode,t,t_phase,method,tune_set,setup_runtime_sec,solve_runtime_sec,runtime_sec,select_sec,loss_eval_sec,update_sec,overhead_sec,end_to_end_sec,failed,failure_reason,strong_threshold,max_row_sum,trunc_factor,P_max_elmts,agg_num_levels
+dual_permuted,no_rl_solve,1,1,default (fixed),default,0.0015090000000004267,0.0002599999999990388,0.0017689999999994654,1.833e-06,2.084e-06,8.33e-07,4.75e-06,0.0017737499999994654,1,residual_above_solver_tol;max_iter_reached_without_convergence,0.25,0.9,0.0,4.0,0.0
+dual_permuted,no_rl_solve,2,2,default (fixed),default,0.0016049999999996345,0.0003060000000001395,0.001910999999999774,7.09e-07,2.041e-06,8.75e-07,3.625e-06,0.001914624999999774,1,residual_above_solver_tol;max_iter_reached_without_convergence,0.25,0.9,0.0,4.0,0.0

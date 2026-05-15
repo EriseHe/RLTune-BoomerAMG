@@ -1,0 +1,97 @@
+{
+  "T": 5000,
+  "method_names": [
+    "default (fixed)",
+    "Shared LinUCB v2: 20^3",
+    "Shared LinUCB v3: 20^3",
+    "Shared LinTS: 20^3"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 223.1689029999966,
+    "Shared LinUCB v2: 20^3": 166.40532899999857,
+    "Shared LinUCB v3: 20^3": 172.2789300000012,
+    "Shared LinTS: 20^3": 200.89643799999823
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.018009303,
+    "Shared LinUCB v2: 20^3": 2.729050526,
+    "Shared LinUCB v3: 20^3": 2.900299887,
+    "Shared LinTS: 20^3": 2.059842881
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 223.1869123029966,
+    "Shared LinUCB v2: 20^3": 169.13437952599858,
+    "Shared LinUCB v3: 20^3": 175.17922988700118,
+    "Shared LinTS: 20^3": 202.95628088099824
+  },
+  "plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_3_difconv_n10-40-cube_T5000_20260215_1/runtime_interleaved_end2end_runtime_cumulative.png",
+  "trace_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_3_difconv_n10-40-cube_T5000_20260215_1/runtime_interleaved_end2end_param_trace.png",
+  "trace_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor"
+  ],
+  "last500_fraction_equal_default": {
+    "default (fixed)": 0.0,
+    "Shared LinUCB v2: 20^3": 0.0,
+    "Shared LinUCB v3: 20^3": 0.0,
+    "Shared LinTS: 20^3": 0.004
+  },
+  "last500_mode_action": {
+    "default (fixed)": {
+      "action": null,
+      "count": 0,
+      "window": 500
+    },
+    "Shared LinUCB v2: 20^3": {
+      "action": [
+        0.95,
+        0.95,
+        0.0
+      ],
+      "count": 390,
+      "window": 500
+    },
+    "Shared LinUCB v3: 20^3": {
+      "action": [
+        0.95,
+        0.95,
+        0.8
+      ],
+      "count": 51,
+      "window": 500
+    },
+    "Shared LinTS: 20^3": {
+      "action": [
+        0.95,
+        0.95,
+        0.95
+      ],
+      "count": 41,
+      "window": 500
+    }
+  },
+  "seed": 20260215,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "n_min": 10,
+  "n_max": 40,
+  "fixed_n": 0,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "actions_grid_n": 20,
+  "actions_count": 8000,
+  "solver_tol": 1e-08,
+  "solver_max_iter": 10000,
+  "failed_count": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2: 20^3": 0,
+    "Shared LinUCB v3: 20^3": 0,
+    "Shared LinTS: 20^3": 0
+  }
+}

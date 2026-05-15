@@ -1,0 +1,10 @@
+{
+  "csv": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/LinUCB_AMG/T50_seed20260209/log_linucb_amg.csv",
+  "learning_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/LinUCB_AMG/T50_seed20260209/learning_linucb_vs_default.png",
+  "mean_wu_default": 28.40858351218281,
+  "mean_wu_linucb": 30.845249968438328,
+  "regret_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/LinUCB_AMG/T50_seed20260209/rolling_regret_vs_default_ma25.png",
+  "total_wu_default": 1420.4291756091404,
+  "total_wu_linucb": 1542.2624984219165,
+  "trace_plot": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/SetupPhase/bandits-for-setup/plots/LinUCB_AMG/T50_seed20260209/trace_params_ma25.png"
+}

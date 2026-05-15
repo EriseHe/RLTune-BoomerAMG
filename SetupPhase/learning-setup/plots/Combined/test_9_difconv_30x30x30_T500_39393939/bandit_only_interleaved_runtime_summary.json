@@ -1,0 +1,217 @@
+{
+  "T": 500,
+  "method_names": [
+    "Shared LinUCB v2 | tune3",
+    "Shared LinUCB v3 | tune3",
+    "Shared LinUCB v2 | tune5",
+    "Shared LinUCB v3 | tune5",
+    "Shared LinUCB v4 | tune7-categorical"
+  ],
+  "default_method_name": "Shared LinUCB v2 | tune3",
+  "total_hypre_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 26.97902599999827,
+    "Shared LinUCB v3 | tune3": 27.956678000000068,
+    "Shared LinUCB v2 | tune5": 35.007547999999645,
+    "Shared LinUCB v3 | tune5": 33.47860200000014,
+    "Shared LinUCB v4 | tune7-categorical": 61.906604000000755
+  },
+  "total_bandit_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 0.42374503799999996,
+    "Shared LinUCB v3 | tune3": 0.44990440099999995,
+    "Shared LinUCB v2 | tune5": 0.509294229,
+    "Shared LinUCB v3 | tune5": 0.5465446589999999,
+    "Shared LinUCB v4 | tune7-categorical": 2.702642542
+  },
+  "total_end_to_end_sec": {
+    "Shared LinUCB v2 | tune3": 27.40277103799827,
+    "Shared LinUCB v3 | tune3": 28.40658240100007,
+    "Shared LinUCB v2 | tune5": 35.51684222899964,
+    "Shared LinUCB v3 | tune5": 34.025146659000136,
+    "Shared LinUCB v4 | tune7-categorical": 64.60924654200075
+  },
+  "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_9_difconv_30x30x30_T500_39393939/bandit_only_interleaved_runtime_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_9.py",
+  "scenario_name": "bandit_only",
+  "scenario_desc": "Bandit only (bandit setup + non-RL solve)",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 30,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "method_filter": "",
+  "solver_tol": 1e-06,
+  "solver_max_iter": 20,
+  "test9_relax_type": 18,
+  "solve_model_type": "mlp",
+  "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_gen_2",
+  "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_gen_2.pkl",
+  "solve_lib_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/libamg_env.dylib",
+  "solve_tol": 1e-06,
+  "solve_max_cycles": 20,
+  "solve_w_center": 1.25,
+  "solve_w_scale": 0.75,
+  "solve_sweeps_min": 1,
+  "solve_sweeps_max": 1,
+  "actions_grid_n": 20,
+  "actions_count_tune3": 8000,
+  "actions_count_tune5": 288000,
+  "p_max_values": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "agg_num_levels_values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "continuation": false,
+  "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
+  "within_step_method_permutation": true,
+  "within_step_tune_set_permutation": true,
+  "permutation_seed": 410134238,
+  "solve_mode": "no_rl_solve",
+  "failed_count_total": {
+    "Shared LinUCB v2 | tune3": 9,
+    "Shared LinUCB v3 | tune3": 17,
+    "Shared LinUCB v2 | tune5": 19,
+    "Shared LinUCB v3 | tune5": 31,
+    "Shared LinUCB v4 | tune7-categorical": 85
+  },
+  "failed_reason_counts": {
+    "Shared LinUCB v2 | tune3": {
+      "residual_above_solver_tol;max_iter_reached_without_convergence": 8,
+      "max_iter_reached_without_convergence": 1
+    },
+    "Shared LinUCB v3 | tune3": {
+      "residual_above_solver_tol;max_iter_reached_without_convergence": 17
+    },
+    "Shared LinUCB v2 | tune5": {
+      "residual_above_solver_tol;max_iter_reached_without_convergence": 17,
+      "max_iter_reached_without_convergence": 2
+    },
+    "Shared LinUCB v3 | tune5": {
+      "residual_above_solver_tol;max_iter_reached_without_convergence": 31
+    },
+    "Shared LinUCB v4 | tune7-categorical": {
+      "residual_above_solver_tol;max_iter_reached_without_convergence": 78,
+      "max_iter_reached_without_convergence": 7
+    }
+  },
+  "total_setup_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 18.489253999998766,
+    "Shared LinUCB v3 | tune3": 20.12968599999931,
+    "Shared LinUCB v2 | tune5": 23.051633999999694,
+    "Shared LinUCB v3 | tune5": 24.003292000001466,
+    "Shared LinUCB v4 | tune7-categorical": 47.05713500000007
+  },
+  "mean_setup_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.03697850799999753,
+    "Shared LinUCB v3 | tune3": 0.04025937199999862,
+    "Shared LinUCB v2 | tune5": 0.04610326799999939,
+    "Shared LinUCB v3 | tune5": 0.04800658400000293,
+    "Shared LinUCB v4 | tune7-categorical": 0.09411427000000015
+  },
+  "total_solve_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 8.489771999999505,
+    "Shared LinUCB v3 | tune3": 7.826992000000757,
+    "Shared LinUCB v2 | tune5": 11.95591399999995,
+    "Shared LinUCB v3 | tune5": 9.475309999998672,
+    "Shared LinUCB v4 | tune7-categorical": 14.849469000000681
+  },
+  "mean_solve_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.01697954399999901,
+    "Shared LinUCB v3 | tune3": 0.015653984000001515,
+    "Shared LinUCB v2 | tune5": 0.0239118279999999,
+    "Shared LinUCB v3 | tune5": 0.018950619999997344,
+    "Shared LinUCB v4 | tune7-categorical": 0.02969893800000136
+  },
+  "total_select_sec": {
+    "Shared LinUCB v2 | tune3": 0.371222889,
+    "Shared LinUCB v3 | tune3": 0.38635153899999997,
+    "Shared LinUCB v2 | tune5": 0.39380021,
+    "Shared LinUCB v3 | tune5": 0.408194874,
+    "Shared LinUCB v4 | tune7-categorical": 1.811805674
+  },
+  "mean_select_sec": {
+    "Shared LinUCB v2 | tune3": 0.000742445778,
+    "Shared LinUCB v3 | tune3": 0.0007727030779999999,
+    "Shared LinUCB v2 | tune5": 0.00078760042,
+    "Shared LinUCB v3 | tune5": 0.000816389748,
+    "Shared LinUCB v4 | tune7-categorical": 0.003623611348
+  },
+  "total_loss_eval_sec": {
+    "Shared LinUCB v2 | tune3": 0.001373704,
+    "Shared LinUCB v3 | tune3": 0.001306616,
+    "Shared LinUCB v2 | tune5": 0.001476405,
+    "Shared LinUCB v3 | tune5": 0.001427846,
+    "Shared LinUCB v4 | tune7-categorical": 0.0016333440000000001
+  },
+  "mean_loss_eval_sec": {
+    "Shared LinUCB v2 | tune3": 2.747408e-06,
+    "Shared LinUCB v3 | tune3": 2.613232e-06,
+    "Shared LinUCB v2 | tune5": 2.95281e-06,
+    "Shared LinUCB v3 | tune5": 2.855692e-06,
+    "Shared LinUCB v4 | tune7-categorical": 3.266688e-06
+  },
+  "total_update_sec": {
+    "Shared LinUCB v2 | tune3": 0.051148445,
+    "Shared LinUCB v3 | tune3": 0.062246246,
+    "Shared LinUCB v2 | tune5": 0.11401761400000002,
+    "Shared LinUCB v3 | tune5": 0.136921939,
+    "Shared LinUCB v4 | tune7-categorical": 0.8892035239999999
+  },
+  "mean_update_sec": {
+    "Shared LinUCB v2 | tune3": 0.00010229689,
+    "Shared LinUCB v3 | tune3": 0.00012449249199999999,
+    "Shared LinUCB v2 | tune5": 0.00022803522800000003,
+    "Shared LinUCB v3 | tune5": 0.000273843878,
+    "Shared LinUCB v4 | tune7-categorical": 0.0017784070479999999
+  },
+  "total_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 0.42374503799999996,
+    "Shared LinUCB v3 | tune3": 0.44990440099999995,
+    "Shared LinUCB v2 | tune5": 0.509294229,
+    "Shared LinUCB v3 | tune5": 0.5465446589999999,
+    "Shared LinUCB v4 | tune7-categorical": 2.702642542
+  },
+  "mean_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 0.0008474900759999999,
+    "Shared LinUCB v3 | tune3": 0.0008998088019999999,
+    "Shared LinUCB v2 | tune5": 0.001018588458,
+    "Shared LinUCB v3 | tune5": 0.0010930893179999998,
+    "Shared LinUCB v4 | tune7-categorical": 0.005405285084
+  },
+  "mean_end_to_end_sec": {
+    "Shared LinUCB v2 | tune3": 0.05480554207599654,
+    "Shared LinUCB v3 | tune3": 0.05681316480200014,
+    "Shared LinUCB v2 | tune5": 0.07103368445799929,
+    "Shared LinUCB v3 | tune5": 0.06805029331800028,
+    "Shared LinUCB v4 | tune7-categorical": 0.1292184930840015
+  },
+  "mean_test_problem_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.053958051999996544,
+    "Shared LinUCB v3 | tune3": 0.055913356000000136,
+    "Shared LinUCB v2 | tune5": 0.07001509599999929,
+    "Shared LinUCB v3 | tune5": 0.06695720400000027,
+    "Shared LinUCB v4 | tune7-categorical": 0.1238132080000015
+  },
+  "summary_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_9_difconv_30x30x30_T500_39393939/bandit_only_interleaved_runtime_summary.json",
+  "scenario_wall_time_sec": 194.69010654091835,
+  "mean_scenario_wall_time_per_instance_sec": 0.3893802130818367
+}

@@ -1,0 +1,31 @@
+Exp44 cleanup manifest (2026-05-15)
+
+Retained top-level files:
+- README.md
+- exp44_common.sh
+- aggregate_forward_continuation_from_run.py
+- eval_forward_continuation_dual.py
+- evaluate_saved_model_live_forward.sh
+- train_exp44_midpoint_lstm.sh
+- eval_exp44_model.sh
+- run_exp44_retrain_and_eval.sh
+- run_logs/
+
+Retained run_logs artifacts:
+- mature40_tune7_bandit_state_case2.pkl
+- experiment_search_20260510.md
+- exp44_midpoint_lstm_seedmeanstd_vsbandit_20260512T1
+- exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1
+- exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1_old_model_eval
+- exp44_midpoint_lstm_eval1000_5seed_rerun_20260513T1
+- exp44_midpoint_lstm_eval1000_10seed_full4_20260513T1
+
+Removed:
+- all non-Exp44 experiment directories in run_logs/
+- superseded Exp44 single-seed / 3-seed / early 5-seed exploratory evals
+- stale top-level cached forward scripts, checkpoints, summaries, logs, and teacher-era helpers
+
+2026-05-15 active helper consolidation:
+- moved explore_bandit_solve_control.py to legacy_exp44_pre_cleanup/
+- moved explore_step_rl_dynamic_control.py to legacy_exp44_pre_cleanup/
+- active helper functions now live in setup_aware_compare_common.py

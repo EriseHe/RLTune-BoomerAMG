@@ -1,0 +1,492 @@
+{
+  "T": 1000,
+  "method_names": [
+    "default (fixed)",
+    "Shared LinUCB v2 | tune3",
+    "Shared LinUCB v3 | tune5",
+    "Shared LinUCB v4 | tune7-categorical"
+  ],
+  "default_method_name": "default (fixed)",
+  "total_hypre_runtime_sec": {
+    "default (fixed)": 53.877692000000394,
+    "Shared LinUCB v2 | tune3": 36.17181300000033,
+    "Shared LinUCB v3 | tune5": 41.363811000000794,
+    "Shared LinUCB v4 | tune7-categorical": 43.89559999999983
+  },
+  "total_bandit_overhead_sec": {
+    "default (fixed)": 0.08920414099999999,
+    "Shared LinUCB v2 | tune3": 0.9202081609999999,
+    "Shared LinUCB v3 | tune5": 1.314045793,
+    "Shared LinUCB v4 | tune7-categorical": 5.510012859
+  },
+  "total_end_to_end_sec": {
+    "default (fixed)": 53.9668961410004,
+    "Shared LinUCB v2 | tune3": 37.092021161000325,
+    "Shared LinUCB v3 | tune5": 42.67785679300079,
+    "Shared LinUCB v4 | tune7-categorical": 49.40561285899983
+  },
+  "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_final_scalar_anisotropic_diffusion_30x30x30_T1000_39393939/final_unified_tuning_runtime_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_final.py",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "fixed_n": 30,
+  "fixed_nx": 30,
+  "fixed_ny": 30,
+  "fixed_nz": 30,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "solver_tol": 1e-06,
+  "solver_max_iter": 50,
+  "legacy_solver_tol": 1e-08,
+  "legacy_solver_max_iter": 10000,
+  "compare_v2_tune3_solver_profiles": false,
+  "failure_penalty_multiplier": 2.0,
+  "failure_scale_window": 200,
+  "failure_severity_cap": 6.0,
+  "failure_scale_min_runtime_sec_override": 0.0,
+  "structural_failure_surcharge_multiplier": 3.0,
+  "shared_instance_stream": true,
+  "within_step_branch_permutation": true,
+  "permutation_seed": 410134238,
+  "seed_map_by_family": {
+    "Shared LinUCB v2": 39404942,
+    "Shared LinUCB v3": 39405942,
+    "Shared LinUCB v4": 39406942
+  },
+  "branch_seed_map": {
+    "Shared LinUCB v2 | tune3": 39404942,
+    "Shared LinUCB v3 | tune5": 39405942,
+    "Shared LinUCB v4 | tune7-categorical": 39406942
+  },
+  "branch_solver_profile_map": {
+    "default (fixed)": {
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50
+    },
+    "Shared LinUCB v2 | tune3": {
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50
+    },
+    "Shared LinUCB v3 | tune5": {
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50
+    },
+    "Shared LinUCB v4 | tune7-categorical": {
+      "solver_tol": 1e-06,
+      "solver_max_iter": 50
+    }
+  },
+  "branch_failure_scale_min_runtime_sec": {
+    "default (fixed)": 0.05077499999998736,
+    "Shared LinUCB v2 | tune3": 0.05077499999998736,
+    "Shared LinUCB v3 | tune5": 0.05077499999998736,
+    "Shared LinUCB v4 | tune7-categorical": 0.05077499999998736
+  },
+  "tune_dimensions": [
+    3,
+    5,
+    7
+  ],
+  "default_baseline": "default (fixed)",
+  "actions_count_tune3": 8000,
+  "actions_count_tune5": 288000,
+  "actions_count_tune7": 2880000,
+  "grid_n": 20,
+  "coarsen_type_values": [
+    0,
+    2,
+    6,
+    8,
+    10
+  ],
+  "p_max_values": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "agg_num_levels_values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "tune7_variant": "categorical",
+  "tune7_alpha": 1.0,
+  "tune7_candidate_strategy": "uniform",
+  "tune7_coarsen_types": [
+    0,
+    2,
+    6,
+    8,
+    10
+  ],
+  "tune7_interp_types": [
+    6,
+    8
+  ],
+  "tune7_agg_interp_types": [],
+  "tune7_agg_tr_values": [],
+  "tune7_agg_pmx_values": [],
+  "tune7_candidate_pool_size": 1024,
+  "tune7_candidate_pool_size_burnin": 4096,
+  "tune7_candidate_pool_burnin_rounds": 200,
+  "tune7_alpha_decay_burnin_rounds": 250,
+  "tune7_local_neighbor_radius": 1,
+  "tune7_candidate_local_fraction": 0.6,
+  "tune7_candidate_elite_fraction": 0.2,
+  "branch_filter": [
+    "default (fixed)",
+    "Shared LinUCB v2 | tune3",
+    "Shared LinUCB v3 | tune5",
+    "Shared LinUCB v4 | tune7-categorical"
+  ],
+  "failed_count_total": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2 | tune3": 0,
+    "Shared LinUCB v3 | tune5": 0,
+    "Shared LinUCB v4 | tune7-categorical": 0
+  },
+  "retry_count_total": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2 | tune3": 3,
+    "Shared LinUCB v3 | tune5": 66,
+    "Shared LinUCB v4 | tune7-categorical": 96
+  },
+  "retry_event_count_total": {
+    "default (fixed)": 0,
+    "Shared LinUCB v2 | tune3": 2,
+    "Shared LinUCB v3 | tune5": 22,
+    "Shared LinUCB v4 | tune7-categorical": 27
+  },
+  "mean_retry_count": {
+    "default (fixed)": 0.0,
+    "Shared LinUCB v2 | tune3": 0.003,
+    "Shared LinUCB v3 | tune5": 0.066,
+    "Shared LinUCB v4 | tune7-categorical": 0.096
+  },
+  "mean_test_problem_runtime_sec": {
+    "default (fixed)": 0.05387769200000039,
+    "Shared LinUCB v2 | tune3": 0.03617181300000033,
+    "Shared LinUCB v3 | tune5": 0.04136381100000079,
+    "Shared LinUCB v4 | tune7-categorical": 0.04389559999999983
+  },
+  "late_window_summary": {
+    "default (fixed)": {
+      "50": {
+        "mean_runtime_sec": 0.05398128000000042,
+        "unique_action_count": 1,
+        "mode_action_count": 50,
+        "mode_action": {
+          "strong_threshold": 0.25,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "100": {
+        "mean_runtime_sec": 0.054125310000002855,
+        "unique_action_count": 1,
+        "mode_action_count": 100,
+        "mode_action": {
+          "strong_threshold": 0.25,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "200": {
+        "mean_runtime_sec": 0.0544379300000017,
+        "unique_action_count": 1,
+        "mode_action_count": 200,
+        "mode_action": {
+          "strong_threshold": 0.25,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "500": {
+        "mean_runtime_sec": 0.054113508000001614,
+        "unique_action_count": 1,
+        "mode_action_count": 500,
+        "mode_action": {
+          "strong_threshold": 0.25,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      }
+    },
+    "Shared LinUCB v2 | tune3": {
+      "50": {
+        "mean_runtime_sec": 0.036089179999999034,
+        "unique_action_count": 3,
+        "mode_action_count": 23,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.95,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "100": {
+        "mean_runtime_sec": 0.0357680600000009,
+        "unique_action_count": 3,
+        "mode_action_count": 51,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.95,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "200": {
+        "mean_runtime_sec": 0.03616406500000181,
+        "unique_action_count": 4,
+        "mode_action_count": 110,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.95,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "500": {
+        "mean_runtime_sec": 0.03610211000000083,
+        "unique_action_count": 4,
+        "mode_action_count": 302,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.95,
+          "trunc_factor": 0.0,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 4.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      }
+    },
+    "Shared LinUCB v3 | tune5": {
+      "50": {
+        "mean_runtime_sec": 0.03720762000000491,
+        "unique_action_count": 16,
+        "mode_action_count": 8,
+        "mode_action": {
+          "strong_threshold": 0.9,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.5,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "100": {
+        "mean_runtime_sec": 0.03629627000000369,
+        "unique_action_count": 26,
+        "mode_action_count": 23,
+        "mode_action": {
+          "strong_threshold": 0.9,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.5,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "200": {
+        "mean_runtime_sec": 0.03622895000000227,
+        "unique_action_count": 38,
+        "mode_action_count": 35,
+        "mode_action": {
+          "strong_threshold": 0.9,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.5,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "500": {
+        "mean_runtime_sec": 0.037029512000001145,
+        "unique_action_count": 48,
+        "mode_action_count": 62,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.85,
+          "trunc_factor": 0.6,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      }
+    },
+    "Shared LinUCB v4 | tune7-categorical": {
+      "50": {
+        "mean_runtime_sec": 0.036687939999998205,
+        "unique_action_count": 18,
+        "mode_action_count": 7,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.95,
+          "coarsen_type": 10.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "100": {
+        "mean_runtime_sec": 0.03663942000000134,
+        "unique_action_count": 27,
+        "mode_action_count": 15,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.15,
+          "coarsen_type": 2.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "200": {
+        "mean_runtime_sec": 0.03637274000000275,
+        "unique_action_count": 41,
+        "mode_action_count": 33,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.9,
+          "trunc_factor": 0.15,
+          "coarsen_type": 2.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      },
+      "500": {
+        "mean_runtime_sec": 0.03670335999999986,
+        "unique_action_count": 53,
+        "mode_action_count": 53,
+        "mode_action": {
+          "strong_threshold": 0.95,
+          "max_row_sum": 0.85,
+          "trunc_factor": 0.3,
+          "coarsen_type": 2.0,
+          "P_max_elmts": 2.0,
+          "agg_num_levels": 0.0,
+          "interp_type": 6.0
+        }
+      }
+    }
+  },
+  "slope_50": {
+    "default (fixed)": 0.05398128000000042,
+    "Shared LinUCB v2 | tune3": 0.036089179999999034,
+    "Shared LinUCB v3 | tune5": 0.03720762000000491,
+    "Shared LinUCB v4 | tune7-categorical": 0.036687939999998205
+  },
+  "mode_fraction_50": {
+    "default (fixed)": 1.0,
+    "Shared LinUCB v2 | tune3": 0.46,
+    "Shared LinUCB v3 | tune5": 0.16,
+    "Shared LinUCB v4 | tune7-categorical": 0.14
+  },
+  "unique_action_count_50": {
+    "default (fixed)": 1,
+    "Shared LinUCB v2 | tune3": 3,
+    "Shared LinUCB v3 | tune5": 16,
+    "Shared LinUCB v4 | tune7-categorical": 18
+  },
+  "slope_100": {
+    "default (fixed)": 0.054125310000002855,
+    "Shared LinUCB v2 | tune3": 0.0357680600000009,
+    "Shared LinUCB v3 | tune5": 0.03629627000000369,
+    "Shared LinUCB v4 | tune7-categorical": 0.03663942000000134
+  },
+  "mode_fraction_100": {
+    "default (fixed)": 1.0,
+    "Shared LinUCB v2 | tune3": 0.51,
+    "Shared LinUCB v3 | tune5": 0.23,
+    "Shared LinUCB v4 | tune7-categorical": 0.15
+  },
+  "unique_action_count_100": {
+    "default (fixed)": 1,
+    "Shared LinUCB v2 | tune3": 3,
+    "Shared LinUCB v3 | tune5": 26,
+    "Shared LinUCB v4 | tune7-categorical": 27
+  },
+  "slope_200": {
+    "default (fixed)": 0.0544379300000017,
+    "Shared LinUCB v2 | tune3": 0.03616406500000181,
+    "Shared LinUCB v3 | tune5": 0.03622895000000227,
+    "Shared LinUCB v4 | tune7-categorical": 0.03637274000000275
+  },
+  "mode_fraction_200": {
+    "default (fixed)": 1.0,
+    "Shared LinUCB v2 | tune3": 0.55,
+    "Shared LinUCB v3 | tune5": 0.175,
+    "Shared LinUCB v4 | tune7-categorical": 0.165
+  },
+  "unique_action_count_200": {
+    "default (fixed)": 1,
+    "Shared LinUCB v2 | tune3": 4,
+    "Shared LinUCB v3 | tune5": 38,
+    "Shared LinUCB v4 | tune7-categorical": 41
+  },
+  "slope_500": {
+    "default (fixed)": 0.054113508000001614,
+    "Shared LinUCB v2 | tune3": 0.03610211000000083,
+    "Shared LinUCB v3 | tune5": 0.037029512000001145,
+    "Shared LinUCB v4 | tune7-categorical": 0.03670335999999986
+  },
+  "mode_fraction_500": {
+    "default (fixed)": 1.0,
+    "Shared LinUCB v2 | tune3": 0.604,
+    "Shared LinUCB v3 | tune5": 0.124,
+    "Shared LinUCB v4 | tune7-categorical": 0.106
+  },
+  "unique_action_count_500": {
+    "default (fixed)": 1,
+    "Shared LinUCB v2 | tune3": 4,
+    "Shared LinUCB v3 | tune5": 48,
+    "Shared LinUCB v4 | tune7-categorical": 53
+  }
+}

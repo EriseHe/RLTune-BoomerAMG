@@ -1,0 +1,213 @@
+{
+  "T": 5000,
+  "method_names": [
+    "Shared LinUCB v2 | tune3",
+    "Shared LinUCB v3 | tune3",
+    "Shared LinUCB v2 | tune5",
+    "Shared LinUCB v3 | tune5",
+    "Shared LinUCB v4 | tune7-categorical"
+  ],
+  "default_method_name": "Shared LinUCB v2 | tune3",
+  "total_hypre_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 3180.155382000421,
+    "Shared LinUCB v3 | tune3": 1901.8258109998787,
+    "Shared LinUCB v2 | tune5": 3086.943701999444,
+    "Shared LinUCB v3 | tune5": 1850.283733999795,
+    "Shared LinUCB v4 | tune7-categorical": 1814.9099949999418
+  },
+  "total_bandit_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 6.21987619,
+    "Shared LinUCB v3 | tune3": 6.696586874,
+    "Shared LinUCB v2 | tune5": 7.60111926,
+    "Shared LinUCB v3 | tune5": 8.135417376,
+    "Shared LinUCB v4 | tune7-categorical": 33.596023477
+  },
+  "total_end_to_end_sec": {
+    "Shared LinUCB v2 | tune3": 3186.375258190421,
+    "Shared LinUCB v3 | tune3": 1908.5223978738786,
+    "Shared LinUCB v2 | tune5": 3094.544821259444,
+    "Shared LinUCB v3 | tune5": 1858.419151375795,
+    "Shared LinUCB v4 | tune7-categorical": 1848.5060184769418
+  },
+  "plot": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SetupPhase/learning-setup/plots/Combined/test_9_difconv_60x60x60_T5000_39393939/rl_bandit_interleaved_runtime_runtime_cumulative.png",
+  "trace_plot": null,
+  "trace_keys": [],
+  "last500_fraction_equal_default": {},
+  "last500_mode_action": {},
+  "script": "test_9.py",
+  "scenario_name": "rl_bandit",
+  "scenario_desc": "RL + Bandit (bandit setup + RL solve)",
+  "seed": 39393939,
+  "alpha": 1.0,
+  "l2": 1.0,
+  "sigma": 0.1,
+  "fixed_n": 60,
+  "c_min": 1.0,
+  "c_max": 1000.0,
+  "context_dim": 8,
+  "candidate_pool_size": 512,
+  "elite_cache_size": 64,
+  "method_filter": "",
+  "solver_tol": 1e-06,
+  "solver_max_iter": 50,
+  "test9_relax_type": null,
+  "solve_model_type": "mlp",
+  "solve_model_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/ppo_boomeramg_gen_2",
+  "solve_vec_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/vecnormalize_gen_2.pkl",
+  "solve_lib_path": "/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG/SolvePhase/hypre/src/test/libamg_env.dylib",
+  "solve_tol": 1e-06,
+  "solve_max_cycles": 50,
+  "solve_w_center": 1.25,
+  "solve_w_scale": 0.75,
+  "solve_sweeps_min": 1,
+  "solve_sweeps_max": 1,
+  "actions_grid_n": 20,
+  "actions_count_tune3": 8000,
+  "actions_count_tune5": 288000,
+  "p_max_values": [
+    2,
+    4,
+    6,
+    8,
+    12,
+    16
+  ],
+  "agg_num_levels_values": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "continuation": false,
+  "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
+  "within_step_method_permutation": true,
+  "within_step_tune_set_permutation": true,
+  "permutation_seed": 410134238,
+  "solve_mode": "rl_solve",
+  "failed_count_total": {
+    "Shared LinUCB v2 | tune3": 10,
+    "Shared LinUCB v3 | tune3": 7,
+    "Shared LinUCB v2 | tune5": 25,
+    "Shared LinUCB v3 | tune5": 27,
+    "Shared LinUCB v4 | tune7-categorical": 57
+  },
+  "failed_reason_counts": {
+    "Shared LinUCB v2 | tune3": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 9,
+      "hit_or_exceeded_solve_max_cycles": 1
+    },
+    "Shared LinUCB v3 | tune3": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 5,
+      "hit_or_exceeded_solve_max_cycles": 2
+    },
+    "Shared LinUCB v2 | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 25
+    },
+    "Shared LinUCB v3 | tune5": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 27
+    },
+    "Shared LinUCB v4 | tune7-categorical": {
+      "residual_above_solve_tol;max_cycles_reached_without_convergence": 57
+    }
+  },
+  "total_setup_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 2462.254694000085,
+    "Shared LinUCB v3 | tune3": 545.6982490000282,
+    "Shared LinUCB v2 | tune5": 2095.811102000167,
+    "Shared LinUCB v3 | tune5": 573.796111000067,
+    "Shared LinUCB v4 | tune7-categorical": 764.2019659998496
+  },
+  "mean_setup_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.49245093880001695,
+    "Shared LinUCB v3 | tune3": 0.10913964980000565,
+    "Shared LinUCB v2 | tune5": 0.4191622204000334,
+    "Shared LinUCB v3 | tune5": 0.11475922220001339,
+    "Shared LinUCB v4 | tune7-categorical": 0.15284039319996992
+  },
+  "total_solve_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 717.9006880003362,
+    "Shared LinUCB v3 | tune3": 1356.1275619998505,
+    "Shared LinUCB v2 | tune5": 991.1325999992769,
+    "Shared LinUCB v3 | tune5": 1276.487622999728,
+    "Shared LinUCB v4 | tune7-categorical": 1050.7080290000922
+  },
+  "mean_solve_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.14358013760006724,
+    "Shared LinUCB v3 | tune3": 0.2712255123999701,
+    "Shared LinUCB v2 | tune5": 0.19822651999985538,
+    "Shared LinUCB v3 | tune5": 0.2552975245999456,
+    "Shared LinUCB v4 | tune7-categorical": 0.21014160580001845
+  },
+  "total_select_sec": {
+    "Shared LinUCB v2 | tune3": 4.038480006,
+    "Shared LinUCB v3 | tune3": 4.212252532,
+    "Shared LinUCB v2 | tune5": 4.521469338999999,
+    "Shared LinUCB v3 | tune5": 4.720284923,
+    "Shared LinUCB v4 | tune7-categorical": 21.704007816999997
+  },
+  "mean_select_sec": {
+    "Shared LinUCB v2 | tune3": 0.0008076960012000001,
+    "Shared LinUCB v3 | tune3": 0.0008424505064,
+    "Shared LinUCB v2 | tune5": 0.0009042938677999999,
+    "Shared LinUCB v3 | tune5": 0.0009440569846,
+    "Shared LinUCB v4 | tune7-categorical": 0.004340801563399999
+  },
+  "total_loss_eval_sec": {
+    "Shared LinUCB v2 | tune3": 0.013584523000000001,
+    "Shared LinUCB v3 | tune3": 0.013946408,
+    "Shared LinUCB v2 | tune5": 0.01536101,
+    "Shared LinUCB v3 | tune5": 0.013964829000000002,
+    "Shared LinUCB v4 | tune7-categorical": 0.014938304999999999
+  },
+  "mean_loss_eval_sec": {
+    "Shared LinUCB v2 | tune3": 2.7169046000000004e-06,
+    "Shared LinUCB v3 | tune3": 2.7892816e-06,
+    "Shared LinUCB v2 | tune5": 3.072202e-06,
+    "Shared LinUCB v3 | tune5": 2.7929658000000002e-06,
+    "Shared LinUCB v4 | tune7-categorical": 2.9876609999999998e-06
+  },
+  "total_update_sec": {
+    "Shared LinUCB v2 | tune3": 2.167811661,
+    "Shared LinUCB v3 | tune3": 2.4703879339999997,
+    "Shared LinUCB v2 | tune5": 3.064288911,
+    "Shared LinUCB v3 | tune5": 3.401167624,
+    "Shared LinUCB v4 | tune7-categorical": 11.877077355
+  },
+  "mean_update_sec": {
+    "Shared LinUCB v2 | tune3": 0.0004335623322,
+    "Shared LinUCB v3 | tune3": 0.0004940775868,
+    "Shared LinUCB v2 | tune5": 0.0006128577821999999,
+    "Shared LinUCB v3 | tune5": 0.0006802335248,
+    "Shared LinUCB v4 | tune7-categorical": 0.0023754154710000004
+  },
+  "total_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 6.21987619,
+    "Shared LinUCB v3 | tune3": 6.696586874,
+    "Shared LinUCB v2 | tune5": 7.60111926,
+    "Shared LinUCB v3 | tune5": 8.135417376,
+    "Shared LinUCB v4 | tune7-categorical": 33.596023477
+  },
+  "mean_overhead_sec": {
+    "Shared LinUCB v2 | tune3": 0.001243975238,
+    "Shared LinUCB v3 | tune3": 0.0013393173748,
+    "Shared LinUCB v2 | tune5": 0.001520223852,
+    "Shared LinUCB v3 | tune5": 0.0016270834751999999,
+    "Shared LinUCB v4 | tune7-categorical": 0.006719204695400001
+  },
+  "mean_end_to_end_sec": {
+    "Shared LinUCB v2 | tune3": 0.6372750516380842,
+    "Shared LinUCB v3 | tune3": 0.3817044795747757,
+    "Shared LinUCB v2 | tune5": 0.6189089642518888,
+    "Shared LinUCB v3 | tune5": 0.371683830275159,
+    "Shared LinUCB v4 | tune7-categorical": 0.36970120369538834
+  },
+  "mean_test_problem_runtime_sec": {
+    "Shared LinUCB v2 | tune3": 0.6360310764000842,
+    "Shared LinUCB v3 | tune3": 0.38036516219997574,
+    "Shared LinUCB v2 | tune5": 0.6173887403998888,
+    "Shared LinUCB v3 | tune5": 0.370056746799959,
+    "Shared LinUCB v4 | tune7-categorical": 0.36298199899998834
+  }
+}

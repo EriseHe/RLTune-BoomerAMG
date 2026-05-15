@@ -1,0 +1,17 @@
+[general]
+library_name = "libHYPRE"
+output_file_path = "../lib/LibHYPRE.jl"
+jll_pkg_name = "HYPRE_jll"
+export_symbol_prefixes = []
+prologue_file_path = "./prologue.jl"
+output_ignorelist = [
+    # Undefined values DBL_MAX, DBL_MIN, DBL_EPSILON, DBL_MIN_EXP
+    "HYPRE_REAL_MAX",
+    "HYPRE_REAL_MIN",
+    "HYPRE_REAL_EPSILON",
+    "HYPRE_REAL_MIN_EXP",
+    # Bogus expression: const HYPRE_VERSION = ((("HYPRE_RELEASE_NAME Date Compiled: ")(__DATE__))(" "))(__TIME__)
+    "HYPRE_VERSION",
+    # Filter out MPI stuff
+    "^[PQ]?MPI"
+]
