@@ -3,8 +3,18 @@
 # Shared defaults for the retained Exp44 workflow.
 # Scripts source this file and can still override any variable from the shell.
 
-REPO_ROOT="${REPO_ROOT:-/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG}"
-PYTHON_BIN="${PYTHON_BIN:-/Users/jonathanwang/anaconda3/envs/rl/bin/python}"
+if [[ -z "${REPO_ROOT:-}" ]]; then
+  _exp44_common_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPO_ROOT="$(cd "$_exp44_common_dir/../.." && pwd)"
+fi
+
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
 
 # Stable repo-local mature setup-bandit snapshot.
 BANDIT_STATE="${BANDIT_STATE:-$REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/mature40_tune7_bandit_state_case2.pkl}"

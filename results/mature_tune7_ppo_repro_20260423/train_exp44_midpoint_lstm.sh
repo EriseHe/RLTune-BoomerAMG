@@ -68,7 +68,7 @@ TOTAL_TIMESTEPS="$TOTAL_TIMESTEPS" \
 CHECKPOINT_INTERVAL="$CHECKPOINT_INTERVAL" \
 SELECT_MODEL=best \
 CHECKPOINT_OBJECTIVE="$CHECKPOINT_OBJECTIVE" \
-"$PYTHON_BIN" SolvePhase/hypre/src/test/run_mature_bandit_rl_pipeline.py
+"$PYTHON_BIN" "$REPO_ROOT/SolvePhase/hypre/src/test/run_mature_bandit_rl_pipeline.py"
 
 echo
 echo "Done."

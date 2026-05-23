@@ -67,7 +67,7 @@ problem much easier to optimize than "predict an absolute `w` from scratch".
 
 ```bash
 conda activate rl
-cd /Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG
+cd /path/to/RLTune-BoomerAMG
 
 RUN_TAG=exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1 \
 bash results/mature_tune7_ppo_repro_20260423/train_exp44_midpoint_lstm.sh
@@ -115,7 +115,7 @@ Evaluate an existing model:
 
 ```bash
 conda activate rl
-cd /Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG
+cd /path/to/RLTune-BoomerAMG
 
 MODEL_PATH=$PWD/results/mature_tune7_ppo_repro_20260423/run_logs/exp44_midpoint_lstm_seedmeanstd_vsbandit_20260512T1/model_ckpt_2500.zip \
 RUN_ID=exp44_eval_example \

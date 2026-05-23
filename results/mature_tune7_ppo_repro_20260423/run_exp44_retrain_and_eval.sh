@@ -21,7 +21,7 @@ RUN_DIR="$REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/$RUN_TAG"
 
 echo "[1/3] Train new Exp44-style model into:"
 echo "      $RUN_DIR"
-bash results/mature_tune7_ppo_repro_20260423/train_exp44_midpoint_lstm.sh
+bash "$SCRIPT_DIR/train_exp44_midpoint_lstm.sh"
 
 NEW_MODEL="$RUN_DIR/model_ckpt_${CHECKPOINT_INTERVAL:-2500}.zip"
 
@@ -31,14 +31,14 @@ NEW_MODEL="$RUN_DIR/model_ckpt_${CHECKPOINT_INTERVAL:-2500}.zip"
 # echo "      $OLD_MODEL"
 # MODEL_PATH="$OLD_MODEL" \
 # RUN_ID="${RUN_TAG}_old_model_eval" \
-# bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
+# bash "$SCRIPT_DIR/eval_exp44_model.sh"
 
 echo
 echo "[3/3] Test newly trained model:"
 echo "      $NEW_MODEL"
 MODEL_PATH="$NEW_MODEL" \
 RUN_ID="${RUN_TAG}_new_model_eval" \
-bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
+bash "$SCRIPT_DIR/eval_exp44_model.sh"
 
 echo
 echo "Done."

@@ -5,8 +5,14 @@ import os
 from pathlib import Path
 from typing import Any
 
+def _repo_root() -> Path:
+    env_root = os.environ.get("REPO_ROOT", "").strip()
+    if env_root:
+        return Path(env_root).resolve()
+    return Path(__file__).resolve().parents[2]
 
-REPO = Path("/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG")
+
+REPO = _repo_root()
 OUT_DIR = REPO / "results/mature_tune7_ppo_repro_20260423"
 
 

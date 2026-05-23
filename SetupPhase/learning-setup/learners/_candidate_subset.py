@@ -20,38 +20,26 @@ class CandidateSelector:
         candidate_pool_size: Optional[int],
         always_include_arms: Optional[Sequence[int]],
         elite_cache_size: int,
-<<<<<<< HEAD
         elite_rank_metric: str = "best_loss",
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         rng: np.random.Generator,
     ) -> None:
         if K <= 0:
             raise ValueError("K must be positive")
         if elite_cache_size < 0:
             raise ValueError("elite_cache_size must be >= 0")
-<<<<<<< HEAD
         if elite_rank_metric not in {"best_loss", "mean_loss"}:
             raise ValueError("elite_rank_metric must be 'best_loss' or 'mean_loss'")
         self.K = int(K)
         self.rng = rng
         self.candidate_pool_size = int(candidate_pool_size) if candidate_pool_size is not None else None
         self.elite_rank_metric = str(elite_rank_metric)
-=======
-        self.K = int(K)
-        self.rng = rng
-        self.candidate_pool_size = int(candidate_pool_size) if candidate_pool_size is not None else None
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
         self._always_include_arms = self._validate_always_include_arms(always_include_arms)
         self.elite_cache_size = int(elite_cache_size)
         self._elite_arms = np.zeros(0, dtype=int)
         self._arm_best_loss = np.full(self.K, np.inf, dtype=float) if self.elite_cache_size > 0 else None
-<<<<<<< HEAD
         self._arm_loss_sum = np.zeros(self.K, dtype=float) if self.elite_cache_size > 0 else None
         self._arm_obs_count = np.zeros(self.K, dtype=int) if self.elite_cache_size > 0 else None
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
     def _validate_always_include_arms(self, always_include_arms: Optional[Sequence[int]]) -> np.ndarray:
         if always_include_arms is None:
@@ -88,7 +76,6 @@ class CandidateSelector:
                 seen.add(ai)
         return np.asarray(out, dtype=int)
 
-<<<<<<< HEAD
     @property
     def always_include_arms(self) -> np.ndarray:
         return np.asarray(self._always_include_arms, dtype=int)
@@ -107,20 +94,13 @@ class CandidateSelector:
         return out
 
     def candidate_subset(self, *, pool_size: Optional[int] = None) -> np.ndarray:
-=======
-    def candidate_subset(self) -> np.ndarray:
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         """
         Return a candidate subset of arms to score when candidate_pool_size is set.
         Always includes the configured always-include arms and the current elite cache.
         """
-<<<<<<< HEAD
         M = int(pool_size) if pool_size is not None else (
             int(self.candidate_pool_size) if self.candidate_pool_size is not None else self.K
         )
-=======
-        M = int(self.candidate_pool_size) if self.candidate_pool_size is not None else self.K
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         if M >= self.K:
             return np.arange(self.K, dtype=int)
 
@@ -156,7 +136,6 @@ class CandidateSelector:
             return
 
         self._arm_best_loss[a] = min(float(self._arm_best_loss[a]), y)
-<<<<<<< HEAD
         self._arm_loss_sum[a] += y
         self._arm_obs_count[a] += 1
 
@@ -164,10 +143,6 @@ class CandidateSelector:
             finite = np.flatnonzero(self._arm_obs_count > 0)
         else:
             finite = np.flatnonzero(np.isfinite(self._arm_best_loss))
-=======
-
-        finite = np.flatnonzero(np.isfinite(self._arm_best_loss))
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         if finite.size == 0:
             return
 
@@ -175,7 +150,6 @@ class CandidateSelector:
         if k <= 0:
             return
 
-<<<<<<< HEAD
         if self.elite_rank_metric == "mean_loss":
             vals = self.arm_mean_loss[finite]
         else:
@@ -184,11 +158,4 @@ class CandidateSelector:
         elite = finite[top_loc]
         elite_vals = vals[top_loc]
         elite = elite[np.argsort(elite_vals)]
-=======
-        vals = self._arm_best_loss[finite]
-        top_loc = np.argpartition(vals, kth=k - 1)[:k]
-        elite = finite[top_loc]
-        elite = elite[np.argsort(self._arm_best_loss[elite])]
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         self._elite_arms = elite.astype(int)
-

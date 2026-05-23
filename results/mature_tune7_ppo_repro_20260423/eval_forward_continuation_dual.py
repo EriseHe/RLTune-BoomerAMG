@@ -9,7 +9,14 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-REPO = Path("/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG")
+def _repo_root() -> Path:
+    env_root = os.environ.get("REPO_ROOT", "").strip()
+    if env_root:
+        return Path(env_root).resolve()
+    return Path(__file__).resolve().parents[2]
+
+
+REPO = _repo_root()
 TEST_DIR = REPO / "SolvePhase/hypre/src/test"
 sys.path.insert(0, str(TEST_DIR))
 

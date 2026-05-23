@@ -19,8 +19,6 @@ if str(_SETUP_ROOT) not in sys.path:
     sys.path.insert(0, str(_SETUP_ROOT))
 
 from amg_gym_env import build_policy_obs, decode_policy_action
-from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
-from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
 from solver import PreparedAMGEnv, create_env
@@ -186,23 +184,8 @@ class SetupBanditPolicy:
                 candidate_pool_size=int(candidate_pool_size),
             )
         else:
-            model_cls = {
-                "linucbv2": SharedLinUCB_AMG_v2,
-                "linucbv3": SharedLinUCB_AMG_v3,
-            }.get(self.method)
-            if model_cls is None:
-                raise ValueError(f"Unsupported bandit method for tune_dim={self.tune_dim}: {method}")
-            self.model = model_cls(
-                actions,
-                context_dim=int(context_dim),
-                alpha=float(alpha),
-                l2_reg=float(l2),
-                seed=int(seed),
-                action_center=DEFAULT_SETUP_PARAMS,
-                alpha_decay=True,
-                candidate_pool_size=int(candidate_pool_size),
-                always_include_arms=[int(default_arm_index)],
-                elite_cache_size=int(elite_cache_size),
+            raise ValueError(
+                "The retained Exp44 active path only supports tune_dim=7 with SharedLinUCB_AMG_v4"
             )
 
     def select(self, context: np.ndarray, **_: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:

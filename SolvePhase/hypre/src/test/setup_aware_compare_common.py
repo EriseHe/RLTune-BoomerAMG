@@ -28,8 +28,6 @@ from amg_gym_env import (
     decode_policy_action_residual,
 )
 from amg_setup_gym_env import BoomerAMGSetupRelaxEnv, SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
-from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
-from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
 from solver import create_env, solve
@@ -576,8 +574,6 @@ class RandomPolicy:
 
 def family_seed_map(*, seed: int) -> Dict[str, int]:
     return {
-        "Shared LinUCB v2": int(seed + 11003),
-        "Shared LinUCB v3": int(seed + 12003),
         "Shared LinUCB v4": int(seed + 13003),
     }
 
@@ -586,8 +582,6 @@ def default_branch_label(*, method: str, tune_dim: int, tune7_variant: str) -> s
     if str(method).strip().lower() == "default":
         return "default (fixed)"
     family = {
-        "linucbv2": "Shared LinUCB v2",
-        "linucbv3": "Shared LinUCB v3",
         "linucbv4": "Shared LinUCB v4",
     }.get(str(method).strip().lower(), str(method))
     if int(tune_dim) == 7:
@@ -628,8 +622,6 @@ def build_single_branch(
 
     seed_map = family_seed_map(seed=int(seed))
     family = {
-        "linucbv2": "Shared LinUCB v2",
-        "linucbv3": "Shared LinUCB v3",
         "linucbv4": "Shared LinUCB v4",
     }.get(method_key)
     if family is None:
@@ -776,12 +768,12 @@ def build_test10_branches(
 
     method_specs: List[Tuple[str, int]] = []
     for tune_dim in sorted(int(v) for v in final_tune_dims):
-        if tune_dim in {3, 5}:
-            method_specs.extend([("linucbv2", tune_dim), ("linucbv3", tune_dim)])
-        elif tune_dim == 7:
+        if tune_dim == 7:
             method_specs.append(("linucbv4", tune_dim))
         else:
-            raise ValueError(f"Unsupported tune_dim: {tune_dim}")
+            raise ValueError(
+                f"The retained Exp44 active path only supports tune_dim=7, got tune_dim={tune_dim}"
+            )
 
     for method, tune_dim in method_specs:
         branches.append(
@@ -880,25 +872,7 @@ def build_test_final_bandit_policy(
         )
         return GenericBanditPolicy(model)
 
-    model_cls = {
-        "linucbv2": SharedLinUCB_AMG_v2,
-        "linucbv3": SharedLinUCB_AMG_v3,
-    }.get(method_key)
-    if model_cls is None:
-        raise ValueError(f"Unsupported bandit method: {method}")
-    model = model_cls(
-        actions,
-        context_dim=int(context_dim),
-        alpha=float(cfg.alpha),
-        l2_reg=float(cfg.l2),
-        seed=int(seed),
-        action_center=dict(default_params),
-        alpha_decay=True,
-        candidate_pool_size=int(cfg.candidate_pool_size),
-        always_include_arms=[int(default_arm_index)],
-        elite_cache_size=int(cfg.elite_cache_size),
-    )
-    return GenericBanditPolicy(model)
+    raise ValueError(f"The retained Exp44 active path only supports linucbv4, got method={method!r}")
 
 
 def rolling_success_scale_sec(

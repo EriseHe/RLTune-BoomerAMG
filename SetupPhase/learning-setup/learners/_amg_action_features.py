@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-<<<<<<< HEAD
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
-=======
-from typing import Any, Dict, Optional, Sequence
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
 import numpy as np
 
 
-<<<<<<< HEAD
 ParameterKind = str
 _NUMERIC_KINDS = {"continuous", "integer"}
 _CATEGORICAL_KIND = "categorical"
@@ -411,10 +406,6 @@ def make_tune5_parameter_space_spec(
             ),
         )
     )
-
-
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 ACTION_FEATURE_KEYS = (
     "strong_threshold",
     "max_row_sum",
@@ -515,7 +506,3 @@ def poly2_features(values: Sequence[float]) -> np.ndarray:
             cross_terms.append(x[i] * x[j])
     feats.append(np.asarray(cross_terms, dtype=float))
     return np.concatenate(feats, axis=0)
-<<<<<<< HEAD
-=======
-
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50

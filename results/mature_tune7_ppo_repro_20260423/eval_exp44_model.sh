@@ -42,7 +42,7 @@ EVAL_B_NAME="$EVAL_B_NAME" \
 EVAL_B_START="$EVAL_B_START" \
 EVAL_B_END="$EVAL_B_END" \
 RUN_ID="$RUN_ID" \
-bash results/mature_tune7_ppo_repro_20260423/evaluate_saved_model_live_forward.sh
+bash "$SCRIPT_DIR/evaluate_saved_model_live_forward.sh"
 
 echo
 echo "Summary:"

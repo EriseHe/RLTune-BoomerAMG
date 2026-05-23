@@ -6,9 +6,16 @@ set -euo pipefail
 # 2) for each held-out seed, call eval_forward_continuation_dual.py
 # 3) aggregate all per-seed JSON files into one summary JSON
 
-REPO=/Users/jonathanwang/Desktop/RL_Hypre/RLTune-BoomerAMG
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 OUT_DIR="$REPO/results/mature_tune7_ppo_repro_20260423"
-PYTHON_BIN="${PYTHON_BIN:-/Users/jonathanwang/anaconda3/envs/rl/bin/python}"
+if [[ -z "${PYTHON_BIN:-}" ]]; then
+  if command -v python >/dev/null 2>&1; then
+    PYTHON_BIN="python"
+  else
+    PYTHON_BIN="python3"
+  fi
+fi
 MODEL_PATH="${MODEL_PATH:-}"
 FORWARD_METHODS="${FORWARD_METHODS:-default,bandit,fixed,ppo}"
 FORWARD_SEEDS="${FORWARD_SEEDS:-39393939,39394939,39400939,39406939,39412939}"
