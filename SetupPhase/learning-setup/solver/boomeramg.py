@@ -47,7 +47,11 @@ _lib.amg_setup_solve.restype = _I
 _lib.amg_setup_solve.argtypes = [
     _VP,                              # env
     _D, _I, _I, _D, _I, _I, _I, _I,  # strong_threshold..max_levels (incl. max_row_sum)
+<<<<<<< HEAD
     _D, _I, _I, _I, _D, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
+=======
+    _D, _I, _I, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     _D, _I,                           # tol, max_iter
     ctypes.POINTER(_I),               # out_iters
     ctypes.POINTER(_D),               # out_complexity
@@ -70,7 +74,11 @@ _lib.amg_setup_prepare_rl.restype = _I
 _lib.amg_setup_prepare_rl.argtypes = [
     _VP,
     _D, _I, _I, _D, _I, _I, _I, _I,
+<<<<<<< HEAD
     _D, _I, _I, _I, _D, _I, _D, _I, _I,
+=======
+    _D, _I, _I, _I, _D, _I, _I,
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     ctypes.POINTER(_D),
     ctypes.POINTER(_D),
 ]
@@ -78,7 +86,11 @@ _lib.amg_setup_prepare_rl.argtypes = [
 _lib.amg_setup_step_rl.restype = _I
 _lib.amg_setup_step_rl.argtypes = [
     _VP,
+<<<<<<< HEAD
     _D, _I, _I, _I, _I, _I, _I, _I, _I, _I, _D, _D, _D, _I, _D, _I,
+=======
+    _D, _I, _I,
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     ctypes.POINTER(_D),
     ctypes.POINTER(_D),
 ]
@@ -104,8 +116,11 @@ TUNABLE_PARAMS = {
     "P_max_elmts":      int,
     "agg_num_levels":   int,
     "agg_interp_type":  int,
+<<<<<<< HEAD
     "agg_tr":           float,
     "agg_Pmx":          int,
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     "relax_wt":         float,
     "relax_order":      int,
     "max_coarse_size":  int,
@@ -115,7 +130,10 @@ _PARAM_ORDER = [
     "strong_threshold", "coarsen_type", "interp_type", "max_row_sum",
     "relax_type", "num_sweeps", "cycle_type", "max_levels",
     "trunc_factor", "P_max_elmts", "agg_num_levels", "agg_interp_type",
+<<<<<<< HEAD
     "agg_tr", "agg_Pmx",
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     "relax_wt", "relax_order", "max_coarse_size",
 ]
 
@@ -169,6 +187,7 @@ class PreparedAMGEnv:
             initial_residual_norm=float(out_r0.value),
         )
 
+<<<<<<< HEAD
     def step_rl(
         self,
         *,
@@ -189,6 +208,9 @@ class PreparedAMGEnv:
         level_outer_weight: float | None = None,
         level_outer_level: int | None = None,
     ) -> tuple[float, float]:
+=======
+    def step_rl(self, *, relax_weight: float, sweeps_down: int, sweeps_up: int) -> tuple[float, float]:
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         out_r = _D()
         out_rt = _D()
         rc = _lib.amg_setup_step_rl(
@@ -196,6 +218,7 @@ class PreparedAMGEnv:
             float(relax_weight),
             int(sweeps_down),
             int(sweeps_up),
+<<<<<<< HEAD
             (-1 if coarse_sweeps is None else int(coarse_sweeps)),
             (-1 if cycle_type is None else int(cycle_type)),
             (-1 if relax_type is None else int(relax_type)),
@@ -209,6 +232,8 @@ class PreparedAMGEnv:
             (-1 if level_relax_level is None else int(level_relax_level)),
             (-1.0 if level_outer_weight is None else float(level_outer_weight)),
             (-1 if level_outer_level is None else int(level_outer_level)),
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             ctypes.byref(out_r),
             ctypes.byref(out_rt),
         )
@@ -247,8 +272,13 @@ def solve(
     rhs_seed: int = 42,
     k: float = 1.0, c: float = 0.0,
     a0: float = 1.0, a1: float = 1.0, a2: float = 1.0, a3: float = 0.0,
+<<<<<<< HEAD
     tol: Optional[float] = None,
     max_iter: Optional[int] = None,
+=======
+    tol: float = 1e-8,
+    max_iter: int = 10_000,
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 ) -> SolveResult:
     """
     Build a matrix (Laplacian or DifConv) and solve with BoomerAMG using the
@@ -264,8 +294,13 @@ def solve(
     a0..a3    : 27pt Laplacian coefficients, or DifConv coefficients for
                 stencil=0 (mapping matches solve-phase: cx=k, cy=c, cz=a0,
                 ax=a1, ay=a2, az=a3).
+<<<<<<< HEAD
     tol       : relative convergence tolerance. `None` => HYPRE default.
     max_iter  : V-cycle cap. `None` => HYPRE default.
+=======
+    tol       : relative convergence tolerance.
+    max_iter  : V-cycle cap.
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
     Returns
     -------
@@ -301,9 +336,13 @@ def solve(
     out_res   = _D()
 
     try:
+<<<<<<< HEAD
         c_tol = (-1.0 if tol is None else float(tol))
         c_max_iter = (-1 if max_iter is None else int(max_iter))
         rc = _lib.amg_setup_solve(env, *c_args, c_tol, c_max_iter,
+=======
+        rc = _lib.amg_setup_solve(env, *c_args, tol, max_iter,
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
                                   ctypes.byref(out_iters),
                                   ctypes.byref(out_comp),
                                   ctypes.byref(out_res),

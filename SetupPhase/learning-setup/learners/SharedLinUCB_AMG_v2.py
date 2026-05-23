@@ -35,7 +35,11 @@ Let a_tilde = (th~, mxrs~, tr~). Define:
                    th~*tr~,
                    mxrs~*tr~ ]^T   in R^9.
 
+<<<<<<< HEAD
 Context x is taken directly from `utils.stencil27_laplace.stencil_27_laplace`:
+=======
+Context x is taken directly from `utils.problem_amg.stencil_27_laplace`:
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
     x = [1, s1, s2, s3, c_diag]^T.
 

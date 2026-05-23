@@ -93,6 +93,7 @@ def decode_policy_action(action, *, w_only, w_center, w_scale, sweeps_min, sweep
 
     return float(w), int(sweeps_down), int(sweeps_up)
 
+<<<<<<< HEAD
 
 def decode_policy_action_residual(
     action,
@@ -203,6 +204,8 @@ def decode_policy_action_hierarchical(
 
     return float(w), int(sweeps_down), int(sweeps_up)
 
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 class BoomerAMGRelaxEnv(gym.Env):
     """
     One RL step = one BoomerAMG V-cycle.
@@ -234,8 +237,13 @@ class BoomerAMGRelaxEnv(gym.Env):
         fixed_grid=(60, 60, 60),
         fixed_stencil=27,
         fixed_rhs_type=1,   # 1 => uses rhs_seed in your C code
+<<<<<<< HEAD
         tol=1e-6,
         max_cycles=50,
+=======
+        tol=1e-8,
+        max_cycles=20,
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         seed=0,
         # Default w range ~[0.8, 1.3]
         w_center=1.05,

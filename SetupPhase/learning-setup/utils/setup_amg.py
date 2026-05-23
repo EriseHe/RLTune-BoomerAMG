@@ -8,12 +8,15 @@ import numpy as np
 from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple
 from pathlib import Path
 
+<<<<<<< HEAD
 from learners._amg_action_features import (
     ParameterSpaceSpec,
     action_key_from_parameter_space_spec,
     default_action_from_parameter_space_spec,
     enumerate_actions_from_parameter_space_spec,
 )
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 from solver import solve
 
 # ============================================================================
@@ -41,6 +44,7 @@ def record_param_trace(trace: Dict[str, np.ndarray], *, t: int, params: Dict[str
             trace[k][int(t)] = float(params[k])
 
 
+<<<<<<< HEAD
 def _format_duration(seconds: float) -> str:
     seconds_i = max(0, int(round(float(seconds))))
     hours, rem = divmod(seconds_i, 3600)
@@ -57,6 +61,9 @@ def progress_bar(
     every: int | None = None,
     start_time: float | None = None,
 ) -> None:
+=======
+def progress_bar(current: int, total: int, prefix: str = "", every: int | None = None) -> None:
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     width = 30
     if total <= 0:
         return
@@ -66,6 +73,7 @@ def progress_bar(
         return
     filled = int(width * current / total)
     bar = "=" * filled + "-" * (width - filled)
+<<<<<<< HEAD
     timing = ""
     if start_time is not None and current > 0:
         elapsed = max(0.0, float(time.perf_counter() - start_time))
@@ -73,6 +81,9 @@ def progress_bar(
         eta = max(0.0, rate * float(total - current))
         timing = f" elapsed {_format_duration(elapsed)} eta {_format_duration(eta)}"
     print(f"\r{prefix} [{bar}] {current}/{total}{timing}", end="", flush=True)
+=======
+    print(f"\r{prefix} [{bar}] {current}/{total}", end="", flush=True)
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     if current == total:
         print()
 
@@ -170,6 +181,7 @@ def build_actions_th_mxrs_tr(
     return actions
 
 
+<<<<<<< HEAD
 def default_action_from_spec(
     parameter_spec: ParameterSpaceSpec,
     *,
@@ -219,6 +231,8 @@ def build_actions_from_spec(
     return actions
 
 
+=======
+>>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 def _sample_problem(
     problem_set: Any, 
     rng: np.random.Generator, 

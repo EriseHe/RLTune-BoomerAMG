@@ -25,12 +25,13 @@ bash results/mature_tune7_ppo_repro_20260423/train_exp44_midpoint_lstm.sh
 
 NEW_MODEL="$RUN_DIR/model_ckpt_${CHECKPOINT_INTERVAL:-2500}.zip"
 
-echo
-echo "[2/3] Re-test old preserved model:"
-echo "      $OLD_MODEL"
-MODEL_PATH="$OLD_MODEL" \
-RUN_ID="${RUN_TAG}_old_model_eval" \
-bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
+#if we dont have old model we can skip the cmd below
+# echo
+# echo "[2/3] Re-test old preserved model:"
+# echo "      $OLD_MODEL"
+# MODEL_PATH="$OLD_MODEL" \
+# RUN_ID="${RUN_TAG}_old_model_eval" \
+# bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
 
 echo
 echo "[3/3] Test newly trained model:"
@@ -42,5 +43,5 @@ bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
 echo
 echo "Done."
 echo "New train dir:      $RUN_DIR"
-echo "Old eval summary:   $REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/${RUN_TAG}_old_model_eval/forward_continuation_summary.json"
+# echo "Old eval summary:   $REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/${RUN_TAG}_old_model_eval/forward_continuation_summary.json"
 echo "New eval summary:   $REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/${RUN_TAG}_new_model_eval/forward_continuation_summary.json"
