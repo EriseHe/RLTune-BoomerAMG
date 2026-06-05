@@ -468,6 +468,19 @@ int amg_env_step(AMGEnv* env,
             relax_weight,
             sweeps_down,
             sweeps_up,
+            1,                /* coarse_sweeps */
+            env->cycle_type,  /* cycle_type */
+            env->relax_type,  /* relax_type */
+            -1,               /* pre_relax_type */
+            -1,               /* post_relax_type */
+            -1,               /* coarse_relax_type */
+            -1,               /* relax_order */
+            -1.0,             /* outer_weight */
+            -1.0,             /* add_relax_weight */
+            -1.0,             /* level_relax_weight */
+            -1,               /* level_relax_level */
+            -1.0,             /* level_outer_weight */
+            -1,               /* level_outer_level */
             &r,
             &dt,
             &st) != 0)

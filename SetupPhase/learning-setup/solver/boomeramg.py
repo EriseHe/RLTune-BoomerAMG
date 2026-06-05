@@ -20,14 +20,29 @@ from typing import Any, Dict, Optional
 
 # ---- load compiled C library ------------------------------------------------
 
-_LIB_PATH = Path(__file__).parent / "libamg_setup_solver.dylib"
+_SOLVER_DIR = Path(__file__).parent
+_LIB_PATH = _SOLVER_DIR / "libamg_setup_solver.dylib"
+_BUILD_SCRIPT = _SOLVER_DIR / "build_libamg_setup_solver.sh"
 if not _LIB_PATH.exists():
     raise RuntimeError(
         f"Compiled library not found at {_LIB_PATH}.\n"
-        "Build it with: mpicc -shared -fPIC -O2 -o libamg_setup_solver.dylib "
-        "amg_setup_solver.c ../../../common/amg_rl_shared.c <HYPRE_SRC>/test/amg_cycle.c -I... -lHYPRE"
+        f"Build it from this directory with:\n"
+        f"  bash {_BUILD_SCRIPT.name}\n"
+        "or run:\n"
+        "  make"
     )
-_lib = ctypes.CDLL(str(_LIB_PATH))
+try:
+    _lib = ctypes.CDLL(str(_LIB_PATH))
+except OSError as exc:
+    raise RuntimeError(
+        f"Failed to load {_LIB_PATH}.\n"
+        "Rebuild the setup solver with the portable wrapper:\n"
+        f"  bash {_BUILD_SCRIPT.name}\n"
+        "Then inspect the linked HYPRE path with:\n"
+        f"  otool -L {_LIB_PATH.name}\n"
+        f"  otool -l {_LIB_PATH.name} | rg 'LC_RPATH|path'\n"
+        f"Original loader error: {exc}"
+    ) from exc
 
 _VP = ctypes.c_void_p
 _I = ctypes.c_int

@@ -27,6 +27,41 @@ where:
 This keeps the method full-range at the family level, while making the control
 problem much easier to optimize than "predict an absolute `w` from scratch".
 
+## Python environment
+
+The active scripts assume a Python environment that already has:
+
+- `numpy`
+- `scipy`
+- `matplotlib`
+- `torch`
+- `gymnasium`
+- `stable-baselines3`
+- `sb3-contrib`
+- `mpi4py`
+
+A minimal conda setup is:
+
+```bash
+conda create -n rl python=3.10 -y
+conda activate rl
+pip install numpy scipy matplotlib torch gymnasium stable-baselines3 sb3-contrib mpi4py
+```
+
+Notes:
+
+- `mpi4py` is needed because the local HYPRE build is MPI-enabled.
+- The native HYPRE/MPI libraries are **not** installed by the `pip` command
+  above; they are expected to already exist under this repository's local HYPRE
+  build tree:
+  - `SolvePhase/hypre/src/hypre/include`
+  - `SolvePhase/hypre/src/hypre/lib`
+- If `mpicc` is not already in `PATH`, add the Homebrew location first:
+
+```bash
+export PATH=/opt/homebrew/bin:$PATH
+```
+
 ## Structure
 
 ### Scripts
@@ -45,6 +80,37 @@ problem much easier to optimize than "predict an absolute `w` from scratch".
 - `evaluate_saved_model_live_forward.sh`
 - `eval_forward_continuation_dual.py`
 - `aggregate_forward_continuation_from_run.py`
+
+## Native-library prerequisites
+
+The retained Exp44 path needs two local shared libraries:
+
+1. solve-phase library:
+   - `SolvePhase/hypre/src/test/libamg_env.dylib`
+2. setup-phase library:
+   - `SetupPhase/learning-setup/solver/libamg_setup_solver.dylib`
+
+If you start from a fresh checkout and these files do not exist, build them
+before running training or evaluation.
+
+### Build `libamg_env.dylib`
+
+```bash
+cd /path/to/RLTune-BoomerAMG/SolvePhase/hypre/src/test
+export PATH=/opt/homebrew/bin:$PATH   # only needed if mpicc is not already in PATH
+make libamg_env.dylib
+```
+
+### Build `libamg_setup_solver.dylib`
+
+```bash
+cd /path/to/RLTune-BoomerAMG/SetupPhase/learning-setup/solver
+bash build_libamg_setup_solver.sh
+```
+
+That wrapper uses repository-relative paths and builds the setup solver with
+`@loader_path`-based HYPRE lookup, so the result does not depend on your local
+absolute checkout path.
 
 ### Important retained artifacts under `run_logs/`
 

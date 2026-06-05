@@ -282,10 +282,7 @@ static void apply_setup_params(
     int relax_type, int num_sweeps, int cycle_type, int max_levels,
     double trunc_factor, int P_max_elmts,
     int agg_num_levels, int agg_interp_type,
-<<<<<<< HEAD
     double agg_tr, int agg_Pmx,
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     double relax_wt, int relax_order, int max_coarse_size)
 {
     if (strong_threshold >= 0.0) HYPRE_BoomerAMGSetStrongThreshold(solver, strong_threshold);
@@ -306,11 +303,8 @@ static void apply_setup_params(
     if (P_max_elmts >= 0)        HYPRE_BoomerAMGSetPMaxElmts(solver, P_max_elmts);
     if (agg_num_levels >= 0)     HYPRE_BoomerAMGSetAggNumLevels(solver, agg_num_levels);
     if (agg_interp_type >= 0)    HYPRE_BoomerAMGSetAggInterpType(solver, agg_interp_type);
-<<<<<<< HEAD
     if (agg_tr >= 0.0)           HYPRE_BoomerAMGSetAggTruncFactor(solver, agg_tr);
     if (agg_Pmx >= 0)            HYPRE_BoomerAMGSetAggPMaxElmts(solver, agg_Pmx);
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     if (relax_wt >= 0.0)         HYPRE_BoomerAMGSetRelaxWt(solver, relax_wt);
     if (relax_order >= 0)        HYPRE_BoomerAMGSetRelaxOrder(solver, relax_order);
     if (max_coarse_size >= 0)    HYPRE_BoomerAMGSetMaxCoarseSize(solver, max_coarse_size);
@@ -454,10 +448,7 @@ AMG_API int amg_setup_solve(
     int relax_type, int num_sweeps, int cycle_type, int max_levels,
     double trunc_factor, int P_max_elmts,
     int agg_num_levels, int agg_interp_type,
-<<<<<<< HEAD
     double agg_tr, int agg_Pmx,
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     double relax_wt, int relax_order, int max_coarse_size,
     double tol, int max_iter,
     int *out_iters, double *out_complexity, double *out_residual,
@@ -471,24 +462,15 @@ AMG_API int amg_setup_solve(
     HYPRE_Solver solver;
     HYPRE_BoomerAMGCreate(&solver);
     HYPRE_BoomerAMGSetPrintLevel(solver, 0);
-<<<<<<< HEAD
     if (tol >= 0.0) HYPRE_BoomerAMGSetTol(solver, tol);
     if (max_iter >= 0) HYPRE_BoomerAMGSetMaxIter(solver, max_iter);
-=======
-    HYPRE_BoomerAMGSetTol(solver, tol);
-    HYPRE_BoomerAMGSetMaxIter(solver, max_iter);
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     HYPRE_BoomerAMGSetCumNnzAP(solver, 1.0);
     apply_setup_params(
         solver,
         strong_threshold, coarsen_type, interp_type, max_row_sum,
         relax_type, num_sweeps, cycle_type, max_levels,
         trunc_factor, P_max_elmts,
-<<<<<<< HEAD
         agg_num_levels, agg_interp_type, agg_tr, agg_Pmx,
-=======
-        agg_num_levels, agg_interp_type,
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         relax_wt, relax_order, max_coarse_size
     );
 
@@ -521,10 +503,7 @@ AMG_API int amg_setup_prepare_rl(
     int relax_type, int num_sweeps, int cycle_type, int max_levels,
     double trunc_factor, int P_max_elmts,
     int agg_num_levels, int agg_interp_type,
-<<<<<<< HEAD
     double agg_tr, int agg_Pmx,
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     double relax_wt, int relax_order, int max_coarse_size,
     double *out_setup_runtime,
     double *out_r0)
@@ -546,11 +525,7 @@ AMG_API int amg_setup_prepare_rl(
         strong_threshold, coarsen_type, interp_type, max_row_sum,
         relax_type, num_sweeps, cycle_type, max_levels,
         trunc_factor, P_max_elmts,
-<<<<<<< HEAD
         agg_num_levels, agg_interp_type, agg_tr, agg_Pmx,
-=======
-        agg_num_levels, agg_interp_type,
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         relax_wt, relax_order, max_coarse_size
     );
 
@@ -582,7 +557,6 @@ AMG_API int amg_setup_step_rl(
     double relax_weight,
     int sweeps_down,
     int sweeps_up,
-<<<<<<< HEAD
     int coarse_sweeps,
     int cycle_type,
     int relax_type,
@@ -596,8 +570,6 @@ AMG_API int amg_setup_step_rl(
     int level_relax_level,
     double level_outer_weight,
     int level_outer_level,
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     double *out_residual,
     double *out_runtime)
 {
@@ -615,7 +587,6 @@ AMG_API int amg_setup_step_rl(
             relax_weight,
             sweeps_down,
             sweeps_up,
-<<<<<<< HEAD
             coarse_sweeps,
             cycle_type,
             relax_type,
@@ -629,8 +600,6 @@ AMG_API int amg_setup_step_rl(
             level_relax_level,
             level_outer_weight,
             level_outer_level,
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             &env->r_curr,
             out_runtime,
             NULL) != 0)
@@ -638,7 +607,6 @@ AMG_API int amg_setup_step_rl(
         return -1;
     }
 
-<<<<<<< HEAD
     if (cycle_type >= 0)
     {
         env->cycle_type = cycle_type;
@@ -647,9 +615,6 @@ AMG_API int amg_setup_step_rl(
     {
         env->relax_type = relax_type;
     }
-
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     if (out_residual) { *out_residual = env->r_curr; }
     return 0;
 }
