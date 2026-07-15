@@ -22,7 +22,6 @@ python train_ppo.py
 ![Current solve phase progress](./Resource/current_solvephase_progress.png)
 
 *Figure: Current solve phase progress.*
-<<<<<<< HEAD
 
 ## Latest Mature Tune7 Reproduction (`40^3`)
 
@@ -137,5 +136,3 @@ shows only `2.48%` and fixed `w=1.60` is slightly faster there.
 Additional implementation notes are in:
 
 - `docs/mature_tune7_ppo_ppt_notes.md`
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50

@@ -19,11 +19,7 @@ Let a_hat = (th~, mxrs~, tr~). Define g(a_hat) in R^9:
 
     g = [ th~, mxrs~, tr~, th~^2, mxrs~^2, tr~^2, th~*mxrs~, th~*tr~, mxrs~*tr~ ]^T
 
-<<<<<<< HEAD
 Context x in R^5 from `utils.stencil27_laplace.stencil_27_laplace`:
-=======
-Context x in R^5 from `utils.problem_amg.stencil_27_laplace`:
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
     x = [1, s1, s2, s3, c_diag]^T
 
@@ -125,10 +121,7 @@ class SharedLinUCB_AMG_v3:
 
         self._a_center = self._compute_action_center(action_center)
 
-<<<<<<< HEAD
         self.A = np.eye(self.d_phi, dtype=float) * self.l2_reg
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
         self.b = np.zeros(self.d_phi, dtype=float)
 
@@ -141,7 +134,6 @@ class SharedLinUCB_AMG_v3:
         self._last_arm: Optional[int] = None
         self.history: List[SharedLinUCBv3Step] = []
 
-<<<<<<< HEAD
     def _rebuild_inverse(self) -> None:
         A = 0.5 * (self.A + self.A.T)
         eye = np.eye(self.d_phi, dtype=float)
@@ -167,8 +159,6 @@ class SharedLinUCB_AMG_v3:
                 self.A = np.eye(self.d_phi, dtype=float) * self.l2_reg
             self._rebuild_inverse()
 
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
         return action_center_from_actions(self.actions, action_center)
 
@@ -213,21 +203,14 @@ class SharedLinUCB_AMG_v3:
         arms: Optional[np.ndarray],
         alpha: float,
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-<<<<<<< HEAD
         self._ensure_numeric_state()
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         s1 = float(x[self.s1_index])
         s2 = float(x[self.s2_index])
         s3 = float(x[self.s3_index])
         cd = float(x[self.cdiag_index])
         G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]  # (K', g_dim)
 
-<<<<<<< HEAD
         theta = np.linalg.solve(self.A, self.b)
-=======
-        theta = self.A_inv @ self.b
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         theta_x = theta[: self.d_x]
         off = self.d_x
         theta_g = theta[off : off + self.g_dim]
@@ -264,16 +247,9 @@ class SharedLinUCB_AMG_v3:
             ]
         )
 
-<<<<<<< HEAD
         Ac = np.linalg.solve(self.A, c)
         q0 = float(c @ Ac)
         AP = np.linalg.solve(self.A, P)
-=======
-        Ainv = self.A_inv
-        Ac = Ainv @ c
-        q0 = float(c @ Ac)
-        AP = Ainv @ P
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         u = P.T @ Ac
         M = P.T @ AP
 
@@ -330,22 +306,9 @@ class SharedLinUCB_AMG_v3:
 
         self._cand.observe(arm, y)
 
-<<<<<<< HEAD
         self.A = self.A + np.outer(phi, phi)
         self.b = self.b + y * phi
         self._rebuild_inverse()
-=======
-        u = self.A_inv @ phi
-        denom = 1.0 + float(phi @ u)
-        if denom <= 0.0 or not np.isfinite(denom):
-            A = np.linalg.inv(self.A_inv)
-            A = A + np.outer(phi, phi)
-            self.A_inv = np.linalg.inv(A)
-        else:
-            self.A_inv = self.A_inv - np.outer(u, u) / denom
-
-        self.b = self.b + y * phi
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
         last = self.history[-1]
         self.history[-1] = SharedLinUCBv3Step(

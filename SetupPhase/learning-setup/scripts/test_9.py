@@ -42,22 +42,14 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SOLVE_TEST_DIR = REPO_ROOT / "SolvePhase" / "hypre" / "src" / "test"
 sys.path.insert(0, str(SOLVE_TEST_DIR))
 
-<<<<<<< HEAD
 from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
-=======
-from learners.Bayesianbandits_AMG_v2 import Bayesianbandits_AMG_v2
-from learners.SharedLinTS_AMG import SharedLinTS_AMG
-from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
-from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 from amg_gym_env import BoomerAMGRelaxEnv, build_policy_obs, decode_policy_action
 from solver import create_env, solve
 from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
-<<<<<<< HEAD
 from utils.setup_amg import (
     build_actions_from_spec,
     build_actions_th_mxrs_tr,
@@ -65,9 +57,6 @@ from utils.setup_amg import (
     progress_bar,
     record_param_trace,
 )
-=======
-from utils.setup_amg import build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
 
 T = int(os.environ.get("T", "1000"))
@@ -89,7 +78,6 @@ C_MAX = float(os.environ.get("C_MAX", "1000.0"))
 CANDIDATE_POOL_SIZE = int(os.environ.get("CANDIDATE_POOL_SIZE", "512"))
 ELITE_CACHE_SIZE = int(os.environ.get("ELITE_CACHE_SIZE", "64"))
 METHOD_FILTER = os.environ.get("METHOD_FILTER", "").strip().lower()
-<<<<<<< HEAD
 BRANCH_FILTER = os.environ.get("BRANCH_FILTER", "").strip().lower()
 
 DEFAULT_HYPRE_TOL = 1.0e-6
@@ -103,15 +91,6 @@ TEST9_RELAX_TYPE = os.environ.get("TEST9_RELAX_TYPE", "").strip()
 SOLVE_MODEL_TYPE = os.environ.get("SOLVE_MODEL_TYPE", os.environ.get("MODEL_TYPE", "mlp")).strip().lower()
 SOLVE_MODEL_PATH = Path(os.environ.get("SOLVE_MODEL_PATH", str(SOLVE_TEST_DIR / "ppo_boomeramg_setup_random")))
 SOLVE_VEC_PATH = Path(os.environ.get("SOLVE_VEC_PATH", str(SOLVE_TEST_DIR / "vecnormalize_setup_random.pkl")))
-=======
-
-SOLVER_TOL = float(os.environ.get("SOLVER_TOL", "1e-8"))
-SOLVER_MAX_ITER = int(os.environ.get("SOLVER_MAX_ITER", "10000"))
-TEST9_RELAX_TYPE = os.environ.get("TEST9_RELAX_TYPE", "").strip()
-SOLVE_MODEL_TYPE = os.environ.get("SOLVE_MODEL_TYPE", os.environ.get("MODEL_TYPE", "mlp")).strip().lower()
-SOLVE_MODEL_PATH = Path(os.environ.get("SOLVE_MODEL_PATH", str(SOLVE_TEST_DIR / "ppo_boomeramg_gen_2")))
-SOLVE_VEC_PATH = Path(os.environ.get("SOLVE_VEC_PATH", str(SOLVE_TEST_DIR / "vecnormalize_gen_2.pkl")))
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 SOLVE_LIB_PATH = Path(os.environ.get("SOLVE_LIB_PATH", str(SOLVE_TEST_DIR / "libamg_env.dylib")))
 SOLVE_W_CENTER = float(os.environ.get("SOLVE_W_CENTER", "1.25"))
 SOLVE_W_SCALE = float(os.environ.get("SOLVE_W_SCALE", "0.75"))
@@ -119,13 +98,8 @@ SOLVE_SWEEPS_MIN = int(os.environ.get("SOLVE_SWEEPS_MIN", "1"))
 SOLVE_SWEEPS_MAX = int(os.environ.get("SOLVE_SWEEPS_MAX", "1"))
 SOLVE_W_INIT = os.environ.get("SOLVE_W_INIT", "").strip()
 SOLVE_SWEEPS_INIT = os.environ.get("SOLVE_SWEEPS_INIT", "").strip()
-<<<<<<< HEAD
 SOLVE_TOL = float(os.environ.get("SOLVE_TOL", str(DEFAULT_HYPRE_TOL)))
 SOLVE_MAX_CYCLES = int(os.environ.get("SOLVE_MAX_CYCLES", str(DEFAULT_HYPRE_MAX_ITER)))
-=======
-SOLVE_TOL = float(os.environ.get("SOLVE_TOL", "1e-8"))
-SOLVE_MAX_CYCLES = int(os.environ.get("SOLVE_MAX_CYCLES", "20"))
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 SOLVE_GRID_NORM_DIV = float(os.environ.get("SOLVE_GRID_NORM_DIV", "100"))
 SOLVE_C_NORM_DIV = float(os.environ.get("SOLVE_C_NORM_DIV", str(C_MAX)))
 
@@ -141,7 +115,6 @@ DEFAULT_PARAMS = {
     "interp_type": 6,
     "P_max_elmts": 4,
     "agg_num_levels": 0,
-<<<<<<< HEAD
     "agg_interp_type": 4,
     "agg_tr": 0.0,
     "agg_Pmx": 0,
@@ -173,13 +146,6 @@ FINAL_TUNE_DIMS = tuple(
     )
 )
 TUNE7_VARIANT = os.environ.get("TUNE7_VARIANT", "categorical").strip().lower()
-=======
-}
-HYPRE_DEFAULT_PARAMS: Dict[str, Any] = {}
-DEFAULT_P_MAX_ELMTS_VALUES = (2, 4, 6, 8, 12, 16)
-DEFAULT_AGG_NUM_LEVELS_VALUES = (0, 1, 2, 3, 4, 5)
-TRACE_KEYS_5 = ("strong_threshold", "max_row_sum", "trunc_factor", "P_max_elmts", "agg_num_levels")
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 SOLVE_MODE_RL = "rl_solve"
 SOLVE_MODE_NO_RL = "no_rl_solve"
 
@@ -333,7 +299,6 @@ class SharedFactory:
         )
 
 
-<<<<<<< HEAD
 class SharedFactoryV4:
     def __init__(self, alpha: float, l2: float, *, model_kwargs=None):
         self.alpha = float(alpha)
@@ -377,8 +342,6 @@ class SharedFactoryV4:
         )
 
 
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 class SolvePolicyRunner:
     def __init__(self) -> None:
         if SOLVE_MODEL_TYPE == "lstm":
@@ -551,10 +514,7 @@ def _build_actions_tune3(*, th_grid, mxrs_grid, tr_grid) -> List[Dict[str, Any]]
         fixed_params={
             "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
             "interp_type": DEFAULT_PARAMS["interp_type"],
-<<<<<<< HEAD
             "agg_interp_type": DEFAULT_PARAMS["agg_interp_type"],
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         },
     )
     actions: List[Dict[str, Any]] = []
@@ -562,12 +522,9 @@ def _build_actions_tune3(*, th_grid, mxrs_grid, tr_grid) -> List[Dict[str, Any]]
         params = dict(base)
         params["P_max_elmts"] = int(DEFAULT_PARAMS["P_max_elmts"])
         params["agg_num_levels"] = int(DEFAULT_PARAMS["agg_num_levels"])
-<<<<<<< HEAD
         params["agg_interp_type"] = int(DEFAULT_PARAMS["agg_interp_type"])
         params["agg_tr"] = float(DEFAULT_PARAMS["agg_tr"])
         params["agg_Pmx"] = int(DEFAULT_PARAMS["agg_Pmx"])
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         actions.append(params)
     return actions
 
@@ -583,10 +540,7 @@ def _build_actions_tune5(*, th_grid, mxrs_grid, tr_grid) -> Tuple[List[Dict[str,
         fixed_params={
             "coarsen_type": DEFAULT_PARAMS["coarsen_type"],
             "interp_type": DEFAULT_PARAMS["interp_type"],
-<<<<<<< HEAD
             "agg_interp_type": DEFAULT_PARAMS["agg_interp_type"],
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         },
     )
     actions: List[Dict[str, Any]] = []
@@ -596,17 +550,13 @@ def _build_actions_tune5(*, th_grid, mxrs_grid, tr_grid) -> Tuple[List[Dict[str,
                 params = dict(base)
                 params["P_max_elmts"] = int(p_max)
                 params["agg_num_levels"] = int(agg_nl)
-<<<<<<< HEAD
                 params["agg_interp_type"] = int(DEFAULT_PARAMS["agg_interp_type"])
                 params["agg_tr"] = float(DEFAULT_PARAMS["agg_tr"])
                 params["agg_Pmx"] = int(DEFAULT_PARAMS["agg_Pmx"])
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
                 actions.append(params)
     return actions, p_max_values, agg_nl_values
 
 
-<<<<<<< HEAD
 def _build_actions_tune7_categorical(
     *,
     th_grid,
@@ -686,8 +636,6 @@ def _build_actions_tune7_categorical(
     return actions, p_max_values, agg_nl_values, coarsen_type_values, interp_values, parameter_spec
 
 
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 def _ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
     default_arm_index = next((i for i, a in enumerate(actions) if _same_action(a, DEFAULT_PARAMS)), None)
     if default_arm_index is None:
@@ -698,10 +646,6 @@ def _ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, A
 def _make_methods(*, parameter_space: Dict[str, Any], default_arm_index: int, seed_base: int):
     return [
         ("default (fixed)", FixedPolicy(DEFAULT_PARAMS)),
-<<<<<<< HEAD
-=======
-        ("hypre default (fixed)", FixedPolicy(HYPRE_DEFAULT_PARAMS)),
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         (
             "Shared LinUCB v2",
             SharedFactory(
@@ -732,7 +676,6 @@ def _make_methods(*, parameter_space: Dict[str, Any], default_arm_index: int, se
                 },
             ).new_trial(parameter_space=parameter_space, seed=seed_base + 12003, T=T, trial=0),
         ),
-<<<<<<< HEAD
     ]
 
 
@@ -755,37 +698,6 @@ def _make_methods_tune7(*, parameter_space: Dict[str, Any], parameter_spec: Para
                 },
             ).new_trial(parameter_space=parameter_space, seed=seed_base + 13003, T=T, trial=0),
         ),
-=======
-        (
-            "Shared LinTS",
-            SharedFactory(
-                SharedLinTS_AMG,
-                ALPHA,
-                L2,
-                model_kwargs={
-                    "sigma": SIGMA,
-                    "action_center": DEFAULT_PARAMS,
-                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
-                    "always_include_arms": [int(default_arm_index)],
-                    "elite_cache_size": ELITE_CACHE_SIZE,
-                },
-            ).new_trial(parameter_space=parameter_space, seed=seed_base + 13003, T=T, trial=0),
-        ),
-        (
-            "Bayesianbandits v2",
-            SharedFactory(
-                Bayesianbandits_AMG_v2,
-                ALPHA,
-                L2,
-                model_kwargs={
-                    "action_center": DEFAULT_PARAMS,
-                    "candidate_pool_size": CANDIDATE_POOL_SIZE,
-                    "always_include_arms": [int(default_arm_index)],
-                    "elite_cache_size": ELITE_CACHE_SIZE,
-                },
-            ).new_trial(parameter_space=parameter_space, seed=seed_base + 15003, T=T, trial=0),
-        ),
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     ]
 
 
@@ -805,7 +717,6 @@ def _filter_methods(methods: Sequence[Tuple[str, Any]]) -> List[Tuple[str, Any]]
     return kept
 
 
-<<<<<<< HEAD
 def _filter_branch_entries(
     branch_entries: Sequence[Tuple[str, str, str, Any, Dict[str, Any]]],
     label_meta: Dict[str, Dict[str, Any]],
@@ -826,8 +737,6 @@ def _filter_branch_entries(
     return kept, {label: meta for label, meta in label_meta.items() if label in kept_labels}
 
 
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 def _generate_instances(*, T: int, seed: int, sampler_kwargs: Dict[str, Any]):
     rng = np.random.default_rng(seed)
     instances = []
@@ -886,13 +795,8 @@ def _safe_solve_no_rl(params: Dict[str, Any], mkw: Dict[str, Any], *, fail_runti
         params = _augment_params(params)
         out = solve(
             params=params,
-<<<<<<< HEAD
             tol=(float(_SOLVER_TOL_RAW) if _SOLVER_TOL_RAW else None),
             max_iter=int(SOLVER_MAX_ITER),
-=======
-            tol=SOLVER_TOL,
-            max_iter=SOLVER_MAX_ITER,
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             **mkw,
         )
         total_runtime = float(out.runtime_sec)
@@ -994,10 +898,7 @@ def _run_phase_dual_interleaved(
     failure_records: List[Dict[str, Any]],
     rng_order: np.random.Generator,
 ) -> None:
-<<<<<<< HEAD
     phase_start_time = time.perf_counter()
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     for local_t, (mkw, context) in enumerate(instances):
         order = rng_order.permutation(len(branch_entries))
         for i in order:
@@ -1021,11 +922,7 @@ def _run_phase_dual_interleaved(
             failed_flags[label][local_t] = bool(out.get("failed", False))
             failure_reason[label][local_t] = str(out.get("failure_reason", ""))
             if label in traces:
-<<<<<<< HEAD
                 record_param_trace(traces[label], t=local_t, params=params, keys=TRACE_KEYS_FINAL)
-=======
-                record_param_trace(traces[label], t=local_t, params=params, keys=TRACE_KEYS_5)
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             prev_update_est[label] = float(timing["update_sec"])
             if bool(out.get("failed", False)):
                 failure_records.append(
@@ -1063,7 +960,6 @@ def _run_phase_dual_interleaved(
                     }
                 )
 
-<<<<<<< HEAD
         progress_bar(
             local_t + 1,
             len(instances),
@@ -1071,9 +967,6 @@ def _run_phase_dual_interleaved(
             every=_progress_every(),
             start_time=phase_start_time,
         )
-=======
-        progress_bar(local_t + 1, len(instances), prefix=phase_label, every=_progress_every())
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
 
 def _save_dual_csv(
@@ -1176,7 +1069,6 @@ def _save_dual_csv(
                 )
 
 
-<<<<<<< HEAD
 def _subset_label_meta(
     branch_entries: Sequence[Tuple[str, str, str, Any, Dict[str, Any]]],
     label_meta: Dict[str, Dict[str, Any]],
@@ -1299,197 +1191,13 @@ def _run_scenario(
         ),
         default_method_name=default_method_name,
         traces=traces,
-=======
-def main() -> None:
-    sampler_kwargs = {
-        "nx": int(FIXED_N),
-        "ny": int(FIXED_N),
-        "nz": int(FIXED_N),
-        "n_min": int(FIXED_N),
-        "n_max": int(FIXED_N),
-        "c_min": float(C_MIN),
-        "c_max": float(C_MAX),
-    }
-
-    warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_0_difconv_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
-    _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
-    solve_policy = SolvePolicyRunner()
-
-    grid_n, th_grid, mxrs_grid, tr_grid = _build_grids()
-    actions_tune3 = _build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
-    actions_tune3, default_arm_index_tune3 = _ensure_default_arm(actions_tune3)
-    actions_tune5, p_max_values, agg_nl_values = _build_actions_tune5(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
-    actions_tune5, default_arm_index_tune5 = _ensure_default_arm(actions_tune5)
-
-    instances = _generate_instances(T=T, seed=SEED, sampler_kwargs=sampler_kwargs)
-
-    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": DIFCONV_CONTEXT_DIM}
-    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": DIFCONV_CONTEXT_DIM}
-
-    methods_tune3_rl = _filter_methods(_make_methods(
-        parameter_space=parameter_space_tune3,
-        default_arm_index=int(default_arm_index_tune3),
-        seed_base=SEED + 10_000,
-    ))
-    methods_tune5_rl = _filter_methods(_make_methods(
-        parameter_space=parameter_space_tune5,
-        default_arm_index=int(default_arm_index_tune5),
-        seed_base=SEED + 20_000,
-    ))
-    methods_tune3_no_rl = _filter_methods(_make_methods(
-        parameter_space=parameter_space_tune3,
-        default_arm_index=int(default_arm_index_tune3),
-        seed_base=SEED + 10_000,
-    ))
-    methods_tune5_no_rl = _filter_methods(_make_methods(
-        parameter_space=parameter_space_tune5,
-        default_arm_index=int(default_arm_index_tune5),
-        seed_base=SEED + 20_000,
-    ))
-    method_names = [name for name, _ in methods_tune3_rl]
-    if method_names != [name for name, _ in methods_tune5_rl]:
-        raise RuntimeError("Method lists for tune3 and tune5 do not match")
-
-    run_dir = create_run_output_dir(
-        base_dir=plots_base_dir,
-        script_name=Path(__file__).stem,
-        problem_name="difconv",
-        size_tag=f"{FIXED_N}x{FIXED_N}x{FIXED_N}",
-        T=T,
-        seed=SEED,
-    )
-
-    def _build_branch_entries(
-        methods_tune3: Sequence[Tuple[str, Any]],
-        methods_tune5: Sequence[Tuple[str, Any]],
-    ) -> Tuple[List[Tuple[str, str, str, Any, Dict[str, Any]]], Dict[str, Dict[str, str]]]:
-        branch_entries: List[Tuple[str, str, str, Any, Dict[str, Any]]] = []
-        label_meta: Dict[str, Dict[str, Any]] = {}
-        for name, policy in methods_tune3:
-            if isinstance(policy, FixedPolicy):
-                label = str(name)
-                fixed_params = dict(getattr(policy, "_params", {}))
-                branch_entries.append((label, name, "default", policy, parameter_space_tune3))
-                label_meta[label] = {"method": str(name), "tune_set": "default", "fixed_params": fixed_params}
-                continue
-            if str(name) == "Shared LinTS":
-                continue
-            label = f"{name} | tune3"
-            branch_entries.append((label, name, "tune3", policy, parameter_space_tune3))
-            label_meta[label] = {"method": str(name), "tune_set": "tune3", "fixed_params": {}}
-        for name, policy in methods_tune5:
-            if isinstance(policy, FixedPolicy):
-                continue
-            label = f"{name} | tune5"
-            branch_entries.append((label, name, "tune5", policy, parameter_space_tune5))
-            label_meta[label] = {"method": str(name), "tune_set": "tune5", "fixed_params": {}}
-        return branch_entries, label_meta
-
-    branch_entries_rl, label_meta_rl = _build_branch_entries(methods_tune3_rl, methods_tune5_rl)
-    branch_entries_no_rl, label_meta_no_rl = _build_branch_entries(methods_tune3_no_rl, methods_tune5_no_rl)
-    if [entry[0] for entry in branch_entries_rl] != [entry[0] for entry in branch_entries_no_rl]:
-        raise RuntimeError("RL / non-RL branch labels do not match")
-    branch_labels = [entry[0] for entry in branch_entries_rl]
-
-    permutation_seed = int(SEED ^ 0x1A2B3C4D)
-    print("Within-step permutation over all branches: enabled")
-
-    def _alloc_metrics():
-        return (
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=float) for label in branch_labels},
-            {label: np.zeros(T, dtype=bool) for label in branch_labels},
-            {label: np.full(T, "", dtype=object) for label in branch_labels},
-            {label: init_param_trace(TRACE_KEYS_5, T)
-             for label, _base, _set, policy, _ps in branch_entries_rl
-             if not isinstance(policy, FixedPolicy)},
-            {label: 0.0 for label in branch_labels},
-        )
-
-    runtime_sec_rl, setup_runtime_sec_rl, solve_runtime_sec_rl, overhead_sec_rl, select_sec_rl, loss_eval_sec_rl, update_sec_rl, failed_flags_rl, failure_reason_rl, traces_rl, prev_update_est_rl = _alloc_metrics()
-    runtime_sec_no_rl, setup_runtime_sec_no_rl, solve_runtime_sec_no_rl, overhead_sec_no_rl, select_sec_no_rl, loss_eval_sec_no_rl, update_sec_no_rl, failed_flags_no_rl, failure_reason_no_rl, traces_no_rl, prev_update_est_no_rl = _alloc_metrics()
-    failure_records_rl: List[Dict[str, Any]] = []
-    failure_records_no_rl: List[Dict[str, Any]] = []
-
-    print(f"Single run: tune3 + tune5 separate branches with RL solve, T={T}")
-    _run_phase_dual_interleaved(
-        phase_label="  dual run rl",
-        branch_entries=branch_entries_rl,
-        instances=instances,
-        solve_policy=solve_policy,
-        solve_mode=SOLVE_MODE_RL,
-        runtime_sec=runtime_sec_rl,
-        setup_runtime_sec=setup_runtime_sec_rl,
-        solve_runtime_sec=solve_runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        select_sec=select_sec_rl,
-        loss_eval_sec=loss_eval_sec_rl,
-        update_sec=update_sec_rl,
-        failed_flags=failed_flags_rl,
-        failure_reason=failure_reason_rl,
-        traces=traces_rl,
-        prev_update_est=prev_update_est_rl,
-        label_meta=label_meta_rl,
-        failure_records=failure_records_rl,
-        rng_order=np.random.default_rng(permutation_seed),
-    )
-
-    print(f"Single run: tune3 + tune5 separate branches with non-RL solve, T={T}")
-    _run_phase_dual_interleaved(
-        phase_label="  dual run no-rl",
-        branch_entries=branch_entries_no_rl,
-        instances=instances,
-        solve_policy=solve_policy,
-        solve_mode=SOLVE_MODE_NO_RL,
-        runtime_sec=runtime_sec_no_rl,
-        setup_runtime_sec=setup_runtime_sec_no_rl,
-        solve_runtime_sec=solve_runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        select_sec=select_sec_no_rl,
-        loss_eval_sec=loss_eval_sec_no_rl,
-        update_sec=update_sec_no_rl,
-        failed_flags=failed_flags_no_rl,
-        failure_reason=failure_reason_no_rl,
-        traces=traces_no_rl,
-        prev_update_est=prev_update_est_no_rl,
-        label_meta=label_meta_no_rl,
-        failure_records=failure_records_no_rl,
-        rng_order=np.random.default_rng(permutation_seed),
-    )
-
-    failure_reason_counts_rl = _summarize_failure_reasons(failure_reason_rl)
-    failure_reason_counts_no_rl = _summarize_failure_reasons(failure_reason_no_rl)
-
-    summary_rl = save_runtime_artifacts(
-        run_dir=run_dir,
-        run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_rlsolve",
-        method_names=branch_labels,
-        runtime_sec=runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        T=T,
-        title=(
-            f"BoomerAMG setup + RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
-            f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
-        ),
-        default_method_name="default (fixed)",
-        traces=traces_rl,
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
         trace_keys=(),
         default_params=DEFAULT_PARAMS,
         diagnostics_window=500,
         summary_extra={
             "script": Path(__file__).name,
-<<<<<<< HEAD
             "scenario_name": str(scenario_name),
             "scenario_desc": str(scenario_desc),
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             "seed": int(SEED),
             "alpha": float(ALPHA),
             "l2": float(L2),
@@ -1501,10 +1209,7 @@ def main() -> None:
             "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
             "elite_cache_size": int(ELITE_CACHE_SIZE),
             "method_filter": str(METHOD_FILTER),
-<<<<<<< HEAD
             "branch_filter": str(BRANCH_FILTER),
-=======
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
             "solver_tol": float(SOLVER_TOL),
             "solver_max_iter": int(SOLVER_MAX_ITER),
             "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
@@ -1525,7 +1230,6 @@ def main() -> None:
             "agg_num_levels_values": [int(v) for v in agg_nl_values],
             "T": int(T),
             "continuation": False,
-<<<<<<< HEAD
             "bias_mitigation": "within-step permutation on identical instance stream across scenario branches",
             "within_step_method_permutation": True,
             "within_step_tune_set_permutation": True,
@@ -1905,132 +1609,6 @@ def main() -> None:
     ]:
         if result is not None:
             scenario_results.append(result)
-=======
-            "bias_mitigation": "within-step permutation on identical instance stream across method+tune_set branches",
-            "within_step_method_permutation": True,
-            "within_step_tune_set_permutation": True,
-            "permutation_seed": permutation_seed,
-            "solve_mode": SOLVE_MODE_RL,
-            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_rl.items()},
-            "failed_reason_counts": failure_reason_counts_rl,
-            "total_setup_runtime_sec": {k: float(np.sum(v)) for k, v in setup_runtime_sec_rl.items()},
-            "mean_setup_runtime_sec": {k: float(np.mean(v)) for k, v in setup_runtime_sec_rl.items()},
-            "total_solve_runtime_sec": {k: float(np.sum(v)) for k, v in solve_runtime_sec_rl.items()},
-            "mean_solve_runtime_sec": {k: float(np.mean(v)) for k, v in solve_runtime_sec_rl.items()},
-            "total_select_sec": {k: float(np.sum(v)) for k, v in select_sec_rl.items()},
-            "mean_select_sec": {k: float(np.mean(v)) for k, v in select_sec_rl.items()},
-            "total_loss_eval_sec": {k: float(np.sum(v)) for k, v in loss_eval_sec_rl.items()},
-            "mean_loss_eval_sec": {k: float(np.mean(v)) for k, v in loss_eval_sec_rl.items()},
-            "total_update_sec": {k: float(np.sum(v)) for k, v in update_sec_rl.items()},
-            "mean_update_sec": {k: float(np.mean(v)) for k, v in update_sec_rl.items()},
-            "total_overhead_sec": {k: float(np.sum(v)) for k, v in overhead_sec_rl.items()},
-            "mean_overhead_sec": {k: float(np.mean(v)) for k, v in overhead_sec_rl.items()},
-            "total_end_to_end_sec": {k: float(np.sum(runtime_sec_rl[k] + overhead_sec_rl[k])) for k in branch_labels},
-            "mean_end_to_end_sec": {k: float(np.mean(runtime_sec_rl[k] + overhead_sec_rl[k])) for k in branch_labels},
-            "total_rl_solve_runtime_sec": {k: float(np.sum(v)) for k, v in solve_runtime_sec_rl.items()},
-            "mean_rl_solve_runtime_sec": {k: float(np.mean(v)) for k, v in solve_runtime_sec_rl.items()},
-            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_rl.items()},
-        },
-    )
-
-    summary_no_rl = save_runtime_artifacts(
-        run_dir=run_dir,
-        run_prefix="dual_tune3_tune5_interleaved_permuted_runtime_norlsolve",
-        method_names=branch_labels,
-        runtime_sec=runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        T=T,
-        title=(
-            f"BoomerAMG setup + non-RL solve cumulative runtime (test 9 tune3/tune5 separate, fully permuted)  "
-            f"T={T}  n={FIXED_N}^3  c={C_MIN:g}..{C_MAX:g}"
-        ),
-        default_method_name="default (fixed)",
-        traces=traces_no_rl,
-        trace_keys=(),
-        default_params=DEFAULT_PARAMS,
-        diagnostics_window=500,
-        summary_extra={
-            "script": Path(__file__).name,
-            "seed": int(SEED),
-            "alpha": float(ALPHA),
-            "l2": float(L2),
-            "sigma": float(SIGMA),
-            "fixed_n": int(FIXED_N),
-            "c_min": float(C_MIN),
-            "c_max": float(C_MAX),
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
-            "candidate_pool_size": int(CANDIDATE_POOL_SIZE),
-            "elite_cache_size": int(ELITE_CACHE_SIZE),
-            "method_filter": str(METHOD_FILTER),
-            "solver_tol": float(SOLVER_TOL),
-            "solver_max_iter": int(SOLVER_MAX_ITER),
-            "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
-            "solve_mode": SOLVE_MODE_NO_RL,
-            "within_step_method_permutation": True,
-            "within_step_tune_set_permutation": True,
-            "permutation_seed": permutation_seed,
-            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags_no_rl.items()},
-            "failed_reason_counts": failure_reason_counts_no_rl,
-            "total_setup_runtime_sec": {k: float(np.sum(v)) for k, v in setup_runtime_sec_no_rl.items()},
-            "mean_setup_runtime_sec": {k: float(np.mean(v)) for k, v in setup_runtime_sec_no_rl.items()},
-            "total_solve_runtime_sec": {k: float(np.sum(v)) for k, v in solve_runtime_sec_no_rl.items()},
-            "mean_solve_runtime_sec": {k: float(np.mean(v)) for k, v in solve_runtime_sec_no_rl.items()},
-            "total_select_sec": {k: float(np.sum(v)) for k, v in select_sec_no_rl.items()},
-            "mean_select_sec": {k: float(np.mean(v)) for k, v in select_sec_no_rl.items()},
-            "total_loss_eval_sec": {k: float(np.sum(v)) for k, v in loss_eval_sec_no_rl.items()},
-            "mean_loss_eval_sec": {k: float(np.mean(v)) for k, v in loss_eval_sec_no_rl.items()},
-            "total_update_sec": {k: float(np.sum(v)) for k, v in update_sec_no_rl.items()},
-            "mean_update_sec": {k: float(np.mean(v)) for k, v in update_sec_no_rl.items()},
-            "total_overhead_sec": {k: float(np.sum(v)) for k, v in overhead_sec_no_rl.items()},
-            "mean_overhead_sec": {k: float(np.mean(v)) for k, v in overhead_sec_no_rl.items()},
-            "total_end_to_end_sec": {k: float(np.sum(runtime_sec_no_rl[k] + overhead_sec_no_rl[k])) for k in branch_labels},
-            "mean_end_to_end_sec": {k: float(np.mean(runtime_sec_no_rl[k] + overhead_sec_no_rl[k])) for k in branch_labels},
-            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec_no_rl.items()},
-        },
-    )
-
-    data_csv_path_rl = run_dir / "per_instance_runtime_data_rlsolve.csv"
-    _save_dual_csv(
-        out_csv=data_csv_path_rl,
-        solve_mode=SOLVE_MODE_RL,
-        labels=branch_labels,
-        label_meta=label_meta_rl,
-        runtime_sec=runtime_sec_rl,
-        setup_runtime_sec=setup_runtime_sec_rl,
-        solve_runtime_sec=solve_runtime_sec_rl,
-        overhead_sec=overhead_sec_rl,
-        select_sec=select_sec_rl,
-        loss_eval_sec=loss_eval_sec_rl,
-        update_sec=update_sec_rl,
-        failed=failed_flags_rl,
-        failure_reason=failure_reason_rl,
-        traces=traces_rl,
-        t_total=T,
-    )
-    data_csv_path_no_rl = run_dir / "per_instance_runtime_data_norlsolve.csv"
-    _save_dual_csv(
-        out_csv=data_csv_path_no_rl,
-        solve_mode=SOLVE_MODE_NO_RL,
-        labels=branch_labels,
-        label_meta=label_meta_no_rl,
-        runtime_sec=runtime_sec_no_rl,
-        setup_runtime_sec=setup_runtime_sec_no_rl,
-        solve_runtime_sec=solve_runtime_sec_no_rl,
-        overhead_sec=overhead_sec_no_rl,
-        select_sec=select_sec_no_rl,
-        loss_eval_sec=loss_eval_sec_no_rl,
-        update_sec=update_sec_no_rl,
-        failed=failed_flags_no_rl,
-        failure_reason=failure_reason_no_rl,
-        traces=traces_no_rl,
-        t_total=T,
-    )
-
-    failure_log_path_rl = run_dir / "failed_cases_rlsolve.jsonl"
-    failure_log_path_no_rl = run_dir / "failed_cases_norlsolve.jsonl"
-    _write_failure_records(failure_log_path_rl, failure_records_rl)
-    _write_failure_records(failure_log_path_no_rl, failure_records_no_rl)
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
     bundle_summary = {
         "script": Path(__file__).name,
@@ -2040,7 +1618,6 @@ def main() -> None:
         "c_min": float(C_MIN),
         "c_max": float(C_MAX),
         "method_filter": str(METHOD_FILTER),
-<<<<<<< HEAD
         "branch_filter": str(BRANCH_FILTER),
         "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
         "continuation": False,
@@ -2059,74 +1636,14 @@ def main() -> None:
             }
             for result in scenario_results
         },
-=======
-        "test9_relax_type": (int(TEST9_RELAX_TYPE) if TEST9_RELAX_TYPE else None),
-        "continuation": False,
-        "bias_mitigation": "within-step permutation on identical instance stream across method+tune_set branches",
-        "within_step_method_permutation": True,
-        "within_step_tune_set_permutation": True,
-        "permutation_seed": permutation_seed,
-        "runtime_plot_rlsolve": str(summary_rl["plot"]),
-        "runtime_summary_rlsolve": str(summary_rl["summary_path"]),
-        "data_csv_rlsolve": str(data_csv_path_rl),
-        "failure_log_rlsolve": str(failure_log_path_rl),
-        "runtime_plot_norlsolve": str(summary_no_rl["plot"]),
-        "runtime_summary_norlsolve": str(summary_no_rl["summary_path"]),
-        "data_csv_norlsolve": str(data_csv_path_no_rl),
-        "failure_log_norlsolve": str(failure_log_path_no_rl),
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
     }
     bundle_summary_path = run_dir / "test_9_export_summary.json"
     bundle_summary_path.write_text(json.dumps(bundle_summary, indent=2) + "\n")
 
-<<<<<<< HEAD
     for result in scenario_results:
         _print_scenario_summary(result)
     _print_overall_comparison(scenario_results)
     print("EXPORT SUMMARY:", bundle_summary_path)
-=======
-    print("RUNTIME PLOT (RL SOLVE):", summary_rl["plot"])
-    print("RUNTIME SUMMARY (RL SOLVE):", summary_rl["summary_path"])
-    print("DATA CSV (RL SOLVE):", data_csv_path_rl)
-    print("FAILURE LOG (RL SOLVE):", failure_log_path_rl)
-    print("RUNTIME PLOT (NO RL SOLVE):", summary_no_rl["plot"])
-    print("RUNTIME SUMMARY (NO RL SOLVE):", summary_no_rl["summary_path"])
-    print("DATA CSV (NO RL SOLVE):", data_csv_path_no_rl)
-    print("FAILURE LOG (NO RL SOLVE):", failure_log_path_no_rl)
-    print("EXPORT SUMMARY:", bundle_summary_path)
-    print("TOTAL SETUP RUNTIME (RL solve) [sec]:", {k: float(np.sum(v)) for k, v in setup_runtime_sec_rl.items()})
-    print("MEAN SETUP RUNTIME (RL solve) [sec]:", {k: float(np.mean(v)) for k, v in setup_runtime_sec_rl.items()})
-    print("TOTAL SOLVE RUNTIME (RL solve) [sec]:", {k: float(np.sum(v)) for k, v in solve_runtime_sec_rl.items()})
-    print("MEAN SOLVE RUNTIME (RL solve) [sec]:", {k: float(np.mean(v)) for k, v in solve_runtime_sec_rl.items()})
-    print("TOTAL BANDIT SELECT TIME (RL solve) [sec]:", {k: float(np.sum(v)) for k, v in select_sec_rl.items()})
-    print("MEAN BANDIT SELECT TIME (RL solve) [sec]:", {k: float(np.mean(v)) for k, v in select_sec_rl.items()})
-    print("TOTAL BANDIT UPDATE TIME (RL solve) [sec]:", {k: float(np.sum(v)) for k, v in update_sec_rl.items()})
-    print("MEAN BANDIT UPDATE TIME (RL solve) [sec]:", {k: float(np.mean(v)) for k, v in update_sec_rl.items()})
-    print("TOTAL OVERHEAD TIME (RL solve) [sec]:", {k: float(np.sum(v)) for k, v in overhead_sec_rl.items()})
-    print("MEAN OVERHEAD TIME (RL solve) [sec]:", {k: float(np.mean(v)) for k, v in overhead_sec_rl.items()})
-    print("TOTAL TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["total_hypre_runtime_sec"])
-    print("MEAN TEST PROBLEM RUNTIME (setup + RL solve) [sec]:", summary_rl["mean_test_problem_runtime_sec"])
-    print("TOTAL END-TO-END RUNTIME (RL solve) [sec]:", {k: float(np.sum(runtime_sec_rl[k] + overhead_sec_rl[k])) for k in branch_labels})
-    print("MEAN END-TO-END RUNTIME (RL solve) [sec]:", {k: float(np.mean(runtime_sec_rl[k] + overhead_sec_rl[k])) for k in branch_labels})
-    print("FAILED COUNT (RL solve):", {k: int(np.sum(v.astype(int))) for k, v in failed_flags_rl.items()})
-    print("FAILED REASONS (RL solve):", failure_reason_counts_rl)
-    print("TOTAL SETUP RUNTIME (no-RL solve) [sec]:", {k: float(np.sum(v)) for k, v in setup_runtime_sec_no_rl.items()})
-    print("MEAN SETUP RUNTIME (no-RL solve) [sec]:", {k: float(np.mean(v)) for k, v in setup_runtime_sec_no_rl.items()})
-    print("TOTAL SOLVE RUNTIME (no-RL solve) [sec]:", {k: float(np.sum(v)) for k, v in solve_runtime_sec_no_rl.items()})
-    print("MEAN SOLVE RUNTIME (no-RL solve) [sec]:", {k: float(np.mean(v)) for k, v in solve_runtime_sec_no_rl.items()})
-    print("TOTAL BANDIT SELECT TIME (no-RL solve) [sec]:", {k: float(np.sum(v)) for k, v in select_sec_no_rl.items()})
-    print("MEAN BANDIT SELECT TIME (no-RL solve) [sec]:", {k: float(np.mean(v)) for k, v in select_sec_no_rl.items()})
-    print("TOTAL BANDIT UPDATE TIME (no-RL solve) [sec]:", {k: float(np.sum(v)) for k, v in update_sec_no_rl.items()})
-    print("MEAN BANDIT UPDATE TIME (no-RL solve) [sec]:", {k: float(np.mean(v)) for k, v in update_sec_no_rl.items()})
-    print("TOTAL OVERHEAD TIME (no-RL solve) [sec]:", {k: float(np.sum(v)) for k, v in overhead_sec_no_rl.items()})
-    print("MEAN OVERHEAD TIME (no-RL solve) [sec]:", {k: float(np.mean(v)) for k, v in overhead_sec_no_rl.items()})
-    print("TOTAL TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["total_hypre_runtime_sec"])
-    print("MEAN TEST PROBLEM RUNTIME (setup + no-RL solve) [sec]:", summary_no_rl["mean_test_problem_runtime_sec"])
-    print("TOTAL END-TO-END RUNTIME (no-RL solve) [sec]:", {k: float(np.sum(runtime_sec_no_rl[k] + overhead_sec_no_rl[k])) for k in branch_labels})
-    print("MEAN END-TO-END RUNTIME (no-RL solve) [sec]:", {k: float(np.mean(runtime_sec_no_rl[k] + overhead_sec_no_rl[k])) for k in branch_labels})
-    print("FAILED COUNT (no-RL solve):", {k: int(np.sum(v.astype(int))) for k, v in failed_flags_no_rl.items()})
-    print("FAILED REASONS (no-RL solve):", failure_reason_counts_no_rl)
->>>>>>> dda295d259f1308ca92fd1591a033af1b6a0ab50
 
 
 if __name__ == "__main__":
