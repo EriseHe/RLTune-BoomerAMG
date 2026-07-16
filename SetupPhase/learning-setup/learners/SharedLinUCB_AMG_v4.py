@@ -435,6 +435,30 @@ class SharedLinUCB_AMG_v4:
         )
         return dict(self.actions[arm])
 
+    def recommend(
+        self,
+        context: Iterable[float],
+        *,
+        candidate_arms: Sequence[int],
+        alpha: float = 0.0,
+    ) -> Tuple[Dict[str, Any], Dict[str, float | int]]:
+        """Score a fixed arm set without creating a pending online update."""
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+        arms = np.asarray(candidate_arms, dtype=int).reshape(-1)
+        if arms.size == 0:
+            raise ValueError("candidate_arms must be non-empty")
+        if np.any(arms < 0) or np.any(arms >= self.K):
+            raise ValueError("candidate_arms contains an out-of-range arm")
+        arms = np.unique(arms)
+        score, mean, uncert = self._score_subset(x, arms=arms, alpha=float(alpha))
+        location = int(np.argmin(score))
+        arm = int(arms[location])
+        return dict(self.actions[arm]), {
+            "arm_index": arm,
+            "pred_mean": float(mean[location]),
+            "pred_uncert": float(uncert[location]),
+        }
+
     def update(self, loss: float) -> None:
         if self._last_phi is None or self._last_arm is None:
             raise RuntimeError("update() called before predict()")
@@ -468,5 +492,16 @@ class SharedLinUCB_AMG_v4:
         )
 
         self.t += 1
+        self._last_phi = None
+        self._last_arm = None
+
+    def cancel_pending(self) -> None:
+        """Discard a selected arm when its solve outcome was never observed."""
+        if self._last_phi is None or self._last_arm is None:
+            return
+        if self.history and not np.isfinite(float(self.history[-1].loss)):
+            self.history.pop()
+        if len(self.candidate_stats_history) > len(self.history):
+            self.candidate_stats_history.pop()
         self._last_phi = None
         self._last_arm = None

@@ -223,6 +223,8 @@ def augment_setup_params(params: Dict[str, Any]) -> Dict[str, Any]:
 def classify_rl_failure(*, residual_norm: float, iterations: int, solve_tol: float, solve_max_cycles: int) -> str:
     if not np.isfinite(float(residual_norm)):
         return "non_finite_residual_norm"
+    if float(residual_norm) <= float(solve_tol):
+        return ""
     if float(residual_norm) > float(solve_tol) and int(iterations) >= int(solve_max_cycles):
         return "residual_above_solve_tol;max_cycles_reached_without_convergence"
     if float(residual_norm) > float(solve_tol):
@@ -253,7 +255,7 @@ def same_action(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
 
 
 def build_grids_from_env() -> Tuple[int, np.ndarray, np.ndarray, np.ndarray]:
-    grid_n = int(os.environ.get("GRID_N", "20"))
+    grid_n = int(os.environ.get("SETUP_GRID_N", os.environ.get("GRID_N", "20")))
     grid_max = float(os.environ.get("GRID_MAX", "0.95"))
     th_grid = np.linspace(0.0, grid_max, grid_n)
     mxrs_grid = np.linspace(0.0, grid_max, grid_n)
@@ -725,6 +727,7 @@ class GenericBanditPolicy:
         if getattr(self.model, "history", None):
             step = self.model.history[-1]
             info = {
+                "arm_index": int(getattr(step, "arm_index", -1)),
                 "pred_mean": float(getattr(step, "pred_mean", np.nan)),
                 "pred_uncert": float(getattr(step, "pred_uncert", np.nan)),
             }
@@ -732,6 +735,16 @@ class GenericBanditPolicy:
 
     def update(self, loss, **_):
         self.model.update(float(loss))
+
+    def cancel_pending(self) -> None:
+        self.model.cancel_pending()
+
+    def recommend(self, context, *, candidate_arms, alpha: float = 0.0, **_):
+        return self.model.recommend(
+            np.asarray(context, dtype=float),
+            candidate_arms=candidate_arms,
+            alpha=float(alpha),
+        )
 
 
 def build_test10_branches(
@@ -835,7 +848,7 @@ def build_test_final_bandit_policy(
             "always_include_arms": [int(default_arm_index)],
             "elite_cache_size": int(cfg.elite_cache_size),
             "initial_guess": [default_params[param.name] for param in parameter_spec.parameters],
-            "initial_guess_rounds": 1,
+            "initial_guess_rounds": int(os.environ.get("SETUP_INITIAL_GUESS_ROUNDS", "1")),
         }
         strategy = str(cfg.tune7_candidate_strategy or "").strip().lower()
         if not strategy:
@@ -1653,7 +1666,7 @@ def classify_no_rl_failure(*, residual_norm: float, iterations: int, solver_tol:
         reasons.append("non_finite_residual_norm")
     elif float(residual_norm) > float(solver_tol):
         reasons.append("residual_above_solver_tol")
-    if int(iterations) >= int(solver_max_iter):
+    if float(residual_norm) > float(solver_tol) and int(iterations) >= int(solver_max_iter):
         reasons.append("max_iter_reached_without_convergence")
     return ";".join(reasons)
 

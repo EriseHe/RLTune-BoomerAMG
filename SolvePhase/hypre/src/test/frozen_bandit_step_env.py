@@ -58,6 +58,8 @@ class FrozenBanditStepEnv(gym.Env):
         reward_mode: int = 3,
         term_bonus: float = 0.0,
         trunc_penalty: float = 0.0,
+        policy_step_cost_sec: float = 0.0,
+        potential_progress_scale: float = 0.0,
         episode_stride: int = 1,
         baseline_runtimes: Sequence[float] | None = None,
         reference_runtimes: Sequence[float] | None = None,
@@ -135,6 +137,8 @@ class FrozenBanditStepEnv(gym.Env):
         self.reward_mode = int(reward_mode)
         self.term_bonus = float(term_bonus)
         self.trunc_penalty = float(trunc_penalty)
+        self.policy_step_cost_sec = float(policy_step_cost_sec)
+        self.potential_progress_scale = float(potential_progress_scale)
         self.episode_stride = max(1, int(episode_stride))
         self.next_index = 0
         self.c_max = float(c_max)
@@ -502,6 +506,10 @@ class FrozenBanditStepEnv(gym.Env):
             reward = rel_drop / dt_eff
         else:
             reward = -dt_eff
+        reward -= self.policy_step_cost_sec
+        potential_prev = math.log(max(r_prev, self.tol) + eps)
+        potential_cur = math.log(max(r_cur, self.tol) + eps)
+        reward += self.potential_progress_scale * (potential_prev - potential_cur)
         terminated = bool(np.isfinite(r_cur) and r_cur <= float(self.tol))
         truncated = bool((not terminated) and self._cycle >= int(self.max_cycles))
         if self.reward_mode == 4 and (terminated or truncated) and np.isfinite(float(self._baseline_runtime)):
