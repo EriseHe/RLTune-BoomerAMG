@@ -40,7 +40,20 @@ The active scripts assume a Python environment that already has:
 - `sb3-contrib`
 - `mpi4py`
 
-A minimal conda setup is:
+A reproducible conda setup is kept at the repository root:
+
+```bash
+conda env create -f environment.yml
+conda activate rl
+```
+
+To update an existing `rl` environment from the same file:
+
+```bash
+conda env update -n rl -f environment.yml --prune
+```
+
+The equivalent manual setup is:
 
 ```bash
 conda create -n rl python=3.10 -y
@@ -56,10 +69,11 @@ Notes:
   build tree:
   - `SolvePhase/hypre/src/hypre/include`
   - `SolvePhase/hypre/src/hypre/lib`
-- If `mpicc` is not already in `PATH`, add the Homebrew location first:
+- Ensure `mpicc` and `mpicxx` are available in `PATH`. For a Homebrew MPI
+  installation, discover its prefix instead of assuming a CPU-specific path:
 
 ```bash
-export PATH=/opt/homebrew/bin:$PATH
+export PATH="$(brew --prefix open-mpi)/bin:$PATH"
 ```
 
 ## Structure
@@ -97,8 +111,7 @@ before running training or evaluation.
 
 ```bash
 cd /path/to/RLTune-BoomerAMG/SolvePhase/hypre/src/test
-export PATH=/opt/homebrew/bin:$PATH   # only needed if mpicc is not already in PATH
-make libamg_env.dylib
+make -B libamg_env.dylib
 ```
 
 ### Build `libamg_setup_solver.dylib`

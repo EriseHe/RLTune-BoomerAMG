@@ -164,6 +164,7 @@ libamg_env.so: amg_env.o amg_cycle.o amg_rl_shared.o
 	${LINK_CC} -shared -o $@ amg_env.o amg_cycle.o amg_rl_shared.o ${LFLAGS}
 
 
+libamg_env.dylib: XLINK = -Wl,-rpath,@loader_path/../hypre/lib
 libamg_env.dylib: amg_env.o amg_cycle.o amg_rl_shared.o
 	@echo "Building" $@ "..."
 	${LINK_CC} -dynamiclib -o $@ amg_env.o amg_cycle.o amg_rl_shared.o ${LFLAGS}

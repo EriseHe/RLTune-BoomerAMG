@@ -9,7 +9,9 @@ if [[ -z "${REPO_ROOT:-}" ]]; then
 fi
 
 if [[ -z "${PYTHON_BIN:-}" ]]; then
-  if command -v python >/dev/null 2>&1; then
+  if [[ -n "${CONDA_PREFIX:-}" && -x "$CONDA_PREFIX/bin/python" ]]; then
+    PYTHON_BIN="$CONDA_PREFIX/bin/python"
+  elif command -v python >/dev/null 2>&1; then
     PYTHON_BIN="python"
   else
     PYTHON_BIN="python3"
