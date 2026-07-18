@@ -13,7 +13,10 @@ instead of a hardcoded 3- or 5-knob feature map.
 
 from __future__ import annotations
 
+import copy
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
@@ -85,7 +88,11 @@ class SharedLinUCB_AMG_v4:
         if initial_guess_rounds < 0:
             raise ValueError("initial_guess_rounds must be >= 0")
 
-        self.actions: List[Dict[str, Any]] = [dict(a) for a in actions]
+        # The action catalog is immutable after construction. Reusing a concrete
+        # list avoids a second multi-million-dict copy in the canonical Tune7 run.
+        self.actions: Sequence[Dict[str, Any]] = (
+            actions if isinstance(actions, list) else list(actions)
+        )
         self.parameter_spec = parameter_spec
         self._encoder = GenericActionFeatureEncoder(parameter_spec)
 
@@ -126,6 +133,7 @@ class SharedLinUCB_AMG_v4:
         self.b = np.zeros(self.d_phi, dtype=float)
 
         self._g_actions = self._encoder.encode_actions(self.actions)
+        self._g_actions.setflags(write=False)
 
         self._param_by_name = {param.name: param for param in self.parameter_spec.parameters}
         self._param_value_to_index = {
@@ -161,6 +169,106 @@ class SharedLinUCB_AMG_v4:
         self._last_arm: Optional[int] = None
         self.history: List[SharedLinUCBv4Step] = []
         self.candidate_stats_history: List[Dict[str, int | str]] = []
+
+    def clone_for_independent_updates(self) -> "SharedLinUCB_AMG_v4":
+        """Clone mutable online state while sharing the immutable action catalog."""
+        self._g_actions.setflags(write=False)
+        clone = object.__new__(type(self))
+        clone.__dict__ = self.__dict__.copy()
+        clone.rng = np.random.default_rng()
+        clone.rng.bit_generator.state = copy.deepcopy(self.rng.bit_generator.state)
+        clone._cand = self._cand.clone_for_independent_updates(rng=clone.rng)
+        clone.A_inv = self.A_inv.copy()
+        clone.b = self.b.copy()
+        clone._last_phi = None if self._last_phi is None else self._last_phi.copy()
+        clone.history = list(self.history)
+        clone.candidate_stats_history = [dict(row) for row in self.candidate_stats_history]
+        return clone
+
+    def save_mutable_state(
+        self,
+        path: Path,
+        *,
+        metadata: Optional[Mapping[str, Any]] = None,
+    ) -> None:
+        """Persist online state without serializing the immutable action catalog."""
+        if self._last_phi is not None or self._last_arm is not None:
+            raise RuntimeError("Cannot checkpoint LinUCB with a pending action")
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        candidate = self._cand
+        np.savez_compressed(
+            path,
+            action_count=np.asarray(self.K, dtype=np.int64),
+            parameter_dim=np.asarray(self.d_phi, dtype=np.int64),
+            A_inv=self.A_inv,
+            b=self.b,
+            t=np.asarray(self.t, dtype=np.int64),
+            elite_arms=candidate._elite_arms,
+            arm_best_loss=(
+                candidate._arm_best_loss
+                if candidate._arm_best_loss is not None
+                else np.empty(0, dtype=float)
+            ),
+            arm_loss_sum=(
+                candidate._arm_loss_sum
+                if candidate._arm_loss_sum is not None
+                else np.empty(0, dtype=float)
+            ),
+            arm_obs_count=(
+                candidate._arm_obs_count
+                if candidate._arm_obs_count is not None
+                else np.empty(0, dtype=np.int64)
+            ),
+            rng_state=np.asarray(json.dumps(self.rng.bit_generator.state)),
+            metadata=np.asarray(json.dumps(dict(metadata or {}))),
+        )
+
+    def load_mutable_state(self, path: Path) -> Dict[str, Any]:
+        """Restore a checkpoint created by :meth:`save_mutable_state`."""
+        with np.load(Path(path), allow_pickle=False) as payload:
+            if int(payload["action_count"].item()) != self.K:
+                raise ValueError("LinUCB checkpoint action count does not match")
+            if int(payload["parameter_dim"].item()) != self.d_phi:
+                raise ValueError("LinUCB checkpoint feature dimension does not match")
+            inverse = np.asarray(payload["A_inv"], dtype=float)
+            b = np.asarray(payload["b"], dtype=float)
+            if inverse.shape != self.A_inv.shape or b.shape != self.b.shape:
+                raise ValueError("LinUCB checkpoint parameter shape does not match")
+            self.A_inv[:] = inverse
+            self.b[:] = b
+            self.t = int(payload["t"].item())
+            self._cand._elite_arms = np.asarray(
+                payload["elite_arms"], dtype=int
+            ).copy()
+            for name, attribute in (
+                ("arm_best_loss", "_arm_best_loss"),
+                ("arm_loss_sum", "_arm_loss_sum"),
+                ("arm_obs_count", "_arm_obs_count"),
+            ):
+                saved = np.asarray(payload[name])
+                current = getattr(self._cand, attribute)
+                if current is None:
+                    if saved.size:
+                        raise ValueError(
+                            f"LinUCB checkpoint unexpectedly contains {name}"
+                        )
+                else:
+                    if saved.shape != current.shape:
+                        raise ValueError(
+                            f"LinUCB checkpoint {name} shape does not match"
+                        )
+                    current[:] = saved
+            self.rng.bit_generator.state = json.loads(
+                str(payload["rng_state"].item())
+            )
+            metadata = json.loads(str(payload["metadata"].item()))
+        self._last_phi = None
+        self._last_arm = None
+        self.history = []
+        self.candidate_stats_history = []
+        self._g_actions.setflags(write=False)
+        return dict(metadata)
 
     def _validate_x(self, x: np.ndarray) -> np.ndarray:
         x = np.asarray(x, dtype=float).reshape(-1)

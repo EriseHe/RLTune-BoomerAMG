@@ -636,3 +636,20 @@ AMG_API int amg_setup_get_n(AMGSetupEnv *e)   { return e ? e->local_num_rows : 0
 AMG_API int amg_setup_get_nnz(AMGSetupEnv *e) { return e ? e->nnz : 0; }
 AMG_API double amg_setup_get_r0(AMGSetupEnv *e) { return e ? e->r0 : 0.0; }
 AMG_API double amg_setup_get_r(AMGSetupEnv *e) { return e ? e->r_curr : 0.0; }
+
+AMG_API int amg_setup_get_relax_weight(AMGSetupEnv *e, int level, double *out_weight)
+{
+    hypre_ParAMGData *amg_data;
+    HYPRE_Real *relax_weight;
+    HYPRE_Int max_levels;
+
+    if (!e || !e->solver || !out_weight) return -1;
+    amg_data = (hypre_ParAMGData *) e->solver;
+    max_levels = hypre_ParAMGDataMaxLevels(amg_data);
+    relax_weight = hypre_ParAMGDataRelaxWeight(amg_data);
+    if (level < 0 || level >= max_levels || !relax_weight) return -1;
+
+    /* Public HYPRE getters return the process-wide sticky error flag. */
+    *out_weight = (double) relax_weight[level];
+    return 0;
+}

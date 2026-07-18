@@ -59,7 +59,7 @@ def _trace_cache_key(
             or k.startswith("SOLVE_")
             or k.startswith("SOLVER_")
             or k.startswith("SETUP_")
-            or k in {"TUNE7_VARIANT", "BRANCH_FILTER", "METHOD_FILTER", "GRID_N"}
+            or k in {"TUNE7_VARIANT", "BRANCH_FILTER", "METHOD_FILTER", "MATRIX_GRID_N"}
         )
     }
     payload = {

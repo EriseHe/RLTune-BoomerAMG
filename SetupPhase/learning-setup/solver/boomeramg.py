@@ -104,6 +104,9 @@ _lib.amg_setup_get_r0.argtypes = [_VP]
 _lib.amg_setup_get_r.restype = _D
 _lib.amg_setup_get_r.argtypes = [_VP]
 
+_lib.amg_setup_get_relax_weight.restype = _I
+_lib.amg_setup_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
+
 # ---- tunable params ---------------------------------------------------------
 
 TUNABLE_PARAMS = {
@@ -155,6 +158,7 @@ class SolveResult:
 class PrepareResult:
     setup_runtime_sec: float
     initial_residual_norm: float
+    initial_relax_weight: float
 
 
 class PreparedAMGEnv:
@@ -179,9 +183,18 @@ class PreparedAMGEnv:
         rc = _lib.amg_setup_prepare_rl(self._env, *c_args, ctypes.byref(out_setup), ctypes.byref(out_r0))
         if rc != 0:
             raise RuntimeError(f"amg_setup_prepare_rl returned {rc}")
+        out_relax_weight = _D()
+        rc = _lib.amg_setup_get_relax_weight(
+            self._env,
+            0,
+            ctypes.byref(out_relax_weight),
+        )
+        if rc != 0:
+            raise RuntimeError(f"amg_setup_get_relax_weight returned {rc}")
         return PrepareResult(
             setup_runtime_sec=float(out_setup.value),
             initial_residual_norm=float(out_r0.value),
+            initial_relax_weight=float(out_relax_weight.value),
         )
 
     def step_rl(

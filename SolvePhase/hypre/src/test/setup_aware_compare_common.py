@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import os
 import sys
 import time
@@ -30,12 +31,16 @@ from amg_gym_env import (
 from amg_setup_gym_env import BoomerAMGSetupRelaxEnv, SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
 from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners._candidate_subset import resolve_tune7_candidate_strategy
 from solver import create_env, solve
 from utils.problem_amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl
 from utils.setup_amg import build_actions_from_spec, build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
 
 
 FAIL_RUNTIME_SEC = 1e9
+EXP44_MATRIX_GRID_N = 40
+EXP44_SETUP_PARAM_RESOLUTION = 20
+EXP44_TUNE7_CATEGORICAL_ACTION_COUNT = 2_880_000
 TRACE_KEYS_FINAL = (
     "strong_threshold",
     "max_row_sum",
@@ -81,9 +86,33 @@ class BranchRun:
     solver_max_iter: int
 
 
+def clone_branch_for_independent_updates(branch: BranchRun) -> BranchRun:
+    """Clone online learner state while sharing immutable action-space storage."""
+    source_policy = branch.policy
+    source_model = getattr(source_policy, "model", None)
+    if source_model is not None and hasattr(
+        source_model, "clone_for_independent_updates"
+    ):
+        cloned_policy = type(source_policy)(
+            source_model.clone_for_independent_updates()
+        )
+    else:
+        cloned_policy = copy.deepcopy(source_policy)
+    return BranchRun(
+        label=str(branch.label),
+        family=str(branch.family),
+        tune_set=str(branch.tune_set),
+        seed=branch.seed,
+        policy=cloned_policy,
+        parameter_space=branch.parameter_space,
+        solver_tol=float(branch.solver_tol),
+        solver_max_iter=int(branch.solver_max_iter),
+    )
+
+
 @dataclass(frozen=True)
 class ActionSpaceBundle:
-    grid_n: int
+    param_resolution: int
     actions_tune3: Sequence[Dict[str, Any]]
     actions_tune5: Sequence[Dict[str, Any]]
     actions_tune7: Sequence[Dict[str, Any]]
@@ -100,6 +129,21 @@ class ActionSpaceBundle:
     default_arm_index_tune3: int
     default_arm_index_tune5: int
     default_arm_index_tune7: int
+
+
+def validate_expected_setup_action_count(branch: BranchRun) -> int:
+    model = getattr(branch.policy, "model", branch.policy)
+    observed = int(model.K)
+    raw_expected = os.environ.get("EXPECTED_SETUP_ACTION_COUNT", "").strip()
+    if raw_expected:
+        expected = int(raw_expected)
+        if observed != expected:
+            raise ValueError(
+                "Setup action-count mismatch: "
+                f"expected {expected:,}, observed {observed:,}. "
+                "MATRIX_GRID_N and SETUP_PARAM_RESOLUTION must remain independent."
+            )
+    return observed
 
 
 @dataclass(frozen=True)
@@ -159,6 +203,9 @@ class SetupAwareRLConfig:
     blend_cutoff_cycles: int = -1
     blend_progress_start: float = 0.0
     blend_progress_end: float = 0.0
+    initial_observation_weight: Optional[float] = None
+    force_default_first_action: bool = False
+    default_first_weight: Optional[float] = None
 
 
 def default_test_final_bandit_config_from_env() -> TestFinalBanditConfig:
@@ -255,13 +302,15 @@ def same_action(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
 
 
 def build_grids_from_env() -> Tuple[int, np.ndarray, np.ndarray, np.ndarray]:
-    grid_n = int(os.environ.get("SETUP_GRID_N", os.environ.get("GRID_N", "20")))
+    param_resolution = int(
+        os.environ.get("SETUP_PARAM_RESOLUTION", str(EXP44_SETUP_PARAM_RESOLUTION))
+    )
     grid_max = float(os.environ.get("GRID_MAX", "0.95"))
-    th_grid = np.linspace(0.0, grid_max, grid_n)
-    mxrs_grid = np.linspace(0.0, grid_max, grid_n)
+    th_grid = np.linspace(0.0, grid_max, param_resolution)
+    mxrs_grid = np.linspace(0.0, grid_max, param_resolution)
     mxrs_grid[0] = 1e-6
-    tr_grid = np.linspace(0.0, grid_max, grid_n)
-    return grid_n, th_grid, mxrs_grid, tr_grid
+    tr_grid = np.linspace(0.0, grid_max, param_resolution)
+    return param_resolution, th_grid, mxrs_grid, tr_grid
 
 
 def build_actions_tune3(*, th_grid, mxrs_grid, tr_grid) -> List[Dict[str, Any]]:
@@ -488,7 +537,7 @@ def ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, An
 
 
 def build_action_space_bundle(*, final_tune_dims: Sequence[int], tune7_variant: str) -> ActionSpaceBundle:
-    grid_n, th_grid, mxrs_grid, tr_grid = build_grids_from_env()
+    param_resolution, th_grid, mxrs_grid, tr_grid = build_grids_from_env()
     actions_tune3 = build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
     actions_tune3, default_arm_index_tune3 = ensure_default_arm(actions_tune3)
 
@@ -541,7 +590,7 @@ def build_action_space_bundle(*, final_tune_dims: Sequence[int], tune7_variant: 
         actions_tune7, default_arm_index_tune7 = ensure_default_arm(actions_tune7)
 
     return ActionSpaceBundle(
-        grid_n=int(grid_n),
+        param_resolution=int(param_resolution),
         actions_tune3=actions_tune3,
         actions_tune5=actions_tune5,
         actions_tune7=actions_tune7,
@@ -658,6 +707,7 @@ def build_single_branch(
         default_params=DEFAULT_SETUP_PARAMS,
         default_arm_index=int(default_arm_index),
         parameter_spec=parameter_spec,
+        tune7_variant=tune7_variant,
         cfg=bandit_cfg,
     )
     return BranchRun(
@@ -823,6 +873,10 @@ def build_test10_branches(
         if not branches:
             raise ValueError(f"BRANCH_FILTER={branch_filter!r} matched no branches")
 
+    for branch in branches:
+        if normalize_method_name(branch.family) == normalize_method_name("Shared LinUCB v4"):
+            validate_expected_setup_action_count(branch)
+
     return branches, bundle
 
 
@@ -836,6 +890,7 @@ def build_test_final_bandit_policy(
     default_params: Dict[str, Any],
     default_arm_index: int,
     parameter_spec: Optional[ParameterSpaceSpec],
+    tune7_variant: str,
     cfg: TestFinalBanditConfig,
 ) -> GenericBanditPolicy:
     method_key = str(method).strip().lower()
@@ -850,9 +905,10 @@ def build_test_final_bandit_policy(
             "initial_guess": [default_params[param.name] for param in parameter_spec.parameters],
             "initial_guess_rounds": int(os.environ.get("SETUP_INITIAL_GUESS_ROUNDS", "1")),
         }
-        strategy = str(cfg.tune7_candidate_strategy or "").strip().lower()
-        if not strategy:
-            strategy = "adaptive_local"
+        strategy = resolve_tune7_candidate_strategy(
+            tune7_variant=tune7_variant,
+            configured_strategy=cfg.tune7_candidate_strategy,
+        )
         if strategy == "adaptive_local":
             tune7_kwargs.update(
                 {
@@ -964,7 +1020,18 @@ def run_bandit_step_test_final(
     cfg: TestFinalBanditConfig,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, float], int, float]:
     total_runtime = 0.0
+    timing_totals = {
+        "setup_runtime": 0.0,
+        "solve_runtime": 0.0,
+        "infer_runtime": 0.0,
+        "native_runtime": 0.0,
+        "native_solve_runtime": 0.0,
+    }
+    observed_timing_fields: set[str] = set()
     total_overhead = 0.0
+    total_select_sec = 0.0
+    total_loss_eval_sec = 0.0
+    total_update_sec = 0.0
     failed_attempts = 0
     local_prev_update_est = float(prev_update_est)
     last_params: Dict[str, Any] | None = None
@@ -981,6 +1048,10 @@ def run_bandit_step_test_final(
 
         out = solver_fn(dict(params))
         total_runtime += float(out["runtime"])
+        for field in timing_totals:
+            if field in out:
+                observed_timing_fields.add(field)
+                timing_totals[field] += float(out[field])
 
         loss_start = time.perf_counter_ns()
         success_runtime_scale_sec = rolling_success_scale_sec(
@@ -1008,6 +1079,9 @@ def run_bandit_step_test_final(
             upd_sec = (time.perf_counter_ns() - upd_start) / 1e9
 
         total_overhead += float(sel_sec + loss_eval_sec + upd_sec)
+        total_select_sec += float(sel_sec)
+        total_loss_eval_sec += float(loss_eval_sec)
+        total_update_sec += float(upd_sec)
         last_params = dict(params)
         last_out = dict(out)
         last_upd_sec = float(upd_sec)
@@ -1021,14 +1095,16 @@ def run_bandit_step_test_final(
                 success_runtime_history.append(float(rt_success))
             final_out = dict(out)
             final_out["runtime"] = float(total_runtime)
+            for field in observed_timing_fields:
+                final_out[field] = float(timing_totals[field])
             final_out["failed"] = False
             return (
                 last_params,
                 final_out,
                 {
-                    "select_sec": float(last_select_sec),
-                    "loss_eval_sec": float(last_loss_eval_sec),
-                    "update_sec": float(last_upd_sec),
+                    "select_sec": float(total_select_sec),
+                    "loss_eval_sec": float(total_loss_eval_sec),
+                    "update_sec": float(total_update_sec),
                     "overhead_sec": float(total_overhead),
                 },
                 int(failed_attempts),
@@ -1047,14 +1123,16 @@ def run_bandit_step_test_final(
         }
     )
     final_out["runtime"] = float(total_runtime if total_runtime > 0.0 else FAIL_RUNTIME_SEC)
+    for field in observed_timing_fields:
+        final_out[field] = float(timing_totals[field])
     final_out["failed"] = True
     return (
         dict(last_params or {}),
         final_out,
         {
-            "select_sec": float(last_select_sec),
-            "loss_eval_sec": float(last_loss_eval_sec),
-            "update_sec": float(last_upd_sec),
+            "select_sec": float(total_select_sec),
+            "loss_eval_sec": float(total_loss_eval_sec),
+            "update_sec": float(total_update_sec),
             "overhead_sec": float(total_overhead),
         },
         int(failed_attempts),
@@ -1076,6 +1154,20 @@ class SetupAwareSolvePolicyRunner:
         self.w_only = bool(cfg.w_only or (action_shape and int(action_shape[0]) == 1))
         self.w_init = cfg.w_init
         self.sweeps_init = cfg.sweeps_init
+        self.initial_observation_weight = (
+            None
+            if cfg.initial_observation_weight is None
+            else float(cfg.initial_observation_weight)
+        )
+        self._default_first_action_pending = bool(
+            cfg.force_default_first_action
+        )
+        self.forced_initial_action_count = 0
+        self.default_first_weight = (
+            self.initial_observation_weight
+            if cfg.default_first_weight is None
+            else float(cfg.default_first_weight)
+        )
         self.action_mode = str(cfg.action_mode).strip().lower()
         self.discrete_w_values = tuple(float(x) for x in cfg.discrete_w_values)
         self.discrete_joint_actions = tuple((float(w), int(sd), int(su)) for (w, sd, su) in cfg.discrete_joint_actions)
@@ -1353,11 +1445,20 @@ class SetupAwareSolvePolicyRunner:
     def run(self, env, *, mkw: Dict[str, Any], setup_params: Dict[str, Any], case_progress: float = 0.0) -> Dict[str, Any]:
         r_prev_obs = float(env.r0)
         r_curr = float(env.r0)
-        last_w = float(self.w_init) if self.w_init is not None else float(self.cfg.w_center)
+        if self.w_init is not None:
+            last_w = float(self.w_init)
+        elif self.initial_observation_weight is not None:
+            last_w = float(self.initial_observation_weight)
+        else:
+            last_w = float(self.cfg.w_center)
         solve_runtime = 0.0
         infer_runtime = 0.0
         cycles = 0
         action_counts: Dict[int, int] = {}
+        cycle_actions: List[float] = []
+        cycle_forced_default_actions: List[bool] = []
+        cycle_residuals: List[float] = []
+        cycle_times: List[float] = []
         lstm_state = None
         episode_start = np.ones((1,), dtype=bool)
         last_sd = self.sweeps_default
@@ -1416,6 +1517,15 @@ class SetupAwareSolvePolicyRunner:
                 )
                 if self.action_mode in {"discrete_extended", "discrete_joint", "discrete_w", "discrete_blend"}:
                     action_idx = int(np.asarray(action).reshape(-1)[0])
+            forced_default = bool(self._default_first_action_pending)
+            if forced_default:
+                if self.default_first_weight is None:
+                    raise ValueError(
+                        "force_default_first_action requires a default weight"
+                    )
+                w = float(self.default_first_weight)
+                self._default_first_action_pending = False
+                self.forced_initial_action_count += 1
             if action_idx is not None:
                 action_idx = int(action_idx)
                 action_counts[action_idx] = int(action_counts.get(action_idx, 0)) + 1
@@ -1431,6 +1541,10 @@ class SetupAwareSolvePolicyRunner:
             )
             solve_runtime += float(dt)
             cycles = cycle + 1
+            cycle_actions.append(float(w))
+            cycle_forced_default_actions.append(bool(forced_default))
+            cycle_residuals.append(float(r_new))
+            cycle_times.append(float(dt))
             last_w = float(w)
             last_sd = int(sd)
             last_su = int(su)
@@ -1467,6 +1581,10 @@ class SetupAwareSolvePolicyRunner:
             "final_outer_weight": float(last_ow),
             "final_add_relax_weight": float(last_arw),
             "action_counts": dict(action_counts),
+            "cycle_actions": cycle_actions,
+            "cycle_forced_default_actions": cycle_forced_default_actions,
+            "cycle_residuals": cycle_residuals,
+            "cycle_times": cycle_times,
         }
 
 
@@ -1487,6 +1605,8 @@ def solve_fixed_w_case(
             solve_runtime = 0.0
             residual_norm = float(env.r0)
             iterations = 0
+            cycle_residuals: List[float] = []
+            cycle_times: List[float] = []
             for cycle in range(int(solve_max_cycles)):
                 residual_norm, dt = env.step_rl(
                     relax_weight=float(w),
@@ -1495,6 +1615,8 @@ def solve_fixed_w_case(
                 )
                 solve_runtime += float(dt)
                 iterations = cycle + 1
+                cycle_residuals.append(float(residual_norm))
+                cycle_times.append(float(dt))
                 if float(residual_norm) <= float(solve_tol):
                     break
         failure_reason = classify_rl_failure(
@@ -1515,6 +1637,9 @@ def solve_fixed_w_case(
             "final_w": float(w),
             "final_sweeps_down": int(sweeps_down),
             "final_sweeps_up": int(sweeps_up),
+            "cycle_actions": [float(w)] * int(iterations),
+            "cycle_residuals": cycle_residuals,
+            "cycle_times": cycle_times,
         }
     except Exception as exc:
         return {
@@ -1529,6 +1654,9 @@ def solve_fixed_w_case(
             "final_w": float(w),
             "final_sweeps_down": int(sweeps_down),
             "final_sweeps_up": int(sweeps_up),
+            "cycle_actions": [],
+            "cycle_residuals": [],
+            "cycle_times": [],
         }
 
 
@@ -1641,6 +1769,9 @@ def solve_setup_aware_rl_case(
             "final_sweeps_down": int(rl_out["final_sweeps_down"]),
             "final_sweeps_up": int(rl_out["final_sweeps_up"]),
             "action_counts": dict(rl_out.get("action_counts", {})),
+            "cycle_actions": list(rl_out.get("cycle_actions", [])),
+            "cycle_residuals": list(rl_out.get("cycle_residuals", [])),
+            "cycle_times": list(rl_out.get("cycle_times", [])),
         }
     except Exception as exc:
         return {
@@ -1656,6 +1787,9 @@ def solve_setup_aware_rl_case(
             "final_sweeps_down": -1,
             "final_sweeps_up": -1,
             "action_counts": {},
+            "cycle_actions": [],
+            "cycle_residuals": [],
+            "cycle_times": [],
             "structural_fail": True,
         }
 
@@ -1732,6 +1866,7 @@ def fixed_trace(
     bandit_method: str,
     solve_mode: str = "no_rl",
     solve_policy: Optional[SetupAwareSolvePolicyRunner] = None,
+    trace_records: Optional[List[Dict[str, Any]]] = None,
 ) -> Sequence[Tuple[Dict[str, Any], Dict[str, Any]]]:
     difconv_a = tuple(float(x) for x in os.environ.get("DIFCONV_A", "0,0,0").split(","))
     instances = generate_difconv_instances(
@@ -1769,7 +1904,7 @@ def fixed_trace(
     success_runtime_history = deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
     failure_scale_min_runtime_sec = None
     trace: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
-    for mkw, context in instances:
+    for case_index, (mkw, context) in enumerate(instances):
         if str(solve_mode).strip().lower() == "no_rl":
             def solver_fn(selected_params: Dict[str, Any]) -> Dict[str, Any]:
                 return solve_no_rl_case(
@@ -1810,7 +1945,7 @@ def fixed_trace(
                 override_value=float(bandit_cfg.failure_scale_min_runtime_sec_override),
             )
 
-        params, _out, _timing, _failed_attempts, prev_update_est = run_bandit_step_test_final(
+        params, out, timing, failed_attempts, prev_update_est = run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
             context=np.asarray(context, dtype=float),
@@ -1822,6 +1957,18 @@ def fixed_trace(
             cfg=bandit_cfg,
         )
         trace.append((dict(mkw), dict(params)))
+        if trace_records is not None:
+            trace_records.append(
+                {
+                    "instance_index": int(case_index),
+                    "mkw": dict(mkw),
+                    "context": np.asarray(context, dtype=float).tolist(),
+                    "params": dict(params),
+                    "failed_attempts": int(failed_attempts),
+                    "bandit_timing": dict(timing),
+                    "feedback_outcome": dict(out),
+                }
+            )
     return trace
 
 

@@ -117,6 +117,9 @@ def make_runner() -> SetupAwareSolvePolicyRunner:
             obs_mode=env_str("OBS_MODE", "solve_only").strip().lower(),
             action_mode=env_str("ACTION_MODE", "continuous").strip().lower(),
             discrete_w_values=env_float_tuple("DISCRETE_W_VALUES", "1.4,1.6,1.8"),
+            initial_observation_weight=env_float(
+                "INITIAL_OBSERVATION_WEIGHT", 1.0
+            ),
         )
     )
 

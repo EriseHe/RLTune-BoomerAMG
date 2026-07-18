@@ -50,6 +50,7 @@ class FrozenBanditStepEnv(gym.Env):
         w_scale: float,
         w_global_min: float = 1.0,
         w_global_max: float = 2.0,
+        initial_observation_weight: float | None = None,
         w_init_mode: str = "fixed",
         w_init_min: float | None = None,
         w_init_max: float | None = None,
@@ -127,6 +128,19 @@ class FrozenBanditStepEnv(gym.Env):
         self.w_scale = float(w_scale)
         self.w_global_min = float(w_global_min)
         self.w_global_max = float(w_global_max)
+        self.initial_observation_weight = float(
+            self.w_center
+            if initial_observation_weight is None
+            else initial_observation_weight
+        )
+        if not (
+            self.w_global_min
+            <= self.initial_observation_weight
+            <= self.w_global_max
+        ):
+            raise ValueError(
+                "initial_observation_weight must be inside the global w range"
+            )
         self.w_init_mode = str(w_init_mode).strip().lower()
         self.w_init_min = float(self.w_global_min if w_init_min is None else w_init_min)
         self.w_init_max = float(self.w_global_max if w_init_max is None else w_init_max)
@@ -244,7 +258,7 @@ class FrozenBanditStepEnv(gym.Env):
         self._r_prev = 0.0
         self._r_cur = 0.0
         self._cycle = 0
-        self._last_w = self.w_center
+        self._last_w = self.initial_observation_weight
         self._last_coarse_sweeps = 1
         self._last_cycle_type = -1
         self._last_relax_type = -1
@@ -342,7 +356,7 @@ class FrozenBanditStepEnv(gym.Env):
                 init_lo, init_hi = init_hi, init_lo
             self._last_w = float(self.rng.uniform(init_lo, init_hi))
         else:
-            self._last_w = float(self.w_center)
+            self._last_w = float(self.initial_observation_weight)
         self._last_coarse_sweeps = 1
         self._last_cycle_type = -1
         self._last_relax_type = -1

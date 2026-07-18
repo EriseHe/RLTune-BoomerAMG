@@ -12,6 +12,28 @@ from typing import List, Optional, Sequence
 import numpy as np
 
 
+def resolve_tune7_candidate_strategy(
+    *,
+    tune7_variant: str,
+    configured_strategy: str = "",
+) -> str:
+    """Return the setup-phase default candidate strategy for Tune7."""
+    strategy = str(configured_strategy).strip().lower()
+    if strategy:
+        if strategy not in {"uniform", "adaptive_local"}:
+            raise ValueError(
+                "candidate strategy must be 'uniform' or 'adaptive_local'"
+            )
+        return strategy
+
+    variant = str(tune7_variant).strip().lower()
+    if variant == "categorical":
+        return "uniform"
+    if variant == "agg_conditional":
+        return "adaptive_local"
+    raise ValueError(f"Unsupported Tune7 variant: {tune7_variant!r}")
+
+
 class CandidateSelector:
     def __init__(
         self,
@@ -40,6 +62,26 @@ class CandidateSelector:
         self._arm_best_loss = np.full(self.K, np.inf, dtype=float) if self.elite_cache_size > 0 else None
         self._arm_loss_sum = np.zeros(self.K, dtype=float) if self.elite_cache_size > 0 else None
         self._arm_obs_count = np.zeros(self.K, dtype=int) if self.elite_cache_size > 0 else None
+
+    def clone_for_independent_updates(
+        self,
+        *,
+        rng: np.random.Generator,
+    ) -> "CandidateSelector":
+        clone = CandidateSelector(
+            self.K,
+            candidate_pool_size=self.candidate_pool_size,
+            always_include_arms=self._always_include_arms,
+            elite_cache_size=self.elite_cache_size,
+            elite_rank_metric=self.elite_rank_metric,
+            rng=rng,
+        )
+        clone._elite_arms = self._elite_arms.copy()
+        if self._arm_best_loss is not None:
+            clone._arm_best_loss = self._arm_best_loss.copy()
+            clone._arm_loss_sum = self._arm_loss_sum.copy()
+            clone._arm_obs_count = self._arm_obs_count.copy()
+        return clone
 
     def _validate_always_include_arms(self, always_include_arms: Optional[Sequence[int]]) -> np.ndarray:
         if always_include_arms is None:

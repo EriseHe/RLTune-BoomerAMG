@@ -21,6 +21,11 @@ fi
 # Stable repo-local mature setup-bandit snapshot.
 BANDIT_STATE="${BANDIT_STATE:-$REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/mature40_tune7_bandit_state_case2.pkl}"
 
+# Matrix resolution and setup parameter-space resolution are independent.
+MATRIX_GRID_N="${MATRIX_GRID_N:-40}"
+SETUP_PARAM_RESOLUTION="${SETUP_PARAM_RESOLUTION:-20}"
+EXPECTED_SETUP_ACTION_COUNT="${EXPECTED_SETUP_ACTION_COUNT:-2880000}"
+
 # Exp44 train/validation seeds.
 RL_TRAIN_SEEDS="${RL_TRAIN_SEEDS:-39396939,39402939,39408939}"
 RL_TRAIN_CASES="${RL_TRAIN_CASES:-500}"
@@ -40,15 +45,17 @@ EVAL_B_NAME="${EVAL_B_NAME:-eval_1000_dup}"
 EVAL_B_START="${EVAL_B_START:-1500}"
 EVAL_B_END="${EVAL_B_END:-2500}"
 
-# Exp44 model design.
-ACTION_MODE="${ACTION_MODE:-continuous_residual}"
+# PPO model design: predict an absolute physical weight in [1, 2].
+ACTION_MODE="${ACTION_MODE:-continuous_absolute}"
 ALGO="${ALGO:-ppo}"
 MODEL_TYPE="${MODEL_TYPE:-lstm}"
 OBS_MODE="${OBS_MODE:-cycle_action_setup}"
 W_CENTER="${W_CENTER:-1.5}"
-W_SCALE="${W_SCALE:-0.02}"
+W_SCALE="${W_SCALE:-0.5}"
 W_GLOBAL_MIN="${W_GLOBAL_MIN:-1.0}"
 W_GLOBAL_MAX="${W_GLOBAL_MAX:-2.0}"
+INITIAL_OBSERVATION_WEIGHT="${INITIAL_OBSERVATION_WEIGHT:-1.0}"
+INITIAL_POLICY_WEIGHT="${INITIAL_POLICY_WEIGHT:-1.0}"
 
 # PPO defaults.
 LEARNING_RATE="${LEARNING_RATE:-1e-4}"

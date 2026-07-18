@@ -10,6 +10,7 @@ from statistics import mean
 from typing import Any, Dict, List, Sequence, Tuple
 
 import numpy as np
+import torch
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from sb3_contrib import RecurrentPPO
@@ -17,6 +18,8 @@ from sb3_contrib import RecurrentPPO
 from frozen_bandit_step_env import FrozenBanditStepEnv
 from setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
+    EXP44_MATRIX_GRID_N,
+    EXP44_SETUP_PARAM_RESOLUTION,
     SetupAwareRLConfig,
     SetupAwareSolvePolicyRunner,
     augment_setup_params,
@@ -31,6 +34,7 @@ from setup_aware_compare_common import (
     solve_no_rl_case,
     solve_schedule_case,
     solve_setup_aware_rl_case,
+    validate_expected_setup_action_count,
 )
 
 
@@ -58,6 +62,29 @@ def _env_str(name: str, default: str) -> str:
 
 def _env_flag(name: str, default: str = "0") -> bool:
     return _env_str(name, default).strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _initialize_continuous_policy_weight(
+    model,
+    *,
+    initial_weight: float,
+    w_center: float,
+    w_scale: float,
+) -> float:
+    if float(w_scale) <= 0.0:
+        raise ValueError("W_SCALE must be positive")
+    normalized_action = (float(initial_weight) - float(w_center)) / float(w_scale)
+    if not -1.0 <= normalized_action <= 1.0:
+        raise ValueError("INITIAL_POLICY_WEIGHT is outside the action range")
+    action_net = getattr(model.policy, "action_net", None)
+    if action_net is None or action_net.bias is None:
+        raise ValueError("PPO policy does not expose an initializable action head")
+    if int(action_net.out_features) != 1:
+        raise ValueError("Default-weight initialization currently requires w-only PPO")
+    with torch.no_grad():
+        action_net.weight.zero_()
+        action_net.bias.fill_(float(normalized_action))
+    return float(normalized_action)
 
 
 def _env_float_tuple(name: str, default: str = "") -> Tuple[float, ...]:
@@ -183,10 +210,11 @@ def _warmup_bandit():
         print(json.dumps({"stage": "bandit_state_load_start", "path": str(state_path)}), flush=True)
         with state_path.open("rb") as fh:
             payload = pickle.load(fh)
+        validate_expected_setup_action_count(payload["branch"])
         print(json.dumps({"stage": "bandit_state_load_done", "path": str(state_path)}), flush=True)
         return payload["branch"]
 
-    grid_n = _env_int("GRID_N", 40)
+    grid_n = _env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N)
     warmup_seed = _env_int("WARMUP_SEED", 39393939)
     warmup_cases = _env_int("WARMUP_CASES", 1500)
     c_min = _env_float("C_MIN", 1.0)
@@ -207,6 +235,7 @@ def _warmup_bandit():
         flush=True,
     )
     branch, bandit_cfg = _make_branch(seed=warmup_seed)
+    validate_expected_setup_action_count(branch)
     print(
         json.dumps(
             {
@@ -279,7 +308,7 @@ def _frozen_trace(branch, *, cases: int, seed: int) -> List[Tuple[Dict[str, Any]
     # 1) regenerate diffusion-convection cases from the requested seed
     # 2) for each case, call branch.policy.select(...) on its context
     # 3) save (mkw, params) so solve-phase RL can reuse the mature setup choice
-    grid_n = _env_int("GRID_N", 40)
+    grid_n = _env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N)
     difconv_a = tuple(float(x) for x in _env_str("DIFCONV_A", "0,0,0").split(","))
     instances = generate_difconv_instances(
         T=int(cases),
@@ -376,6 +405,9 @@ def _make_env(trace, *, seed: int):
         w_scale=_env_float("W_SCALE", 0.1),
         w_global_min=_env_float("W_GLOBAL_MIN", 1.0),
         w_global_max=_env_float("W_GLOBAL_MAX", 2.0),
+        initial_observation_weight=_env_optional_float(
+            "INITIAL_OBSERVATION_WEIGHT"
+        ),
         w_init_mode=_env_str("W_INIT_MODE", "fixed"),
         w_init_min=_env_optional_float("W_INIT_MIN"),
         w_init_max=_env_optional_float("W_INIT_MAX"),
@@ -514,6 +546,20 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
             policy_kwargs={"net_arch": {"pi": [128, 128], "vf": [128, 128]}},
             **common,
         )
+    initialized_policy_action = None
+    initial_policy_weight = _env_optional_float("INITIAL_POLICY_WEIGHT")
+    if not init_model_path and initial_policy_weight is not None:
+        action_mode = _env_str("ACTION_MODE", "continuous").strip().lower()
+        if action_mode not in {"continuous", "continuous_absolute"}:
+            raise ValueError(
+                "INITIAL_POLICY_WEIGHT requires an absolute continuous action mode"
+            )
+        initialized_policy_action = _initialize_continuous_policy_weight(
+            model,
+            initial_weight=float(initial_policy_weight),
+            w_center=_env_float("W_CENTER", 1.65),
+            w_scale=_env_float("W_SCALE", 0.1),
+        )
     print(
         json.dumps(
                 {
@@ -527,6 +573,11 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
                 "action_mode": _env_str("ACTION_MODE", "continuous"),
                 "w_center": _env_float("W_CENTER", 1.65),
                 "w_scale": _env_float("W_SCALE", 0.1),
+                "initial_observation_weight": _env_optional_float(
+                    "INITIAL_OBSERVATION_WEIGHT"
+                ),
+                "initial_policy_weight": initial_policy_weight,
+                "initialized_policy_action": initialized_policy_action,
             }
         ),
         flush=True,
@@ -606,7 +657,7 @@ def _make_runner(model_path: Path) -> SetupAwareSolvePolicyRunner:
             model_type="mlp",
             model_path=model_path,
             vec_path=Path("/tmp/nonexistent_vecnormalize.pkl"),
-            fixed_grid=(_env_int("GRID_N", 40),) * 3,
+            fixed_grid=(_env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N),) * 3,
             difconv_c_range=(_env_float("C_MIN", 1.0), _env_float("C_MAX", 1000.0)),
             w_only=_env_flag("W_ONLY", "1"),
             w_center=_env_float("W_CENTER", 1.65),
@@ -626,6 +677,13 @@ def _make_runner(model_path: Path) -> SetupAwareSolvePolicyRunner:
             discrete_joint_actions=_env_joint_actions("DISCRETE_ACTIONS"),
             discrete_extended_actions=_env_extended_actions("DISCRETE_EXTENDED_ACTIONS"),
             discrete_blend_alphas=_env_float_tuple("DISCRETE_BLEND_ALPHAS", "0.0,0.5,1.0"),
+            initial_observation_weight=_env_optional_float(
+                "INITIAL_OBSERVATION_WEIGHT"
+            ),
+            force_default_first_action=_env_flag(
+                "FORCE_DEFAULT_FIRST_ACTION", "0"
+            ),
+            default_first_weight=_env_optional_float("DEFAULT_FIRST_WEIGHT"),
         )
     )
 
@@ -798,7 +856,10 @@ def main() -> None:
     result = {
         "stage": "final",
         "protocol": {
-            "grid": [_env_int("GRID_N", 40)] * 3,
+            "grid": [_env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N)] * 3,
+            "setup_param_resolution": _env_int(
+                "SETUP_PARAM_RESOLUTION", EXP44_SETUP_PARAM_RESOLUTION
+            ),
             "warmup_cases": _env_int("WARMUP_CASES", 1500),
             "warmup_seed": _env_int("WARMUP_SEED", 39393939),
             "bandit_frozen_after_warmup": True,
@@ -817,6 +878,12 @@ def main() -> None:
             "action_mode": _env_str("ACTION_MODE", "continuous"),
             "w_center": _env_float("W_CENTER", 1.65),
             "w_scale": _env_float("W_SCALE", 0.1),
+            "initial_observation_weight": _env_optional_float(
+                "INITIAL_OBSERVATION_WEIGHT"
+            ),
+            "initial_policy_weight": _env_optional_float(
+                "INITIAL_POLICY_WEIGHT"
+            ),
             "reward_mode": _env_int("REWARD_MODE", 4),
             "total_timesteps": _env_int("TOTAL_TIMESTEPS", 100000),
             "model": str(model_path),

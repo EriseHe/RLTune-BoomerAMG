@@ -190,18 +190,18 @@ def action_key_from_parameter_space_spec(
     return tuple(key)
 
 
-def enumerate_actions_from_parameter_space_spec(parameter_spec: ParameterSpaceSpec) -> Tuple[Dict[str, Any], ...]:
+def iter_actions_from_parameter_space_spec(parameter_spec: ParameterSpaceSpec):
+    """Yield canonical actions in the stable parameter-spec enumeration order."""
     params = parameter_spec.parameters
     seen = set()
-    actions = []
 
-    def rec(i: int, current: Dict[str, Any]) -> None:
+    def rec(i: int, current: Dict[str, Any]):
         if i >= len(params):
             canonical = canonicalize_action_from_spec(current, parameter_spec)
             key = action_key_from_parameter_space_spec(canonical, parameter_spec)
             if key not in seen:
                 seen.add(key)
-                actions.append(canonical)
+                yield canonical
             return
 
         param = params[i]
@@ -215,10 +215,15 @@ def enumerate_actions_from_parameter_space_spec(parameter_spec: ParameterSpaceSp
                 next_current[param.name] = float(raw_value)
             else:
                 next_current[param.name] = raw_value
-            rec(i + 1, next_current)
+            yield from rec(i + 1, next_current)
 
-    rec(0, {})
-    return tuple(actions)
+    yield from rec(0, {})
+
+
+def enumerate_actions_from_parameter_space_spec(
+    parameter_spec: ParameterSpaceSpec,
+) -> Tuple[Dict[str, Any], ...]:
+    return tuple(iter_actions_from_parameter_space_spec(parameter_spec))
 
 
 def _pairwise_products(values: np.ndarray) -> np.ndarray:
@@ -299,7 +304,10 @@ class GenericActionFeatureEncoder:
     def encode_actions(self, actions: Sequence[Mapping[str, Any]]) -> np.ndarray:
         if not actions:
             raise ValueError("actions must be non-empty")
-        return np.vstack([self.encode_action(action) for action in actions])
+        encoded = np.empty((len(actions), self.feature_dim), dtype=float)
+        for index, action in enumerate(actions):
+            encoded[index] = self.encode_action(action)
+        return encoded
 
 
 def action_feature_dimension_from_spec(parameter_spec: ParameterSpaceSpec) -> int:

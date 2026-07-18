@@ -267,13 +267,13 @@ def _ensure_default_arm(actions: Sequence[Dict[str, Any]]) -> Tuple[Tuple[Dict[s
 
 
 def build_setup_parameter_spec(*, tune_dim: int, tune7_variant: str = "categorical") -> Tuple[ParameterSpaceSpec, Dict[str, Any]]:
-    grid_n = int(os.environ.get("SETUP_GRID_N", os.environ.get("GRID_N", "10")))
+    param_resolution = int(os.environ.get("SETUP_PARAM_RESOLUTION", "10"))
     grid_max = float(os.environ.get("SETUP_GRID_MAX", os.environ.get("GRID_MAX", "0.95")))
-    th_grid = np.linspace(0.0, grid_max, grid_n)
-    mxrs_grid = np.linspace(0.0, grid_max, grid_n)
+    th_grid = np.linspace(0.0, grid_max, param_resolution)
+    mxrs_grid = np.linspace(0.0, grid_max, param_resolution)
     if len(mxrs_grid) > 0:
         mxrs_grid[0] = 1e-6
-    tr_grid = np.linspace(0.0, grid_max, grid_n)
+    tr_grid = np.linspace(0.0, grid_max, param_resolution)
     p_max_values = _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
     agg_nl_values = _parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
     coarsen_type_values = _parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)

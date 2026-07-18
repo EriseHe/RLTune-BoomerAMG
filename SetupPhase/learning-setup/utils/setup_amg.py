@@ -12,7 +12,7 @@ from learners._amg_action_features import (
     ParameterSpaceSpec,
     action_key_from_parameter_space_spec,
     default_action_from_parameter_space_spec,
-    enumerate_actions_from_parameter_space_spec,
+    iter_actions_from_parameter_space_spec,
 )
 from solver import solve
 
@@ -201,7 +201,7 @@ def build_actions_from_spec(
     fixed = dict(fixed_params or {})
     actions = []
     seen = set()
-    for tuned_action in enumerate_actions_from_parameter_space_spec(parameter_spec):
+    for tuned_action in iter_actions_from_parameter_space_spec(parameter_spec):
         key = action_key_from_parameter_space_spec(tuned_action, parameter_spec)
         if key in seen:
             continue

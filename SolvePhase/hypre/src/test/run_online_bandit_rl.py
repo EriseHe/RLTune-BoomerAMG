@@ -37,6 +37,7 @@ from setup_aware_compare_common import (
     solve_fixed_w_case,
     solve_no_rl_case,
     solve_setup_aware_rl_case,
+    validate_expected_setup_action_count,
 )
 
 
@@ -313,6 +314,7 @@ def _build_bandit(seed: int, tune_dim: int, tune7_variant: str) -> Tuple[BranchR
             default_params=dict(DEFAULT_SETUP_PARAMS),
             default_arm_index=0,
             parameter_spec=parameter_spec,
+            tune7_variant=tune7_variant,
             cfg=bandit_cfg,
         )
         branch = BranchRun(
@@ -333,6 +335,7 @@ def _build_bandit(seed: int, tune_dim: int, tune7_variant: str) -> Tuple[BranchR
         raise ValueError(
             "SETUP_ACTION_SPACE must be safe_one_at_a_time or full_cartesian"
         )
+    validate_expected_setup_action_count(branch)
     return branch, bandit_cfg
 
 
@@ -342,6 +345,9 @@ def _make_env(
     branch: BranchRun,
     bandit_cfg: Any,
     seed: int,
+    discrete_w_values: Sequence[float] | None = None,
+    policy_step_cost_sec: float | None = None,
+    potential_progress_scale: float | None = None,
 ) -> OnlineBanditStepEnv:
     action_mode = _env_str("ACTION_MODE", "discrete_w").strip().lower()
     if action_mode not in {"discrete_w", "continuous_residual"}:
@@ -361,7 +367,11 @@ def _make_env(
         max_cycles=_env_int("SOLVE_MAX_CYCLES", 50),
         w_only=True,
         action_mode=action_mode,
-        discrete_w_values=tuple(_env_values("DISCRETE_W_VALUES", "1.2,1.4,1.5,1.6", float)),
+        discrete_w_values=(
+            tuple(float(value) for value in discrete_w_values)
+            if discrete_w_values is not None
+            else tuple(_env_values("DISCRETE_W_VALUES", "1.2,1.4,1.5,1.6", float))
+        ),
         w_center=_env_float("W_CENTER", 1.5),
         w_scale=_env_float("W_SCALE", 0.02),
         w_global_min=_env_float("W_GLOBAL_MIN", 1.0),
@@ -372,8 +382,16 @@ def _make_env(
         reward_mode=3,
         term_bonus=_env_float("TERM_BONUS", 0.0),
         trunc_penalty=_env_float("TRUNC_PENALTY", 1.0),
-        policy_step_cost_sec=_env_float("POLICY_STEP_COST_SEC", 2.0e-4),
-        potential_progress_scale=_env_float("POTENTIAL_PROGRESS_SCALE", 1.0),
+        policy_step_cost_sec=(
+            float(policy_step_cost_sec)
+            if policy_step_cost_sec is not None
+            else _env_float("POLICY_STEP_COST_SEC", 2.0e-4)
+        ),
+        potential_progress_scale=(
+            float(potential_progress_scale)
+            if potential_progress_scale is not None
+            else _env_float("POTENTIAL_PROGRESS_SCALE", 1.0)
+        ),
         obs_mode=_env_str("OBS_MODE", "cycle_action_setup").strip().lower(),
         obs_include_trace_progress=False,
         seed=int(seed),
@@ -647,7 +665,7 @@ def main() -> None:
         "gamma": _env_float("GAMMA", 1.0),
         "gae_lambda": _env_float("GAE_LAMBDA", 0.95),
         "matrix_grid_n": matrix_n,
-        "setup_grid_n": _env_int("SETUP_GRID_N", 8),
+        "setup_param_resolution": _env_int("SETUP_PARAM_RESOLUTION", 8),
         "setup_action_space": _env_str("SETUP_ACTION_SPACE", "safe_one_at_a_time"),
         "setup_initial_guess_rounds": _env_int("SETUP_INITIAL_GUESS_ROUNDS", 4),
         "eval_cases": _env_int("EVAL_CASES", 48),

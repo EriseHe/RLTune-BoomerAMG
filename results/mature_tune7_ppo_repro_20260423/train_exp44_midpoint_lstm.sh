@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Train the "Exp44" model:
+# Train the current absolute-action PPO model:
 # - no teacher / no rule warmstart
 # - full-range family w in [1, 2]
-# - midpoint start at 1.5
-# - residual control with a small step size
+# - actor initialized at the solver default
+# - policy predicts an absolute physical weight each cycle
 # - LSTM policy
 #
 # This script only trains and writes a new model directory.
@@ -19,7 +19,7 @@ source "$SCRIPT_DIR/exp44_common.sh"
 cd "$REPO_ROOT"
 
 # New run location.
-RUN_TAG="${RUN_TAG:-exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1}"
+RUN_TAG="${RUN_TAG:-exp44_absolute_default_lstm_canonical_20260718}"
 RUN_DIR="$REPO_ROOT/results/mature_tune7_ppo_repro_20260423/run_logs/$RUN_TAG"
 mkdir -p "$RUN_DIR"
 
@@ -43,6 +43,9 @@ else
 fi
 
 env "${BANDIT_ENV_PREFIX[@]}" \
+MATRIX_GRID_N="$MATRIX_GRID_N" \
+SETUP_PARAM_RESOLUTION="$SETUP_PARAM_RESOLUTION" \
+EXPECTED_SETUP_ACTION_COUNT="$EXPECTED_SETUP_ACTION_COUNT" \
 MODEL_BASENAME="$RUN_DIR/model" \
 RESULT_PATH="$RUN_DIR/result.json" \
 RL_TRAIN_SEEDS="$RL_TRAIN_SEEDS" \
@@ -57,6 +60,8 @@ W_CENTER="$W_CENTER" \
 W_SCALE="$W_SCALE" \
 W_GLOBAL_MIN="$W_GLOBAL_MIN" \
 W_GLOBAL_MAX="$W_GLOBAL_MAX" \
+INITIAL_OBSERVATION_WEIGHT="$INITIAL_OBSERVATION_WEIGHT" \
+INITIAL_POLICY_WEIGHT="$INITIAL_POLICY_WEIGHT" \
 ALGO="$ALGO" \
 MODEL_TYPE="$MODEL_TYPE" \
 LEARNING_RATE="$LEARNING_RATE" \

@@ -46,6 +46,7 @@ from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners._candidate_subset import resolve_tune7_candidate_strategy
 from solver import solve
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from utils.scalar_anisotropic_diffusion import (
@@ -1124,9 +1125,10 @@ def main() -> None:
             "initial_guess": [DEFAULT_PARAMS[param.name] for param in parameter_spec_tune7.parameters],
             "initial_guess_rounds": 1,
         }
-        tune7_candidate_strategy = str(TUNE7_CANDIDATE_STRATEGY)
-        if not tune7_candidate_strategy:
-            tune7_candidate_strategy = "adaptive_local" if TUNE7_VARIANT == "agg_conditional" else "uniform"
+        tune7_candidate_strategy = resolve_tune7_candidate_strategy(
+            tune7_variant=TUNE7_VARIANT,
+            configured_strategy=TUNE7_CANDIDATE_STRATEGY,
+        )
         if tune7_candidate_strategy == "adaptive_local":
             tune7_model_kwargs.update(
                 {
@@ -1310,10 +1312,9 @@ def main() -> None:
             "agg_num_levels_values": [int(v) for v in agg_nl_values],
             "tune7_variant": str(TUNE7_VARIANT),
             "tune7_alpha": (float(TUNE7_ALPHA_OVERRIDE) if TUNE7_ALPHA_OVERRIDE else float(ALPHA)),
-            "tune7_candidate_strategy": (
-                str(TUNE7_CANDIDATE_STRATEGY)
-                if TUNE7_CANDIDATE_STRATEGY
-                else ("adaptive_local" if TUNE7_VARIANT == "agg_conditional" else "uniform")
+            "tune7_candidate_strategy": resolve_tune7_candidate_strategy(
+                tune7_variant=TUNE7_VARIANT,
+                configured_strategy=TUNE7_CANDIDATE_STRATEGY,
             ),
             "tune7_coarsen_types": [int(v) for v in coarsen_type_values_tune7],
             "tune7_interp_types": [int(v) for v in interp_values_tune7],

@@ -12,20 +12,24 @@ Exp44 is the current clean formulation:
 - the allowed relax-weight family is still the full range `w in [1, 2]`
 - the policy is **not** trained with teacher labels, sweeps, or rule warmstarts
 
-The key design choice is a **residual action** instead of an absolute action:
+The active PPO now predicts an **absolute physical relaxation weight**:
 
 ```text
-w_{t+1} = clip(w_t + 0.02 * a_t, 1.0, 2.0)
+w_t = clip(1.5 + 0.5 * a_t, 1.0, 2.0)
 ```
 
 where:
 
-- the initial anchor is the midpoint `w_0 = 1.5`
 - `a_t` is the policy output in `[-1, 1]`
 - the policy is an LSTM and sees setup + cycle/action context
+- the initial observation uses the prepared solver default `w=1.0`
+- the actor head is initialized to output that default
+- the first comparison action is forced to the prepared default once globally;
+  every later cycle and instance is policy controlled
 
-This keeps the method full-range at the family level, while making the control
-problem much easier to optimize than "predict an absolute `w` from scratch".
+This removes the old per-instance midpoint reset and the residual `+/-0.02`
+restriction. The legacy script filename is retained to avoid breaking existing
+entrypoints, but it now trains this absolute-action policy.
 
 ## Python environment
 
@@ -83,7 +87,7 @@ export PATH="$(brew --prefix open-mpi)/bin:$PATH"
 - `exp44_common.sh`
   - shared defaults for train/eval/retrain workflows
 - `train_exp44_midpoint_lstm.sh`
-  - trains a new Exp44-style model
+  - legacy filename; trains the active absolute-action Exp44 model
 - `eval_exp44_model.sh`
   - evaluates one model on held-out forward continuation
 - `run_exp44_retrain_and_eval.sh`
@@ -129,6 +133,8 @@ absolute checkout path.
 
 - `mature40_tune7_bandit_state_case2.pkl`
   - saved mature setup-bandit state
+- `exp44_absolute_default_lstm_canonical_20260718`
+  - output location for the corrected absolute-action PPO rerun
 - `exp44_midpoint_lstm_seedmeanstd_vsbandit_20260512T1`
   - baseline retained Exp44 training run
 - `exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1`
@@ -148,7 +154,7 @@ absolute checkout path.
 conda activate rl
 cd /path/to/RLTune-BoomerAMG
 
-RUN_TAG=exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1 \
+RUN_TAG=exp44_absolute_default_lstm_canonical_20260718 \
 bash results/mature_tune7_ppo_repro_20260423/train_exp44_midpoint_lstm.sh
 ```
 
@@ -176,15 +182,20 @@ The training script does two things:
 
 Default Exp44 training config:
 
+- `MATRIX_GRID_N=40`
+- `SETUP_PARAM_RESOLUTION=20`
+- Tune7 categorical setup actions: `2,880,000`
 - train seeds: `39396939,39402939,39408939`
 - eval seeds: `39414939,39420939,39426939`
-- `ACTION_MODE=continuous_residual`
+- `ACTION_MODE=continuous_absolute`
 - `MODEL_TYPE=lstm`
 - `OBS_MODE=cycle_action_setup`
 - `W_CENTER=1.5`
-- `W_SCALE=0.02`
+- `W_SCALE=0.5`
 - `W_GLOBAL_MIN=1.0`
 - `W_GLOBAL_MAX=2.0`
+- `INITIAL_OBSERVATION_WEIGHT=1.0`
+- `INITIAL_POLICY_WEIGHT=1.0`
 - `TOTAL_TIMESTEPS=2500`
 - `CHECKPOINT_OBJECTIVE=seed_mean_minus_std_vs_bandit`
 
@@ -196,7 +207,7 @@ Evaluate an existing model:
 conda activate rl
 cd /path/to/RLTune-BoomerAMG
 
-MODEL_PATH=$PWD/results/mature_tune7_ppo_repro_20260423/run_logs/exp44_midpoint_lstm_seedmeanstd_vsbandit_20260512T1/model_ckpt_2500.zip \
+MODEL_PATH=$PWD/results/mature_tune7_ppo_repro_20260423/run_logs/exp44_absolute_default_lstm_canonical_20260718/model_best.zip \
 RUN_ID=exp44_eval_example \
 bash results/mature_tune7_ppo_repro_20260423/eval_exp44_model.sh
 ```
@@ -276,32 +287,38 @@ This is the main boundary:
 2. `prepare_rl(params=...)` builds that setup
 3. RL controls only the solve phase on top of it
 
-### 5. Where residual action is decoded
+### 5. Where the absolute action is decoded
 
-- `SolvePhase/hypre/src/test/amg_gym_env.py`
-  - `decode_policy_action_residual(...)`
+- `SolvePhase/hypre/src/test/setup_aware_compare_common.py`
+  - `decode_policy_action(...)`
 
 This implements:
 
 ```text
-w_{t+1} = clip(w_t + w_scale * a_t, w_min, w_max)
+w_t = clip(w_center + w_scale * a_t, w_min, w_max)
 ```
 
-### 6. Where the env applies residual control
+### 6. Where the env applies absolute control
 
 - `SolvePhase/hypre/src/test/frozen_bandit_step_env.py`
 
 Relevant pieces:
 
-- reset path sets the initial `last_w`
-- step path decodes residual action and updates `last_w`
+- reset path exposes the prepared solver default as the initial observation
+- every step applies the newly decoded absolute physical weight
 
 ## Interpretation of the current result
 
-The most stable current claim is:
+The July 16/18 local Exp44 retrains and online comparisons were invalidated by
+an environment configuration bug that used the matrix grid size (`40`) as the
+setup parameter resolution. Those runs used `23,040,001` setup actions rather
+than the canonical `2,880,000` and have been moved to:
 
-- PPO clearly improves over the mature bandit baseline
-- PPO remains competitive with the strong fixed `w=1.6` baseline
-- the method does this without teacher labels or fixed-1.6 initialization
+```text
+results/invalid_setup_grid_coupling_20260718/
+```
 
-That is the reason Exp44 is the only retained mainline method here.
+They are retained for audit only and must not be used for performance claims or
+warm starts. The active workflow now keeps matrix size and setup parameter
+resolution independent and rejects any Exp44 branch whose action count is not
+exactly `2,880,000`.
