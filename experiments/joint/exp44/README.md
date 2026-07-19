@@ -126,7 +126,7 @@ The active workflow writes all Exp44 artifacts under one run root:
 ```text
 results/joint/exp44/
 ├── shared/
-│   └── mature40_tune7_bandit_state_case2.pkl
+│   └── mature40_tune7_bandit_state_case2.npz
 └── run_logs/<run-tag>/
     ├── training/
     │   ├── result.json
@@ -159,16 +159,17 @@ bash experiments/joint/exp44/train_exp44_absolute_lstm.sh
 
 The training script does two things:
 
-1. If `results/joint/exp44/shared/mature40_tune7_bandit_state_case2.pkl`
+1. If `results/joint/exp44/shared/mature40_tune7_bandit_state_case2.npz`
    exists, it reuses it.
 2. Otherwise it rebuilds the mature bandit warmup state and saves it there.
 
 ### End-to-end training flow
 
-1. Load `mature40_tune7_bandit_state_case2.pkl`, or warm up the setup bandit and
+1. Load `mature40_tune7_bandit_state_case2.npz`, or warm up the setup bandit and
    save it if the file is missing.
-2. Recover the mature setup-bandit branch from the pickle payload
-   `{"branch": branch}`.
+2. Rebuild the canonical immutable action catalog and restore the mature
+   LinUCB matrices, candidate statistics, and RNG state from the lightweight
+   checkpoint.
 3. For each training seed, regenerate diffusion-convection cases with
    `generate_difconv_instances(...)`.
 4. For each regenerated case, call `branch.policy.select(...)` to choose setup
@@ -265,12 +266,12 @@ Important responsibilities:
 
 That function either:
 
-- loads `{"branch": branch}` from a pickle, or
-- warms up the setup bandit and saves the resulting branch
+- rebuilds the canonical branch and restores its lightweight mutable state, or
+- warms up the setup bandit and saves that mutable state
 
 The practical meaning is:
 
-1. load mature bandit branch from pickle
+1. rebuild the canonical bandit branch and load its mutable state
 2. regenerate cases from seeds
 3. run `branch.policy.select(...)` per case
 4. record the resulting setup trace

@@ -22,7 +22,7 @@ fi
 EXP44_RESULTS_ROOT="${EXP44_RESULTS_ROOT:-$REPO_ROOT/results/joint/exp44}"
 EXP44_RUNS_ROOT="${EXP44_RUNS_ROOT:-$EXP44_RESULTS_ROOT/run_logs}"
 EXP44_SHARED_ROOT="${EXP44_SHARED_ROOT:-$EXP44_RESULTS_ROOT/shared}"
-BANDIT_STATE="${BANDIT_STATE:-$EXP44_SHARED_ROOT/mature40_tune7_bandit_state_case2.pkl}"
+BANDIT_STATE="${BANDIT_STATE:-$EXP44_SHARED_ROOT/mature40_tune7_bandit_state_case2.npz}"
 
 # Matrix resolution and setup parameter-space resolution are independent.
 MATRIX_GRID_N="${MATRIX_GRID_N:-40}"

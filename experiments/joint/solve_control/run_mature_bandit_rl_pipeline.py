@@ -5,7 +5,6 @@ import _project_paths  # noqa: F401
 import math
 import json
 import os
-import pickle
 from collections import Counter, deque
 from pathlib import Path
 from statistics import mean
@@ -213,19 +212,32 @@ def _make_branch(seed: int):
 
 
 def _warmup_bandit():
-    # Exp44 reuses a serialized "mature" bandit branch so that solve-phase RL
-    # experiments all start from the same setup-policy state. The payload is a
-    # pickle with {"branch": branch}, where branch owns the trained bandit
-    # policy and its parameter space.
+    # Exp44 rebuilds the immutable action catalog and restores only mutable
+    # LinUCB state, so multi-million-action catalogs are never serialized.
     saved_state = _env_str("BANDIT_STATE_PATH", "").strip()
     if saved_state and _env_flag("USE_SAVED_BANDIT", "0"):
         state_path = Path(saved_state)
         print(json.dumps({"stage": "bandit_state_load_start", "path": str(state_path)}), flush=True)
-        with state_path.open("rb") as fh:
-            payload = pickle.load(fh)
-        validate_expected_setup_action_count(payload["branch"])
+        warmup_seed = _env_int("WARMUP_SEED", 39393939)
+        branch, _bandit_cfg = _make_branch(seed=warmup_seed)
+        metadata = branch.policy.model.load_mutable_state(state_path)
+        validate_expected_setup_action_count(branch)
+        expected_metadata = {
+            "matrix_grid_n": _env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N),
+            "setup_param_resolution": _env_int(
+                "SETUP_PARAM_RESOLUTION", EXP44_SETUP_PARAM_RESOLUTION
+            ),
+            "warmup_seed": warmup_seed,
+            "warmup_cases": _env_int("WARMUP_CASES", 1500),
+        }
+        for key, expected in expected_metadata.items():
+            if int(metadata.get(key, -1)) != int(expected):
+                raise ValueError(
+                    f"Saved mature-bandit state has {key}={metadata.get(key)!r}, "
+                    f"expected {expected!r}"
+                )
         print(json.dumps({"stage": "bandit_state_load_done", "path": str(state_path)}), flush=True)
-        return payload["branch"]
+        return branch
 
     grid_n = _env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N)
     warmup_seed = _env_int("WARMUP_SEED", 39393939)
@@ -305,13 +317,20 @@ def _warmup_bandit():
     print(json.dumps({"stage": "warmup_done"}), flush=True)
     save_state = _env_str("SAVE_BANDIT_STATE_PATH", "").strip()
     if save_state:
-        # Persist the warmed-up branch so later runs can skip the 1500-case
-        # setup-bandit warmup and build frozen traces from the same mature
-        # starting point.
         state_path = Path(save_state)
         state_path.parent.mkdir(parents=True, exist_ok=True)
-        with state_path.open("wb") as fh:
-            pickle.dump({"branch": branch}, fh, protocol=pickle.HIGHEST_PROTOCOL)
+        branch.policy.model.save_mutable_state(
+            state_path,
+            metadata={
+                "matrix_grid_n": int(grid_n),
+                "setup_param_resolution": _env_int(
+                    "SETUP_PARAM_RESOLUTION", EXP44_SETUP_PARAM_RESOLUTION
+                ),
+                "warmup_seed": int(warmup_seed),
+                "warmup_cases": int(warmup_cases),
+                "action_count": int(branch.policy.model.K),
+            },
+        )
         print(json.dumps({"stage": "bandit_state_save_done", "path": str(state_path)}), flush=True)
     return branch
 
