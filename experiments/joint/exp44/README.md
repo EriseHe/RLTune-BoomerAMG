@@ -201,6 +201,13 @@ Default Exp44 training config:
 - `TOTAL_TIMESTEPS=2500`
 - `CHECKPOINT_OBJECTIVE=seed_mean_minus_std_vs_bandit`
 
+To train on one complete pass over a fixed number of unique problem
+instances, set `TRAIN_EPISODES` equal to the generated training-trace size.
+For example, `RL_TRAIN_SEEDS=39396939`, `RL_TRAIN_CASES=2000`, and
+`TRAIN_EPISODES=2000` stop PPO after exactly 2000 completed solves; the result
+also records the resulting number of cycle transitions. The default
+`TRAIN_EPISODES=0` retains transition-budget training.
+
 ## Evaluation workflow
 
 Evaluate an existing model:
@@ -238,6 +245,11 @@ Default held-out evaluation:
 7. Aggregate all per-seed JSON files into one
    `forward_continuation_summary.json`, then generate `main_table.csv` and the
    runtime/action figures.
+
+The formal evaluator times LinUCB selection, feedback-loss evaluation, and
+update separately while constructing the online setup trace. The table reports
+their sum as `bandit_overhead_ms_per_instance`; the end-to-end figure stacks
+native runtime, PPO controller overhead, and LinUCB overhead.
 
 ## Code path: high level to low level
 

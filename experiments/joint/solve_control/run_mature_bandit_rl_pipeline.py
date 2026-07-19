@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Sequence, Tuple
 import numpy as np
 import torch
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import StopTrainingOnMaxEpisodes
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from sb3_contrib import RecurrentPPO
 
@@ -600,6 +601,7 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
                 "train_trace": len(train_trace),
                 "eval_trace_cases_per_seed": len(next(iter(eval_traces.values()))),
                 "eval_trace_seeds": [int(x) for x in eval_traces.keys()],
+                "train_episodes": _env_int("TRAIN_EPISODES", 0),
                 "timesteps": _env_int("TOTAL_TIMESTEPS", 100000),
                 "obs_mode": _env_str("OBS_MODE", "solve_only"),
                 "action_mode": _env_str("ACTION_MODE", "continuous"),
@@ -615,6 +617,14 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
         flush=True,
     )
     total_timesteps = _env_int("TOTAL_TIMESTEPS", 100000)
+    train_episodes = _env_int("TRAIN_EPISODES", 0)
+    if train_episodes < 0:
+        raise ValueError("TRAIN_EPISODES must be non-negative")
+    if train_episodes > 0 and train_episodes != len(train_trace):
+        raise ValueError(
+            "Episode-budget training requires TRAIN_EPISODES to equal the "
+            "number of unique training cases"
+        )
     checkpoint_interval = _env_int("CHECKPOINT_INTERVAL", total_timesteps)
     checkpoint_interval = max(1, checkpoint_interval)
     select_model = _env_str("SELECT_MODEL", "final").strip().lower()
@@ -629,9 +639,60 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
     best_selection: Dict[str, Any] | None = None
     checkpoint_history: List[Dict[str, Any]] = []
 
-    while steps_done < total_timesteps:
+    if train_episodes > 0:
+        max_training_steps = int(
+            train_episodes * _env_int("SOLVE_MAX_CYCLES", 50)
+        )
+        stop_callback = StopTrainingOnMaxEpisodes(
+            max_episodes=int(train_episodes),
+            verbose=1,
+        )
+        model.learn(
+            total_timesteps=max_training_steps,
+            reset_num_timesteps=True,
+            callback=stop_callback,
+        )
+        if int(stop_callback.n_episodes) != int(train_episodes):
+            raise RuntimeError(
+                "PPO episode-budget training did not consume exactly the "
+                f"requested {train_episodes} episodes"
+            )
+        actual_timesteps = int(model.num_timesteps)
+        chunk_index = 1
+        checkpoint_path = (
+            model_base.parent
+            / f"{model_base.name}_episodes_{train_episodes}.zip"
+        )
+        model.save(str(checkpoint_path.with_suffix("")))
+        per_eval_seed, combined_eval = _evaluate_model_on_traces(
+            eval_traces, checkpoint_path
+        )
+        score = _score_eval_summary(combined_eval, per_eval_seed)
+        record = {
+            "chunk_index": int(chunk_index),
+            "episodes": int(train_episodes),
+            "actual_timesteps": int(actual_timesteps),
+            "model": str(checkpoint_path),
+            "score": float(score),
+            "relative_pct": dict(combined_eval["relative_pct"]),
+        }
+        checkpoint_history.append(record)
+        print(
+            json.dumps({"stage": "checkpoint_eval_done", **record}),
+            flush=True,
+        )
+        best_score = float(score)
+        best_selection = dict(record)
+        best_selection["model"] = str(best_model_path)
+        best_selection["per_eval_seed"] = per_eval_seed
+        best_selection["combined_eval"] = combined_eval
+        checkpoint_path.replace(best_model_path)
+    while train_episodes == 0 and steps_done < total_timesteps:
         learn_steps = min(checkpoint_interval, total_timesteps - steps_done)
-        model.learn(total_timesteps=learn_steps, reset_num_timesteps=(steps_done == 0))
+        model.learn(
+            total_timesteps=learn_steps,
+            reset_num_timesteps=(steps_done == 0),
+        )
         steps_done += learn_steps
         actual_timesteps = int(model.num_timesteps)
         chunk_index += 1
@@ -671,6 +732,8 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
     selection_info = {
         "select_model": select_model,
         "checkpoint_objective": _env_str("CHECKPOINT_OBJECTIVE", "avg_vs_fixed_bandit"),
+        "budget_unit": "episodes" if train_episodes > 0 else "transitions",
+        "train_episodes": int(train_episodes),
         "checkpoint_interval": int(checkpoint_interval),
         "total_timesteps": int(total_timesteps),
         "actual_total_timesteps": int(model.num_timesteps),
@@ -920,6 +983,7 @@ def main() -> None:
             "rl_train_cases_per_seed": _env_int("RL_TRAIN_CASES", 500),
             "rl_train_seeds": train_meta["train_seeds"],
             "rl_train_total_cases": train_meta["total_cases"],
+            "rl_train_episode_budget": _env_int("TRAIN_EPISODES", 0),
             "train_trace_shuffle": train_meta["shuffle"],
             "train_trace_shuffle_seed": train_meta["shuffle_seed"],
             "eval_cases": int(eval_cases),
@@ -944,6 +1008,9 @@ def main() -> None:
                 selection_info.get(
                     "actual_total_timesteps", _env_int("TOTAL_TIMESTEPS", 100000)
                 )
+            ),
+            "actual_train_episodes": int(
+                selection_info.get("train_episodes", 0)
             ),
             "model": str(model_path),
         },

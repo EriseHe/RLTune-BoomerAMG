@@ -58,6 +58,10 @@ def _method_table(methods: Mapping[str, Mapping[str, Any]]) -> list[dict[str, An
         inclusive = float(
             values.get("mean_runtime_with_controller", native_total + controller)
         )
+        bandit = float(values.get("mean_bandit_overhead_runtime", 0.0))
+        end_to_end = float(
+            values.get("mean_end_to_end_runtime", inclusive + bandit)
+        )
         rows.append(
             {
                 "method": method,
@@ -68,11 +72,19 @@ def _method_table(methods: Mapping[str, Mapping[str, Any]]) -> list[dict[str, An
                 "native_total_ms_per_instance": 1000.0 * native_total,
                 "controller_ms_per_instance": 1000.0 * controller,
                 "controller_inclusive_ms_per_instance": 1000.0 * inclusive,
+                "bandit_overhead_ms_per_instance": 1000.0 * bandit,
+                "end_to_end_ms_per_instance": 1000.0 * end_to_end,
                 "native_total_seconds_all_cases": float(
                     values.get("total_runtime", native_total * cases)
                 ),
                 "controller_inclusive_seconds_all_cases": float(
                     values.get("total_runtime_with_controller", inclusive * cases)
+                ),
+                "bandit_overhead_seconds_all_cases": float(
+                    values.get("total_bandit_overhead_runtime", bandit * cases)
+                ),
+                "end_to_end_seconds_all_cases": float(
+                    values.get("total_end_to_end_runtime", end_to_end * cases)
                 ),
                 "failures": int(values.get("failed_count", 0)),
             }
@@ -90,6 +102,12 @@ def _plot_runtime_breakdown(
     setup = np.asarray([float(methods[name].get("mean_setup_runtime", 0.0)) for name in names]) * 1000.0
     solve = np.asarray([float(methods[name].get("mean_solve_runtime", 0.0)) for name in names]) * 1000.0
     controller = np.asarray([float(methods[name].get("mean_infer_runtime", 0.0)) for name in names]) * 1000.0
+    bandit = np.asarray(
+        [
+            float(methods[name].get("mean_bandit_overhead_runtime", 0.0))
+            for name in names
+        ]
+    ) * 1000.0
     x = np.arange(len(names))
     colors = [METHOD_COLORS.get(name, "#777777") for name in names]
     figure, axes = plt.subplots(1, 2, figsize=(13.5, 5.4), constrained_layout=True)
@@ -110,7 +128,16 @@ def _plot_runtime_breakdown(
         hatch="///",
         label="Controller",
     )
-    axes[1].set_title("Controller-inclusive runtime")
+    axes[1].bar(
+        x,
+        bandit,
+        bottom=native + controller,
+        color="#B7B7B7",
+        edgecolor="#555555",
+        hatch="xxx",
+        label="LinUCB overhead",
+    )
+    axes[1].set_title("End-to-end runtime")
     figure.suptitle(title, fontsize=13)
     for axis in axes:
         axis.set_xticks(x)
@@ -162,14 +189,31 @@ def _plot_per_seed(
 
 def _plot_checkpoint_scores(payload: Mapping[str, Any], path: Path) -> None:
     history = payload["checkpoint_selection"].get("checkpoint_history", [])
-    requested = [int(row["timesteps"]) for row in history]
-    actual = [int(row.get("actual_timesteps", row["timesteps"])) for row in history]
+    requested = [
+        int(row.get("timesteps", row.get("actual_timesteps", 0)))
+        for row in history
+    ]
+    actual = [
+        int(row.get("actual_timesteps", requested[index]))
+        for index, row in enumerate(history)
+    ]
     scores = [float(row["score"]) for row in history]
     figure, axis = plt.subplots(figsize=(8.5, 4.8), constrained_layout=True)
     axis.plot(actual, scores, marker="o", color="#6F5AA8", linewidth=1.5)
-    for x, requested_x in zip(actual, requested):
-        if x != requested_x:
-            axis.annotate(f"requested {requested_x}", (x, scores[actual.index(x)]), xytext=(6, 8), textcoords="offset points")
+    for index, (x, requested_x) in enumerate(zip(actual, requested)):
+        row = history[index]
+        annotation = None
+        if "episodes" in row:
+            annotation = f"{int(row['episodes'])} episodes"
+        elif x != requested_x:
+            annotation = f"requested {requested_x}"
+        if annotation:
+            axis.annotate(
+                annotation,
+                (x, scores[index]),
+                xytext=(6, 8),
+                textcoords="offset points",
+            )
     axis.set_xlabel("Actual environment transitions")
     axis.set_ylabel("Checkpoint selection score")
     axis.set_title("PPO checkpoint validation")
@@ -237,6 +281,18 @@ def _plot_ppo_trajectory(payload: Mapping[str, Any], window: str, path: Path) ->
 
 def _plot_ppo_relative(methods: Mapping[str, Mapping[str, Any]], path: Path) -> None:
     ppo = methods["ppo_best"]
+
+    def metric_value(values: Mapping[str, Any], metric: str) -> float:
+        if metric in values:
+            return float(values[metric])
+        if metric == "mean_end_to_end_runtime":
+            return (
+                float(values["mean_runtime"])
+                + float(values.get("mean_infer_runtime", 0.0))
+                + float(values.get("mean_bandit_overhead_runtime", 0.0))
+            )
+        raise KeyError(metric)
+
     comparisons = []
     for reference_name in ("bandit_only", "fixed_w_1.60"):
         if reference_name not in methods:
@@ -245,9 +301,12 @@ def _plot_ppo_relative(methods: Mapping[str, Mapping[str, Any]], path: Path) -> 
         for metric, label in (
             ("mean_solve_runtime", "Native solve"),
             ("mean_runtime", "Native total"),
-            ("mean_runtime_with_controller", "Controller-inclusive"),
+            ("mean_end_to_end_runtime", "End-to-end"),
         ):
-            value = 100.0 * (float(reference[metric]) - float(ppo[metric])) / float(reference[metric])
+            reference_value = metric_value(reference, metric)
+            value = 100.0 * (
+                reference_value - metric_value(ppo, metric)
+            ) / reference_value
             comparisons.append((f"vs {METHOD_LABELS[reference_name]} | {label}", value))
     figure, axis = plt.subplots(figsize=(10.5, 5.5), constrained_layout=True)
     y = np.arange(len(comparisons))[::-1]

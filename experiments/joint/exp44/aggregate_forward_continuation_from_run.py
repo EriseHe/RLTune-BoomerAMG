@@ -18,6 +18,8 @@ TOTAL_FIELDS = (
     "total_solve_runtime",
     "total_infer_runtime",
     "total_runtime_with_controller",
+    "total_bandit_overhead_runtime",
+    "total_end_to_end_runtime",
 )
 
 
@@ -86,6 +88,15 @@ def _total(method: dict[str, Any], total_key: str, cases: int) -> float:
             method.get("mean_infer_runtime", 0.0)
         )
         return mean_value * cases
+    if mean_key == "mean_bandit_overhead_runtime":
+        return float(method.get(mean_key, 0.0)) * cases
+    if mean_key == "mean_end_to_end_runtime":
+        mean_value = (
+            float(method["mean_runtime"])
+            + float(method.get("mean_infer_runtime", 0.0))
+            + float(method.get("mean_bandit_overhead_runtime", 0.0))
+        )
+        return mean_value * cases
     return float(method[mean_key]) * cases
 
 
@@ -107,6 +118,15 @@ def _normalized_method(method: dict[str, Any], fallback_cases: int) -> dict[str,
         ]
         / cases,
         "total_runtime_with_controller": totals["total_runtime_with_controller"],
+        "mean_bandit_overhead_runtime": totals[
+            "total_bandit_overhead_runtime"
+        ]
+        / cases,
+        "total_bandit_overhead_runtime": totals[
+            "total_bandit_overhead_runtime"
+        ],
+        "mean_end_to_end_runtime": totals["total_end_to_end_runtime"] / cases,
+        "total_end_to_end_runtime": totals["total_end_to_end_runtime"],
         "failed_count": int(method.get("failed_count", 0)),
     }
 
@@ -220,6 +240,16 @@ def aggregate_window(
             "total_runtime_with_controller": float(
                 acc["total_runtime_with_controller"]
             ),
+            "mean_bandit_overhead_runtime": float(
+                acc["total_bandit_overhead_runtime"]
+            )
+            / cases,
+            "total_bandit_overhead_runtime": float(
+                acc["total_bandit_overhead_runtime"]
+            ),
+            "mean_end_to_end_runtime": float(acc["total_end_to_end_runtime"])
+            / cases,
+            "total_end_to_end_runtime": float(acc["total_end_to_end_runtime"]),
             "failed_count": int(acc["failed_count"]),
         }
 

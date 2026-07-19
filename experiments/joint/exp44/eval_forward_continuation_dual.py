@@ -100,9 +100,50 @@ def summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "total_runtime_with_controller": float(
             sum(runtime + overhead for runtime, overhead in zip(runtimes, controller))
         ),
+        "mean_bandit_overhead_runtime": 0.0,
+        "total_bandit_overhead_runtime": 0.0,
+        "mean_end_to_end_runtime": float(
+            mean(runtime + overhead for runtime, overhead in zip(runtimes, controller))
+        ),
+        "total_end_to_end_runtime": float(
+            sum(runtime + overhead for runtime, overhead in zip(runtimes, controller))
+        ),
         "failed_count": int(sum(failures)),
         "mean_iterations": float(mean(iterations)) if iterations else None,
     }
+
+
+def with_bandit_overhead(
+    summary: Dict[str, Any],
+    timing_records: Sequence[Dict[str, Any]],
+) -> Dict[str, Any]:
+    out = dict(summary)
+    cases = int(out["cases"])
+    if len(timing_records) != cases:
+        raise ValueError("bandit timing records must align with the evaluation window")
+    totals = {
+        key: float(
+            sum(float(row["bandit_timing"].get(key, 0.0)) for row in timing_records)
+        )
+        for key in ("select_sec", "loss_eval_sec", "update_sec", "overhead_sec")
+    }
+    out["mean_bandit_select_runtime"] = totals["select_sec"] / cases
+    out["total_bandit_select_runtime"] = totals["select_sec"]
+    out["mean_bandit_loss_eval_runtime"] = totals["loss_eval_sec"] / cases
+    out["total_bandit_loss_eval_runtime"] = totals["loss_eval_sec"]
+    out["mean_bandit_update_runtime"] = totals["update_sec"] / cases
+    out["total_bandit_update_runtime"] = totals["update_sec"]
+    out["mean_bandit_overhead_runtime"] = totals["overhead_sec"] / cases
+    out["total_bandit_overhead_runtime"] = totals["overhead_sec"]
+    out["mean_end_to_end_runtime"] = float(
+        out["mean_runtime_with_controller"]
+        + out["mean_bandit_overhead_runtime"]
+    )
+    out["total_end_to_end_runtime"] = float(
+        out["total_runtime_with_controller"]
+        + out["total_bandit_overhead_runtime"]
+    )
+    return out
 
 
 def make_runner() -> SetupAwareSolvePolicyRunner:
@@ -171,15 +212,33 @@ def window_result(
     default_rows: Sequence[Dict[str, Any]] | None,
     bandit_rows: Sequence[Dict[str, Any]] | None,
     fixed_rows: Sequence[Dict[str, Any]] | None,
+    bandit_timing_records: Sequence[Dict[str, Any]],
     runner: SetupAwareSolvePolicyRunner | None,
 ) -> Dict[str, Any]:
     method_map: Dict[str, Any] = {}
     rel_map: Dict[str, float] = {}
 
     default_summary = summarize(default_rows) if default_rows is not None else None
-    bandit_summary = summarize(bandit_rows) if bandit_rows is not None else None
-    fixed_summary = summarize(fixed_rows) if fixed_rows is not None else None
-    ppo_summary = ensure_runner_summary(eval_runner(runner, list(trace_slice)), len(trace_slice)) if runner is not None else None
+    bandit_summary = (
+        with_bandit_overhead(summarize(bandit_rows), bandit_timing_records)
+        if bandit_rows is not None
+        else None
+    )
+    fixed_summary = (
+        with_bandit_overhead(summarize(fixed_rows), bandit_timing_records)
+        if fixed_rows is not None
+        else None
+    )
+    ppo_summary = (
+        with_bandit_overhead(
+            ensure_runner_summary(
+                eval_runner(runner, list(trace_slice)), len(trace_slice)
+            ),
+            bandit_timing_records,
+        )
+        if runner is not None
+        else None
+    )
 
     if default_summary is not None:
         method_map["default_setup_default_solve"] = default_summary
@@ -231,6 +290,7 @@ def main() -> None:
     methods_enabled = enabled_methods()
     result_path = Path(os.environ.get("RESULT_PATH", str(result_path_for_seed(seed))))
     print(json.dumps({"stage": "trace_build_start", "seed": seed, "T": trace_t}), flush=True)
+    trace_records: list[Dict[str, Any]] = []
     trace = list(
         fixed_trace(
             T=trace_t,
@@ -239,10 +299,13 @@ def main() -> None:
             tune_dim=7,
             bandit_method="linucbv4",
             solve_mode="no_rl",
+            trace_records=trace_records,
         )
     )
     trace_a = [(dict(mkw), dict(params)) for mkw, params in trace[eval_a_start:eval_a_end]]
     trace_b = [(dict(mkw), dict(params)) for mkw, params in trace[eval_b_start:eval_b_end]]
+    timing_a = trace_records[eval_a_start:eval_a_end]
+    timing_b = trace_records[eval_b_start:eval_b_end]
     print(
         json.dumps(
             {
@@ -302,6 +365,7 @@ def main() -> None:
         default_rows=default_rows_1000[: len(trace_a)] if default_rows_1000 is not None else None,
         bandit_rows=bandit_rows_1000[: len(trace_a)] if bandit_rows_1000 is not None else None,
         fixed_rows=fixed_rows_1000[: len(trace_a)] if fixed_rows_1000 is not None else None,
+        bandit_timing_records=timing_a,
         runner=runner,
     )
     windows_identical = (eval_a_start, eval_a_end) == (eval_b_start, eval_b_end)
@@ -317,6 +381,7 @@ def main() -> None:
             default_rows=default_rows_1000[: len(trace_b)] if default_rows_1000 is not None else None,
             bandit_rows=bandit_rows_1000[: len(trace_b)] if bandit_rows_1000 is not None else None,
             fixed_rows=fixed_rows_1000[: len(trace_b)] if fixed_rows_1000 is not None else None,
+            bandit_timing_records=timing_b,
             runner=runner,
         )
     result = {

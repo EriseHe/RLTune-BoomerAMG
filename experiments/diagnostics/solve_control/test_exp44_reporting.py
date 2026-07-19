@@ -15,7 +15,14 @@ from aggregate_forward_continuation_from_run import _normalized_method  # noqa: 
 from report_exp44_results import report_evaluation  # noqa: E402
 
 
-def _method(native: float, *, setup: float, solve: float, controller: float = 0.0) -> dict:
+def _method(
+    native: float,
+    *,
+    setup: float,
+    solve: float,
+    controller: float = 0.0,
+    bandit: float = 0.0,
+) -> dict:
     cases = 2
     return {
         "cases": cases,
@@ -29,6 +36,10 @@ def _method(native: float, *, setup: float, solve: float, controller: float = 0.
         "total_infer_runtime": controller * cases,
         "mean_runtime_with_controller": native + controller,
         "total_runtime_with_controller": (native + controller) * cases,
+        "mean_bandit_overhead_runtime": bandit,
+        "total_bandit_overhead_runtime": bandit * cases,
+        "mean_end_to_end_runtime": native + controller + bandit,
+        "total_end_to_end_runtime": (native + controller + bandit) * cases,
         "failed_count": 0,
     }
 
@@ -49,6 +60,8 @@ class Exp44ReportingTests(unittest.TestCase):
         self.assertAlmostEqual(row["total_runtime"], 0.32)
         self.assertAlmostEqual(row["total_infer_runtime"], 0.016)
         self.assertAlmostEqual(row["mean_runtime_with_controller"], 0.084)
+        self.assertAlmostEqual(row["mean_bandit_overhead_runtime"], 0.0)
+        self.assertAlmostEqual(row["mean_end_to_end_runtime"], 0.084)
 
     def test_evaluation_report_writes_table_and_all_figures(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -73,9 +86,19 @@ class Exp44ReportingTests(unittest.TestCase):
             )
             methods = {
                 "default_setup_default_solve": _method(0.11, setup=0.07, solve=0.04),
-                "bandit_only": _method(0.09, setup=0.03, solve=0.06),
-                "fixed_w_1.60": _method(0.08, setup=0.03, solve=0.05),
-                "ppo_best": _method(0.078, setup=0.03, solve=0.048, controller=0.004),
+                "bandit_only": _method(
+                    0.09, setup=0.03, solve=0.06, bandit=0.005
+                ),
+                "fixed_w_1.60": _method(
+                    0.08, setup=0.03, solve=0.05, bandit=0.005
+                ),
+                "ppo_best": _method(
+                    0.078,
+                    setup=0.03,
+                    solve=0.048,
+                    controller=0.004,
+                    bandit=0.005,
+                ),
             }
             result = root / "result.json"
             result.write_text(
@@ -104,6 +127,8 @@ class Exp44ReportingTests(unittest.TestCase):
             header = Path(report["table"]).read_text(encoding="utf-8").splitlines()[0]
             self.assertIn("native_solve_ms_per_instance", header)
             self.assertIn("controller_inclusive_ms_per_instance", header)
+            self.assertIn("bandit_overhead_ms_per_instance", header)
+            self.assertIn("end_to_end_ms_per_instance", header)
 
 
 if __name__ == "__main__":
