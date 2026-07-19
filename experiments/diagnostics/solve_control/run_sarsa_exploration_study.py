@@ -19,7 +19,7 @@ from amg_setup_gym_env import (
     build_setup_parameter_spec,
 )
 from online_td_experiment_common import _git_revision, _json_ready, _write_json
-from online_td_lambda import (
+from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,
     run_td_episode,

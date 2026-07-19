@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import numpy as np
 
-from online_td_lambda import ExpectedSarsaLambda
+from .online_td_lambda import ExpectedSarsaLambda
 
 
 @dataclass(frozen=True)

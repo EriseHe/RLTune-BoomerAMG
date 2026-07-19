@@ -21,7 +21,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
-from ._candidate_subset import CandidateSelector
+from ..common.candidate_subset import CandidateSelector
 from .SharedLinTS_AMG import _robust_cholesky
 
 
@@ -259,4 +259,3 @@ class RFF_TS_AMG:
         self.t += 1
         self._last_z = None
         self._last_arm = None
-

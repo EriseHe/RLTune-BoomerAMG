@@ -46,11 +46,11 @@ for path in (REPO_ROOT, SETUP_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
-from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
-from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
-from learners._candidate_subset import resolve_tune7_candidate_strategy
+from learners import SharedLinUCB_AMG_v2
+from learners import SharedLinUCB_AMG_v3
+from learners import SharedLinUCB_AMG_v4
+from learners.common import ParameterSpaceSpec, ParameterSpec
+from learners.common import resolve_tune7_candidate_strategy
 from hypre.bindings import solve
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from problems.scalar_anisotropic_diffusion import (

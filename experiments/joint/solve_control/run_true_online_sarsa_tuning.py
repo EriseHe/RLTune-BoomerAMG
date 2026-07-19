@@ -14,7 +14,7 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from online_td_lambda import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
+from SolvePhase.algorithms.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
 from run_exp44_online_rl import make_controller
 from online_td_experiment_common import _json_ready, _write_json
 from run_mature_bandit_rl_pipeline import _frozen_trace

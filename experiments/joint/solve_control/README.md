@@ -12,28 +12,32 @@ retained Exp44 workflow.
 - `setup_aware_compare_common.py`
   - runner, setup-aware solve logic, trace builders, and shared evaluation helpers
 - `frozen_bandit_step_env.py`
-  - solve-phase Gym-style environment over frozen traces
-- `amg_gym_env.py`
-  - action decoding, including residual `w` updates
-- `amg_env.py`
+  - Gymnasium adapter used to train PPO over frozen traces
+- `SolvePhase/core/amg_gym_env.py`
+  - action decoding shared by training and direct forward evaluation
 - `amg_setup_gym_env.py`
-- `custom_policy.py`
-- `util.py`
+- `SolvePhase/algorithms/ppo/`
+  - PPO policy definitions
 
-## Residual `w` control
+## Active absolute `w` control
 
-The Exp44 policy does not predict an absolute `w`. It predicts a residual step:
+The retained Exp44 PPO predicts an absolute physical relaxation weight:
 
 ```text
-w_{t+1} = clip(w_t + w_scale * a_t, w_min, w_max)
+w_t = clip(1.5 + 0.5 * a_t, 1.0, 2.0)
 ```
 
-Key locations:
+The decoder still supports the older residual `+/-0.02` action mode for
+archived experiments, but it is not the active Exp44 configuration.
 
-- `amg_gym_env.py`
-  - `decode_policy_action_residual(...)`
+Key locations for the active path:
+
+- `SolvePhase/core/amg_gym_env.py`
+  - `decode_policy_action(...)`
 - `frozen_bandit_step_env.py`
-  - `step(...)` branch for `action_mode == "continuous_residual"`
+  - `step(...)` default continuous-action branch
+- `experiments/joint/exp44/exp44_common.sh`
+  - `ACTION_MODE=continuous_absolute`
 
 ## Bandit + RL boundary
 
@@ -74,7 +78,7 @@ That function:
    - default
    - bandit
    - fixed `w=1.6`
-   - PPO residual control
+   - PPO absolute control
 4. Save one JSON per seed.
 5. Aggregate all seeds into one summary JSON.
 
@@ -83,6 +87,6 @@ That function:
 Older experiment drivers, sweeps, teacher/BC code, and obsolete docs were moved
 to:
 
-- `legacy_exp44_pre_cleanup/`
+- `experiments/archive/legacy_exp44_pre_cleanup/`
 
 They are not part of the retained Exp44 workflow.

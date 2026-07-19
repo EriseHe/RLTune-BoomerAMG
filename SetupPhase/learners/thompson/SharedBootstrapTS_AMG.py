@@ -20,7 +20,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
-from ._candidate_subset import CandidateSelector
+from ..common.candidate_subset import CandidateSelector
 
 
 @dataclass(frozen=True)
@@ -324,4 +324,3 @@ class SharedBootstrapTS_AMG:
         self.t += 1
         self._last_phi = None
         self._last_arm = None
-

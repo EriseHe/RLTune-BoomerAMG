@@ -17,7 +17,7 @@ from amg_setup_gym_env import (
     SetupObsEncoder,
     build_setup_parameter_spec,
 )
-from online_td_lambda import (
+from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,

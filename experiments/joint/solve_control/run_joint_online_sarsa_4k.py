@@ -19,12 +19,12 @@ from amg_setup_gym_env import (
     SetupObsEncoder,
     build_setup_parameter_spec,
 )
-from online_sarsa_exploration import (
+from SolvePhase.algorithms.sarsa import (
     BehaviorPolicySarsaController,
     SarsaBehaviorSpec,
 )
 from online_td_experiment_common import _json_ready, _write_json
-from online_td_lambda import (
+from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,
     run_td_episode,
@@ -56,7 +56,7 @@ from setup_aware_compare_common import (
     solve_setup_aware_rl_case,
     validate_expected_setup_action_count,
 )
-from shared_action_rl import (
+from SolvePhase.algorithms.lcb import (
     RecursiveLstdqLcbController,
     RecursiveLstdqLcbSpec,
     RecursiveMonteCarloLcbController,

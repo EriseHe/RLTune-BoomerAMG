@@ -44,10 +44,10 @@ for path in (REPO_ROOT, SETUP_ROOT, SOLVE_CORE_DIR):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from learners.SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
-from learners.SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
-from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners import SharedLinUCB_AMG_v2
+from learners import SharedLinUCB_AMG_v3
+from learners import SharedLinUCB_AMG_v4
+from learners.common import ParameterSpaceSpec, ParameterSpec
 from amg_gym_env import BoomerAMGRelaxEnv, build_policy_obs, decode_policy_action
 from hypre.bindings import create_env, solve
 from problems.amg import DIFCONV_CONTEXT_DIM, stencil_0_difconv_rl

@@ -25,7 +25,7 @@ from utils.setup_amg import (
 )
 from problems.amg import CONTEXT_DIM, NX, NY, NZ, STENCIL, stencil_27_laplace
 from utils.paths import SETUP_RESULTS_ROOT
-from learners.LinUCB_AMG import LinUCB_AMG
+from learners import LinUCB_AMG
 
 
 # ============================================================================

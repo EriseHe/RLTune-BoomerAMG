@@ -21,8 +21,8 @@ if str(_SETUP_ROOT) not in sys.path:
     sys.path.insert(0, str(_SETUP_ROOT))
 
 from amg_gym_env import build_policy_obs, decode_policy_action
-from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners import SharedLinUCB_AMG_v4
+from learners.common import ParameterSpaceSpec, ParameterSpec
 from hypre.bindings import PreparedAMGEnv, create_env
 from problems.amg import (
     DIFCONV_CONTEXT_DIM,

@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners.common import ParameterSpaceSpec, ParameterSpec
 from utils.setup_amg import build_actions_from_spec
 from amg_setup_gym_env import build_setup_parameter_spec
 from setup_aware_compare_common import (

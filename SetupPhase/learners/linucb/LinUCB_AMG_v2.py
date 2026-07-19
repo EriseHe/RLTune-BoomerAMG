@@ -1,7 +1,7 @@
 """
 LinUCB for BoomerAMG setup-phase tuning (variant).
 
-This is the same algorithm as `learners/LinUCB_AMG.py`, but with one small
+This is the same algorithm as `LinUCB_AMG.py`, but with one small
 extension:
 - optional exploration decay: alpha_t = alpha / sqrt(t+1)
 

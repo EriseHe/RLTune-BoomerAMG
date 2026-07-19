@@ -28,8 +28,8 @@ belong beside source files.
 
 The two phase directories share lifecycle folders such as `scripts/` and
 `tests/`, but their algorithm-specific internals need not be identical. Setup
-owns contextual-bandit learners; solve owns sequential controllers and Gym
-environments.
+owns contextual-bandit learners grouped by family. Solve owns PPO, SARSA, and
+LCB algorithm packages plus the solver environment adapters used by them.
 
 ## Naming
 

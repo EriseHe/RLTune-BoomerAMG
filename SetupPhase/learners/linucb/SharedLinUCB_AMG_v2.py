@@ -1,7 +1,7 @@
 """
 Shared (joint) LinUCB for BoomerAMG setup-phase tuning (variant).
 
-This file is intentionally separate from `learners/SharedLinUCB_AMG.py` so we
+This file is intentionally separate from `SharedLinUCB_AMG.py` so we
 can compare improvements without modifying the original implementation.
 
 Feature definition (paper-ready)
@@ -70,7 +70,7 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ._amg_action_features import (
+from ..common.action_features import (
     ACTION_FEATURE_DIM,
     action_center_from_actions,
     action_param_vector,

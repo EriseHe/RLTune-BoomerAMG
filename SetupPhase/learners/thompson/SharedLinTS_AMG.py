@@ -1,41 +1,22 @@
 """
-Shared (joint) LinUCB for BoomerAMG setup-phase tuning (v3).
+Shared Linear Thompson Sampling (LinTS) for BoomerAMG setup-phase tuning.
 
-Changes vs v2:
-- Scale action coordinates before building quadratic action features.
-- Use full context-action interactions: s1,s2,s3,c_diag.
+Uses the same shared feature map as SharedLinUCB_AMG_v3:
 
-Feature definition (paper-ready)
---------------------------------
-We tune:
+  phi(x,a) = [ x ; g ; s1*g ; s2*g ; s3*g ; c_diag*g ]  in R^50
 
-    a = (th, mxrs, tr)
-
-Center at a0 and scale by s:
-
-    a_hat = (a - a0) / s
-
-Let a_hat = (th~, mxrs~, tr~). Define g(a_hat) in R^9:
-
-    g = [ th~, mxrs~, tr~, th~^2, mxrs~^2, tr~^2, th~*mxrs~, th~*tr~, mxrs~*tr~ ]^T
-
-Context x in R^5 from `utils.stencil27_laplace.stencil_27_laplace`:
-
-    x = [1, s1, s2, s3, c_diag]^T
-
-Shared feature map:
-
-    phi(x,a) = [ x ; g ; s1*g ; s2*g ; s3*g ; c_diag*g ] in R^(5+5*9)=R^50
+Action selection samples a parameter vector from the posterior and chooses
+the arm minimizing sampled loss.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 import numpy as np
 
-from ._amg_action_features import (
+from ..common.action_features import (
     ACTION_FEATURE_DEFAULT_SCALES,
     ACTION_FEATURE_DIM,
     action_center_from_actions,
@@ -43,11 +24,11 @@ from ._amg_action_features import (
     normalize_action_scales,
     poly2_features,
 )
-from ._candidate_subset import CandidateSelector
+from ..common.candidate_subset import CandidateSelector
 
 
 @dataclass(frozen=True)
-class SharedLinUCBv3Step:
+class SharedLinTSStep:
     t: int
     arm_index: int
     loss: float
@@ -55,7 +36,28 @@ class SharedLinUCBv3Step:
     pred_uncert: float
 
 
-class SharedLinUCB_AMG_v3:
+def _robust_cholesky(A: np.ndarray) -> np.ndarray:
+    """
+    Compute a Cholesky factor of a symmetric PSD-ish matrix with jitter fallback.
+    Returns L such that A ≈ L L^T.
+    """
+    A = 0.5 * (A + A.T)
+    n = A.shape[0]
+    I = np.eye(n, dtype=float)
+    jitter = 0.0
+    for exp in range(6):
+        try:
+            return np.linalg.cholesky(A + jitter * I)
+        except np.linalg.LinAlgError:
+            jitter = 10.0 ** (-12 + 2 * exp)
+
+    # Eigen fallback: clamp eigenvalues to keep PSD.
+    w, V = np.linalg.eigh(A)
+    w = np.maximum(w, 1e-12)
+    return (V * np.sqrt(w)) @ V.T
+
+
+class SharedLinTS_AMG:
     _G_DIM = ACTION_FEATURE_DIM
 
     def __init__(
@@ -63,9 +65,10 @@ class SharedLinUCB_AMG_v3:
         actions: Sequence[Dict[str, Any]],
         context_dim: int,
         *,
+        # Keep alpha in signature for compatibility with the factory harness.
         alpha: float = 1.0,
-        alpha_decay: bool = False,
         l2_reg: float = 1.0,
+        sigma: float = 0.1,
         s1_index: int = 1,
         s2_index: int = 2,
         s3_index: int = 3,
@@ -88,12 +91,12 @@ class SharedLinUCB_AMG_v3:
         self.K = len(self.actions)
         self.d_x = int(context_dim)
         self.g_dim = int(self._G_DIM)
-        # x + (g + 4 context interactions) => 5 g-blocks
-        self.d_phi = self.d_x + 5 * self.g_dim
+        self.d_phi = self.d_x + 5 * self.g_dim  # x + (g + 4 interactions)
 
-        self.alpha = float(alpha)
-        self.alpha_decay = bool(alpha_decay)
         self.l2_reg = float(l2_reg)
+        self.sigma = float(sigma)
+        if not np.isfinite(self.sigma) or self.sigma <= 0.0:
+            raise ValueError("sigma must be finite and > 0")
 
         self.s1_index = int(s1_index)
         self.s2_index = int(s2_index)
@@ -121,7 +124,6 @@ class SharedLinUCB_AMG_v3:
 
         self._a_center = self._compute_action_center(action_center)
 
-        self.A = np.eye(self.d_phi, dtype=float) * self.l2_reg
         self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
         self.b = np.zeros(self.d_phi, dtype=float)
 
@@ -132,32 +134,7 @@ class SharedLinUCB_AMG_v3:
         self.t = 0
         self._last_phi: Optional[np.ndarray] = None
         self._last_arm: Optional[int] = None
-        self.history: List[SharedLinUCBv3Step] = []
-
-    def _rebuild_inverse(self) -> None:
-        A = 0.5 * (self.A + self.A.T)
-        eye = np.eye(self.d_phi, dtype=float)
-        scale = max(1.0, float(np.trace(A)) / max(1, self.d_phi))
-        jitter = 1e-12 * scale
-        for _ in range(8):
-            try:
-                L = np.linalg.cholesky(A + jitter * eye)
-                y = np.linalg.solve(L, eye)
-                self.A_inv = np.linalg.solve(L.T, y)
-                self.A = A + jitter * eye
-                return
-            except np.linalg.LinAlgError:
-                jitter *= 10.0
-        self.A_inv = np.linalg.pinv(A, rcond=1e-12)
-        self.A = A
-
-    def _ensure_numeric_state(self) -> None:
-        if not np.all(np.isfinite(self.A)) or not np.all(np.isfinite(self.A_inv)) or not np.all(np.isfinite(self.b)):
-            self.A = np.nan_to_num(self.A, nan=0.0, posinf=1e12, neginf=-1e12)
-            self.b = np.nan_to_num(self.b, nan=0.0, posinf=1e12, neginf=-1e12)
-            if not np.any(self.A):
-                self.A = np.eye(self.d_phi, dtype=float) * self.l2_reg
-            self._rebuild_inverse()
+        self.history: List[SharedLinTSStep] = []
 
     def _compute_action_center(self, action_center: Optional[Dict[str, Any]]) -> np.ndarray:
         return action_center_from_actions(self.actions, action_center)
@@ -171,7 +148,7 @@ class SharedLinUCB_AMG_v3:
         return x
 
     def _g_from_action(self, params: Dict[str, Any]) -> np.ndarray:
-        a = action_param_vector(params, err_prefix="SharedLinUCB_AMG_v3")
+        a = action_param_vector(params, err_prefix="SharedLinTS_AMG")
         a = (a - self._a_center) / self._a_scales
         return poly2_features(a)
 
@@ -196,21 +173,13 @@ class SharedLinUCB_AMG_v3:
         phi[o : o + self.g_dim] = cd * g
         return phi
 
-    def _score_subset(
-        self,
-        x: np.ndarray,
-        *,
-        arms: Optional[np.ndarray],
-        alpha: float,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        self._ensure_numeric_state()
+    def _eval_theta_dot_phi_subset(self, x: np.ndarray, *, arms: np.ndarray, theta: np.ndarray) -> np.ndarray:
         s1 = float(x[self.s1_index])
         s2 = float(x[self.s2_index])
         s3 = float(x[self.s3_index])
         cd = float(x[self.cdiag_index])
-        G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]  # (K', g_dim)
+        G = self._g_actions[np.asarray(arms, dtype=int)]
 
-        theta = np.linalg.solve(self.A, self.b)
         theta_x = theta[: self.d_x]
         off = self.d_x
         theta_g = theta[off : off + self.g_dim]
@@ -224,7 +193,7 @@ class SharedLinUCB_AMG_v3:
         theta_cd = theta[off : off + self.g_dim]
 
         base = float(theta_x @ x)
-        mean = (
+        vals = (
             base
             + np.einsum("ij,j->i", G, theta_g, optimize=False)
             + s1 * np.einsum("ij,j->i", G, theta_s1, optimize=False)
@@ -232,8 +201,15 @@ class SharedLinUCB_AMG_v3:
             + s3 * np.einsum("ij,j->i", G, theta_s3, optimize=False)
             + cd * np.einsum("ij,j->i", G, theta_cd, optimize=False)
         )
+        return vals
 
-        # Structured uncertainty: phi = c + P g, where g varies per arm.
+    def _quad_one(self, x: np.ndarray, arm: int) -> float:
+        s1 = float(x[self.s1_index])
+        s2 = float(x[self.s2_index])
+        s3 = float(x[self.s3_index])
+        cd = float(x[self.cdiag_index])
+        g = self._g_actions[int(arm)]
+
         c = np.concatenate([x, np.zeros(5 * self.g_dim, dtype=float)], axis=0)
         I = np.eye(self.g_dim, dtype=float)
         P = np.vstack(
@@ -247,49 +223,43 @@ class SharedLinUCB_AMG_v3:
             ]
         )
 
-        Ac = np.linalg.solve(self.A, c)
+        Ainv = self.A_inv
+        Ac = Ainv @ c
         q0 = float(c @ Ac)
-        AP = np.linalg.solve(self.A, P)
         u = P.T @ Ac
-        M = P.T @ AP
-
-        quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
-        uncert = np.sqrt(np.maximum(0.0, quad))
-        score = mean - float(alpha) * uncert
-        return score, mean, uncert
+        M = P.T @ (Ainv @ P)
+        quad = q0 + 2.0 * float(g @ u) + float(g @ (M @ g))
+        return quad
 
     def predict(self, context: Iterable[float]) -> Dict[str, Any]:
         x = self._validate_x(np.asarray(list(context), dtype=float))
 
-        alpha_eff = float(self.alpha) / np.sqrt(self.t + 1.0) if self.alpha_decay else float(self.alpha)
-        M = self._cand.candidate_pool_size
-        if M is None or int(M) >= self.K:
-            score, mean, uncert = self._score_subset(x, arms=None, alpha=alpha_eff)
-            best_score = float(np.min(score))
-            best_arms = np.flatnonzero(score <= best_score + 1e-12)
-            arm = int(np.min(best_arms))
-            best_mean = float(mean[arm])
-            best_unc = float(uncert[arm])
-        else:
-            cand = self._cand.candidate_subset()
-            score, mean, uncert = self._score_subset(x, arms=cand, alpha=alpha_eff)
-            best_score = float(np.min(score))
-            best_loc = np.flatnonzero(score <= best_score + 1e-12)
-            loc = int(best_loc[np.argmin(cand[best_loc])])
-            arm = int(cand[loc])
-            best_mean = float(mean[loc])
-            best_unc = float(uncert[loc])
+        mu = self.A_inv @ self.b
+        L = _robust_cholesky(self.A_inv)
+        z = self.rng.standard_normal(self.d_phi)
+        theta = mu + float(self.sigma) * (L @ z)
 
-        self._last_phi = self._phi(x, arm)
+        cand = self._cand.candidate_subset()
+        vals = self._eval_theta_dot_phi_subset(x, arms=cand, theta=theta)
+        best_val = float(np.min(vals))
+        best_loc = np.flatnonzero(vals <= best_val + 1e-12)
+        loc = int(best_loc[np.argmin(cand[best_loc])])
+        arm = int(cand[loc])
+
+        phi = self._phi(x, arm)
+        pred_mean = float(mu @ phi)
+        quad = float(self._quad_one(x, arm))
+        pred_unc = float(np.sqrt(max(0.0, quad)))
+
+        self._last_phi = phi
         self._last_arm = arm
-
         self.history.append(
-            SharedLinUCBv3Step(
+            SharedLinTSStep(
                 t=self.t + 1,
                 arm_index=arm,
                 loss=float("nan"),
-                pred_mean=best_mean,
-                pred_uncert=best_unc,
+                pred_mean=pred_mean,
+                pred_uncert=pred_unc,
             )
         )
         return dict(self.actions[arm])
@@ -306,12 +276,19 @@ class SharedLinUCB_AMG_v3:
 
         self._cand.observe(arm, y)
 
-        self.A = self.A + np.outer(phi, phi)
+        u = self.A_inv @ phi
+        denom = 1.0 + float(phi @ u)
+        if denom <= 0.0 or not np.isfinite(denom):
+            A = np.linalg.inv(self.A_inv)
+            A = A + np.outer(phi, phi)
+            self.A_inv = np.linalg.inv(A)
+        else:
+            self.A_inv = self.A_inv - np.outer(u, u) / denom
+
         self.b = self.b + y * phi
-        self._rebuild_inverse()
 
         last = self.history[-1]
-        self.history[-1] = SharedLinUCBv3Step(
+        self.history[-1] = SharedLinTSStep(
             t=last.t,
             arm_index=last.arm_index,
             loss=y,

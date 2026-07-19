@@ -8,7 +8,7 @@ import numpy as np
 from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple
 from pathlib import Path
 
-from learners._amg_action_features import (
+from learners.common import (
     ParameterSpaceSpec,
     action_key_from_parameter_space_spec,
     default_action_from_parameter_space_spec,

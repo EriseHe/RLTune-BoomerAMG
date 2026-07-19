@@ -6,8 +6,8 @@ import unittest
 
 import numpy as np
 
-from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
+from learners import SharedLinUCB_AMG_v4
+from learners.common import ParameterSpaceSpec, ParameterSpec
 from utils.setup_amg import build_actions_from_spec
 
 

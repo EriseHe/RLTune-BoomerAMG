@@ -6,7 +6,8 @@ solve policy.
 
 ## Layout
 
-- `learners/`: contextual-bandit implementations, including LinUCB v4.
+- `learners/`: contextual bandits grouped into `linucb/`, `bayesian/`,
+  `thompson/`, and `tsallis/` families.
 - `scripts/`: setup-only experiment and benchmark entry points.
 - `utils/`: setup action spaces, output paths, plotting, and experiment helpers.
 - `tests/`: setup-only unit and integration tests.

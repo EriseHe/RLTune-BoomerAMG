@@ -8,7 +8,7 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from online_td_lambda import (
+from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     build_action_basis,

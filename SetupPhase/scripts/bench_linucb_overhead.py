@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import _project_paths  # noqa: E402,F401
 
-from learners.LinUCB_AMG import LinUCB_AMG
+from learners import LinUCB_AMG
 from learners.TsallisINF_AMG import TsallisINF_AMG
 from hypre.bindings import solve
 from problems.amg import stencil_27_laplace

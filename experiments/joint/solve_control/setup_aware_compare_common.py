@@ -31,11 +31,14 @@ from amg_gym_env import (
     decode_policy_action_residual,
 )
 from amg_setup_gym_env import BoomerAMGSetupRelaxEnv, SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
-from learners.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
-from learners._amg_action_features import ParameterSpaceSpec, ParameterSpec
-from learners._candidate_subset import resolve_tune7_candidate_strategy
+from learners import SharedLinUCB_AMG_v4
+from learners.common import (
+    ParameterSpaceSpec,
+    ParameterSpec,
+    resolve_tune7_candidate_strategy,
+)
 from hypre.bindings import augment_setup_params, create_env, solve
-from outcomes import classify_rl_failure
+from SolvePhase.core.outcomes import classify_rl_failure
 from problems.amg import DIFCONV_CONTEXT_DIM
 from problems.streams import generate_difconv_instances as _generate_difconv_instances
 from utils.setup_amg import build_actions_from_spec, build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace

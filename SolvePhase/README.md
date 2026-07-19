@@ -9,7 +9,8 @@ Solve environments load `hypre/interfaces/libamg_env.dylib` by default.
 
 ## Layout
 
-- `core/`: solve environments, policies, and online controllers.
+- `algorithms/`: PPO, SARSA, and shared-action LCB algorithm packages.
+- `core/`: solver environments and algorithm-independent outcome handling.
 - `scripts/`: solve-only training, evaluation, and smoke entry points.
 - `tests/`: solve-only tests.
 

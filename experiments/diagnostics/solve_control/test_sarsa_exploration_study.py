@@ -8,7 +8,7 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
-from online_td_lambda import ExpectedSarsaLambdaConfig
+from SolvePhase.algorithms.sarsa import ExpectedSarsaLambdaConfig
 from run_sarsa_exploration_study import study_specs
 from sarsa_exploration_policies import (
     ExplorationStudyController,

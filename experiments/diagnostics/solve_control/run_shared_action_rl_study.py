@@ -32,7 +32,7 @@ from run_sarsa_exploration_study import (
     _write_json_line,
 )
 from online_td_experiment_common import _git_revision, _write_json
-from online_td_lambda import (
+from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,
@@ -45,7 +45,7 @@ from run_true_online_sarsa_tuning import (
     validate_seed_partition,
 )
 from setup_aware_compare_common import solve_fixed_w_case
-from shared_action_rl import (
+from SolvePhase.algorithms.lcb import (
     BootstrapLcbSarsaController,
     BootstrapSarsaSpec,
     StagewiseLsviLcbController,

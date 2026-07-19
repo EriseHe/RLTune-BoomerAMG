@@ -10,7 +10,7 @@ from typing import Any, Dict, Sequence
 import numpy as np
 
 from hypre.bindings import augment_setup_params, create_env
-from outcomes import classify_rl_failure
+from SolvePhase.core.outcomes import classify_rl_failure
 
 
 @dataclass(frozen=True)

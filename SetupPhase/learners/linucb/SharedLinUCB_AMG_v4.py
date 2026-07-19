@@ -21,13 +21,13 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ._amg_action_features import (
+from ..common.action_features import (
     GenericActionFeatureEncoder,
     ParameterSpaceSpec,
     action_from_ordered_values,
     action_key_from_parameter_space_spec,
 )
-from ._candidate_subset import CandidateSelector
+from ..common.candidate_subset import CandidateSelector
 
 
 @dataclass(frozen=True)
