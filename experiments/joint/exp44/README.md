@@ -119,24 +119,33 @@ That wrapper uses repository-relative paths and builds the setup solver with
 `@loader_path`-based HYPRE lookup, so the result does not depend on your local
 absolute checkout path.
 
-### Important retained artifacts under `run_logs/`
+## Output layout
 
-- `mature40_tune7_bandit_state_case2.pkl`
-  - saved mature setup-bandit state
-- `exp44_absolute_default_lstm_canonical_20260718`
-  - output location for the corrected absolute-action PPO rerun
-- `exp44_midpoint_lstm_seedmeanstd_vsbandit_20260512T1`
-  - baseline retained Exp44 training run
-- `exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1`
-  - later retrain run, if present
-- `exp44_midpoint_lstm_eval1000_5seed_rerun_20260513T1`
-  - canonical 5-seed rerun
-- `exp44_midpoint_lstm_eval1000_10seed_full4_20260513T1`
-  - canonical 10-seed full table (`default`, `bandit`, `fixed`, `ppo`)
-- `exp44_midpoint_lstm_seedmeanstd_vsbandit_20260515T1_old_model_eval`
-  - old-model comparison run, if present
-- `experiment_search_20260510.md`
-  - chronological experiment log
+The active workflow writes all Exp44 artifacts under one run root:
+
+```text
+results/joint/exp44/
+├── shared/
+│   └── mature40_tune7_bandit_state_case2.pkl
+└── run_logs/<run-tag>/
+    ├── training/
+    │   ├── result.json
+    │   ├── model.zip
+    │   ├── model_best.zip
+    │   ├── validation_table.csv
+    │   ├── run.log
+    │   └── figures/
+    └── evaluation/
+        ├── forward_continuation_summary.json
+        ├── main_table.csv
+        ├── per_seed/
+        ├── model_snapshot/
+        ├── run.log
+        └── figures/
+```
+
+The shared mature bandit is not duplicated for every PPO run. Training and
+held-out evaluation results are kept together under the same run tag.
 
 ## Training workflow
 
@@ -150,7 +159,8 @@ bash experiments/joint/exp44/train_exp44_absolute_lstm.sh
 
 The training script does two things:
 
-1. If `run_logs/mature40_tune7_bandit_state_case2.pkl` exists, it reuses it.
+1. If `results/joint/exp44/shared/mature40_tune7_bandit_state_case2.pkl`
+   exists, it reuses it.
 2. Otherwise it rebuilds the mature bandit warmup state and saves it there.
 
 ### End-to-end training flow
@@ -168,7 +178,8 @@ The training script does two things:
 7. Train PPO/LSTM on the frozen training trace.
 8. Score the checkpoint on internal validation traces using
    `seed_mean_minus_std_vs_bandit`.
-9. Save the retained checkpoint and its training summary under `run_logs/`.
+9. Save the retained checkpoint, validation table, figures, and training log
+   under `<run-tag>/training/`.
 
 Default Exp44 training config:
 
@@ -197,7 +208,7 @@ Evaluate an existing model:
 conda activate rl
 cd /path/to/RLTune-BoomerAMG
 
-MODEL_PATH=$PWD/results/joint/mature_tune7_ppo_repro_20260423/run_logs/exp44_absolute_default_lstm_canonical_20260718/model_best.zip \
+MODEL_PATH=$PWD/results/joint/exp44/run_logs/exp44_absolute_default_lstm_canonical_20260718/training/model_best.zip \
 RUN_ID=exp44_eval_example \
 bash experiments/joint/exp44/eval_exp44_model.sh
 ```
@@ -222,9 +233,10 @@ Default held-out evaluation:
    - `bandit`: mature bandit setup + default solve
    - `fixed`: mature bandit setup + fixed `w=1.6`
    - `ppo`: mature bandit setup + learned RL solve control
-6. Write one per-seed JSON file: `forward_dual_seed<seed>.json`.
+6. Write one per-seed JSON file under `evaluation/per_seed/`.
 7. Aggregate all per-seed JSON files into one
-   `forward_continuation_summary.json`.
+   `forward_continuation_summary.json`, then generate `main_table.csv` and the
+   runtime/action figures.
 
 ## Code path: high level to low level
 
@@ -296,6 +308,11 @@ Relevant pieces:
 
 - reset path exposes the prepared solver default as the initial observation
 - every step applies the newly decoded absolute physical weight
+
+`FrozenBanditStepEnv` is a `gymnasium.Env` only because Stable-Baselines3
+expects that API during PPO training. Formal held-out evaluation calls
+`model.predict(...)` and the native HYPRE `step_rl(...)` interface directly;
+the non-PPO solve controllers do not depend on Gymnasium.
 
 ## Interpretation of the current result
 

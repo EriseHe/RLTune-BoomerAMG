@@ -157,6 +157,11 @@ def _summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     runtimes = [float(r["runtime"]) for r in results]
     setup = [float(r["setup_runtime"]) for r in results]
     solve = [float(r["solve_runtime"]) for r in results]
+    controller = [float(r.get("infer_runtime", 0.0)) for r in results]
+    runtime_with_controller = [
+        runtime + controller_runtime
+        for runtime, controller_runtime in zip(runtimes, controller)
+    ]
     failures = [bool(r.get("failed", False)) for r in results]
     iterations = [int(r.get("iterations", -1)) for r in results if int(r.get("iterations", -1)) >= 0]
     final_ws = [float(r.get("final_w")) for r in results if np.isfinite(float(r.get("final_w", np.nan)))]
@@ -169,7 +174,13 @@ def _summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "mean_runtime": float(mean(runtimes)),
         "total_runtime": float(sum(runtimes)),
         "mean_setup_runtime": float(mean(setup)),
+        "total_setup_runtime": float(sum(setup)),
         "mean_solve_runtime": float(mean(solve)),
+        "total_solve_runtime": float(sum(solve)),
+        "mean_infer_runtime": float(mean(controller)),
+        "total_infer_runtime": float(sum(controller)),
+        "mean_runtime_with_controller": float(mean(runtime_with_controller)),
+        "total_runtime_with_controller": float(sum(runtime_with_controller)),
         "failed_count": int(sum(failures)),
         "mean_iterations": float(mean(iterations)) if iterations else float("nan"),
         "mean_final_w": float(mean(final_ws)) if final_ws else float("nan"),
@@ -603,6 +614,7 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
         learn_steps = min(checkpoint_interval, total_timesteps - steps_done)
         model.learn(total_timesteps=learn_steps, reset_num_timesteps=(steps_done == 0))
         steps_done += learn_steps
+        actual_timesteps = int(model.num_timesteps)
         chunk_index += 1
         checkpoint_path = model_base.parent / f"{model_base.name}_ckpt_{steps_done}.zip"
         model.save(str(checkpoint_path.with_suffix("")))
@@ -611,6 +623,7 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
         record = {
             "chunk_index": int(chunk_index),
             "timesteps": int(steps_done),
+            "actual_timesteps": actual_timesteps,
             "model": str(checkpoint_path),
             "score": float(score),
             "relative_pct": dict(combined_eval["relative_pct"]),
@@ -641,6 +654,7 @@ def _train_rl(train_trace, eval_traces) -> Tuple[Path, Dict[str, Any]]:
         "checkpoint_objective": _env_str("CHECKPOINT_OBJECTIVE", "avg_vs_fixed_bandit"),
         "checkpoint_interval": int(checkpoint_interval),
         "total_timesteps": int(total_timesteps),
+        "actual_total_timesteps": int(model.num_timesteps),
         "final_model": str(final_model_path),
         "selected_model": str(selected_model_path),
         "best_checkpoint": best_selection,
@@ -656,7 +670,7 @@ def _make_runner(model_path: Path) -> SetupAwareSolvePolicyRunner:
             tune_dim=_env_int("SETUP_TUNE_DIM", 7),
             tune7_variant=_env_str("TUNE7_VARIANT", "categorical").strip().lower(),
             algo="ppo",
-            model_type="mlp",
+            model_type=_env_str("MODEL_TYPE", "mlp").strip().lower(),
             model_path=model_path,
             vec_path=Path("/tmp/nonexistent_vecnormalize.pkl"),
             fixed_grid=(_env_int("MATRIX_GRID_N", EXP44_MATRIX_GRID_N),) * 3,
@@ -787,12 +801,31 @@ def _combine_eval_summaries(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     combined_methods: Dict[str, Any] = {}
     for method in method_names:
         cases = sum(int(row["methods"][method]["cases"]) for row in rows)
-        total_runtime = sum(float(row["methods"][method]["total_runtime"]) for row in rows)
+        totals = {
+            key: sum(float(row["methods"][method][key]) for row in rows)
+            for key in (
+                "total_runtime",
+                "total_setup_runtime",
+                "total_solve_runtime",
+                "total_infer_runtime",
+                "total_runtime_with_controller",
+            )
+        }
         failed_count = sum(int(row["methods"][method]["failed_count"]) for row in rows)
         combined_methods[method] = {
             "cases": int(cases),
-            "mean_runtime": float(total_runtime / max(1, cases)),
-            "total_runtime": float(total_runtime),
+            "mean_runtime": float(totals["total_runtime"] / max(1, cases)),
+            "total_runtime": float(totals["total_runtime"]),
+            "mean_setup_runtime": float(totals["total_setup_runtime"] / max(1, cases)),
+            "total_setup_runtime": float(totals["total_setup_runtime"]),
+            "mean_solve_runtime": float(totals["total_solve_runtime"] / max(1, cases)),
+            "total_solve_runtime": float(totals["total_solve_runtime"]),
+            "mean_infer_runtime": float(totals["total_infer_runtime"] / max(1, cases)),
+            "total_infer_runtime": float(totals["total_infer_runtime"]),
+            "mean_runtime_with_controller": float(
+                totals["total_runtime_with_controller"] / max(1, cases)
+            ),
+            "total_runtime_with_controller": float(totals["total_runtime_with_controller"]),
             "failed_count": int(failed_count),
         }
     fixed_w = _env_float("FIXED_W", 1.60)
@@ -888,6 +921,11 @@ def main() -> None:
             ),
             "reward_mode": _env_int("REWARD_MODE", 4),
             "total_timesteps": _env_int("TOTAL_TIMESTEPS", 100000),
+            "actual_total_timesteps": int(
+                selection_info.get(
+                    "actual_total_timesteps", _env_int("TOTAL_TIMESTEPS", 100000)
+                )
+            ),
             "model": str(model_path),
         },
         "checkpoint_selection": selection_info,

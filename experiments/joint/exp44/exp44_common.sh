@@ -18,8 +18,11 @@ if [[ -z "${PYTHON_BIN:-}" ]]; then
   fi
 fi
 
-# Stable repo-local mature setup-bandit snapshot.
-BANDIT_STATE="${BANDIT_STATE:-$REPO_ROOT/results/joint/mature_tune7_ppo_repro_20260423/run_logs/mature40_tune7_bandit_state_case2.pkl}"
+# Stable repo-local Exp44 results and mature setup-bandit snapshot.
+EXP44_RESULTS_ROOT="${EXP44_RESULTS_ROOT:-$REPO_ROOT/results/joint/exp44}"
+EXP44_RUNS_ROOT="${EXP44_RUNS_ROOT:-$EXP44_RESULTS_ROOT/run_logs}"
+EXP44_SHARED_ROOT="${EXP44_SHARED_ROOT:-$EXP44_RESULTS_ROOT/shared}"
+BANDIT_STATE="${BANDIT_STATE:-$EXP44_SHARED_ROOT/mature40_tune7_bandit_state_case2.pkl}"
 
 # Matrix resolution and setup parameter-space resolution are independent.
 MATRIX_GRID_N="${MATRIX_GRID_N:-40}"
@@ -44,6 +47,7 @@ EVAL_A_END="${EVAL_A_END:-2500}"
 EVAL_B_NAME="${EVAL_B_NAME:-eval_1000_dup}"
 EVAL_B_START="${EVAL_B_START:-1500}"
 EVAL_B_END="${EVAL_B_END:-2500}"
+PRIMARY_WINDOW="${PRIMARY_WINDOW:-$EVAL_A_NAME}"
 
 # PPO model design: predict an absolute physical weight in [1, 2].
 ACTION_MODE="${ACTION_MODE:-continuous_absolute}"

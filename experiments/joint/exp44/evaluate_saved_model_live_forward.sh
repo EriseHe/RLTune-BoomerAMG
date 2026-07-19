@@ -7,8 +7,9 @@ set -euo pipefail
 # 3) aggregate all per-seed JSON files into one summary JSON
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="${REPO_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
-OUT_DIR="$REPO/results/joint/mature_tune7_ppo_repro_20260423"
+source "$SCRIPT_DIR/exp44_common.sh"
+REPO="$REPO_ROOT"
+OUT_DIR="$EXP44_RESULTS_ROOT"
 if [[ -z "${PYTHON_BIN:-}" ]]; then
   if command -v python >/dev/null 2>&1; then
     PYTHON_BIN="python"
@@ -29,11 +30,12 @@ EVAL_B_NAME="${EVAL_B_NAME:-eval_1000}"
 EVAL_B_START="${EVAL_B_START:-1500}"
 EVAL_B_END="${EVAL_B_END:-2500}"
 RUN_ID="${RUN_ID:-eval_saved_model_$(date -u +%Y%m%dT%H%M%SZ)}"
-RUN_DIR="$OUT_DIR/run_logs/$RUN_ID"
+RUN_DIR="${EXP44_EVAL_DIR:-$EXP44_RUNS_ROOT/$RUN_ID/evaluation}"
 RUN_LOG="$RUN_DIR/run.log"
 RUN_META="$RUN_DIR/meta.txt"
 SNAPSHOT_DIR="$RUN_DIR/outputs"
 ARCHIVE_DIR="$RUN_DIR/model_snapshot"
+PER_SEED_DIR="$RUN_DIR/per_seed"
 
 if [[ -z "$MODEL_PATH" ]]; then
   echo "MODEL_PATH is required" >&2
@@ -41,7 +43,7 @@ if [[ -z "$MODEL_PATH" ]]; then
 fi
 
 cd "$REPO"
-mkdir -p "$RUN_DIR" "$SNAPSHOT_DIR" "$ARCHIVE_DIR"
+mkdir -p "$RUN_DIR" "$SNAPSHOT_DIR" "$ARCHIVE_DIR" "$PER_SEED_DIR"
 
 MODEL_BASENAME="$(basename "$MODEL_PATH")"
 MODEL_SHA="$("$PYTHON_BIN" - <<'PY' "$MODEL_PATH"
@@ -100,7 +102,8 @@ for seed in "${FORWARD_SEED_ARRAY[@]}"; do
       EVAL_B_NAME="$EVAL_B_NAME" \
       EVAL_B_START="$EVAL_B_START" \
       EVAL_B_END="$EVAL_B_END" \
-      RESULT_PATH="$RUN_DIR/forward_dual_seed${seed}.json" \
+      EXP44_RESULTS_ROOT="$EXP44_RESULTS_ROOT" \
+      RESULT_PATH="$PER_SEED_DIR/forward_seed${seed}.json" \
       "$PYTHON_BIN" "$SCRIPT_DIR/eval_forward_continuation_dual.py"
   } | tee -a "$RUN_LOG"
 done
@@ -110,18 +113,28 @@ echo "[2/2] aggregate forward summary"
   echo "===== aggregate_forward_from_run ====="
   env \
     RUN_DIR="$RUN_DIR" \
+    PER_SEED_DIR="$PER_SEED_DIR" \
     FORWARD_SEEDS="$FORWARD_SEEDS" \
     EVAL_A_NAME="$EVAL_A_NAME" \
     EVAL_B_NAME="$EVAL_B_NAME" \
+    PRIMARY_WINDOW="${PRIMARY_WINDOW:-$EVAL_A_NAME}" \
     SUMMARY_PATH="$RUN_DIR/forward_continuation_summary.json" \
     "$PYTHON_BIN" "$SCRIPT_DIR/aggregate_forward_continuation_from_run.py"
 } | tee -a "$RUN_LOG"
+
+MPLCONFIGDIR="${MPLCONFIGDIR:-/tmp/matplotlib-exp44}" \
+  "$PYTHON_BIN" "$SCRIPT_DIR/report_exp44_results.py" evaluation \
+  --result "$RUN_DIR/forward_continuation_summary.json" \
+  --output-dir "$RUN_DIR" \
+  --window "${PRIMARY_WINDOW:-$EVAL_A_NAME}" | tee -a "$RUN_LOG"
 
 cp "$RUN_DIR/forward_continuation_summary.json" "$SNAPSHOT_DIR/"
 
 echo
 echo "Done. Key outputs:"
 echo "  $RUN_DIR/forward_continuation_summary.json"
+echo "  $RUN_DIR/main_table.csv"
+echo "  $RUN_DIR/figures"
 echo "  $ARCHIVED_MODEL_PATH"
 echo "  $RUN_LOG"
 echo "  $RUN_META"

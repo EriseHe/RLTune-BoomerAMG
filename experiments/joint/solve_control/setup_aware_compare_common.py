@@ -1958,14 +1958,45 @@ def eval_runner(runner: SetupAwareSolvePolicyRunner, trace: Sequence[Tuple[Dict[
         for idx, count in dict(out.get("action_counts", {})).items():
             key = int(idx)
             action_hist[key] = int(action_hist.get(key, 0)) + int(count)
+    runtimes = [float(v["runtime"]) for v in vals]
+    setup_runtimes = [float(v["setup_runtime"]) for v in vals]
+    solve_runtimes = [float(v["solve_runtime"]) for v in vals]
+    infer_runtimes = [float(v.get("infer_runtime", 0.0)) for v in vals]
+    per_case_mean_w = [
+        float(np.mean(actions)) if actions else float("nan")
+        for actions in (list(v.get("cycle_actions", ())) for v in vals)
+    ]
+    max_cycles = max((len(v.get("cycle_actions", ())) for v in vals), default=0)
+    mean_w_by_cycle = []
+    for cycle in range(max_cycles):
+        cycle_values = [
+            float(v["cycle_actions"][cycle])
+            for v in vals
+            if cycle < len(v.get("cycle_actions", ()))
+        ]
+        mean_w_by_cycle.append(float(np.mean(cycle_values)))
     return {
-        "mean_runtime": float(np.mean([v["runtime"] for v in vals])),
-        "mean_setup_runtime": float(np.mean([v["setup_runtime"] for v in vals])),
-        "mean_solve_runtime": float(np.mean([v["solve_runtime"] for v in vals])),
+        "cases": int(len(vals)),
+        "mean_runtime": float(np.mean(runtimes)),
+        "total_runtime": float(np.sum(runtimes)),
+        "mean_setup_runtime": float(np.mean(setup_runtimes)),
+        "total_setup_runtime": float(np.sum(setup_runtimes)),
+        "mean_solve_runtime": float(np.mean(solve_runtimes)),
+        "total_solve_runtime": float(np.sum(solve_runtimes)),
+        "mean_infer_runtime": float(np.mean(infer_runtimes)),
+        "total_infer_runtime": float(np.sum(infer_runtimes)),
+        "mean_runtime_with_controller": float(
+            np.mean(np.asarray(runtimes) + np.asarray(infer_runtimes))
+        ),
+        "total_runtime_with_controller": float(
+            np.sum(np.asarray(runtimes) + np.asarray(infer_runtimes))
+        ),
         "failed_count": int(fails),
         "mean_iterations": float(np.mean([v["iterations"] for v in vals])),
         "mean_final_w": float(np.mean([v["final_w"] for v in vals if np.isfinite(v["final_w"])])),
         "action_hist": {int(k): int(action_hist[k]) for k in sorted(action_hist)},
+        "per_case_mean_w": per_case_mean_w,
+        "mean_w_by_cycle": mean_w_by_cycle,
     }
 
 

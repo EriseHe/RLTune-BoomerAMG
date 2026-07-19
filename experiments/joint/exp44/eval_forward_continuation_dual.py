@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import os
 import sys
@@ -32,7 +33,9 @@ from setup_aware_compare_common import (
 )
 
 
-OUT_DIR = REPO / "results/joint/mature_tune7_ppo_repro_20260423"
+OUT_DIR = Path(
+    os.environ.get("EXP44_RESULTS_ROOT", str(REPO / "results/joint/exp44"))
+)
 MODEL_PATH = Path(os.environ.get("MODEL_PATH", str(OUT_DIR / "checkpoint_10000.zip")))
 # The retained Exp44 path does not use VecNormalize. The runner only loads
 # VecNormalize when the file exists, so a stable nonexistent path is enough.
@@ -71,13 +74,14 @@ def enabled_methods() -> set[str]:
 
 
 def result_path_for_seed(seed: int) -> Path:
-    return OUT_DIR / f"forward_dual_seed{int(seed)}.json"
+    return OUT_DIR / "per_seed" / f"forward_seed{int(seed)}.json"
 
 
 def summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     runtimes = [float(row["runtime"]) for row in results]
     setup = [float(row["setup_runtime"]) for row in results]
     solve = [float(row["solve_runtime"]) for row in results]
+    controller = [float(row.get("infer_runtime", 0.0)) for row in results]
     failures = [bool(row.get("failed", False)) for row in results]
     iterations = [int(row.get("iterations", -1)) for row in results if int(row.get("iterations", -1)) >= 0]
     return {
@@ -85,7 +89,17 @@ def summarize(results: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "mean_runtime": float(mean(runtimes)),
         "total_runtime": float(sum(runtimes)),
         "mean_setup_runtime": float(mean(setup)),
+        "total_setup_runtime": float(sum(setup)),
         "mean_solve_runtime": float(mean(solve)),
+        "total_solve_runtime": float(sum(solve)),
+        "mean_infer_runtime": float(mean(controller)),
+        "total_infer_runtime": float(sum(controller)),
+        "mean_runtime_with_controller": float(
+            mean(runtime + overhead for runtime, overhead in zip(runtimes, controller))
+        ),
+        "total_runtime_with_controller": float(
+            sum(runtime + overhead for runtime, overhead in zip(runtimes, controller))
+        ),
         "failed_count": int(sum(failures)),
         "mean_iterations": float(mean(iterations)) if iterations else None,
     }
@@ -100,7 +114,7 @@ def make_runner() -> SetupAwareSolvePolicyRunner:
             model_type=env_str("MODEL_TYPE", "mlp").strip().lower(),
             model_path=MODEL_PATH,
             vec_path=UNUSED_VEC_PATH,
-            fixed_grid=(40, 40, 40),
+            fixed_grid=(env_int("MATRIX_GRID_N", 40),) * 3,
             difconv_c_range=(1.0, 1000.0),
             w_only=True,
             w_center=env_float("W_CENTER", 1.65),
@@ -132,6 +146,20 @@ def ensure_runner_summary(summary: Dict[str, Any], cases: int) -> Dict[str, Any]
     out = dict(summary)
     out.setdefault("cases", int(cases))
     out.setdefault("total_runtime", float(out["mean_runtime"]) * int(cases))
+    for mean_key, total_key in (
+        ("mean_setup_runtime", "total_setup_runtime"),
+        ("mean_solve_runtime", "total_solve_runtime"),
+        ("mean_infer_runtime", "total_infer_runtime"),
+        ("mean_runtime_with_controller", "total_runtime_with_controller"),
+    ):
+        if mean_key == "mean_infer_runtime":
+            out.setdefault(mean_key, 0.0)
+        elif mean_key == "mean_runtime_with_controller":
+            out.setdefault(
+                mean_key,
+                float(out["mean_runtime"]) + float(out.get("mean_infer_runtime", 0.0)),
+            )
+        out.setdefault(total_key, float(out[mean_key]) * int(cases))
     return out
 
 
@@ -206,7 +234,7 @@ def main() -> None:
     trace = list(
         fixed_trace(
             T=trace_t,
-            grid=(40, 40, 40),
+            grid=(env_int("MATRIX_GRID_N", 40),) * 3,
             seed=seed,
             tune_dim=7,
             bandit_method="linucbv4",
@@ -267,6 +295,30 @@ def main() -> None:
             print(json.dumps({"stage": "baseline_progress", "done": idx, "total": len(eval_trace)}), flush=True)
 
     runner = make_runner() if "ppo" in methods_enabled else None
+    window_a = window_result(
+        label=eval_a_name,
+        trace_slice=trace_a,
+        methods_enabled=methods_enabled,
+        default_rows=default_rows_1000[: len(trace_a)] if default_rows_1000 is not None else None,
+        bandit_rows=bandit_rows_1000[: len(trace_a)] if bandit_rows_1000 is not None else None,
+        fixed_rows=fixed_rows_1000[: len(trace_a)] if fixed_rows_1000 is not None else None,
+        runner=runner,
+    )
+    windows_identical = (eval_a_start, eval_a_end) == (eval_b_start, eval_b_end)
+    if windows_identical:
+        window_b = copy.deepcopy(window_a)
+        window_b["label"] = eval_b_name
+        window_b["reused_from"] = eval_a_name
+    else:
+        window_b = window_result(
+            label=eval_b_name,
+            trace_slice=trace_b,
+            methods_enabled=methods_enabled,
+            default_rows=default_rows_1000[: len(trace_b)] if default_rows_1000 is not None else None,
+            bandit_rows=bandit_rows_1000[: len(trace_b)] if bandit_rows_1000 is not None else None,
+            fixed_rows=fixed_rows_1000[: len(trace_b)] if fixed_rows_1000 is not None else None,
+            runner=runner,
+        )
     result = {
         "stage": "final",
         "protocol": {
@@ -280,29 +332,15 @@ def main() -> None:
             "model_path": str(MODEL_PATH),
             "fixed_w": fixed_w,
             "enabled_methods": sorted(methods_enabled),
-            "note": "same online bandit trace continuation; one trace build, two eval windows",
+            "identical_windows_reused": bool(windows_identical),
+            "note": "same online bandit trace continuation; duplicate windows reuse one policy evaluation",
         },
         "windows": {
-            eval_a_name: window_result(
-                label=eval_a_name,
-                trace_slice=trace_a,
-                methods_enabled=methods_enabled,
-                default_rows=default_rows_1000[: len(trace_a)] if default_rows_1000 is not None else None,
-                bandit_rows=bandit_rows_1000[: len(trace_a)] if bandit_rows_1000 is not None else None,
-                fixed_rows=fixed_rows_1000[: len(trace_a)] if fixed_rows_1000 is not None else None,
-                runner=runner,
-            ),
-            eval_b_name: window_result(
-                label=eval_b_name,
-                trace_slice=trace_b,
-                methods_enabled=methods_enabled,
-                default_rows=default_rows_1000[: len(trace_b)] if default_rows_1000 is not None else None,
-                bandit_rows=bandit_rows_1000[: len(trace_b)] if bandit_rows_1000 is not None else None,
-                fixed_rows=fixed_rows_1000[: len(trace_b)] if fixed_rows_1000 is not None else None,
-                runner=runner,
-            ),
+            eval_a_name: window_a,
+            eval_b_name: window_b,
         },
     }
+    result_path.parent.mkdir(parents=True, exist_ok=True)
     result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps({"stage": "result_write", "path": str(result_path)}), flush=True)
     print(json.dumps(result, indent=2), flush=True)

@@ -17,6 +17,8 @@ cd "$REPO_ROOT"
 
 MODEL_PATH="${MODEL_PATH:?MODEL_PATH must point to a model .zip}"
 RUN_ID="${RUN_ID:-exp44_model_eval_20260515T1}"
+EXP44_RUN_ROOT="${EXP44_RUN_ROOT:-$EXP44_RUNS_ROOT/$RUN_ID}"
+EXP44_EVAL_DIR="${EXP44_EVAL_DIR:-$EXP44_RUN_ROOT/evaluation}"
 
 echo "Evaluating model:"
 echo "  $MODEL_PATH"
@@ -46,8 +48,15 @@ EVAL_B_NAME="$EVAL_B_NAME" \
 EVAL_B_START="$EVAL_B_START" \
 EVAL_B_END="$EVAL_B_END" \
 RUN_ID="$RUN_ID" \
+EXP44_RESULTS_ROOT="$EXP44_RESULTS_ROOT" \
+EXP44_EVAL_DIR="$EXP44_EVAL_DIR" \
+PRIMARY_WINDOW="$PRIMARY_WINDOW" \
 bash "$SCRIPT_DIR/evaluate_saved_model_live_forward.sh"
 
 echo
 echo "Summary:"
-echo "  $REPO_ROOT/results/joint/mature_tune7_ppo_repro_20260423/run_logs/$RUN_ID/forward_continuation_summary.json"
+echo "  $EXP44_EVAL_DIR/forward_continuation_summary.json"
+echo "Table:"
+echo "  $EXP44_EVAL_DIR/main_table.csv"
+echo "Figures:"
+echo "  $EXP44_EVAL_DIR/figures"
