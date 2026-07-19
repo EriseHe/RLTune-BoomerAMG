@@ -1,4 +1,5 @@
 .DS_Store
+.idea/
 
 # Python bytecode / caches
 __pycache__/
@@ -18,6 +19,14 @@ venv/
 
 # RL experiment artifacts
 results/**/run_logs/
+/results/invalid/
+/plots/
+/ppo_logs/
+*.jsonl
 *.pkl
 *.zip
 *.log
+
+# Out-of-source HYPRE build and install trees
+/hypre/build/
+/hypre/install/

@@ -1,78 +1,42 @@
-# SetupPhase
+# Setup Phase
 
-This folder contains:
-- A copy of the **Learning to Relax** paper (`Learning to Relax.md`)
-- The authors’ original MATLAB repo (`learning-to-relax-original/`)
-- A Python translation + BoomerAMG adaptation (`learning-to-relax-python/`)
+Setup-only learning and evaluation for BoomerAMG. These experiments choose one
+AMG setup configuration per problem instance and use the default or a fixed
+solve policy.
 
-This README documents the **exact commands** I used to run the experiments you asked for (BoomerAMG + a small SOR run), without modifying your solver/learner implementations.
+## Layout
 
-## Recommended “one clean entrypoint” (BoomerAMG)
+- `learners/`: contextual-bandit implementations, including LinUCB v4.
+- `scripts/`: setup-only experiment and benchmark entry points.
+- `utils/`: setup action spaces, output paths, plotting, and experiment helpers.
+- `tests/`: setup-only unit and integration tests.
 
-Use `SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py` for BoomerAMG experiments. It supports:
-- `--variance high|low|both`
-- `--log` to write CSV
-- `--force-first-high/--force-first-low` to force a bad first θ
+Shared PDE streams live in `problems/`. Historical setup plots live in
+`results/archive/setup_phase/legacy_plots/`, and reference implementations live
+in `docs/archive/setup_phase_reference/`.
 
-Examples:
+The former `SetupPhase/learning-setup/` compatibility path has been removed.
+Code should import from and refer to `SetupPhase/` directly.
 
-```bash
-python SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py --T 5000 --trials 1 --variance both
-python SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py --T 5000 --trials 1 --variance both --log
-python SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py --T 5000 --trials 1 --variance both --force-first-high 0.1 --force-first-low 0.7
-```
+## Native Solver
 
-## Environment notes (important)
-
-### BoomerAMG needs a loadable `libHYPRE`
-Your Python BoomerAMG wrapper (`learning-to-relax-python/solvers/BoomerAMG/boomeramg.py`) loads HYPRE via:
-- `HYPRE_LIBHYPRE` (recommended): full path to `libHYPRE.*`
-- or `HYPRE_DIR` / `HYPRE_PREFIX`
-
-In this repo, an existing macOS dylib is at:
-- `SolvePhase/hypre/src/lib/libHYPRE.dylib`
-
-### MPI-enabled HYPRE: pass an initialized `MPI_COMM_WORLD`
-The provided `libHYPRE.dylib` is linked against OpenMPI (MPI-enabled). To avoid “MPI_Comm_size called before MPI_INIT”, I ran BoomerAMG experiments by:
-1) importing `mpi4py` (which initializes MPI)
-2) setting `HYPRE_MPI_COMM_WORLD` to `MPI.COMM_WORLD.handle`
-
-This avoids code changes in `boomeramg.py`.
-
-## What to run (entry points)
-
-In the original Python translation, most experiments are standalone scripts under
-`SetupPhase/learning-to-relax-python/scripts/`.
-
-- **BoomerAMG (setup-phase bandit):**
-  - Reference script: `SetupPhase/learning-to-relax-python/scripts/learning_amg_with_logs.py`
-  - Recommended single entrypoint: `SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py`
-- **SOR (original paper translation):**
-  - Learning curve: `SetupPhase/learning-to-relax-python/scripts/learning.py`
-  - “Run everything” helper (SOR-only): `SetupPhase/learning-to-relax-python/experiments/run_all.py`
-
-## Commands I ran (BoomerAMG, T=5000, trial=1)
-
-All commands below assume you start at repo root:
-`/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG`
-
-### 1) BoomerAMG Tsallis-INF (high + low variance)
+Both setup and solve experiments use the same unmodified fork in
+`hypre/source/` and the project wrappers in `hypre/interfaces/`. Build HYPRE
+and both wrappers with:
 
 ```bash
-python SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py --T 5000 --trials 1 --variance both
+make -C hypre
 ```
 
-### 2) BoomerAMG with a forced “bad” first action
+The shared Python binding lives in `hypre/bindings/`; setup and solve code import
+the same module and link to the same native installation.
 
-You asked to force:
-- high variance: first θ = 0.10
-- low variance: first θ = 0.70
+## Environment
+
+From the repository root:
 
 ```bash
-python SetupPhase/learning-to-relax-python/scripts/run_boomeramg_bandit.py --T 5000 --trials 1 --variance both --force-first-high 0.10 --force-first-low 0.70
+conda env create -f environment.yml
 ```
 
-### Outputs
-
-Plots (and optional CSV logs) are written under:
-`SetupPhase/learning-to-relax-python/plots/BoomerAMG/`
+Setup-specific Python requirements are also listed in `requirements.txt`.

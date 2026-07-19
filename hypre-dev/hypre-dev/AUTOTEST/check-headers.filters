@@ -1,7 +1,0 @@
-mpicc
-mpif77
-include/_hypre_fortran_matrix.h
-include/_hypre_lobpcg_multivector.h
-include/_hypre_lobpcg_interpreter.h
-include/_hypre_lobpcg_temp_multivector.h
-fatal: No names found, cannot describe anything.

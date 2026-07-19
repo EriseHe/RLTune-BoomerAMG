@@ -1,27 +1,37 @@
-## Dependencies (Solve Phase)
+# RLTune-BoomerAMG
 
-The following Python packages are required:
+Research code for online setup tuning and per-cycle solve control in
+HYPRE BoomerAMG.
 
-- numpy  
-- gymnasium  
-- stable-baselines3  
-- torch  
-- matplotlib  
-- tensorboard  
+## Repository Areas
 
-## Running the Solve Phase
+- `hypre/source/`: unmodified shared HYPRE fork.
+- `hypre/interfaces/`: project-owned C interfaces used by setup and solve.
+- `hypre/bindings/`: shared Python bindings used by setup and solve.
+- `hypre/build/`, `hypre/install/`: ignored out-of-source build products.
+- `problems/`: PDE definitions and deterministic streams shared by both phases.
+- `SetupPhase/`: contextual-bandit setup tuning and setup-only experiments.
+- `SolvePhase/`: project-owned solve controllers and solve-only tests.
+- `experiments/`: workflows that combine setup and solve components.
+- `docs/`: experiment and implementation notes.
+- `results/`: generated experiment outputs and reproducibility records only.
 
-1. Navigate to `SolvePhase/Hypre/src/test/`.
-2. recompile if needed
-3. Run the training script:
+The complete HYPRE fork lives under `hypre/source/`. Setup and solve both link
+to one out-of-source installation and never modify the fork's numerical source.
+
+Build the native environment from the repository root:
 
 ```bash
-python train_ppo.py
+make -C hypre
 ```
 
-![Current solve phase progress](./Resource/current_solvephase_progress.png)
+## Environment
 
-*Figure: Current solve phase progress.*
+Create the Python environment with:
+
+```bash
+conda env create -f environment.yml
+```
 
 ## Latest Mature Tune7 Reproduction (`40^3`)
 
@@ -47,7 +57,7 @@ target PPO-over-bandit magnitude: the best checkpoint gives `6.21%` over mature
   - `ACTION_MODE=continuous`
   - `W_CENTER=1.65`
   - `W_SCALE=0.1`
-  - checkpoint used here: `results/mature_tune7_ppo_repro_20260423/checkpoint_10000.zip`
+  - checkpoint used here: `results/joint/mature_tune7_ppo_repro_20260423/checkpoint_10000.zip`
 
 ### Methods compared
 
@@ -120,19 +130,16 @@ shows only `2.48%` and fixed `w=1.60` is slightly faster there.
 
 ### Where these numbers came from
 
-- Strict direct cached paired eval:
-  - `results/mature_tune7_ppo_repro_20260423/eval_direct_cached.py`
-  - `results/mature_tune7_ppo_repro_20260423/direct_cached_eval_best_ckpt.json`
-- Best checkpoint-selection eval:
-  - `results/mature_tune7_ppo_repro_20260423/train_direct.log`
-  - `results/mature_tune7_ppo_repro_20260423/train_direct_summary.json`
-- Default baseline on the exact same held-out mature cases:
-  - `SolvePhase/hypre/src/test/setup_aware_compare_common.py`
-  - function `solve_no_rl_case(...)` with `DEFAULT_SETUP_PARAMS`
-- PPO rerun:
-  - `results/mature_tune7_ppo_repro_20260423/train_direct_cached.py`
-  - `results/mature_tune7_ppo_repro_20260423/train_direct_summary.json`
+- Active Exp44 train/evaluation workflows:
+  - `experiments/joint/exp44/`
+- Generated checkpoints, traces, and summaries:
+  - `results/joint/mature_tune7_ppo_repro_20260423/`
+- Shared setup/solve evaluation implementation:
+  - `experiments/joint/solve_control/setup_aware_compare_common.py`
 
 Additional implementation notes are in:
 
-- `docs/mature_tune7_ppo_ppt_notes.md`
+- `docs/archive/mature_tune7_ppo_ppt_notes.md`
+
+The ownership and dependency rules are documented in
+`docs/repository_layout.md`.
