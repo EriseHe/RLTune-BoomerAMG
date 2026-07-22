@@ -309,7 +309,6 @@ def _make_env(trace, *, seed: int):
         sweeps_max=int(os.environ.get("SWEEPS_MAX", "1")),
         reward_mode=int(os.environ.get("REWARD_MODE", "3")),
         term_bonus=float(os.environ.get("TERM_BONUS", "0.0")),
-        trunc_penalty=float(os.environ.get("TRUNC_PENALTY", "0.0")),
         relative_bonus_scale=float(os.environ.get("RELATIVE_BONUS_SCALE", "1.0")),
         obs_mode=os.environ.get("OBS_MODE", "full"),
         obs_include_trace_progress=os.environ.get("OBS_INCLUDE_TRACE_PROGRESS", "0").strip().lower() not in {"0", "false", "no"},
@@ -455,10 +454,12 @@ class _ScheduledTracePolicyRunner:
                 relax_type=(None if int(rt) < 0 else int(rt)),
                 outer_weight=(None if float(ow) < 0.0 else float(ow)),
                 add_relax_weight=(None if float(arw) < 0.0 else float(arw)),
+                tol=float(self.cfg.solve_tol),
+                max_cycles=int(self.cfg.solve_max_cycles),
             )
             solve_runtime += float(dt)
             cycles = cycle + 1
-            if float(r_cur) <= float(self.cfg.solve_tol):
+            if int(env.last_step.status) != 0:
                 break
         w, sd, su, sc, ct, rt, ow, arw = last
         return {
@@ -466,11 +467,11 @@ class _ScheduledTracePolicyRunner:
             "infer_runtime": 0.0,
             "residual_norm": float(r_cur),
             "iterations": int(cycles),
-            "failed": not (
-                np.isfinite(float(r_cur))
-                and float(r_cur) <= float(self.cfg.solve_tol)
-                and int(cycles) < int(self.cfg.solve_max_cycles)
+            "failed": int(env.last_step.status) != 1,
+            "attempt_status": (
+                "success" if int(env.last_step.status) == 1 else "nonconvergence"
             ),
+            "native_status": env.last_step.status.name.lower(),
             "final_w": float(w),
             "final_sweeps_down": int(sd),
             "final_sweeps_up": int(su),

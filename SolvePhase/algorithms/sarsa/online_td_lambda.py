@@ -5,11 +5,19 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, Sequence
+from typing import Any, Callable, Dict, Mapping, Sequence
 
 import numpy as np
 
-from hypre.bindings import augment_setup_params, create_env
+from hypre.bindings import (
+    AttemptOutcome,
+    AttemptStatus,
+    RecoveryOutcome,
+    SolveStatus,
+    augment_setup_params,
+    create_env,
+    execute_attempt,
+)
 from SolvePhase.core.outcomes import classify_rl_failure
 
 
@@ -25,8 +33,6 @@ class ExpectedSarsaLambdaConfig:
     epsilon_final: float = 0.01
     epsilon_decay_steps: float = 4000.0
     l2: float = 0.0
-    potential_scale_sec: float = 0.0
-    failure_penalty_sec: float = 0.05
     initial_q_sec: float = 0.02
     monte_carlo_alpha: float = 0.0
     monte_carlo_decay_power: float = 0.0
@@ -82,60 +88,34 @@ def build_action_basis(
     return basis / row_sums
 
 
-def joint_action_features(action_basis: np.ndarray, features: np.ndarray) -> np.ndarray:
-    """Return one flattened linear feature vector for every discrete action."""
+def joint_action_features(
+    action_basis: np.ndarray,
+    features: np.ndarray,
+    *,
+    action_indices: int | Sequence[int] | np.ndarray | None = None,
+) -> np.ndarray:
+    """Return flattened joint features for all or selected discrete actions."""
 
     basis = np.asarray(action_basis, dtype=float)
     state = np.asarray(features, dtype=float)
     if basis.ndim != 2 or state.ndim != 1:
         raise ValueError("action basis must be 2D and state features must be 1D")
+    if action_indices is not None:
+        indices = np.asarray(action_indices, dtype=int)
+        if indices.ndim == 0:
+            indices = indices.reshape(1)
+        if indices.ndim != 1:
+            raise ValueError("action_indices must be a scalar or one-dimensional")
+        if np.any(indices < 0) or np.any(indices >= basis.shape[0]):
+            raise IndexError("action index is outside the action basis")
+        basis = basis[indices]
+        return (basis[:, :, None] * state[None, None, :]).reshape(
+            basis.shape[0],
+            basis.shape[1] * state.size,
+        )
     return np.einsum("ab,f->abf", basis, state, optimize=True).reshape(
         basis.shape[0],
         basis.shape[1] * state.size,
-    )
-
-
-def residual_progress_potential(
-    residual: float,
-    *,
-    tol: float,
-    scale_sec: float,
-) -> float:
-    """Return a bounded residual-gap potential in seconds."""
-
-    if scale_sec <= 0.0:
-        return 0.0
-    tolerance = max(float(tol), 1.0e-300)
-    residual_gap = max(float(residual), tolerance) / tolerance
-    return float(scale_sec) * math.log(residual_gap)
-
-
-def shaped_cycle_cost(
-    cycle_cost_sec: float,
-    *,
-    residual: float,
-    next_residual: float,
-    tol: float,
-    scale_sec: float,
-    gamma: float,
-    terminal: bool,
-) -> float:
-    """Apply policy-invariant potential shaping to one cycle cost."""
-
-    current_potential = residual_progress_potential(
-        residual,
-        tol=tol,
-        scale_sec=scale_sec,
-    )
-    next_potential = 0.0 if terminal else residual_progress_potential(
-        next_residual,
-        tol=tol,
-        scale_sec=scale_sec,
-    )
-    return float(
-        float(cycle_cost_sec)
-        + float(gamma) * next_potential
-        - current_potential
     )
 
 
@@ -652,7 +632,10 @@ class ExpectedSarsaLambda:
         terminal: bool,
         next_cycle: int | None = None,
         next_action_index: int | None = None,
+        native_cycle_cost: float | None = None,
+        residual_ratio: float | None = None,
     ) -> float:
+        del native_cycle_cost, residual_ratio
         if self.config.td_algorithm == "true_online_sarsa":
             return self._true_online_sarsa_update(
                 features=features,
@@ -783,6 +766,42 @@ class ExpectedSarsaLambda:
             self.episodes += 1
         self.eligibility.fill(0.0)
         self.q_old = 0.0
+
+    def snapshot_learning_state(self) -> Dict[str, Any]:
+        """Capture rollback state without rewinding the behavior-policy RNG."""
+
+        return {
+            "theta": self.theta.copy(),
+            "eligibility": self.eligibility.copy(),
+            "td_counts": self.td_counts.copy(),
+            "monte_carlo_counts": self.monte_carlo_counts.copy(),
+            "steps": int(self.steps),
+            "episodes": int(self.episodes),
+            "q_old": float(self.q_old),
+            "initial_environment_weight": float(self._initial_environment_weight),
+            "default_first_action_pending": bool(self._default_first_action_pending),
+            "forced_initial_action_count": int(self.forced_initial_action_count),
+        }
+
+    def restore_learning_state(self, state: Dict[str, Any]) -> None:
+        self.theta[:] = np.asarray(state["theta"], dtype=float)
+        self.eligibility[:] = np.asarray(state["eligibility"], dtype=float)
+        self.td_counts[:] = np.asarray(state["td_counts"], dtype=float)
+        self.monte_carlo_counts[:] = np.asarray(
+            state["monte_carlo_counts"], dtype=float
+        )
+        self.steps = int(state["steps"])
+        self.episodes = int(state["episodes"])
+        self.q_old = float(state["q_old"])
+        self._initial_environment_weight = float(
+            state["initial_environment_weight"]
+        )
+        self._default_first_action_pending = bool(
+            state["default_first_action_pending"]
+        )
+        self.forced_initial_action_count = int(
+            state["forced_initial_action_count"]
+        )
 
     def monte_carlo_update(
         self,
@@ -956,7 +975,9 @@ def run_td_episode(
     defer_monte_carlo_update: bool = False,
     record_action_metadata: bool = False,
     initial_environment_weight_override: float | None = None,
+    fallback_attempt: Callable[[], Mapping[str, Any] | AttemptOutcome] | None = None,
 ) -> Dict[str, Any]:
+    function_started = time.perf_counter()
     decision_runtime = 0.0
     feature_runtime = 0.0
     update_runtime = 0.0
@@ -965,6 +986,7 @@ def run_td_episode(
     cycle_actions: list[float] = []
     cycle_action_values: list[float] = []
     cycle_residuals: list[float] = []
+    cycle_residual_ratios: list[float] = []
     cycle_times: list[float] = []
     cycle_explored: list[bool] = []
     cycle_greedy_indices: list[int] = []
@@ -975,6 +997,7 @@ def run_td_episode(
     cycle_selection_scores: list[float] = []
     cycle_forced_default_actions: list[bool] = []
     td_errors: list[float] = []
+    postfit_td_errors: list[float] = []
     episode_transitions: list[tuple[np.ndarray, int, float]] = []
     residual = float("inf")
     iterations = 0
@@ -982,6 +1005,14 @@ def run_td_episode(
     last_weight = initial_environment_weight
     selection: Dict[str, Any] = {}
     pending_action: tuple[int, float, Dict[str, Any]] | None = None
+    recovery: RecoveryOutcome | None = None
+    episode_started = False
+    learning_snapshot = (
+        controller.snapshot_learning_state()
+        if learn and hasattr(controller, "snapshot_learning_state")
+        else None
+    )
+    prep = None
     fast_anchor_tail = bool(
         controller.config.adaptive_cycles is not None
         and int(controller.config.adaptive_cycles) > 0
@@ -1004,6 +1035,7 @@ def run_td_episode(
             controller.start_episode(
                 initial_environment_weight=initial_environment_weight,
             )
+            episode_started = True
             feature_started = time.perf_counter()
             features = encoder.encode(
                 mkw=mkw,
@@ -1049,16 +1081,93 @@ def run_td_episode(
                         int(action_index),
                         float(last_weight),
                     )
-                residual_new, cycle_time = env.step_rl(
-                    relax_weight=float(weight),
-                    sweeps_down=1,
-                    sweeps_up=1,
-                )
+                try:
+                    residual_new, cycle_time = env.step_rl(
+                        relax_weight=float(weight),
+                        sweeps_down=1,
+                        sweeps_up=1,
+                        tol=float(solve_tol),
+                        max_cycles=int(solve_max_cycles),
+                    )
+                except Exception as step_exc:
+                    failed_step = AttemptOutcome.from_exception(
+                        step_exc,
+                        elapsed_sec=0.0,
+                    )
+                    failed_step_runtime = float(failed_step.solve_runtime_sec)
+                    solve_runtime += failed_step_runtime
+                    iterations = cycle + 1
+                    primary_payload = {
+                        "runtime": float(prep.setup_runtime_sec + solve_runtime),
+                        "setup_runtime": float(prep.setup_runtime_sec),
+                        "native_solve_runtime": float(solve_runtime),
+                        "solve_runtime": float(solve_runtime),
+                        "infer_runtime": float(
+                            feature_runtime + decision_runtime + update_runtime
+                        ),
+                        "failed": True,
+                        "attempt_status": failed_step.status.value,
+                        "failure_reason": failed_step.failure_reason,
+                        "failure_stage": "solve",
+                        "residual_norm": float(residual),
+                        "iterations": int(iterations),
+                    }
+                    recovery = RecoveryOutcome(
+                        primary=AttemptOutcome.from_mapping(primary_payload),
+                        fallback=(
+                            None
+                            if fallback_attempt is None
+                            else execute_attempt(fallback_attempt)
+                        ),
+                    )
+                    learning_allowed = bool(not recovery.unrecovered_failure)
+                    transition_cost = float(failed_step_runtime)
+                    if recovery.recovered:
+                        transition_cost += float(
+                            recovery.fallback.end_to_end_runtime_sec
+                        )
+                    if learning_allowed:
+                        episode_transitions.append(
+                            (features.copy(), int(action_index), float(transition_cost))
+                        )
+                        if learn:
+                            update_started = time.perf_counter()
+                            td_error = controller.update(
+                                features=features,
+                                action_index=action_index,
+                                cost=transition_cost,
+                                next_features=features,
+                                terminal=True,
+                                next_cycle=iterations,
+                                next_action_index=None,
+                                native_cycle_cost=None,
+                                residual_ratio=None,
+                            )
+                            update_runtime += float(
+                                time.perf_counter() - update_started
+                            )
+                            td_errors.append(float(td_error))
+                            if hasattr(controller, "last_postfit_td_error"):
+                                postfit_td_errors.append(
+                                    float(controller.last_postfit_td_error)
+                                )
+                    action_counts[str(action_index)] = int(
+                        action_counts.get(str(action_index), 0) + 1
+                    )
+                    cycle_actions.append(float(weight))
+                    cycle_action_values.append(float(action_value))
+                    cycle_residuals.append(float(residual))
+                    cycle_times.append(float(failed_step_runtime))
+                    break
                 cycle_time = float(cycle_time)
                 solve_runtime += cycle_time
                 iterations = cycle + 1
-                terminated = bool(np.isfinite(float(residual_new)) and float(residual_new) <= float(solve_tol))
-                truncated = bool((not terminated) and iterations >= int(solve_max_cycles))
+                native_status = env.last_step.status
+                terminated = native_status is SolveStatus.CONVERGED
+                truncated = bool(
+                    native_status is SolveStatus.MAX_CYCLES
+                    or ((not terminated) and iterations >= int(solve_max_cycles))
+                )
                 need_next_features = bool(
                     not (terminated or truncated)
                     and (
@@ -1081,17 +1190,42 @@ def run_td_episode(
                     )
                     feature_runtime += float(time.perf_counter() - feature_started)
 
-                transition_cost = shaped_cycle_cost(
-                    cycle_time,
-                    residual=float(residual),
-                    next_residual=float(residual_new),
-                    tol=float(solve_tol),
-                    scale_sec=float(controller.config.potential_scale_sec),
-                    gamma=float(controller.config.gamma),
-                    terminal=bool(terminated or truncated),
+                transition_cost = float(cycle_time)
+                residual_ratio = (
+                    float(residual_new) / float(residual)
+                    if np.isfinite(float(residual_new))
+                    and np.isfinite(float(residual))
+                    and float(residual) > 0.0
+                    else None
                 )
                 if truncated:
-                    transition_cost += float(controller.config.failure_penalty_sec)
+                    primary = AttemptOutcome.from_mapping(
+                        {
+                            "runtime": float(prep.setup_runtime_sec + solve_runtime),
+                            "setup_runtime": float(prep.setup_runtime_sec),
+                            "solve_runtime": float(solve_runtime),
+                            "infer_runtime": float(
+                                feature_runtime + decision_runtime + update_runtime
+                            ),
+                            "failed": True,
+                            "failure_reason": "max_cycles_reached_without_convergence",
+                            "failure_stage": "solve",
+                            "residual_norm": float(residual_new),
+                            "iterations": int(iterations),
+                        }
+                    )
+                    recovery = RecoveryOutcome(
+                        primary=primary,
+                        fallback=(
+                            None
+                            if fallback_attempt is None
+                            else execute_attempt(fallback_attempt)
+                        ),
+                    )
+                    if recovery.recovered:
+                        transition_cost += float(
+                            recovery.fallback.end_to_end_runtime_sec
+                        )
                 next_action_index = None
                 if (
                     learn
@@ -1111,18 +1245,22 @@ def run_td_episode(
                         time.perf_counter() - decision_started
                     )
                     next_action_index = int(pending_action[0])
-                if adaptive_decision or not episode_transitions:
-                    episode_transitions.append((features.copy(), int(action_index), float(transition_cost)))
-                else:
-                    tail_features, tail_action, accumulated_cost = episode_transitions[-1]
-                    episode_transitions[-1] = (
-                        tail_features,
-                        tail_action,
-                        float(accumulated_cost + transition_cost),
-                    )
-                if learn and fast_anchor_tail:
+                learning_allowed = bool(
+                    recovery is None or not recovery.unrecovered_failure
+                )
+                if learning_allowed:
+                    if adaptive_decision or not episode_transitions:
+                        episode_transitions.append((features.copy(), int(action_index), float(transition_cost)))
+                    else:
+                        tail_features, tail_action, accumulated_cost = episode_transitions[-1]
+                        episode_transitions[-1] = (
+                            tail_features,
+                            tail_action,
+                            float(accumulated_cost + transition_cost),
+                        )
+                if learn and learning_allowed and fast_anchor_tail:
                     controller.steps += 1
-                elif learn:
+                elif learn and learning_allowed:
                     assert next_features is not None or terminated or truncated
                     update_started = time.perf_counter()
                     td_error = controller.update(
@@ -1133,14 +1271,22 @@ def run_td_episode(
                         terminal=bool(terminated or truncated),
                         next_cycle=iterations,
                         next_action_index=next_action_index,
+                        native_cycle_cost=cycle_time,
+                        residual_ratio=residual_ratio,
                     )
                     update_runtime += float(time.perf_counter() - update_started)
                     td_errors.append(float(td_error))
+                    if hasattr(controller, "last_postfit_td_error"):
+                        postfit_td_errors.append(
+                            float(controller.last_postfit_td_error)
+                        )
 
                 action_counts[str(action_index)] = int(action_counts.get(str(action_index), 0) + 1)
                 cycle_actions.append(float(weight))
                 cycle_action_values.append(float(action_value))
                 cycle_residuals.append(float(residual_new))
+                if residual_ratio is not None:
+                    cycle_residual_ratios.append(float(residual_ratio))
                 cycle_times.append(float(cycle_time))
                 if record_action_metadata:
                     cycle_explored.append(bool(selection["explored"]))
@@ -1180,15 +1326,20 @@ def run_td_episode(
                     break
             if (
                 learn
+                and (recovery is None or not recovery.unrecovered_failure)
                 and controller.config.monte_carlo_alpha > 0.0
                 and not defer_monte_carlo_update
             ):
                 update_started = time.perf_counter()
                 td_errors.extend(controller.monte_carlo_update(episode_transitions))
                 update_runtime += float(time.perf_counter() - update_started)
-            update_started = time.perf_counter()
-            controller.finish_episode(learned=learn)
-            update_runtime += float(time.perf_counter() - update_started)
+            if recovery is not None and recovery.unrecovered_failure:
+                if learning_snapshot is not None:
+                    controller.restore_learning_state(learning_snapshot)
+            else:
+                update_started = time.perf_counter()
+                controller.finish_episode(learned=learn)
+                update_runtime += float(time.perf_counter() - update_started)
 
         failure_reason = classify_rl_failure(
             residual_norm=float(residual),
@@ -1199,6 +1350,7 @@ def run_td_episode(
         outcome = {
             "runtime": float(prep.setup_runtime_sec + solve_runtime),
             "setup_runtime": float(prep.setup_runtime_sec),
+            "native_solve_runtime": float(solve_runtime),
             "solve_runtime": float(solve_runtime),
             "infer_runtime": float(feature_runtime + decision_runtime + update_runtime),
             "feature_runtime": float(feature_runtime),
@@ -1214,6 +1366,7 @@ def run_td_episode(
             "cycle_actions": cycle_actions,
             "cycle_action_values": cycle_action_values,
             "cycle_residuals": cycle_residuals,
+            "cycle_residual_ratios": cycle_residual_ratios,
             "cycle_times": cycle_times,
             "cycle_explored": cycle_explored,
             "cycle_greedy_indices": cycle_greedy_indices,
@@ -1224,33 +1377,135 @@ def run_td_episode(
             "cycle_selection_scores": cycle_selection_scores,
             "cycle_forced_default_actions": cycle_forced_default_actions,
             "mean_abs_td_error": float(np.mean(np.abs(td_errors))) if td_errors else 0.0,
+            "td_errors": td_errors,
+            "postfit_td_errors": postfit_td_errors,
             "epsilon": float(controller.epsilon),
             "selection": selection,
+            "controller_update_committed": bool(
+                learn and (recovery is None or not recovery.unrecovered_failure)
+            ),
         }
+        if recovery is not None:
+            original_primary = recovery.primary
+            recovery = RecoveryOutcome(
+                primary=AttemptOutcome(
+                    status=original_primary.status,
+                    setup_runtime_sec=float(outcome["setup_runtime"]),
+                    solve_runtime_sec=float(outcome["native_solve_runtime"]),
+                    controller_runtime_sec=float(outcome["infer_runtime"]),
+                    failure_reason=original_primary.failure_reason,
+                    residual_norm=float(outcome["residual_norm"]),
+                    cycles=int(outcome["iterations"]),
+                    result=dict(outcome),
+                ),
+                fallback=recovery.fallback,
+            )
+            recovered_outcome = recovery.to_result()
+            recovered_outcome.update(
+                {
+                    key: value
+                    for key, value in outcome.items()
+                    if key not in recovered_outcome
+                }
+            )
+            recovered_outcome["recovery_protocol_applied"] = True
+            recovered_outcome["controller_update_committed"] = bool(
+                learn and not recovery.unrecovered_failure
+            )
+            outcome = recovered_outcome
+        else:
+            outcome.update(
+                {
+                    "recovery_protocol_applied": False,
+                    "primary_status": "success" if not failure_reason else "nonconvergence",
+                    "fallback_used": False,
+                    "recovered": False,
+                    "unrecovered_failure": bool(failure_reason),
+                }
+            )
         if defer_monte_carlo_update:
             outcome["_monte_carlo_transitions"] = episode_transitions
         return outcome
     except Exception as exc:
-        controller.finish_episode(learned=False)
-        return {
-            "runtime": float(1.0e9),
-            "setup_runtime": float(1.0e9),
+        controller_runtime = float(feature_runtime + decision_runtime + update_runtime)
+        native_failure = AttemptOutcome.from_exception(
+            exc,
+            elapsed_sec=float(time.perf_counter() - function_started),
+        )
+        if episode_started and native_failure.status is AttemptStatus.SETUP_FAILURE:
+            native_failure = AttemptOutcome(
+                status=AttemptStatus.SOLVE_FAILURE,
+                setup_runtime_sec=native_failure.setup_runtime_sec,
+                solve_runtime_sec=native_failure.solve_runtime_sec,
+                controller_runtime_sec=native_failure.controller_runtime_sec,
+                failure_reason=native_failure.failure_reason,
+                residual_norm=native_failure.residual_norm,
+                cycles=native_failure.cycles,
+                result=dict(native_failure.result),
+            )
+        setup_runtime = float(
+            (0.0 if prep is None else prep.setup_runtime_sec)
+            + native_failure.setup_runtime_sec
+        )
+        solve_runtime += float(native_failure.solve_runtime_sec)
+        primary = AttemptOutcome.from_mapping({
+            "runtime": float(setup_runtime + solve_runtime),
+            "setup_runtime": setup_runtime,
+            "native_solve_runtime": float(solve_runtime),
             "solve_runtime": float(solve_runtime),
-            "infer_runtime": float(feature_runtime + decision_runtime + update_runtime),
+            "infer_runtime": controller_runtime,
+            "failed": True,
+            "attempt_status": native_failure.status.value,
+            "failure_reason": native_failure.failure_reason,
+            "failure_stage": native_failure.failure_stage,
+            "residual_norm": float(residual),
+            "iterations": int(iterations),
+        })
+        setup_construction_failure = bool(
+            native_failure.status is AttemptStatus.SETUP_FAILURE
+            and not episode_started
+        )
+        recovery = RecoveryOutcome(
+            primary=primary,
+            fallback=(
+                None
+                if setup_construction_failure or fallback_attempt is None
+                else execute_attempt(fallback_attempt)
+            ),
+        )
+        if learning_snapshot is not None:
+            controller.restore_learning_state(learning_snapshot)
+        elif episode_started:
+            controller.finish_episode(learned=False)
+        outcome = recovery.to_result()
+        outcome.update({
             "feature_runtime": float(feature_runtime),
             "decision_runtime": float(decision_runtime),
             "update_runtime": float(update_runtime),
-            "failed": True,
-            "failure_reason": f"exception:{type(exc).__name__}:{exc}",
             "residual_norm": float(residual),
             "iterations": int(iterations),
             "initial_environment_weight": initial_environment_weight,
             "final_w": float("nan"),
             "action_counts": action_counts,
             "cycle_actions": cycle_actions,
+            "cycle_action_values": cycle_action_values,
             "cycle_residuals": cycle_residuals,
+            "cycle_residual_ratios": cycle_residual_ratios,
             "cycle_times": cycle_times,
+            "cycle_explored": cycle_explored,
+            "cycle_greedy_indices": cycle_greedy_indices,
+            "cycle_epsilons": cycle_epsilons,
+            "cycle_selected_uncertainties": cycle_selected_uncertainties,
+            "cycle_selected_q_values": cycle_selected_q_values,
+            "cycle_uncertainty_td_scales": cycle_uncertainty_td_scales,
+            "cycle_selection_scores": cycle_selection_scores,
+            "cycle_forced_default_actions": cycle_forced_default_actions,
             "mean_abs_td_error": float(np.mean(np.abs(td_errors))) if td_errors else 0.0,
+            "td_errors": td_errors,
+            "postfit_td_errors": postfit_td_errors,
             "epsilon": float(controller.epsilon),
             "selection": {},
-        }
+            "recovery_protocol_applied": not setup_construction_failure,
+            "controller_update_committed": False,
+        })
+        return outcome

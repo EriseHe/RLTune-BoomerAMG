@@ -37,6 +37,19 @@ class SharedLinUCBv4Step:
     loss: float
     pred_mean: float
     pred_uncert: float
+    failure_label: float = float("nan")
+    pred_failure_mean: float = float("nan")
+    pred_failure_uncert: float = float("nan")
+
+
+@dataclass(frozen=True)
+class SharedLinUCBv4DeferredObservation:
+    """One selected setup whose suffix runtime is not known yet."""
+
+    arm_index: int
+    phi: np.ndarray
+    provisional_loss: float
+    history_index: int
 
 
 class SharedLinUCB_AMG_v4:
@@ -61,6 +74,8 @@ class SharedLinUCB_AMG_v4:
         candidate_elite_fraction: float = 0.0,
         always_include_arms: Optional[Sequence[int]] = None,
         elite_cache_size: int = 0,
+        failure_beta: float = 2.0,
+        failure_l2_reg: float = 1.0,
         initial_guess: Optional[Sequence[Any] | Mapping[str, Any]] = None,
         initial_guess_rounds: int = 0,
         seed: Optional[int] = None,
@@ -71,6 +86,10 @@ class SharedLinUCB_AMG_v4:
             raise ValueError("actions must be non-empty")
         if l2_reg <= 0.0:
             raise ValueError("l2_reg must be > 0")
+        if failure_beta < 0.0:
+            raise ValueError("failure_beta must be non-negative")
+        if failure_l2_reg <= 0.0:
+            raise ValueError("failure_l2_reg must be > 0")
         if candidate_strategy not in {"uniform", "adaptive_local"}:
             raise ValueError("candidate_strategy must be 'uniform' or 'adaptive_local'")
         if candidate_pool_burnin_rounds < 0:
@@ -108,6 +127,8 @@ class SharedLinUCB_AMG_v4:
         self.alpha = float(alpha)
         self.alpha_decay = bool(alpha_decay)
         self.l2_reg = float(l2_reg)
+        self.failure_beta = float(failure_beta)
+        self.failure_l2_reg = float(failure_l2_reg)
 
         self.candidate_strategy = str(candidate_strategy)
         self.candidate_pool_size_burnin = (
@@ -131,6 +152,19 @@ class SharedLinUCB_AMG_v4:
 
         self.A_inv = np.eye(self.d_phi, dtype=float) / self.l2_reg
         self.b = np.zeros(self.d_phi, dtype=float)
+        if np.isclose(
+            self.failure_l2_reg,
+            self.l2_reg,
+            rtol=0.0,
+            atol=1.0e-15,
+        ):
+            self.failure_A_inv = self.A_inv
+        else:
+            self.failure_A_inv = (
+                np.eye(self.d_phi, dtype=float) / self.failure_l2_reg
+            )
+        self.failure_b = np.zeros(self.d_phi, dtype=float)
+        self.failure_observation_count = 0
 
         self._g_actions = self._encoder.encode_actions(self.actions)
         self._g_actions.setflags(write=False)
@@ -169,6 +203,7 @@ class SharedLinUCB_AMG_v4:
         self._last_arm: Optional[int] = None
         self.history: List[SharedLinUCBv4Step] = []
         self.candidate_stats_history: List[Dict[str, int | str]] = []
+        self._recovery_transaction: Optional[Dict[str, Any]] = None
 
     def clone_for_independent_updates(self) -> "SharedLinUCB_AMG_v4":
         """Clone mutable online state while sharing the immutable action catalog."""
@@ -180,9 +215,16 @@ class SharedLinUCB_AMG_v4:
         clone._cand = self._cand.clone_for_independent_updates(rng=clone.rng)
         clone.A_inv = self.A_inv.copy()
         clone.b = self.b.copy()
+        clone.failure_A_inv = (
+            clone.A_inv
+            if self.failure_A_inv is self.A_inv
+            else self.failure_A_inv.copy()
+        )
+        clone.failure_b = self.failure_b.copy()
         clone._last_phi = None if self._last_phi is None else self._last_phi.copy()
         clone.history = list(self.history)
         clone.candidate_stats_history = [dict(row) for row in self.candidate_stats_history]
+        clone._recovery_transaction = None
         return clone
 
     def save_mutable_state(
@@ -194,6 +236,8 @@ class SharedLinUCB_AMG_v4:
         """Persist online state without serializing the immutable action catalog."""
         if self._last_phi is not None or self._last_arm is not None:
             raise RuntimeError("Cannot checkpoint LinUCB with a pending action")
+        if self._recovery_transaction is not None:
+            raise RuntimeError("Cannot checkpoint LinUCB during recovery")
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         candidate = self._cand
@@ -203,6 +247,14 @@ class SharedLinUCB_AMG_v4:
             parameter_dim=np.asarray(self.d_phi, dtype=np.int64),
             A_inv=self.A_inv,
             b=self.b,
+            failure_A_inv=self.failure_A_inv,
+            failure_b=self.failure_b,
+            failure_observation_count=np.asarray(
+                self.failure_observation_count, dtype=np.int64
+            ),
+            failure_beta=np.asarray(self.failure_beta, dtype=float),
+            failure_l2_reg=np.asarray(self.failure_l2_reg, dtype=float),
+            checkpoint_version=np.asarray(2, dtype=np.int64),
             t=np.asarray(self.t, dtype=np.int64),
             elite_arms=candidate._elite_arms,
             arm_best_loss=(
@@ -237,6 +289,46 @@ class SharedLinUCB_AMG_v4:
                 raise ValueError("LinUCB checkpoint parameter shape does not match")
             self.A_inv[:] = inverse
             self.b[:] = b
+            checkpoint_version = int(
+                payload.get("checkpoint_version", np.asarray(1)).item()
+            )
+            if checkpoint_version >= 2:
+                if not np.isclose(
+                    float(payload["failure_beta"].item()),
+                    self.failure_beta,
+                    rtol=0.0,
+                    atol=1.0e-15,
+                ):
+                    raise ValueError("LinUCB checkpoint failure beta does not match")
+                if not np.isclose(
+                    float(payload["failure_l2_reg"].item()),
+                    self.failure_l2_reg,
+                    rtol=0.0,
+                    atol=1.0e-15,
+                ):
+                    raise ValueError("LinUCB checkpoint failure ridge does not match")
+                failure_inverse = np.asarray(payload["failure_A_inv"], dtype=float)
+                failure_b = np.asarray(payload["failure_b"], dtype=float)
+                if (
+                    failure_inverse.shape != self.failure_A_inv.shape
+                    or failure_b.shape != self.failure_b.shape
+                ):
+                    raise ValueError(
+                        "LinUCB checkpoint failure-head shape does not match"
+                    )
+                if self.failure_A_inv is not self.A_inv:
+                    self.failure_A_inv[:] = failure_inverse
+                self.failure_b[:] = failure_b
+                self.failure_observation_count = int(
+                    payload["failure_observation_count"].item()
+                )
+            else:
+                if self.failure_A_inv is not self.A_inv:
+                    self.failure_A_inv[:] = (
+                        np.eye(self.d_phi, dtype=float) / self.failure_l2_reg
+                    )
+                self.failure_b.fill(0.0)
+                self.failure_observation_count = 0
             self.t = int(payload["t"].item())
             self._cand._elite_arms = np.asarray(
                 payload["elite_arms"], dtype=int
@@ -267,6 +359,7 @@ class SharedLinUCB_AMG_v4:
         self._last_arm = None
         self.history = []
         self.candidate_stats_history = []
+        self._recovery_transaction = None
         self._g_actions.setflags(write=False)
         return dict(metadata)
 
@@ -290,16 +383,17 @@ class SharedLinUCB_AMG_v4:
             offset += self.g_dim
         return phi
 
-    def _score_subset(
+    def _mean_uncertainty_subset(
         self,
         x: np.ndarray,
         *,
         arms: Optional[np.ndarray],
-        alpha: float,
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        inverse: np.ndarray,
+        target_b: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray]:
         G = self._g_actions if arms is None else self._g_actions[np.asarray(arms, dtype=int)]
 
-        theta = self.A_inv @ self.b
+        theta = inverse @ target_b
         theta_x = theta[: self.d_x]
         offset = self.d_x
         theta_g = theta[offset : offset + self.g_dim]
@@ -322,17 +416,46 @@ class SharedLinUCB_AMG_v4:
             P_blocks.append(float(x[idx]) * I)
         P = np.vstack(P_blocks)
 
-        Ainv = self.A_inv
-        Ac = Ainv @ c
+        Ac = inverse @ c
         q0 = float(c @ Ac)
-        AP = Ainv @ P
+        AP = inverse @ P
         u = P.T @ Ac
         M = P.T @ AP
 
         quad = q0 + 2.0 * np.einsum("ij,j->i", G, u, optimize=False) + np.einsum("ij,jk,ik->i", G, M, G, optimize=False)
         uncert = np.sqrt(np.maximum(0.0, quad))
+        return mean, uncert
+
+    def _score_subset(
+        self,
+        x: np.ndarray,
+        *,
+        arms: Optional[np.ndarray],
+        alpha: float,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mean, uncert = self._mean_uncertainty_subset(
+            x,
+            arms=arms,
+            inverse=self.A_inv,
+            target_b=self.b,
+        )
         score = mean - float(alpha) * uncert
         return score, mean, uncert
+
+    def _failure_subset(
+        self,
+        x: np.ndarray,
+        *,
+        arms: Optional[np.ndarray],
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        mean, uncert = self._mean_uncertainty_subset(
+            x,
+            arms=arms,
+            inverse=self.failure_A_inv,
+            target_b=self.failure_b,
+        )
+        upper = mean + self.failure_beta * uncert
+        return upper, mean, uncert
 
     def _effective_alpha(self) -> float:
         if not self.alpha_decay:
@@ -567,7 +690,270 @@ class SharedLinUCB_AMG_v4:
             "pred_uncert": float(uncert[location]),
         }
 
-    def update(self, loss: float) -> None:
+    def select_recovery(
+        self,
+        context: Iterable[float],
+        *,
+        excluded_arms: Sequence[int],
+    ) -> Tuple[Dict[str, Any], Dict[str, float | int]]:
+        """Select another setup using failure-UCB then runtime-LCB.
+
+        This method is only used after a setup construction failure. Exact
+        failed arms are excluded for the current instance; the exclusion is
+        supplied by the caller and is never retained by the model.
+        """
+
+        if self._last_phi is not None or self._last_arm is not None:
+            raise RuntimeError("select_recovery() called with a pending action")
+        x = self._validate_x(np.asarray(list(context), dtype=float))
+        excluded = np.unique(np.asarray(excluded_arms, dtype=int).reshape(-1))
+        if np.any(excluded < 0) or np.any(excluded >= self.K):
+            raise ValueError("excluded_arms contains an out-of-range arm")
+
+        M = self._effective_candidate_pool_size()
+        if M is None or int(M) >= self.K:
+            candidates = np.setdiff1d(
+                np.arange(self.K, dtype=int), excluded, assume_unique=True
+            )
+            candidate_stats: Dict[str, int | str] = {
+                "strategy": "failure_lcb_reselection_full",
+                "candidate_count": int(candidates.size),
+                "elite": 0,
+                "local": 0,
+                "global": int(candidates.size),
+                "excluded": int(excluded.size),
+            }
+        else:
+            if self.candidate_strategy == "adaptive_local":
+                sampled, candidate_stats = self._adaptive_candidate_subset(int(M))
+            else:
+                sampled = self._cand.candidate_subset(pool_size=int(M))
+                candidate_stats = {
+                    "strategy": "failure_lcb_reselection_uniform",
+                    "candidate_count": int(sampled.size),
+                    "elite": int(self._cand.elite_arms.size),
+                    "local": 0,
+                    "global": int(sampled.size),
+                }
+            candidates = np.setdiff1d(sampled, excluded, assume_unique=False)
+            if candidates.size == 0:
+                candidates = self._sample_global_excluding(
+                    excluded,
+                    min(int(M), self.K - int(excluded.size)),
+                )
+            candidate_stats = dict(candidate_stats)
+            candidate_stats["candidate_count"] = int(candidates.size)
+            candidate_stats["excluded"] = int(excluded.size)
+
+        if candidates.size == 0:
+            raise RuntimeError("No setup arm remains after temporary exclusions")
+
+        runtime_score, runtime_mean, runtime_uncert = self._score_subset(
+            x,
+            arms=candidates,
+            alpha=self._effective_alpha(),
+        )
+        failure_upper, failure_mean, failure_uncert = self._failure_subset(
+            x,
+            arms=candidates,
+        )
+        order = np.lexsort((runtime_score, failure_upper))
+        best_location = int(order[0])
+        best_failure = float(failure_upper[best_location])
+        best_runtime = float(runtime_score[best_location])
+        tied = np.flatnonzero(
+            np.isclose(failure_upper, best_failure, atol=1.0e-12, rtol=0.0)
+            & np.isclose(runtime_score, best_runtime, atol=1.0e-12, rtol=0.0)
+        )
+        if tied.size > 1:
+            best_location = int(self.rng.choice(tied))
+        arm = int(candidates[best_location])
+
+        self._last_phi = self._phi(x, arm)
+        self._last_arm = arm
+        self.history.append(
+            SharedLinUCBv4Step(
+                t=self.t + 1,
+                arm_index=arm,
+                loss=float("nan"),
+                pred_mean=float(runtime_mean[best_location]),
+                pred_uncert=float(runtime_uncert[best_location]),
+                pred_failure_mean=float(failure_mean[best_location]),
+                pred_failure_uncert=float(failure_uncert[best_location]),
+            )
+        )
+        self.candidate_stats_history.append(candidate_stats)
+        return dict(self.actions[arm]), {
+            "arm_index": arm,
+            "pred_mean": float(runtime_mean[best_location]),
+            "pred_uncert": float(runtime_uncert[best_location]),
+            "pred_failure_mean": float(failure_mean[best_location]),
+            "pred_failure_uncert": float(failure_uncert[best_location]),
+            "failure_ucb": float(failure_upper[best_location]),
+            "runtime_lcb": float(runtime_score[best_location]),
+        }
+
+    @staticmethod
+    def _rank_one_inverse_update(inverse: np.ndarray, phi: np.ndarray) -> None:
+        projected = inverse @ phi
+        denominator = 1.0 + float(phi @ projected)
+        if denominator <= 0.0 or not np.isfinite(denominator):
+            rebuilt = np.linalg.inv(inverse)
+            rebuilt += np.outer(phi, phi)
+            inverse[:] = np.linalg.inv(rebuilt)
+            return
+        inverse -= np.outer(projected, projected) / denominator
+
+    def begin_recovery_transaction(self) -> None:
+        """Snapshot learnable state after selection but before a failed update.
+
+        RNG state is intentionally omitted: attempted selections remain consumed
+        even when a double failure rolls the learner back.
+        """
+
+        if self._recovery_transaction is not None:
+            raise RuntimeError("A LinUCB recovery transaction is already active")
+        if self._last_phi is None or self._last_arm is None:
+            raise RuntimeError("Recovery transaction requires a pending action")
+        candidate = self._cand
+        self._recovery_transaction = {
+            "A_inv": self.A_inv.copy(),
+            "failure_A_inv": (
+                None
+                if self.failure_A_inv is self.A_inv
+                else self.failure_A_inv.copy()
+            ),
+            "b": self.b.copy(),
+            "failure_b": self.failure_b.copy(),
+            "failure_observation_count": int(self.failure_observation_count),
+            "t": int(self.t),
+            "history_length": max(0, len(self.history) - 1),
+            "candidate_history_length": max(
+                0, len(self.candidate_stats_history) - 1
+            ),
+            "elite_arms": candidate._elite_arms.copy(),
+            "arm_best_loss": (
+                None
+                if candidate._arm_best_loss is None
+                else candidate._arm_best_loss.copy()
+            ),
+            "arm_loss_sum": (
+                None
+                if candidate._arm_loss_sum is None
+                else candidate._arm_loss_sum.copy()
+            ),
+            "arm_obs_count": (
+                None
+                if candidate._arm_obs_count is None
+                else candidate._arm_obs_count.copy()
+            ),
+        }
+
+    def observe_pending_failure(
+        self,
+        *,
+        failure_label: float,
+    ) -> SharedLinUCBv4DeferredObservation:
+        """Update coverage/failure risk now and defer the suffix runtime label."""
+
+        if self._last_phi is None or self._last_arm is None:
+            raise RuntimeError("observe_pending_failure() called before selection")
+        label = float(failure_label)
+        if not np.isfinite(label) or not (0.0 <= label <= 1.0):
+            raise ValueError("failure_label must be finite and in [0, 1]")
+
+        phi = self._last_phi.copy()
+        arm = int(self._last_arm)
+        history_index = len(self.history) - 1
+        provisional_loss = float(phi @ (self.A_inv @ self.b))
+
+        self._rank_one_inverse_update(self.A_inv, phi)
+        if self.failure_A_inv is not self.A_inv:
+            self._rank_one_inverse_update(self.failure_A_inv, phi)
+        # The provisional label preserves the runtime mean exactly while the
+        # failure head can immediately influence same-context reselection.
+        self.b += provisional_loss * phi
+        self.failure_b += label * phi
+        self.failure_observation_count += 1
+        self.t += 1
+
+        last = self.history[history_index]
+        self.history[history_index] = SharedLinUCBv4Step(
+            t=last.t,
+            arm_index=last.arm_index,
+            loss=last.loss,
+            pred_mean=last.pred_mean,
+            pred_uncert=last.pred_uncert,
+            failure_label=label,
+            pred_failure_mean=last.pred_failure_mean,
+            pred_failure_uncert=last.pred_failure_uncert,
+        )
+        self._last_phi = None
+        self._last_arm = None
+        return SharedLinUCBv4DeferredObservation(
+            arm_index=arm,
+            phi=phi,
+            provisional_loss=provisional_loss,
+            history_index=history_index,
+        )
+
+    def commit_deferred_observation(
+        self,
+        observation: SharedLinUCBv4DeferredObservation,
+        *,
+        loss: float,
+    ) -> None:
+        y = float(loss)
+        if not np.isfinite(y):
+            raise ValueError("loss must be finite")
+        self.b += (y - float(observation.provisional_loss)) * observation.phi
+        self._cand.observe(int(observation.arm_index), y)
+        index = int(observation.history_index)
+        last = self.history[index]
+        self.history[index] = SharedLinUCBv4Step(
+            t=last.t,
+            arm_index=last.arm_index,
+            loss=y,
+            pred_mean=last.pred_mean,
+            pred_uncert=last.pred_uncert,
+            failure_label=last.failure_label,
+            pred_failure_mean=last.pred_failure_mean,
+            pred_failure_uncert=last.pred_failure_uncert,
+        )
+
+    def commit_recovery_transaction(self) -> None:
+        self._recovery_transaction = None
+
+    def rollback_recovery_transaction(self) -> None:
+        state = self._recovery_transaction
+        if state is None:
+            self.cancel_pending()
+            return
+        self.A_inv[:] = np.asarray(state["A_inv"], dtype=float)
+        if self.failure_A_inv is not self.A_inv:
+            self.failure_A_inv[:] = np.asarray(
+                state["failure_A_inv"], dtype=float
+            )
+        self.b[:] = np.asarray(state["b"], dtype=float)
+        self.failure_b[:] = np.asarray(state["failure_b"], dtype=float)
+        self.failure_observation_count = int(state["failure_observation_count"])
+        self.t = int(state["t"])
+        del self.history[int(state["history_length"]) :]
+        del self.candidate_stats_history[
+            int(state["candidate_history_length"]) :
+        ]
+        candidate = self._cand
+        candidate._elite_arms = np.asarray(state["elite_arms"], dtype=int).copy()
+        for name in ("arm_best_loss", "arm_loss_sum", "arm_obs_count"):
+            saved = state[name]
+            current = getattr(candidate, f"_{name}")
+            if current is not None and saved is not None:
+                current[:] = np.asarray(saved, dtype=current.dtype)
+        self._last_phi = None
+        self._last_arm = None
+        self._recovery_transaction = None
+
+    def update(self, loss: float, *, failure_label: float = 0.0) -> None:
         if self._last_phi is None or self._last_arm is None:
             raise RuntimeError("update() called before predict()")
 
@@ -576,19 +962,17 @@ class SharedLinUCB_AMG_v4:
         y = float(loss)
         if not np.isfinite(y):
             raise ValueError("loss must be finite")
+        label = float(failure_label)
+        if not np.isfinite(label) or not (0.0 <= label <= 1.0):
+            raise ValueError("failure_label must be finite and in [0, 1]")
 
         self._cand.observe(arm, y)
-
-        u = self.A_inv @ phi
-        denom = 1.0 + float(phi @ u)
-        if denom <= 0.0 or not np.isfinite(denom):
-            A = np.linalg.inv(self.A_inv)
-            A = A + np.outer(phi, phi)
-            self.A_inv = np.linalg.inv(A)
-        else:
-            self.A_inv = self.A_inv - np.outer(u, u) / denom
-
+        self._rank_one_inverse_update(self.A_inv, phi)
+        if self.failure_A_inv is not self.A_inv:
+            self._rank_one_inverse_update(self.failure_A_inv, phi)
         self.b = self.b + y * phi
+        self.failure_b = self.failure_b + label * phi
+        self.failure_observation_count += 1
 
         last = self.history[-1]
         self.history[-1] = SharedLinUCBv4Step(
@@ -597,6 +981,9 @@ class SharedLinUCB_AMG_v4:
             loss=y,
             pred_mean=last.pred_mean,
             pred_uncert=last.pred_uncert,
+            failure_label=label,
+            pred_failure_mean=last.pred_failure_mean,
+            pred_failure_uncert=last.pred_failure_uncert,
         )
 
         self.t += 1

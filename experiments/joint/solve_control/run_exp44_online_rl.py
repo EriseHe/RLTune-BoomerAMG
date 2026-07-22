@@ -12,7 +12,7 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from amg_setup_gym_env import (
+from setup_action_space import (
     DEFAULT_SETUP_PARAMS,
     SetupObsEncoder,
     build_setup_parameter_spec,
@@ -124,8 +124,6 @@ def make_controller(
         epsilon_start=float(args.epsilon_start),
         epsilon_final=float(args.epsilon_final),
         epsilon_decay_steps=float(args.epsilon_decay_steps),
-        potential_scale_sec=float(args.potential_scale_sec),
-        failure_penalty_sec=float(args.failure_penalty_sec),
         initial_q_sec=float(args.initial_q_sec),
         monte_carlo_alpha=float(args.monte_carlo_alpha),
         monte_carlo_decay_power=float(args.monte_carlo_decay_power),
@@ -179,7 +177,6 @@ def _run_online_incumbent_calibration(
     encoder: SolveStateEncoder,
     tol: float,
     max_cycles: int,
-    failure_penalty_sec: float,
     seed: int,
     progress_every: int,
 ) -> tuple[OnlineFixedWeightIncumbent, list[Dict[str, Any]]]:
@@ -205,8 +202,6 @@ def _run_online_incumbent_calibration(
             explore=False,
         )
         observed_cost = float(outcome["solve_runtime"])
-        if bool(outcome.get("failed", False)):
-            observed_cost += float(failure_penalty_sec)
         estimator.update(action_index, observed_cost)
         row = dict(outcome)
         row.update(
@@ -424,8 +419,6 @@ def main() -> None:
     parser.add_argument("--epsilon-final", type=float, default=1.0)
     parser.add_argument("--epsilon-decay-steps", type=float, default=2560.0)
     parser.add_argument("--exploration-mode", choices=("uniform", "least_visited"), default="least_visited")
-    parser.add_argument("--potential-scale-sec", type=float, default=0.0)
-    parser.add_argument("--failure-penalty-sec", type=float, default=0.05)
     parser.add_argument("--initial-q-sec", type=float, default=0.02)
     parser.add_argument(
         "--force-default-first-action",
@@ -520,7 +513,6 @@ def main() -> None:
                 encoder=encoder,
                 tol=float(args.tol),
                 max_cycles=int(args.max_cycles),
-                failure_penalty_sec=float(args.failure_penalty_sec),
                 seed=int(args.seed + 701),
                 progress_every=int(args.progress_every),
             )

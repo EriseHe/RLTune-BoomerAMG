@@ -17,7 +17,7 @@ import numpy as np
 
 from online_td_experiment_common import _action_diagnostics, _git_revision, _json_ready, _write_json
 from SolvePhase.algorithms.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
-from run_online_bandit_td_lambda import _method_stream_summary, _report_online_outcome
+from joint_online_common import _method_stream_summary, _report_online_outcome
 from run_online_methods_2k import (
     _continuous_action_diagnostics,
     _method_comparison,
@@ -34,6 +34,7 @@ from setup_aware_compare_common import (
     classify_rl_failure,
     fixed_trace,
     solve_fixed_w_case,
+    solve_default_baseline_case,
     solve_no_rl_case,
     solve_setup_aware_rl_case,
 )
@@ -102,7 +103,6 @@ def _configure_environment(args: argparse.Namespace) -> Dict[str, str]:
         "TUNE7_VARIANT": "categorical",
         "ALPHA": "1.0",
         "L2": "1.0",
-        "RETRY_MAX_ATTEMPTS": "1000",
         "TUNE7_CANDIDATE_POOL_SIZE": "1024",
         "TUNE7_CANDIDATE_POOL_SIZE_BURNIN": "4096",
         "TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS": "200",
@@ -112,10 +112,6 @@ def _configure_environment(args: argparse.Namespace) -> Dict[str, str]:
         "TUNE7_CANDIDATE_LOCAL_FRACTION": "0.60",
         "TUNE7_CANDIDATE_ELITE_FRACTION": "0.20",
         "SETUP_INITIAL_GUESS_ROUNDS": "1",
-        "FAILURE_PENALTY_MULTIPLIER": "2.0",
-        "FAILURE_SEVERITY_CAP": "6.0",
-        "FAILURE_SCALE_WINDOW": "200",
-        "STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER": "3.0",
     }
     os.environ.update(values)
     return values
@@ -124,11 +120,17 @@ def _configure_environment(args: argparse.Namespace) -> Dict[str, str]:
 def _trace_summary(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     timing_fields = ("select_sec", "loss_eval_sec", "update_sec", "overhead_sec")
     feedback_fields = ("runtime", "setup_runtime", "solve_runtime")
+    outcomes = [
+        row.get("outcome", row.get("feedback_outcome", {}))
+        for row in records
+    ]
     return {
         "cases": int(len(records)),
-        "setup_retries": int(sum(int(row.get("failed_attempts", 0)) for row in records)),
+        "fallback_uses": int(
+            sum(bool(outcome.get("fallback_used", False)) for outcome in outcomes)
+        ),
         "feedback_failures": int(
-            sum(bool(row.get("feedback_outcome", {}).get("failed", False)) for row in records)
+            sum(bool(outcome.get("failed", False)) for outcome in outcomes)
         ),
         "bandit_timing_totals_sec": {
             field: float(
@@ -138,7 +140,7 @@ def _trace_summary(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         },
         "feedback_totals_sec": {
             field: float(
-                sum(float(row.get("feedback_outcome", {}).get(field, 0.0)) for row in records)
+                sum(float(outcome.get(field, 0.0)) for outcome in outcomes)
             )
             for field in feedback_fields
         },
@@ -163,6 +165,13 @@ def _sarsa_outcome(
         learn=True,
         explore=True,
         record_action_metadata=True,
+        fallback_attempt=lambda: solve_no_rl_case(
+            params=dict(DEFAULT_SETUP_PARAMS),
+            mkw=dict(mkw),
+            solver_tol=float(args.tol),
+            solver_max_iter=int(args.max_cycles),
+            augment_params=augment_setup_params,
+        ),
     )
     return _report_online_outcome(native, bandit_timing={})
 
@@ -179,8 +188,7 @@ def _evaluation_outcome(
     args: argparse.Namespace,
 ) -> Dict[str, Any]:
     if method == "default_setup":
-        native = solve_no_rl_case(
-            params=dict(DEFAULT_SETUP_PARAMS),
+        native = solve_default_baseline_case(
             mkw=dict(mkw),
             solver_tol=float(args.tol),
             solver_max_iter=int(args.max_cycles),
@@ -249,7 +257,7 @@ def _record(
         "mkw": dict(mkw),
         "params": dict(params),
         "execution_order": list(execution_order),
-        "failed_attempts": 0,
+        "fallback_used": False,
         "outcome": dict(outcome),
     }
 
@@ -807,8 +815,6 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 "final": float(args.epsilon_final),
                 "decay_steps": float(args.epsilon_decay_steps),
             },
-            "potential_scale_sec": float(args.potential_scale_sec),
-            "failure_penalty_sec": float(args.failure_penalty_sec),
         },
         "timing": {
             "primary": "native setup + native solve",
@@ -903,8 +909,6 @@ def main() -> None:
     parser.add_argument("--epsilon-start", type=float, default=0.30)
     parser.add_argument("--epsilon-final", type=float, default=0.03)
     parser.add_argument("--epsilon-decay-steps", type=float, default=20000.0)
-    parser.add_argument("--potential-scale-sec", type=float, default=0.001)
-    parser.add_argument("--failure-penalty-sec", type=float, default=0.1)
     parser.add_argument("--initial-q-sec", type=float, default=0.0)
     parser.add_argument("--progress-every", type=int, default=100)
     parser.add_argument("--resume", action="store_true")

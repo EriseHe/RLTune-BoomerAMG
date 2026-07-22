@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable, Deque, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+import gymnasium as gym
 from sb3_contrib import RecurrentPPO
 from stable_baselines3 import DQN, PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
@@ -30,21 +31,28 @@ from amg_gym_env import (
     decode_policy_action_hierarchical,
     decode_policy_action_residual,
 )
-from amg_setup_gym_env import BoomerAMGSetupRelaxEnv, SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
+from setup_action_space import SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
 from learners import SharedLinUCB_AMG_v4
+from learners.linucb import run_same_context_setup_reselection
 from learners.common import (
     ParameterSpaceSpec,
     ParameterSpec,
     resolve_tune7_candidate_strategy,
 )
-from hypre.bindings import augment_setup_params, create_env, solve
+from hypre.bindings import (
+    AMGNativeError,
+    SolveStatus,
+    augment_setup_params,
+    create_env,
+    run_with_default_fallback,
+    solve,
+)
 from SolvePhase.core.outcomes import classify_rl_failure
 from problems.amg import DIFCONV_CONTEXT_DIM
 from problems.streams import generate_difconv_instances as _generate_difconv_instances
 from utils.setup_amg import build_actions_from_spec, build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
 
 
-FAIL_RUNTIME_SEC = 1e9
 EXP44_MATRIX_GRID_N = 40
 EXP44_SETUP_PARAM_RESOLUTION = 20
 EXP44_TUNE7_CATEGORICAL_ACTION_COUNT = 2_880_000
@@ -159,12 +167,6 @@ class TestFinalBanditConfig:
     l2: float
     candidate_pool_size: int
     elite_cache_size: int
-    retry_max_attempts: int
-    failure_penalty_multiplier: float
-    failure_severity_cap: float
-    failure_scale_window: int
-    failure_scale_min_runtime_sec_override: float
-    structural_failure_surcharge_multiplier: float
     tune7_candidate_pool_size: int
     tune7_candidate_pool_size_burnin: int
     tune7_candidate_pool_burnin_rounds: int
@@ -221,14 +223,6 @@ def default_test_final_bandit_config_from_env() -> TestFinalBanditConfig:
         l2=float(os.environ.get("L2", "1.0")),
         candidate_pool_size=int(os.environ.get("CANDIDATE_POOL_SIZE", "512")),
         elite_cache_size=int(os.environ.get("ELITE_CACHE_SIZE", "64")),
-        retry_max_attempts=int(os.environ.get("RETRY_MAX_ATTEMPTS", "1000")),
-        failure_penalty_multiplier=float(os.environ.get("FAILURE_PENALTY_MULTIPLIER", "2.0")),
-        failure_severity_cap=float(os.environ.get("FAILURE_SEVERITY_CAP", "6.0")),
-        failure_scale_window=int(os.environ.get("FAILURE_SCALE_WINDOW", "200")),
-        failure_scale_min_runtime_sec_override=float(os.environ.get("FAILURE_SCALE_MIN_RUNTIME_SEC", "0.0")),
-        structural_failure_surcharge_multiplier=float(
-            os.environ.get("STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER", "3.0")
-        ),
         tune7_candidate_pool_size=int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE", "1024")),
         tune7_candidate_pool_size_burnin=int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE_BURNIN", "4096")),
         tune7_candidate_pool_burnin_rounds=int(os.environ.get("TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS", "200")),
@@ -903,67 +897,127 @@ def build_test_final_bandit_policy(
     raise ValueError(f"The retained Exp44 active path only supports linucbv4, got method={method!r}")
 
 
-def rolling_success_scale_sec(
-    success_runtime_history: Deque[float],
-    *,
-    b_min_runtime_sec: float,
-) -> float:
-    vals = np.asarray(list(success_runtime_history), dtype=float)
-    finite = vals[np.isfinite(vals) & (vals > 0.0)]
-    if finite.size:
-        return float(max(float(np.median(finite)), float(b_min_runtime_sec)))
-    return float(b_min_runtime_sec)
+def _safe_one_at_a_time_actions(parameter_spec: Any) -> list[Dict[str, Any]]:
+    values = {
+        "strong_threshold": (0.15, 0.35),
+        "max_row_sum": (0.8, 0.95),
+        "trunc_factor": (0.05, 0.1),
+        "P_max_elmts": (2, 6, 8),
+        "agg_num_levels": (1,),
+        "coarsen_type": (6, 8),
+        "interp_type": (8,),
+    }
+    actions = [dict(DEFAULT_SETUP_PARAMS)]
+    seen = {tuple(sorted(DEFAULT_SETUP_PARAMS.items()))}
+    params_by_name = {param.name: param for param in parameter_spec.parameters}
+    for name, candidates in values.items():
+        parameter = params_by_name[name]
+        for candidate in candidates:
+            value = candidate
+            if value not in parameter.values:
+                if parameter.kind == "categorical":
+                    raise ValueError(
+                        f"{name}={value!r} is not in {tuple(parameter.values)!r}"
+                    )
+                value = min(
+                    parameter.values,
+                    key=lambda item: abs(float(item) - float(value)),
+                )
+            params = dict(DEFAULT_SETUP_PARAMS)
+            params[name] = value
+            key = tuple(sorted(params.items()))
+            if key not in seen:
+                actions.append(params)
+                seen.add(key)
+    return actions
 
 
-def runtime_loss_sec_test_final(
+def build_online_linucb_branch(
     *,
-    outcome: Dict[str, Any],
-    fail_runtime_sec: float,
-    solver_tol: float,
-    success_runtime_scale_sec: float,
-    failure_penalty_multiplier: float,
-    failure_severity_cap: float,
-    structural_failure_surcharge_multiplier: float,
-) -> float:
-    rt = float(outcome["runtime"])
-    if not np.isfinite(rt):
-        return float(fail_runtime_sec)
-    if bool(outcome.get("failed", False)) or rt >= 0.999 * float(fail_runtime_sec):
-        res_norm = float(outcome.get("residual_norm", float("inf")))
-        tol = max(float(solver_tol), 1e-300)
-        if np.isfinite(res_norm):
-            severity = max(0.0, float(np.log10(max(res_norm, tol) / tol)))
-        else:
-            severity = float(failure_severity_cap)
-        severity = min(float(severity), float(failure_severity_cap))
-        scale = max(float(success_runtime_scale_sec), 0.0)
-        structural_fail = bool(
-            bool(outcome.get("structural_fail", False))
-            or not np.isfinite(float(outcome.get("residual_norm", float("inf"))))
-            or not np.isfinite(float(outcome.get("runtime", float("inf"))))
+    seed: int,
+    tune_dim: int = 7,
+    tune7_variant: str = "categorical",
+    action_space_mode: str | None = None,
+    solver_tol: float | None = None,
+    solver_max_iter: int | None = None,
+) -> tuple[BranchRun, TestFinalBanditConfig]:
+    """Build the canonical online setup branch without a Gym dependency."""
+
+    cfg = default_test_final_bandit_config_from_env()
+    mode = str(
+        os.environ.get("SETUP_ACTION_SPACE", "safe_one_at_a_time")
+        if action_space_mode is None
+        else action_space_mode
+    ).strip().lower()
+    resolved_tol = float(
+        os.environ.get("SOLVE_TOL", "1e-6")
+        if solver_tol is None
+        else solver_tol
+    )
+    resolved_max_iter = int(
+        os.environ.get("SOLVE_MAX_CYCLES", "50")
+        if solver_max_iter is None
+        else solver_max_iter
+    )
+    if mode == "full_cartesian":
+        bundle = build_action_space_bundle(
+            final_tune_dims=[int(tune_dim)],
+            tune7_variant=tune7_variant,
         )
-        surcharge = float(structural_failure_surcharge_multiplier) if structural_fail else 0.0
-        return float(rt + scale * (float(failure_penalty_multiplier) + severity + surcharge))
-    return float(rt)
-
-
-def compute_failure_scale_min_runtime_sec(
-    *,
-    solver_fn: Callable[[Dict[str, Any], Dict[str, Any]], Dict[str, Any]],
-    params: Dict[str, Any],
-    mkw: Dict[str, Any],
-    override_value: float,
-) -> float:
-    if float(override_value) > 0.0:
-        return float(override_value)
-    try:
-        out = solver_fn(dict(params), dict(mkw))
-        rt = float(out.get("runtime", np.nan))
-        if np.isfinite(rt) and rt > 0.0:
-            return float(rt)
-    except Exception:
-        pass
-    return 1e-3
+        branch = build_single_branch(
+            method="linucbv4",
+            tune_dim=int(tune_dim),
+            tune7_variant=tune7_variant,
+            seed=int(seed),
+            solver_tol=resolved_tol,
+            solver_max_iter=resolved_max_iter,
+            bandit_cfg=cfg,
+            bundle=bundle,
+        )
+    elif mode == "safe_one_at_a_time":
+        parameter_spec, _fixed_params = build_setup_parameter_spec(
+            tune_dim=int(tune_dim),
+            tune7_variant=tune7_variant,
+        )
+        actions = _safe_one_at_a_time_actions(parameter_spec)
+        parameter_space = {
+            "actions": actions,
+            "context_dim": int(DIFCONV_CONTEXT_DIM),
+        }
+        family = "Shared LinUCB v4"
+        family_seed = int(family_seed_map(seed=int(seed))[family])
+        policy = build_test_final_bandit_policy(
+            method="linucbv4",
+            tune_dim=int(tune_dim),
+            actions=actions,
+            context_dim=int(DIFCONV_CONTEXT_DIM),
+            seed=family_seed,
+            default_params=dict(DEFAULT_SETUP_PARAMS),
+            default_arm_index=0,
+            parameter_spec=parameter_spec,
+            tune7_variant=tune7_variant,
+            cfg=cfg,
+        )
+        branch = BranchRun(
+            label=default_branch_label(
+                method="linucbv4",
+                tune_dim=int(tune_dim),
+                tune7_variant=tune7_variant,
+            ),
+            family=family,
+            tune_set="tune7",
+            seed=family_seed,
+            policy=policy,
+            parameter_space=parameter_space,
+            solver_tol=resolved_tol,
+            solver_max_iter=resolved_max_iter,
+        )
+    else:
+        raise ValueError(
+            "SETUP_ACTION_SPACE must be safe_one_at_a_time or full_cartesian"
+        )
+    validate_expected_setup_action_count(branch)
+    return branch, cfg
 
 
 def run_bandit_step_test_final(
@@ -972,131 +1026,59 @@ def run_bandit_step_test_final(
     parameter_space: Dict[str, Any],
     context: np.ndarray,
     solver_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
+    fallback_solver_fn: Callable[[Dict[str, Any]], Dict[str, Any]] | None,
     prev_update_est: float,
-    success_runtime_history: Deque[float],
-    b_min_runtime_sec: float,
-    solver_tol: float,
-    cfg: TestFinalBanditConfig,
+    primary_is_default: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, float], int, float]:
-    total_runtime = 0.0
-    timing_totals = {
-        "setup_runtime": 0.0,
-        "solve_runtime": 0.0,
-        "infer_runtime": 0.0,
-        "native_runtime": 0.0,
-        "native_solve_runtime": 0.0,
-    }
-    observed_timing_fields: set[str] = set()
-    total_overhead = 0.0
-    total_select_sec = 0.0
-    total_loss_eval_sec = 0.0
-    total_update_sec = 0.0
-    failed_attempts = 0
-    local_prev_update_est = float(prev_update_est)
-    last_params: Dict[str, Any] | None = None
-    last_out: Dict[str, Any] | None = None
-    last_upd_sec = 0.0
-    last_select_sec = 0.0
-    last_loss_eval_sec = 0.0
-
-    for _attempt in range(int(cfg.retry_max_attempts)):
-        sel_start = time.perf_counter_ns()
-        selected = policy.select(context=context, parameter_space=parameter_space)
-        sel_sec = (time.perf_counter_ns() - sel_start) / 1e9
-        params = selected[0] if isinstance(selected, tuple) else selected
-
-        out = solver_fn(dict(params))
-        total_runtime += float(out["runtime"])
-        for field in timing_totals:
-            if field in out:
-                observed_timing_fields.add(field)
-                timing_totals[field] += float(out[field])
-
-        loss_start = time.perf_counter_ns()
-        success_runtime_scale_sec = rolling_success_scale_sec(
-            success_runtime_history,
-            b_min_runtime_sec=float(b_min_runtime_sec),
-        )
-        base_loss_sec = float(
-            runtime_loss_sec_test_final(
-                outcome=out,
-                fail_runtime_sec=float(FAIL_RUNTIME_SEC),
-                solver_tol=float(solver_tol),
-                success_runtime_scale_sec=float(success_runtime_scale_sec),
-                failure_penalty_multiplier=float(cfg.failure_penalty_multiplier),
-                failure_severity_cap=float(cfg.failure_severity_cap),
-                structural_failure_surcharge_multiplier=float(cfg.structural_failure_surcharge_multiplier),
-            )
-        )
-        loss_eval_sec = (time.perf_counter_ns() - loss_start) / 1e9
-        end_to_end_loss_sec = base_loss_sec + float(sel_sec) + float(loss_eval_sec) + float(local_prev_update_est)
-
-        upd_sec = 0.0
-        if hasattr(policy, "update"):
-            upd_start = time.perf_counter_ns()
-            policy.update(loss=end_to_end_loss_sec, context=context, params=params, outcome=out)
-            upd_sec = (time.perf_counter_ns() - upd_start) / 1e9
-
-        total_overhead += float(sel_sec + loss_eval_sec + upd_sec)
-        total_select_sec += float(sel_sec)
-        total_loss_eval_sec += float(loss_eval_sec)
-        total_update_sec += float(upd_sec)
-        last_params = dict(params)
-        last_out = dict(out)
-        last_upd_sec = float(upd_sec)
-        last_select_sec = float(sel_sec)
-        last_loss_eval_sec = float(loss_eval_sec)
-        local_prev_update_est = float(upd_sec)
-
-        if not bool(out.get("failed", False)):
-            rt_success = float(out["runtime"])
-            if np.isfinite(rt_success) and rt_success > 0.0:
-                success_runtime_history.append(float(rt_success))
-            final_out = dict(out)
-            final_out["runtime"] = float(total_runtime)
-            for field in observed_timing_fields:
-                final_out[field] = float(timing_totals[field])
-            final_out["failed"] = False
-            return (
-                last_params,
-                final_out,
-                {
-                    "select_sec": float(total_select_sec),
-                    "loss_eval_sec": float(total_loss_eval_sec),
-                    "update_sec": float(total_update_sec),
-                    "overhead_sec": float(total_overhead),
-                },
-                int(failed_attempts),
-                float(last_upd_sec),
-            )
-
-        failed_attempts += 1
-
-    final_out = dict(
-        last_out
-        or {
-            "runtime": float(FAIL_RUNTIME_SEC),
-            "failed": True,
-            "residual_norm": float("inf"),
-            "iterations": 0,
-        }
+    result = run_same_context_setup_reselection(
+        policy=policy,
+        parameter_space=parameter_space,
+        context=np.asarray(context, dtype=float),
+        solver_fn=solver_fn,
+        fallback_solver_fn=fallback_solver_fn,
+        default_params=DEFAULT_SETUP_PARAMS,
+        prev_update_est=float(prev_update_est),
+        primary_is_default=bool(primary_is_default),
+        max_learned_attempts=3,
     )
-    final_out["runtime"] = float(total_runtime if total_runtime > 0.0 else FAIL_RUNTIME_SEC)
-    for field in observed_timing_fields:
-        final_out[field] = float(timing_totals[field])
-    final_out["failed"] = True
     return (
-        dict(last_params or {}),
-        final_out,
-        {
-            "select_sec": float(total_select_sec),
-            "loss_eval_sec": float(total_loss_eval_sec),
-            "update_sec": float(total_update_sec),
-            "overhead_sec": float(total_overhead),
-        },
-        int(failed_attempts),
-        float(last_upd_sec),
+        dict(result.params),
+        dict(result.outcome),
+        dict(result.timing),
+        int(result.fallback_used),
+        float(result.update_runtime_sec),
     )
+
+
+class _SpaceOnlyEnv(gym.Env):
+    """Minimal VecNormalize host for legacy normalized PPO checkpoints."""
+
+    metadata = {"render_modes": []}
+
+    def __init__(self, *, observation_space: Any, action_space: Any) -> None:
+        super().__init__()
+        self.observation_space = observation_space
+        self.action_space = action_space
+
+    def reset(
+        self,
+        *,
+        seed: int | None = None,
+        options: Dict[str, Any] | None = None,
+    ) -> tuple[Any, Dict[str, Any]]:
+        del options
+        super().reset(seed=seed)
+        if not isinstance(self.observation_space, gym.spaces.Box):
+            raise TypeError("Only Box observations are supported")
+        observation = np.zeros(
+            self.observation_space.shape,
+            dtype=self.observation_space.dtype,
+        )
+        return observation, {}
+
+    def step(self, action: Any) -> tuple[Any, float, bool, bool, Dict[str, Any]]:
+        del action
+        raise RuntimeError("_SpaceOnlyEnv is only used to load VecNormalize state")
 
 
 class SetupAwareSolvePolicyRunner:
@@ -1189,27 +1171,11 @@ class SetupAwareSolvePolicyRunner:
         )
         self.vec_norm = None
         if cfg.vec_path.exists():
-            observe_setup_params = str(cfg.obs_mode).strip().lower() not in {"solve_only"}
             raw_env = DummyVecEnv(
                 [
-                    lambda: BoomerAMGSetupRelaxEnv(
-                        setup_mode="random",
-                        tune_dim=int(cfg.tune_dim),
-                        tune7_variant=str(cfg.tune7_variant),
-                        fixed_grid=tuple(int(x) for x in cfg.fixed_grid),
-                        randomize_A=False,
-                        randomize_b=False,
-                        randomize_grid=False,
-                        difconv_c=(1.0, 1.0, 1.0),
-                        difconv_c_range=tuple(float(x) for x in cfg.difconv_c_range),
-                        difconv_a=(0.0, 0.0, 0.0),
-                        w_center=float(cfg.w_center),
-                        w_scale=float(cfg.w_scale),
-                        sweeps_min=int(cfg.sweeps_min),
-                        sweeps_max=int(cfg.sweeps_max),
-                        w_only=bool(self.w_only),
-                        observe_setup_params=observe_setup_params,
-                        bandit_update=False,
+                    lambda: _SpaceOnlyEnv(
+                        observation_space=self.model.observation_space,
+                        action_space=self.model.action_space,
                     )
                 ]
             )
@@ -1429,6 +1395,7 @@ class SetupAwareSolvePolicyRunner:
         last_arw = -1.0
         switched_to_safe = False
         r_new = float(r_curr)
+        native_status = SolveStatus.CONTINUE
 
         for cycle in range(int(self.cfg.solve_max_cycles)):
             obs = self._make_obs(
@@ -1497,6 +1464,8 @@ class SetupAwareSolvePolicyRunner:
                 relax_type=(None if int(rt) < 0 else int(rt)),
                 outer_weight=(None if float(ow) < 0.0 else float(ow)),
                 add_relax_weight=(None if float(arw) < 0.0 else float(arw)),
+                tol=float(self.cfg.solve_tol),
+                max_cycles=int(self.cfg.solve_max_cycles),
             )
             solve_runtime += float(dt)
             cycles = cycle + 1
@@ -1504,6 +1473,7 @@ class SetupAwareSolvePolicyRunner:
             cycle_forced_default_actions.append(bool(forced_default))
             cycle_residuals.append(float(r_new))
             cycle_times.append(float(dt))
+            native_status = env.last_step.status
             last_w = float(w)
             last_sd = int(sd)
             last_su = int(su)
@@ -1512,7 +1482,7 @@ class SetupAwareSolvePolicyRunner:
             last_rt = int(rt)
             last_ow = float(ow)
             last_arw = float(arw)
-            if r_new <= float(self.cfg.solve_tol):
+            if native_status is not SolveStatus.CONTINUE:
                 r_curr = float(r_new)
                 break
             r_prev_obs = float(r_curr)
@@ -1526,11 +1496,12 @@ class SetupAwareSolvePolicyRunner:
             "infer_runtime": float(infer_runtime),
             "residual_norm": float(r_curr),
             "iterations": int(cycles),
-            "failed": not (
-                np.isfinite(r_curr)
-                and r_curr <= float(self.cfg.solve_tol)
-                and cycles < int(self.cfg.solve_max_cycles)
+            "failed": native_status is not SolveStatus.CONVERGED,
+            "attempt_status": (
+                "success" if native_status is SolveStatus.CONVERGED
+                else "nonconvergence"
             ),
+            "native_status": native_status.name.lower(),
             "final_w": float(last_w),
             "final_sweeps_down": int(last_sd),
             "final_sweeps_up": int(last_su),
@@ -1547,6 +1518,46 @@ class SetupAwareSolvePolicyRunner:
         }
 
 
+def _actual_failure_result(
+    exc: Exception,
+    *,
+    started_at: float,
+    setup_runtime: float = 0.0,
+    solve_runtime: float = 0.0,
+    controller_runtime: float = 0.0,
+    iterations: int = 0,
+    residual_norm: float = float("nan"),
+) -> Dict[str, Any]:
+    setup_sec = max(0.0, float(setup_runtime))
+    solve_sec = max(0.0, float(solve_runtime))
+    controller_sec = max(0.0, float(controller_runtime))
+    if isinstance(exc, AMGNativeError):
+        setup_sec += float(exc.setup_runtime_sec)
+        solve_sec += float(exc.solve_runtime_sec)
+        stage = "setup" if exc.operation in {"create", "setup"} else "solve"
+    else:
+        stage = "setup" if setup_sec <= 0.0 else "solve"
+        elapsed = max(0.0, float(time.perf_counter() - started_at))
+        unaccounted = max(0.0, elapsed - setup_sec - solve_sec - controller_sec)
+        if stage == "setup":
+            setup_sec += unaccounted
+        else:
+            controller_sec += unaccounted
+    reason = f"exception:{type(exc).__name__}:{exc}"
+    return {
+        "runtime": float(setup_sec + solve_sec),
+        "setup_runtime": setup_sec,
+        "solve_runtime": solve_sec,
+        "infer_runtime": controller_sec,
+        "failed": True,
+        "failure_reason": reason,
+        "failure_stage": stage,
+        "residual_norm": float(residual_norm),
+        "iterations": int(iterations),
+        "structural_fail": stage == "setup",
+    }
+
+
 def solve_fixed_w_case(
     *,
     params: Dict[str, Any],
@@ -1557,32 +1568,37 @@ def solve_fixed_w_case(
     solve_tol: float,
     solve_max_cycles: int,
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
+    prep = None
+    solve_runtime = 0.0
+    residual_norm = float("nan")
+    iterations = 0
+    cycle_residuals: List[float] = []
+    cycle_times: List[float] = []
+    native_status = SolveStatus.CONTINUE
     try:
         params = augment_setup_params(params)
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
-            solve_runtime = 0.0
             residual_norm = float(env.r0)
-            iterations = 0
-            cycle_residuals: List[float] = []
-            cycle_times: List[float] = []
             for cycle in range(int(solve_max_cycles)):
                 residual_norm, dt = env.step_rl(
                     relax_weight=float(w),
                     sweeps_down=int(sweeps_down),
                     sweeps_up=int(sweeps_up),
+                    tol=float(solve_tol),
+                    max_cycles=int(solve_max_cycles),
                 )
                 solve_runtime += float(dt)
                 iterations = cycle + 1
                 cycle_residuals.append(float(residual_norm))
                 cycle_times.append(float(dt))
-                if float(residual_norm) <= float(solve_tol):
+                native_status = env.last_step.status
+                if native_status is not SolveStatus.CONTINUE:
                     break
-        failure_reason = classify_rl_failure(
-            residual_norm=float(residual_norm),
-            iterations=int(iterations),
-            solve_tol=float(solve_tol),
-            solve_max_cycles=int(solve_max_cycles),
+        failure_reason = (
+            "" if native_status is SolveStatus.CONVERGED
+            else "max_cycles_reached_without_convergence"
         )
         return {
             "runtime": float(prep.setup_runtime_sec + solve_runtime),
@@ -1591,6 +1607,8 @@ def solve_fixed_w_case(
             "infer_runtime": 0.0,
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
+            "attempt_status": "success" if not failure_reason else "nonconvergence",
+            "native_status": native_status.name.lower(),
             "residual_norm": float(residual_norm),
             "iterations": int(iterations),
             "final_w": float(w),
@@ -1601,22 +1619,23 @@ def solve_fixed_w_case(
             "cycle_times": cycle_times,
         }
     except Exception as exc:
-        return {
-            "runtime": float(FAIL_RUNTIME_SEC),
-            "setup_runtime": float(FAIL_RUNTIME_SEC),
-            "solve_runtime": 0.0,
-            "infer_runtime": 0.0,
-            "failed": True,
-            "failure_reason": f"exception:{type(exc).__name__}:{exc}",
-            "residual_norm": float("inf"),
-            "iterations": int(solve_max_cycles),
+        result = _actual_failure_result(
+            exc,
+            started_at=started_at,
+            setup_runtime=0.0 if prep is None else prep.setup_runtime_sec,
+            solve_runtime=solve_runtime,
+            iterations=iterations,
+            residual_norm=residual_norm,
+        )
+        result.update({
             "final_w": float(w),
             "final_sweeps_down": int(sweeps_down),
             "final_sweeps_up": int(sweeps_up),
             "cycle_actions": [],
             "cycle_residuals": [],
             "cycle_times": [],
-        }
+        })
+        return result
 
 
 def solve_schedule_case(
@@ -1627,14 +1646,18 @@ def solve_schedule_case(
     solve_tol: float,
     solve_max_cycles: int,
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
+    prep = None
+    solve_runtime = 0.0
+    residual_norm = float("nan")
+    iterations = 0
+    native_status = SolveStatus.CONTINUE
     try:
         params = augment_setup_params(params)
         schedule_sorted = sorted((int(end), float(w), int(sd), int(su)) for end, w, sd, su in schedule)
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
-            solve_runtime = 0.0
             residual_norm = float(env.r0)
-            iterations = 0
             last_w = float("nan")
             last_sd = -1
             last_su = -1
@@ -1649,19 +1672,20 @@ def solve_schedule_case(
                     relax_weight=float(w),
                     sweeps_down=int(sd),
                     sweeps_up=int(su),
+                    tol=float(solve_tol),
+                    max_cycles=int(solve_max_cycles),
                 )
                 solve_runtime += float(dt)
                 iterations = cycle + 1
                 last_w = float(w)
                 last_sd = int(sd)
                 last_su = int(su)
-                if float(residual_norm) <= float(solve_tol):
+                native_status = env.last_step.status
+                if native_status is not SolveStatus.CONTINUE:
                     break
-        failure_reason = classify_rl_failure(
-            residual_norm=float(residual_norm),
-            iterations=int(iterations),
-            solve_tol=float(solve_tol),
-            solve_max_cycles=int(solve_max_cycles),
+        failure_reason = (
+            "" if native_status is SolveStatus.CONVERGED
+            else "max_cycles_reached_without_convergence"
         )
         return {
             "runtime": float(prep.setup_runtime_sec + solve_runtime),
@@ -1669,6 +1693,8 @@ def solve_schedule_case(
             "solve_runtime": float(solve_runtime),
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
+            "attempt_status": "success" if not failure_reason else "nonconvergence",
+            "native_status": native_status.name.lower(),
             "residual_norm": float(residual_norm),
             "iterations": int(iterations),
             "final_w": float(last_w),
@@ -1676,18 +1702,20 @@ def solve_schedule_case(
             "final_sweeps_up": int(last_su),
         }
     except Exception as exc:
-        return {
-            "runtime": float(FAIL_RUNTIME_SEC),
-            "setup_runtime": float(FAIL_RUNTIME_SEC),
-            "solve_runtime": 0.0,
-            "failed": True,
-            "failure_reason": f"exception:{type(exc).__name__}:{exc}",
-            "residual_norm": float("inf"),
-            "iterations": int(solve_max_cycles),
+        result = _actual_failure_result(
+            exc,
+            started_at=started_at,
+            setup_runtime=0.0 if prep is None else prep.setup_runtime_sec,
+            solve_runtime=solve_runtime,
+            iterations=iterations,
+            residual_norm=residual_norm,
+        )
+        result.update({
             "final_w": float("nan"),
             "final_sweeps_down": -1,
             "final_sweeps_up": -1,
-        }
+        })
+        return result
 
 
 def solve_setup_aware_rl_case(
@@ -1705,6 +1733,9 @@ def solve_setup_aware_rl_case(
     # 2) prepare_rl(params=...) builds that setup in Hypre
     # 3) solve_policy.run(...) lets RL control solve-phase weights/sweeps on
     #    top of the fixed setup
+    started_at = time.perf_counter()
+    prep = None
+    rl_out: Dict[str, Any] = {}
     try:
         params = augment_params(params)
         with create_env(**mkw) as env:
@@ -1733,15 +1764,16 @@ def solve_setup_aware_rl_case(
             "cycle_times": list(rl_out.get("cycle_times", [])),
         }
     except Exception as exc:
-        return {
-            "runtime": float(FAIL_RUNTIME_SEC),
-            "setup_runtime": float(FAIL_RUNTIME_SEC),
-            "solve_runtime": 0.0,
-            "infer_runtime": 0.0,
-            "failed": True,
-            "failure_reason": f"exception:{type(exc).__name__}:{exc}",
-            "residual_norm": float("inf"),
-            "iterations": int(solve_max_cycles),
+        result = _actual_failure_result(
+            exc,
+            started_at=started_at,
+            setup_runtime=0.0 if prep is None else prep.setup_runtime_sec,
+            solve_runtime=float(rl_out.get("solve_runtime", 0.0)),
+            controller_runtime=float(rl_out.get("infer_runtime", 0.0)),
+            iterations=int(rl_out.get("iterations", 0)),
+            residual_norm=float(rl_out.get("residual_norm", float("nan"))),
+        )
+        result.update({
             "final_w": float("nan"),
             "final_sweeps_down": -1,
             "final_sweeps_up": -1,
@@ -1749,8 +1781,8 @@ def solve_setup_aware_rl_case(
             "cycle_actions": [],
             "cycle_residuals": [],
             "cycle_times": [],
-            "structural_fail": True,
-        }
+        })
+        return result
 
 
 def classify_no_rl_failure(*, residual_norm: float, iterations: int, solver_tol: float, solver_max_iter: int) -> str:
@@ -1772,6 +1804,7 @@ def solve_no_rl_case(
     solver_max_iter: int,
     augment_params: Callable[[Dict[str, Any]], Dict[str, Any]],
 ) -> Dict[str, Any]:
+    started_at = time.perf_counter()
     try:
         res = solve(
             params=augment_params(dict(params)),
@@ -1781,11 +1814,9 @@ def solve_no_rl_case(
         )
         residual_norm = float(res.residual_norm)
         iterations = int(res.iterations)
-        failure_reason = classify_no_rl_failure(
-            residual_norm=float(residual_norm),
-            iterations=int(iterations),
-            solver_tol=float(solver_tol),
-            solver_max_iter=int(solver_max_iter),
+        failure_reason = (
+            "" if res.status is SolveStatus.CONVERGED
+            else "max_iter_reached_without_convergence"
         )
         return {
             "runtime": float(res.runtime_sec),
@@ -1793,6 +1824,8 @@ def solve_no_rl_case(
             "solve_runtime": float(res.solve_runtime_sec),
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
+            "attempt_status": "success" if not failure_reason else "nonconvergence",
+            "native_status": res.status.name.lower(),
             "residual_norm": float(residual_norm),
             "iterations": int(iterations),
             "structural_fail": False,
@@ -1801,19 +1834,44 @@ def solve_no_rl_case(
             "final_sweeps_up": -1,
         }
     except Exception as exc:
-        return {
-            "runtime": float(FAIL_RUNTIME_SEC),
-            "setup_runtime": float(FAIL_RUNTIME_SEC),
-            "solve_runtime": 0.0,
-            "failed": True,
-            "failure_reason": f"exception:{type(exc).__name__}:{exc}",
-            "residual_norm": float("inf"),
-            "iterations": int(solver_max_iter),
-            "structural_fail": True,
+        result = _actual_failure_result(exc, started_at=started_at)
+        result.update({
             "final_w": float("nan"),
             "final_sweeps_down": -1,
             "final_sweeps_up": -1,
+        })
+        return result
+
+
+def solve_default_baseline_case(
+    *,
+    mkw: Dict[str, Any],
+    solver_tol: float,
+    solver_max_iter: int,
+    augment_params: Callable[[Dict[str, Any]], Dict[str, Any]] = augment_setup_params,
+) -> Dict[str, Any]:
+    """Run the default baseline once, without retrying the same attempt."""
+
+    recovery = run_with_default_fallback(
+        lambda: solve_no_rl_case(
+            params=dict(DEFAULT_SETUP_PARAMS),
+            mkw=dict(mkw),
+            solver_tol=float(solver_tol),
+            solver_max_iter=int(solver_max_iter),
+            augment_params=augment_params,
+        ),
+        None,
+        primary_is_default=True,
+    )
+    result = recovery.to_result()
+    result.update(
+        {
+            "recovery_protocol_applied": True,
+            "bandit_update_committed": False,
+            "controller_update_committed": False,
         }
+    )
+    return result
 
 
 def fixed_trace(
@@ -1860,8 +1918,6 @@ def fixed_trace(
         raise ValueError(f"Expected one branch, got {len(branches)}: {labels}")
     branch = branches[0]
     prev_update_est = 0.0
-    success_runtime_history = deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
-    failure_scale_min_runtime_sec = None
     trace: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
     for case_index, (mkw, context) in enumerate(instances):
         if str(solve_mode).strip().lower() == "no_rl":
@@ -1873,7 +1929,6 @@ def fixed_trace(
                     solver_max_iter=int(os.environ.get("SOLVER_MAX_ITER", "50")),
                     augment_params=augment_setup_params,
                 )
-            solver_tol = float(os.environ.get("SOLVER_TOL", "1e-6"))
         elif str(solve_mode).strip().lower() == "rl":
             if solve_policy is None:
                 raise ValueError("solve_policy is required when solve_mode='rl'")
@@ -1892,28 +1947,33 @@ def fixed_trace(
                     ),
                     solve_max_cycles=int(solve_policy.cfg.solve_max_cycles),
                 )
-            solver_tol = float(solve_policy.cfg.solve_tol)
         else:
             raise ValueError(f"Unsupported solve_mode: {solve_mode}")
 
-        if failure_scale_min_runtime_sec is None:
-            failure_scale_min_runtime_sec = compute_failure_scale_min_runtime_sec(
-                solver_fn=solver_fn,
-                params=DEFAULT_SETUP_PARAMS,
+        def fallback_solver_fn(_params: Dict[str, Any]) -> Dict[str, Any]:
+            return solve_no_rl_case(
+                params=dict(DEFAULT_SETUP_PARAMS),
                 mkw=dict(mkw),
-                override_value=float(bandit_cfg.failure_scale_min_runtime_sec_override),
+                solver_tol=float(
+                    os.environ.get("SOLVER_TOL", "1e-6")
+                    if solve_policy is None
+                    else solve_policy.cfg.solve_tol
+                ),
+                solver_max_iter=int(
+                    os.environ.get("SOLVER_MAX_ITER", "50")
+                    if solve_policy is None
+                    else solve_policy.cfg.solve_max_cycles
+                ),
+                augment_params=augment_setup_params,
             )
 
-        params, out, timing, failed_attempts, prev_update_est = run_bandit_step_test_final(
+        params, out, timing, fallback_used, prev_update_est = run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
             context=np.asarray(context, dtype=float),
             solver_fn=solver_fn,
+            fallback_solver_fn=fallback_solver_fn,
             prev_update_est=float(prev_update_est),
-            success_runtime_history=success_runtime_history,
-            b_min_runtime_sec=float(failure_scale_min_runtime_sec),
-            solver_tol=float(solver_tol),
-            cfg=bandit_cfg,
         )
         trace.append((dict(mkw), dict(params)))
         if trace_records is not None:
@@ -1923,7 +1983,7 @@ def fixed_trace(
                     "mkw": dict(mkw),
                     "context": np.asarray(context, dtype=float).tolist(),
                     "params": dict(params),
-                    "failed_attempts": int(failed_attempts),
+                    "fallback_used": int(fallback_used),
                     "bandit_timing": dict(timing),
                     "feedback_outcome": dict(out),
                 }
@@ -2019,10 +2079,6 @@ def alloc_branch_metrics(*, labels: Sequence[str], T: int) -> Dict[str, Any]:
         "final_sweeps_up": {label: np.full(T, -1, dtype=int) for label in labels},
         "traces": {label: init_param_trace(TRACE_KEYS_FINAL, T) for label in labels},
         "prev_update_est": {label: 0.0 for label in labels},
-        "success_runtime_history": {
-            label: deque(maxlen=max(1, int(default_test_final_bandit_config_from_env().failure_scale_window)))
-            for label in labels
-        },
     }
 
 
@@ -2046,7 +2102,6 @@ def run_interleaved_branch_scenario(
     phase_start_time = time.perf_counter()
     rng_order = np.random.default_rng(int(permutation_seed))
     failure_records: List[Dict[str, Any]] = []
-    failure_scale_min_runtime_sec: Dict[str, Optional[float]] = {label: None for label in labels}
 
     branch_by_label = {branch.label: branch for branch in branches}
     branch_meta = {
@@ -2104,24 +2159,30 @@ def run_interleaved_branch_scenario(
             else:
                 raise ValueError(f"Unsupported solve_mode: {solve_mode}")
 
-            if failure_scale_min_runtime_sec[label] is None:
-                failure_scale_min_runtime_sec[label] = compute_failure_scale_min_runtime_sec(
-                    solver_fn=solver_fn,
-                    params=DEFAULT_SETUP_PARAMS,
+            def fallback_solver_fn(_params: Dict[str, Any]) -> Dict[str, Any]:
+                return solve_no_rl_case(
+                    params=dict(DEFAULT_SETUP_PARAMS),
                     mkw=dict(mkw),
-                    override_value=float(bandit_cfg.failure_scale_min_runtime_sec_override),
+                    solver_tol=float(
+                        branch.solver_tol
+                        if solve_mode == "no_rl"
+                        else solve_policy.cfg.solve_tol
+                    ),
+                    solver_max_iter=int(
+                        branch.solver_max_iter
+                        if solve_mode == "no_rl"
+                        else solve_policy.cfg.solve_max_cycles
+                    ),
+                    augment_params=augment_params,
                 )
 
-            params, out, timing, _failed_attempts, last_update_sec = run_bandit_step_test_final(
+            params, out, timing, _fallback_used, last_update_sec = run_bandit_step_test_final(
                 policy=branch.policy,
                 parameter_space=branch.parameter_space,
                 context=np.asarray(context, dtype=float),
                 solver_fn=solver_fn,
+                fallback_solver_fn=fallback_solver_fn,
                 prev_update_est=float(metrics["prev_update_est"][label]),
-                success_runtime_history=metrics["success_runtime_history"][label],
-                b_min_runtime_sec=float(failure_scale_min_runtime_sec[label]),
-                solver_tol=float(branch.solver_tol if solve_mode == "no_rl" else solve_policy.cfg.solve_tol),
-                cfg=bandit_cfg,
             )
 
             metrics["runtime_sec"][label][local_t] = float(out["runtime"])

@@ -18,7 +18,7 @@ source "$SCRIPT_DIR/exp44_common.sh"
 
 cd "$REPO_ROOT"
 
-RUN_TAG="${RUN_TAG:-exp44_absolute_default_lstm_canonical_20260718}"
+RUN_TAG="${RUN_TAG:-exp44_absolute_lstm_train2000_instances_seed39396939}"
 EXP44_RUN_ROOT="${EXP44_RUN_ROOT:-$EXP44_RUNS_ROOT/$RUN_TAG}"
 TRAIN_DIR="${EXP44_TRAIN_DIR:-$EXP44_RUN_ROOT/training}"
 mkdir -p "$TRAIN_DIR" "$(dirname "$BANDIT_STATE")"

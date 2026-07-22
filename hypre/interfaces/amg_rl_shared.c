@@ -6,6 +6,7 @@
 #include "HYPRE.h"
 #include "HYPRE_parcsr_mv.h"
 #include "HYPRE_parcsr_ls.h"
+#include "HYPRE_utilities.h"
 
 #include "amg_rl_shared.h"
 
@@ -75,18 +76,21 @@ int amg_rl_prepare_solver(HYPRE_Solver solver,
                           double *out_setup_time,
                           double *out_r0)
 {
+    HYPRE_Int ierr;
     int relax_type = (relax_type_io && *relax_type_io >= 0) ? *relax_type_io : amg_rl_default_relax_type();
     int cycle_type = (cycle_type_io && *cycle_type_io >= 0) ? *cycle_type_io : amg_rl_default_cycle_type();
 
     amg_rl_configure_single_cycle_solver(solver, relax_type, cycle_type);
 
     double t0 = amg_rl_wall_time_sec();
-    HYPRE_BoomerAMGSetup(solver, A, b, x);
+    ierr = HYPRE_BoomerAMGSetup(solver, A, b, x);
     double t1 = amg_rl_wall_time_sec();
 
     if (out_setup_time) *out_setup_time = (double) (t1 - t0);
+    if (ierr != 0 || HYPRE_GetError() != 0) return -1;
 
     if (out_r0) *out_r0 = (double) amg_rl_compute_residual_norm(A, b, x, r);
+    if (HYPRE_GetError() != 0 || (out_r0 && !isfinite(*out_r0))) return -1;
 
     if (relax_type_io) *relax_type_io = relax_type;
     if (cycle_type_io) *cycle_type_io = cycle_type;
@@ -121,6 +125,7 @@ int amg_rl_step_solver(HYPRE_Solver solver,
                        double *out_runtime,
                        int *out_status)
 {
+    HYPRE_Int ierr;
     if (!solver || !A || !b || !x || !r) return -1;
 
     if (sweeps_down < 1) sweeps_down = 1;
@@ -179,10 +184,14 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     HYPRE_BoomerAMGSetCycleNumSweeps(solver, coarse_sweeps, 3);
 
     double t0 = amg_rl_wall_time_sec();
-    HYPRE_BoomerAMGSolve(solver, A, b, x);
+    ierr = HYPRE_BoomerAMGSolve(solver, A, b, x);
     double t1 = amg_rl_wall_time_sec();
 
+    if (out_runtime) *out_runtime = (double) (t1 - t0);
+    if (ierr != 0 || HYPRE_GetError() != 0) return -1;
+
     double residual = (double) amg_rl_compute_residual_norm(A, b, x, r);
+    if (HYPRE_GetError() != 0 || !isfinite(residual)) return -1;
     int cycles_done = cycles_done_io ? (*cycles_done_io + 1) : 0;
     int status = 0;
     if (tol > 0.0 && residual <= tol) status = 1;
@@ -190,7 +199,6 @@ int amg_rl_step_solver(HYPRE_Solver solver,
 
     if (cycles_done_io) *cycles_done_io = cycles_done;
     if (out_residual) *out_residual = residual;
-    if (out_runtime) *out_runtime = (double) (t1 - t0);
     if (out_status) *out_status = status;
     return 0;
 }

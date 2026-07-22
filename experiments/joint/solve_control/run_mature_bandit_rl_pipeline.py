@@ -27,7 +27,6 @@ from setup_aware_compare_common import (
     augment_setup_params,
     build_test10_branches,
     classify_rl_failure,
-    compute_failure_scale_min_runtime_sec,
     default_branch_label,
     default_test_final_bandit_config_from_env,
     generate_difconv_instances,
@@ -283,8 +282,6 @@ def _warmup_bandit():
         difconv_a=(float(difconv_a[0]), float(difconv_a[1]), float(difconv_a[2])),
     )
     prev_update_est = 0.0
-    success_runtime_history = deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
-    failure_scale_min_runtime_sec = None
     for i, (mkw, context) in enumerate(instances, 1):
         def solver_fn(selected_params: Dict[str, Any]) -> Dict[str, Any]:
             return solve_no_rl_case(
@@ -295,23 +292,13 @@ def _warmup_bandit():
                 augment_params=augment_setup_params,
             )
 
-        if failure_scale_min_runtime_sec is None:
-            failure_scale_min_runtime_sec = compute_failure_scale_min_runtime_sec(
-                solver_fn=solver_fn,
-                params=DEFAULT_SETUP_PARAMS,
-                mkw=dict(mkw),
-                override_value=float(bandit_cfg.failure_scale_min_runtime_sec_override),
-            )
-        _params, _out, _timing, _failed_attempts, prev_update_est = run_bandit_step_test_final(
+        _params, _out, _timing, _fallback_used, prev_update_est = run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
             context=np.asarray(context, dtype=float),
             solver_fn=solver_fn,
+            fallback_solver_fn=solver_fn,
             prev_update_est=float(prev_update_est),
-            success_runtime_history=success_runtime_history,
-            b_min_runtime_sec=float(failure_scale_min_runtime_sec),
-            solver_tol=_env_float("SOLVER_TOL", 1e-6),
-            cfg=bandit_cfg,
         )
         if i % max(1, _env_int("PROGRESS_EVERY", 100)) == 0 or i == warmup_cases:
             print(json.dumps({"stage": "warmup_progress", "done": i, "total": warmup_cases}), flush=True)
@@ -448,7 +435,6 @@ def _make_env(trace, *, seed: int):
         sweeps_max=_env_int("SWEEPS_MAX", 1),
         reward_mode=_env_int("REWARD_MODE", 4),
         term_bonus=_env_float("TERM_BONUS", 0.0),
-        trunc_penalty=_env_float("TRUNC_PENALTY", 0.0),
         reference_runtimes=reference_runtimes,
         relative_bonus_scale=_env_float("RELATIVE_BONUS_SCALE", 1.0),
         reference_margin_sec=_env_float("REFERENCE_MARGIN_SEC", 0.0),

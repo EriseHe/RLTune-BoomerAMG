@@ -8,7 +8,7 @@ try:
     from . import _project_paths  # noqa: F401
 except ImportError:
     import _project_paths  # type: ignore[no-redef]  # noqa: F401
-from amg_gym_env import BoomerAMGRelaxEnv, DEFAULT_AMG_ENV_LIBRARY
+from amg_gym_env import BoomerAMGRelaxEnv, DEFAULT_AMG_RUNTIME_LIBRARY
 
 
 def make_env():
@@ -18,7 +18,7 @@ def make_env():
     """
     def _thunk():
         return BoomerAMGRelaxEnv(
-            lib_path=str(DEFAULT_AMG_ENV_LIBRARY),
+            lib_path=str(DEFAULT_AMG_RUNTIME_LIBRARY),
             fixed_grid=(60, 60, 60),
             fixed_stencil=27,
             fixed_rhs_type=1,

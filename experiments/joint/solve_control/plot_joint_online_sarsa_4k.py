@@ -14,9 +14,11 @@ import numpy as np
 from plot_shared_action_rl_study import plot_action_trajectory_grid
 from online_td_experiment_common import _write_json
 from run_online_methods_2k import _method_comparison
+from run_joint_online_sarsa_4k import _window_result, _write_summary_csv
 
 
 FAMILY_ORDER = (
+    "default_setup",
     "default",
     "fixed_w1.6",
     "ppo",
@@ -25,17 +27,24 @@ FAMILY_ORDER = (
     "stagewise_lsvi_lcb",
     "recursive_mc_lcb",
     "recursive_lstdq_lcb",
+    "recursive_lstdq_v2_lcb",
+    "structured_model_based",
+    "recalibrated_lsvi_lcb",
     "batched_lsvi_lcb",
 )
 FAMILY_LABELS = {
+    "default_setup": "Default setup + default solve",
     "default": "Online LinUCB + default solve",
     "fixed_w1.6": "Online LinUCB + fixed w=1.6",
-    "ppo": "Online LinUCB + frozen Exp44 PPO",
+    "ppo": "Online LinUCB + 2000-instance absolute PPO",
     "sarsa_uniform": "Online LinUCB + SARSA, uniform epsilon",
     "sarsa_uncertainty_lcb": "Online LinUCB + SARSA, uncertainty LCB",
     "stagewise_lsvi_lcb": "Online LinUCB + Stagewise LSVI-LCB",
     "recursive_mc_lcb": "Online LinUCB + Recursive MC-LCB",
     "recursive_lstdq_lcb": "Online LinUCB + Recursive LSTDQ-LCB",
+    "recursive_lstdq_v2_lcb": "Online LinUCB + Recursive LSTDQ v2-LCB",
+    "structured_model_based": "Online LinUCB + Structured model-based",
+    "recalibrated_lsvi_lcb": "Online LinUCB + Recalibrated LSVI-LCB",
     "batched_lsvi_lcb": "Online LinUCB + Batched LSVI-LCB",
 }
 
@@ -98,7 +107,7 @@ def _selected_weights(
     family: str,
     statistic: str,
 ) -> np.ndarray:
-    if family == "default":
+    if family in {"default_setup", "default"}:
         return np.ones(len(rows), dtype=float)
     if family == "fixed_w1.6":
         return np.full(len(rows), 1.6, dtype=float)
@@ -135,6 +144,28 @@ def _plot_five_family_weight_trajectory(
         "solve_mean": "mean selected w across solve cycles",
     }[statistic]
     families = _active_families(family_by_method)
+    plotted_values = [
+        _selected_weights(
+            records[method],
+            family=family_by_method[method],
+            statistic=statistic,
+        )
+        for method in family_by_method
+    ]
+    finite_values = np.concatenate(
+        [values[np.isfinite(values)] for values in plotted_values if values.size]
+    )
+    value_min = min(1.0, float(np.min(finite_values)))
+    value_max = max(2.0, float(np.max(finite_values)))
+    value_margin = max(0.05, 0.03 * (value_max - value_min))
+    y_lower = value_min - value_margin
+    y_upper = value_max + value_margin
+    tick_step = 0.25 if value_max > 2.2 else 0.2
+    y_ticks = np.arange(
+        np.ceil(value_min / tick_step) * tick_step,
+        value_max + 0.5 * tick_step,
+        tick_step,
+    )
     figure, axes_grid = plt.subplots(
         len(families),
         1,
@@ -145,6 +176,7 @@ def _plot_five_family_weight_trajectory(
         constrained_layout=True,
     )
     axes = axes_grid[:, 0]
+    midpoint = len(next(iter(records.values()))) // 2
     palette = plt.get_cmap("tab10")
     for axis, family in zip(axes, families):
         family_methods = [
@@ -179,11 +211,11 @@ def _plot_five_family_weight_trajectory(
             )
         axis.axhline(1.0, color="0.55", linewidth=0.75, linestyle=":")
         axis.axhline(1.6, color="0.45", linewidth=0.75, linestyle="--")
-        axis.axvline(1000, color="0.35", linewidth=0.8, linestyle="--")
+        axis.axvline(midpoint, color="0.35", linewidth=0.8, linestyle="--")
         axis.set_title(FAMILY_LABELS[family], loc="left", fontweight="bold")
         axis.set_ylabel("Selected w")
-        axis.set_ylim(0.95, 2.05)
-        axis.set_yticks(np.arange(1.0, 2.01, 0.2))
+        axis.set_ylim(y_lower, y_upper)
+        axis.set_yticks(y_ticks)
         axis.grid(alpha=0.22, linewidth=0.7)
         axis.legend(
             loc="upper right",
@@ -282,7 +314,12 @@ def _plot_ppo_weight_detail(
         linewidth=1.8,
         label=f"Trailing mean up to {window} instances",
     )
-    axes[1].axvline(1000, color="0.35", linewidth=0.8, linestyle="--")
+    axes[1].axvline(
+        solve_means.size // 2,
+        color="0.35",
+        linewidth=0.8,
+        linestyle="--",
+    )
     axes[1].set_title(
         "Across instances the policy is frozen, so there is no learning trend",
         loc="left",
@@ -294,6 +331,152 @@ def _plot_ppo_weight_detail(
     axes[1].legend(frameon=False)
     figure.savefig(path, dpi=190, bbox_inches="tight")
     plt.close(figure)
+
+
+def _plot_cycle_action_trajectory_lines(
+    *,
+    path: Path,
+    rows: Sequence[Dict[str, Any]],
+    method_label: str,
+    start_instance: int,
+    stop_instance: int,
+    sampled_trajectories: int = 40,
+    minimum_cycle_support: int = 50,
+) -> None:
+    start_index = max(0, int(start_instance) - 1)
+    stop_index = min(len(rows), int(stop_instance))
+    selected_rows = list(rows[start_index:stop_index])
+    if not selected_rows:
+        raise ValueError("Cycle-action trajectory window is empty")
+    trajectories = [
+        np.asarray(row["outcome"]["cycle_actions"], dtype=float)
+        for row in selected_rows
+    ]
+    max_cycles = max(len(actions) for actions in trajectories)
+    by_cycle = [
+        np.asarray(
+            [actions[cycle] for actions in trajectories if len(actions) > cycle],
+            dtype=float,
+        )
+        for cycle in range(max_cycles)
+    ]
+    retained_cycles = sum(
+        values.size >= int(minimum_cycle_support) for values in by_cycle
+    )
+    cycle_axis = np.arange(retained_cycles)
+    cycle_mean = np.asarray(
+        [np.mean(values) for values in by_cycle[:retained_cycles]], dtype=float
+    )
+    cycle_median = np.asarray(
+        [np.median(values) for values in by_cycle[:retained_cycles]], dtype=float
+    )
+    finite_actions = np.concatenate(
+        [actions[np.isfinite(actions)] for actions in trajectories if actions.size]
+    )
+    action_min = min(1.0, float(np.min(finite_actions)))
+    action_max = max(2.0, float(np.max(finite_actions)))
+    action_margin = max(0.05, 0.03 * (action_max - action_min))
+    y_lower = action_min - action_margin
+    y_upper = action_max + action_margin
+    tick_step = 0.25 if action_max > 2.2 else 0.2
+    y_ticks = np.arange(
+        np.ceil(action_min / tick_step) * tick_step,
+        action_max + 0.5 * tick_step,
+        tick_step,
+    )
+
+    sample_count = min(int(sampled_trajectories), len(trajectories))
+    sample_indices = np.linspace(
+        0,
+        len(trajectories) - 1,
+        num=sample_count,
+        dtype=int,
+    )
+
+    figure, axis = plt.subplots(figsize=(13.2, 6.8), constrained_layout=True)
+    for sample_number, sample_index in enumerate(sample_indices):
+        actions = trajectories[int(sample_index)]
+        axis.plot(
+            np.arange(min(actions.size, retained_cycles)),
+            actions[:retained_cycles],
+            color="#4C78A8",
+            linewidth=0.75,
+            alpha=0.13,
+            label="Sampled instance trajectories" if sample_number == 0 else None,
+        )
+    axis.plot(
+        cycle_axis,
+        cycle_mean,
+        color="#D18F00",
+        linewidth=2.8,
+        marker="o",
+        markersize=5.0,
+        label="Mean across all available instances",
+        zorder=4,
+    )
+    axis.plot(
+        cycle_axis,
+        cycle_median,
+        color="#222222",
+        linewidth=1.35,
+        linestyle="--",
+        marker="s",
+        markersize=3.3,
+        label="Median",
+        zorder=3,
+    )
+    axis.axhline(
+        1.6,
+        color="#6F6F6F",
+        linewidth=1.1,
+        linestyle=":",
+        label="Fixed w=1.6 reference",
+    )
+    axis.annotate(
+        f"Cycle 0 mean: {cycle_mean[0]:.2f}",
+        xy=(0, cycle_mean[0]),
+        xytext=(1.1, y_upper - 0.04 * (y_upper - y_lower)),
+        arrowprops={"arrowstyle": "->", "color": "#7A5600", "linewidth": 1.0},
+        color="#7A5600",
+        fontsize=10,
+    )
+    axis.set_title(
+        f"{method_label}: per-cycle action trajectories\n"
+        f"Online instances {start_index + 1:,}-{stop_index:,}; "
+        f"{sample_count} sampled solves shown as thin lines",
+        loc="left",
+        fontweight="bold",
+    )
+    axis.set_xlabel("AMG cycle")
+    axis.set_ylabel("Selected relaxation weight w")
+    axis.set_xlim(-0.35, retained_cycles - 0.65)
+    axis.set_ylim(y_lower, y_upper)
+    axis.set_xticks(np.arange(0, retained_cycles, 2))
+    axis.set_yticks(y_ticks)
+    axis.grid(axis="y", color="#D9D9D9", linewidth=0.7, alpha=0.75)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.legend(loc="lower right", frameon=False, ncol=2)
+    figure.savefig(path, dpi=210, bbox_inches="tight")
+    plt.close(figure)
+
+
+def _best_complete_native_solve_window(
+    rows: Sequence[Dict[str, Any]],
+    *,
+    window: int = 500,
+) -> tuple[int, int]:
+    if not rows:
+        raise ValueError("Cannot select a trajectory window from no records")
+    block_size = min(int(window), len(rows))
+    candidates = []
+    for start in range(0, len(rows) - block_size + 1, block_size):
+        stop = start + block_size
+        mean_solve = float(
+            np.mean(_metric(rows[start:stop], "native_solve_runtime"))
+        )
+        candidates.append((mean_solve, start + 1, stop))
+    _mean_solve, start_instance, stop_instance = min(candidates)
+    return int(start_instance), int(stop_instance)
 
 
 def _plot_cumulative_components(
@@ -315,6 +498,7 @@ def _plot_cumulative_components(
         constrained_layout=True,
     )
     palette = plt.get_cmap("tab10")
+    midpoint = len(next(iter(records.values()))) // 2
     for method_index, (method, rows) in enumerate(records.items()):
         family = family_by_method[method]
         x_axis = np.arange(1, len(rows) + 1)
@@ -328,7 +512,7 @@ def _plot_cumulative_components(
             )
             axis.set_ylabel(ylabel)
             axis.grid(alpha=0.22, linewidth=0.7)
-            axis.axvline(1000, color="0.35", linewidth=0.8, linestyle="--")
+            axis.axvline(midpoint, color="0.35", linewidth=0.8, linestyle="--")
     axes[0].legend(ncol=2, frameon=False)
     axes[-1].set_xlabel(
         "Persistent online comparison instance "
@@ -403,17 +587,20 @@ def _plot_all_runtime_breakdown(
     *,
     path: Path,
     result: Dict[str, Any],
+    window_key: str | None = None,
+    figure_title: str | None = None,
 ) -> None:
     methods = tuple(result["protocol"]["methods"])
     labels = [
         FAMILY_LABELS[result["protocol"]["families"][method]]
         for method in methods
     ]
-    all_window_key = next(
-        key for key in result["windows"] if str(key).startswith("all_")
-    )
-    window = result["windows"][all_window_key]["methods"]
-    case_count = int(str(all_window_key).split("_", maxsplit=1)[1])
+    if window_key is None:
+        window_key = next(
+            key for key in result["windows"] if str(key).startswith("all_")
+        )
+    window = result["windows"][window_key]["methods"]
+    case_count = int(window[next(iter(methods))]["cases"])
     components = (
         ("setup_runtime", "Setup", "#66c2a5"),
         ("native_solve_runtime", "Native solve", "#8da0cb"),
@@ -469,9 +656,85 @@ def _plot_all_runtime_breakdown(
                 bbox_to_anchor=(1.01, 1.0),
             )
     figure.suptitle(
-        f"All {case_count:,} online comparison instances",
+        figure_title or f"All {case_count:,} online comparison instances",
         fontweight="bold",
     )
+    figure.savefig(path, dpi=190, bbox_inches="tight")
+    plt.close(figure)
+
+
+def _plot_recovery_outcomes(
+    *,
+    path: Path,
+    result: Dict[str, Any],
+) -> None:
+    methods = tuple(result["protocol"]["methods"])
+    labels = [
+        FAMILY_LABELS[result["protocol"]["families"][method]]
+        for method in methods
+    ]
+    all_window_key = next(
+        key for key in result["windows"] if str(key).startswith("all_")
+    )
+    summaries = result["windows"][all_window_key]["methods"]
+    processed = np.asarray(
+        [float(summaries[method]["cases"]) for method in methods],
+        dtype=float,
+    )
+    recovered = np.asarray(
+        [float(summaries[method]["recovered_failure_count"]) for method in methods],
+        dtype=float,
+    )
+    unrecovered = np.asarray(
+        [
+            float(summaries[method]["unrecovered_failure_count"])
+            for method in methods
+        ],
+        dtype=float,
+    )
+    primary_success = processed - recovered - unrecovered
+    scale = np.divide(
+        100.0,
+        processed,
+        out=np.zeros_like(processed),
+        where=processed > 0.0,
+    )
+    components = (
+        (primary_success * scale, "Primary success", "#66c2a5"),
+        (recovered * scale, "Recovered by default fallback", "#ffd92f"),
+        (unrecovered * scale, "Unrecovered", "#d95f02"),
+    )
+    figure, axis = plt.subplots(figsize=(13, 6), constrained_layout=True)
+    bottoms = np.zeros(len(methods), dtype=float)
+    for values, label, color in components:
+        axis.bar(
+            np.arange(len(methods)),
+            values,
+            bottom=bottoms,
+            color=color,
+            label=label,
+        )
+        bottoms += values
+    for index, (fallback_count, failure_count) in enumerate(
+        zip(recovered, unrecovered)
+    ):
+        axis.text(
+            index,
+            101.0,
+            f"fallback {int(fallback_count):,}\nunrecovered {int(failure_count):,}",
+            ha="center",
+            va="bottom",
+            fontsize=8.5,
+        )
+    axis.set_ylim(0.0, 113.0)
+    axis.set_ylabel("Share of external instances (%)")
+    axis.set_xticks(np.arange(len(methods)), labels, rotation=24, ha="right")
+    axis.set_title(
+        "Primary attempt and default-fallback outcomes",
+        fontweight="bold",
+    )
+    axis.grid(axis="y", alpha=0.22, linewidth=0.7)
+    axis.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1.0))
     figure.savefig(path, dpi=190, bbox_inches="tight")
     plt.close(figure)
 
@@ -557,6 +820,7 @@ def _plot_five_family_trajectory(
         constrained_layout=True,
     )
     axes = axes_grid[:, 0]
+    midpoint = len(next(iter(records.values()))) // 2
     palette = plt.get_cmap("tab10")
     all_rolling: list[np.ndarray] = []
     for family_index, (axis, family) in enumerate(zip(axes, families)):
@@ -579,7 +843,7 @@ def _plot_five_family_trajectory(
                 color=palette(method_index % 10),
                 label=label,
             )
-        axis.axvline(1000, color="0.35", linewidth=0.8, linestyle="--")
+        axis.axvline(midpoint, color="0.35", linewidth=0.8, linestyle="--")
         axis.set_title(FAMILY_LABELS[family], loc="left", fontweight="bold")
         axis.set_ylabel(ylabel)
         axis.grid(alpha=0.22, linewidth=0.7)
@@ -603,12 +867,13 @@ def _write_markdown_table(
         "Setup ms",
         "Native solve ms",
         "Native total ms",
-        "Solve vs default",
+        "Solve improvement vs reference",
         "Controller ms",
         "Bandit overhead ms",
         "End-to-end ms",
-        "Failures",
-        "Retries",
+        "Primary failures",
+        "Recovered",
+        "Unrecovered",
     )
     lines = [
         "| " + " | ".join(headers) + " |",
@@ -627,8 +892,9 @@ def _write_markdown_table(
                     row["controller_ms"],
                     row["bandit_overhead_ms"],
                     row["end_to_end_ms"],
-                    row["failures"],
-                    row["retries"],
+                    row["primary_failures"],
+                    row["recovered_failures"],
+                    row["unrecovered_failures"],
                 ]
             )
             + " |"
@@ -640,6 +906,7 @@ def generate_plots(
     *,
     result_dir: Path,
     rolling_window: int = 100,
+    analysis_stop: int | None = None,
 ) -> Dict[str, Any]:
     result = json.loads((result_dir / "result.json").read_text(encoding="utf-8"))
     protocol = result["protocol"]
@@ -651,10 +918,65 @@ def generate_plots(
     records = _load_records(result_dir, methods)
     lengths = {method: len(rows) for method, rows in records.items()}
     online_window = protocol["stream_partition"]["online"]
-    expected_cases = int(online_window[1]) - int(online_window[0])
-    if set(lengths.values()) != {expected_cases}:
+    source_cases = int(online_window[1]) - int(online_window[0])
+    if set(lengths.values()) != {source_cases}:
         raise ValueError(
-            f"Every method must contain {expected_cases} records, got {lengths}"
+            f"Every method must contain {source_cases} records, got {lengths}"
+        )
+    if analysis_stop is None:
+        expected_cases = source_cases
+        artifact_dir = result_dir
+    else:
+        expected_cases = int(analysis_stop)
+        if not 1 <= expected_cases <= source_cases:
+            raise ValueError(
+                f"analysis_stop must be in [1, {source_cases}], got "
+                f"{expected_cases}"
+            )
+        if expected_cases < int(rolling_window):
+            raise ValueError("analysis_stop must be at least rolling_window")
+        records = {
+            method: rows[:expected_cases] for method, rows in records.items()
+        }
+        windows = {f"all_{expected_cases}": (0, expected_cases)}
+        if expected_cases >= 1_000:
+            windows.update(
+                {
+                    "first_1000": (0, 1_000),
+                    "last_1000": (expected_cases - 1_000, expected_cases),
+                    "last_500": (expected_cases - 500, expected_cases),
+                }
+            )
+        result = dict(result)
+        result["windows"] = {
+            name: _window_result(
+                {
+                    method: rows[start:stop]
+                    for method, rows in records.items()
+                },
+                seed=int(9_331_001 + window_index * 100_003),
+            )
+            for window_index, (name, (start, stop)) in enumerate(windows.items())
+        }
+        artifact_dir = result_dir / f"analysis_first_{expected_cases}"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        analysis_scope = {
+            "source_result": str(result_dir / "result.json"),
+            "source_stream_sha256": protocol["stream"]["sha256"],
+            "included_online_indices": [0, expected_cases],
+            "excluded_online_indices": [expected_cases, source_cases],
+        }
+        _write_json(
+            artifact_dir / "analysis_scope.json",
+            analysis_scope,
+        )
+        _write_json(
+            artifact_dir / "analysis_result.json",
+            {
+                "analysis_scope": analysis_scope,
+                "protocol": protocol,
+                "windows": result["windows"],
+            },
         )
 
     fixed_rows = records["bandit_fixed_w1.6"]
@@ -691,10 +1013,10 @@ def generate_plots(
                     else None
                 ),
             }
-    same_setup_path = result_dir / "same_setup_audit.json"
+    same_setup_path = artifact_dir / "same_setup_audit.json"
     _write_json(same_setup_path, same_setup_audit)
 
-    figures_dir = result_dir / "figures"
+    figures_dir = artifact_dir / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
     solve_path = figures_dir / "five_family_native_solve_trajectory.png"
     setup_path = figures_dir / "five_family_setup_trajectory.png"
@@ -702,8 +1024,13 @@ def generate_plots(
     mean_weight_path = figures_dir / "five_family_mean_weight_trajectory.png"
     ppo_weight_detail_path = figures_dir / "ppo_weight_selection_detail.png"
     action_trajectory_path = figures_dir / "learned_per_cycle_action_trajectories.png"
+    lstdq_trajectory_lines_path = (
+        figures_dir / "recursive_lstdq_lcb_best_window_cycle_trajectory_lines.png"
+    )
     cumulative_path = figures_dir / "five_family_cumulative_components.png"
-    all_runtime_path = figures_dir / "all_2000_runtime_breakdown.png"
+    all_runtime_path = figures_dir / f"all_{expected_cases}_runtime_breakdown.png"
+    last_1000_runtime_path = figures_dir / "last_1000_runtime_breakdown.png"
+    recovery_path = figures_dir / "primary_and_fallback_outcomes.png"
     first_last_components_path = figures_dir / "first_vs_last_1000_components.png"
     first_last_ci_path = figures_dir / "first_vs_last_1000_improvement_ci.png"
     _plot_five_family_trajectory(
@@ -749,7 +1076,7 @@ def generate_plots(
     learned_action_methods = [
         method
         for method, family in family_by_method.items()
-        if family not in {"default", "fixed_w1.6", "ppo"}
+        if family not in {"default_setup", "default", "fixed_w1.6", "ppo"}
     ]
     if learned_action_methods:
         max_cycles = max(
@@ -779,7 +1106,7 @@ def generate_plots(
                 method: FAMILY_LABELS[family_by_method[method]]
                 for method in learned_action_methods
             },
-            column_labels={0: "Persistent 2K online comparison"},
+            column_labels={0: f"Persistent {expected_cases:,}-instance online comparison"},
             x_label="Online comparison instance",
             title=(
                 "Per-instance, per-cycle learned action trajectories "
@@ -788,12 +1115,31 @@ def generate_plots(
             panel_width=10.5,
             panel_height=3.2,
         )
+    if "bandit_recursive_lstdq_lcb" in records:
+        best_start, best_stop = _best_complete_native_solve_window(
+            records["bandit_recursive_lstdq_lcb"],
+        )
+        _plot_cycle_action_trajectory_lines(
+            path=lstdq_trajectory_lines_path,
+            rows=records["bandit_recursive_lstdq_lcb"],
+            method_label=FAMILY_LABELS["recursive_lstdq_lcb"],
+            start_instance=best_start,
+            stop_instance=best_stop,
+        )
     _plot_cumulative_components(
         path=cumulative_path,
         records=records,
         family_by_method=family_by_method,
     )
     _plot_all_runtime_breakdown(path=all_runtime_path, result=result)
+    if "last_1000" in result["windows"]:
+        _plot_all_runtime_breakdown(
+            path=last_1000_runtime_path,
+            result=result,
+            window_key="last_1000",
+            figure_title="Last 1,000 online comparison instances (3,001-4,000)",
+        )
+    _plot_recovery_outcomes(path=recovery_path, result=result)
     has_split_windows = {"first_1000", "last_1000"}.issubset(result["windows"])
     if has_split_windows:
         _plot_first_last_components(
@@ -805,11 +1151,18 @@ def generate_plots(
             result=result,
         )
 
-    summary_rows = list(
-        csv.DictReader((result_dir / "summary_2000.csv").open(encoding="utf-8"))
+    summary_csv_path = artifact_dir / f"summary_{expected_cases}.csv"
+    _write_summary_csv(summary_csv_path, records, family_by_method)
+    summary_rows = list(csv.DictReader(summary_csv_path.open(encoding="utf-8")))
+    reference_method = (
+        "bandit_default"
+        if any(row["method"] == "bandit_default" for row in summary_rows)
+        else "bandit_fixed_w1.6"
     )
-    default_row = next(row for row in summary_rows if row["method"] == "bandit_default")
-    default_solve = float(default_row["mean_native_solve_runtime_sec"])
+    reference_row = next(
+        row for row in summary_rows if row["method"] == reference_method
+    )
+    reference_solve = float(reference_row["mean_native_solve_runtime_sec"])
     table_rows = []
     for row in summary_rows:
         method = row["method"]
@@ -828,15 +1181,18 @@ def generate_plots(
                 "setup_ms": f"{1_000.0 * float(row['mean_setup_runtime_sec']):.3f}",
                 "solve_ms": f"{1_000.0 * solve:.3f}",
                 "native_total_ms": f"{1_000.0 * float(row['mean_native_total_runtime_sec']):.3f}",
-                "solve_vs_default": f"{100.0 * (default_solve - solve) / default_solve:+.2f}%",
+                "solve_vs_default": (
+                    f"{100.0 * (reference_solve - solve) / reference_solve:+.2f}%"
+                ),
                 "controller_ms": f"{1_000.0 * float(row['mean_controller_runtime_sec']):.3f}",
                 "bandit_overhead_ms": f"{1_000.0 * float(row['mean_setup_bandit_overhead_sec']):.3f}",
                 "end_to_end_ms": f"{1_000.0 * float(row['mean_end_to_end_runtime_sec']):.3f}",
-                "failures": str(int(row["failures"])),
-                "retries": str(int(row["setup_retries"])),
+                "primary_failures": str(int(row["primary_failures"])),
+                "recovered_failures": str(int(row["recovered_failures"])),
+                "unrecovered_failures": str(int(row["unrecovered_failures"])),
             }
         )
-    table_path = result_dir / "summary_2000.md"
+    table_path = artifact_dir / f"summary_{expected_cases}.md"
     _write_markdown_table(table_path, table_rows)
     output = {
         "native_solve_trajectory": str(solve_path),
@@ -844,9 +1200,10 @@ def generate_plots(
         "first_cycle_weight_trajectory": str(first_weight_path),
         "mean_weight_trajectory": str(mean_weight_path),
         "cumulative_components": str(cumulative_path),
-        "all_2000_runtime_breakdown": str(all_runtime_path),
+        f"all_{expected_cases}_runtime_breakdown": str(all_runtime_path),
+        "primary_and_fallback_outcomes": str(recovery_path),
         "summary_markdown": str(table_path),
-        "summary_csv": str(result_dir / "summary_2000.csv"),
+        "summary_csv": str(summary_csv_path),
         "same_setup_audit": str(same_setup_path),
         "rolling_window": int(rolling_window),
     }
@@ -856,23 +1213,38 @@ def generate_plots(
         output["learned_per_cycle_action_trajectories"] = str(
             action_trajectory_path
         )
+    if "bandit_recursive_lstdq_lcb" in records:
+        output["recursive_lstdq_lcb_best_window_cycle_trajectory_lines"] = str(
+            lstdq_trajectory_lines_path
+        )
     if has_split_windows:
+        output["last_1000_runtime_breakdown"] = str(last_1000_runtime_path)
         output["first_vs_last_components"] = str(first_last_components_path)
         output["first_vs_last_improvement_ci"] = str(first_last_ci_path)
-    _write_json(result_dir / "plot_summary.json", output)
+    if analysis_stop is not None:
+        output["analysis_scope"] = str(artifact_dir / "analysis_scope.json")
+        output["analysis_result"] = str(artifact_dir / "analysis_result.json")
+    _write_json(artifact_dir / "plot_summary.json", output)
     return output
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Plot the locked 2K+2K persistent online SARSA study."
+        description="Plot a locked persistent online solve-controller study."
     )
     parser.add_argument("--result-dir", type=Path, required=True)
     parser.add_argument("--rolling-window", type=int, default=100)
+    parser.add_argument(
+        "--analysis-stop",
+        type=int,
+        default=None,
+        help="Analyze only records [0, analysis_stop) without changing raw results.",
+    )
     args = parser.parse_args()
     output = generate_plots(
         result_dir=args.result_dir,
         rolling_window=args.rolling_window,
+        analysis_stop=args.analysis_stop,
     )
     print(json.dumps(output, indent=2))
 

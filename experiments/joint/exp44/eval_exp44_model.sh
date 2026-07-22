@@ -6,9 +6,8 @@ set -euo pipefail
 # Required:
 # - MODEL_PATH: absolute or repo-relative path to the model zip
 #
-# Typical use:
-# - compare an old preserved model vs a newly trained model
-# - optionally include default so the result is a complete 4-method table
+# The default protocol evaluates the active 2000-instance Exp44 model with a
+# complete default/bandit/fixed/PPO table on three held-out seeds.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/exp44_common.sh"
@@ -16,7 +15,7 @@ source "$SCRIPT_DIR/exp44_common.sh"
 cd "$REPO_ROOT"
 
 MODEL_PATH="${MODEL_PATH:?MODEL_PATH must point to a model .zip}"
-RUN_ID="${RUN_ID:-exp44_model_eval_20260515T1}"
+RUN_ID="${RUN_ID:-exp44_absolute_lstm_train2000_instances_eval}"
 EXP44_RUN_ROOT="${EXP44_RUN_ROOT:-$EXP44_RUNS_ROOT/$RUN_ID}"
 EXP44_EVAL_DIR="${EXP44_EVAL_DIR:-$EXP44_RUN_ROOT/evaluation}"
 

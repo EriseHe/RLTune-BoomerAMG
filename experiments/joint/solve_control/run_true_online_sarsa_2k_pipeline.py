@@ -77,8 +77,6 @@ def _final_args(
         epsilon_start=0.30,
         epsilon_final=0.03,
         epsilon_decay_steps=20_000.0,
-        potential_scale_sec=0.001,
-        failure_penalty_sec=0.1,
         initial_q_sec=0.0,
         force_default_first_action=True,
         progress_every=int(args.progress_every),

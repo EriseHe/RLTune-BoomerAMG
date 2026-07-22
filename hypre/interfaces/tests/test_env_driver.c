@@ -1,23 +1,35 @@
 #include <stdio.h>
-
-/* forward declarations */
-typedef struct AMGEnv AMGEnv;
-AMGEnv* amg_env_create(int nx,int ny,int nz,int stencil_type,int rhs_type,double tol,int max_cycles);
-int amg_env_step(AMGEnv *env,double relax_weight,double *res_norm_out,double *dt_out,int *status_out);
-double amg_env_get_r0(AMGEnv *env);
-double amg_env_get_r(AMGEnv *env);
-void amg_env_destroy(AMGEnv *env);
+#include "amg_runtime.h"
 
 int main() {
-    AMGEnv *env = amg_env_create(20,20,20, 7, 0, 1e-8, 20);
-    printf("r0 = %.6e\n", amg_env_get_r0(env));
+    double setup_time = 0.0, r0 = 0.0;
+    AMGRuntime *env = amg_runtime_create(
+        20, 20, 20, 7, 0, 42ULL,
+        1.0, 0.0, 1.0, 1.0, 1.0, 0.0);
+    if (!env) return 1;
+    if (amg_runtime_prepare(
+            env,
+            -1.0, -1, -1, -1.0, -1, -1, -1, -1,
+            -1.0, -1, -1, -1, -1.0, -1, -1.0, -1, -1,
+            &setup_time, &r0) != AMG_RUNTIME_OK) {
+        amg_runtime_destroy(env);
+        return 2;
+    }
+    printf("r0 = %.6e setup=%.6f\n", r0, setup_time);
 
     for (int i=0;i<10;i++){
         double r, dt; int status;
-        amg_env_step(env, 1.0, &r, &dt, &status);
+        int rc = amg_runtime_step(
+            env, 1.0, 1, 1, -1, -1, -1, -1, -1, -1, -1,
+            -1.0, -1.0, -1.0, -1, -1.0, -1,
+            1e-8, 20, &r, &dt, &status);
+        if (rc != AMG_RUNTIME_OK) {
+            amg_runtime_destroy(env);
+            return 3;
+        }
         printf("step %d: r=%.6e  dt=%.6f  status=%d\n", i+1, r, dt, status);
         if (status!=0) break;
     }
-    amg_env_destroy(env);
+    amg_runtime_destroy(env);
     return 0;
 }

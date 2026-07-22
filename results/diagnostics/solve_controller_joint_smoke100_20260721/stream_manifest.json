@@ -1,0 +1,21 @@
+{
+  "mode": "grouped_shuffled_segments",
+  "segments": [
+    {
+      "segment": 0,
+      "seeds": [
+        42900039,
+        42906039
+      ],
+      "cases_per_seed": 50,
+      "window": [
+        0,
+        50
+      ],
+      "candidate_cases": 100,
+      "shuffle_seed": 42948039,
+      "selected_cases": 100
+    }
+  ],
+  "sha256": "a568345aac64d34bd45226df746b3f689de66341b259fd6bfa4d88064ed67be5"
+}

@@ -13,7 +13,7 @@ from hypre.bindings import create_env  # noqa: E402
 
 
 class PreparedEnvironmentDefaultWeightTest(unittest.TestCase):
-    def test_weight_read_ignores_an_unrelated_sticky_hypre_error(self) -> None:
+    def test_prepare_clears_an_unrelated_sticky_hypre_error(self) -> None:
         hypre = ctypes.CDLL(
             str(REPO_ROOT / "hypre" / "install" / "lib" / "libHYPRE.dylib")
         )
@@ -30,7 +30,7 @@ class PreparedEnvironmentDefaultWeightTest(unittest.TestCase):
         try:
             prepared = env.prepare_rl({"relax_wt": 1.3})
             self.assertAlmostEqual(prepared.initial_relax_weight, 1.3)
-            self.assertNotEqual(hypre.HYPRE_GetError(), 0)
+            self.assertEqual(hypre.HYPRE_GetError(), 0)
         finally:
             env.close()
             hypre.HYPRE_ClearAllErrors()

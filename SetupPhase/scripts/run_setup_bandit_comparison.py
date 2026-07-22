@@ -27,7 +27,6 @@ Outputs
 
 from __future__ import annotations
 
-from collections import deque
 import csv
 import os
 import sys
@@ -49,9 +48,10 @@ for path in (REPO_ROOT, SETUP_ROOT):
 from learners import SharedLinUCB_AMG_v2
 from learners import SharedLinUCB_AMG_v3
 from learners import SharedLinUCB_AMG_v4
+from learners.linucb import run_same_context_setup_reselection
 from learners.common import ParameterSpaceSpec, ParameterSpec
 from learners.common import resolve_tune7_candidate_strategy
-from hypre.bindings import solve
+from hypre.bindings import SolveStatus, solve
 from utils.plotting_amg import create_run_output_dir, save_runtime_artifacts
 from problems.scalar_anisotropic_diffusion import (
     SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM,
@@ -91,32 +91,11 @@ ELITE_CACHE_SIZE = int(os.environ.get("ELITE_CACHE_SIZE", "64"))
 
 SOLVER_TOL = float(os.environ.get("SOLVER_TOL", "1e-8"))
 SOLVER_MAX_ITER = int(os.environ.get("SOLVER_MAX_ITER", "10000"))
-RETRY_MAX_ATTEMPTS = int(os.environ.get("RETRY_MAX_ATTEMPTS", "1000"))
 LEGACY_SOLVER_TOL = float(os.environ.get("LEGACY_SOLVER_TOL", "1e-8"))
 LEGACY_SOLVER_MAX_ITER = int(os.environ.get("LEGACY_SOLVER_MAX_ITER", "10000"))
 FINAL_COMPARE_V2_TUNE3_SOLVER_PROFILES = os.environ.get(
     "FINAL_COMPARE_V2_TUNE3_SOLVER_PROFILES", ""
 ).strip().lower() in {"1", "true", "yes", "on"}
-FAILURE_PENALTY_MULTIPLIER = float(os.environ.get("FAILURE_PENALTY_MULTIPLIER", "2.0"))
-FAILURE_SCALE_WINDOW = int(os.environ.get("FAILURE_SCALE_WINDOW", "200"))
-FAILURE_SEVERITY_CAP = float(os.environ.get("FAILURE_SEVERITY_CAP", "6.0"))
-FAILURE_SCALE_MIN_RUNTIME_SEC = float(os.environ.get("FAILURE_SCALE_MIN_RUNTIME_SEC", "0.0"))
-STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER = float(
-    os.environ.get("STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER", "3.0")
-)
-
-if RETRY_MAX_ATTEMPTS <= 0:
-    raise ValueError("RETRY_MAX_ATTEMPTS must be positive")
-if FAILURE_SCALE_WINDOW <= 0:
-    raise ValueError("FAILURE_SCALE_WINDOW must be positive")
-if FAILURE_PENALTY_MULTIPLIER < 0.0:
-    raise ValueError("FAILURE_PENALTY_MULTIPLIER must be >= 0")
-if FAILURE_SEVERITY_CAP < 0.0:
-    raise ValueError("FAILURE_SEVERITY_CAP must be >= 0")
-if FAILURE_SCALE_MIN_RUNTIME_SEC < 0.0:
-    raise ValueError("FAILURE_SCALE_MIN_RUNTIME_SEC must be >= 0")
-if STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER < 0.0:
-    raise ValueError("STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER must be >= 0")
 
 plots_base_dir = REPO_ROOT / "results" / "setup"
 plots_base_dir.mkdir(parents=True, exist_ok=True)
@@ -185,74 +164,6 @@ FINAL_INCLUDE_DEFAULT = os.environ.get("FINAL_INCLUDE_DEFAULT", "1").strip().low
     "off",
 }
 FINAL_SHARED_BRANCH_SEED = os.environ.get("FINAL_SHARED_BRANCH_SEED", "").strip()
-
-
-def _rolling_success_scale_sec(
-    success_runtime_history: deque[float],
-    *,
-    b_min_runtime_sec: float,
-) -> float:
-    vals = np.asarray(list(success_runtime_history), dtype=float)
-    finite = vals[np.isfinite(vals) & (vals > 0.0)]
-    if finite.size:
-        return float(max(float(np.median(finite)), float(b_min_runtime_sec)))
-    return float(b_min_runtime_sec)
-
-
-def runtime_loss_sec(
-    *,
-    outcome: Dict[str, Any],
-    fail_runtime_sec: float,
-    solver_tol: float,
-    success_runtime_scale_sec: float,
-    failure_penalty_multiplier: float,
-    failure_severity_cap: float,
-    structural_failure_surcharge_multiplier: float,
-    **_,
-) -> float:
-    rt = float(outcome["runtime"])
-    if not np.isfinite(rt):
-        return float(fail_runtime_sec)
-    if bool(outcome.get("failed", False)) or rt >= 0.999 * float(fail_runtime_sec):
-        res_norm = float(outcome.get("residual_norm", float("inf")))
-        tol = max(float(solver_tol), 1e-300)
-        if np.isfinite(res_norm):
-            severity = max(0.0, float(np.log10(max(res_norm, tol) / tol)))
-        else:
-            severity = float(failure_severity_cap)
-        severity = min(float(severity), float(failure_severity_cap))
-        scale = max(float(success_runtime_scale_sec), 0.0)
-        structural_fail = bool(
-            bool(outcome.get("structural_fail", False))
-            or not np.isfinite(float(outcome.get("residual_norm", float("inf"))))
-            or not np.isfinite(float(outcome.get("runtime", float("inf"))))
-        )
-        surcharge = float(structural_failure_surcharge_multiplier) if structural_fail else 0.0
-        return float(rt + scale * (float(failure_penalty_multiplier) + severity + surcharge))
-    return rt
-
-
-def _compute_failure_scale_min_runtime_sec(
-    *,
-    mkw: Dict[str, Any],
-    solver_tol: float,
-    solver_max_iter: int,
-) -> float:
-    if FAILURE_SCALE_MIN_RUNTIME_SEC > 0.0:
-        return float(FAILURE_SCALE_MIN_RUNTIME_SEC)
-    try:
-        res = solve(
-            params=DEFAULT_PARAMS,
-            tol=float(solver_tol),
-            max_iter=int(solver_max_iter),
-            **mkw,
-        )
-        rt = float(res.runtime_sec)
-        if np.isfinite(rt) and rt > 0.0:
-            return float(rt)
-    except Exception:
-        pass
-    return 1e-3
 
 
 class FixedPolicy:
@@ -724,38 +635,36 @@ def _generate_instances(*, T: int, seed: int, sampler_kwargs: Dict[str, Any]):
     return instances
 
 
-def _safe_solve(
+def _solve_once(
     params: Dict[str, Any],
     mkw: Dict[str, Any],
     *,
-    fail_runtime_sec: float,
     solver_tol: float,
     solver_max_iter: int,
 ) -> Dict[str, Any]:
-    try:
-        res = solve(params=params, tol=float(solver_tol), max_iter=int(solver_max_iter), **mkw)
-        res_norm = float(res.residual_norm)
-        iters = int(res.iterations)
-        converged = bool(
-            np.isfinite(res_norm)
-            and res_norm <= float(solver_tol)
-            and iters < int(solver_max_iter)
-        )
-        return {
-            "runtime": float(res.runtime_sec),
-            "failed": (not converged),
-            "residual_norm": res_norm,
-            "iterations": iters,
-            "structural_fail": False,
-        }
-    except Exception:
-        return {
-            "runtime": float(fail_runtime_sec),
-            "failed": True,
-            "residual_norm": float("inf"),
-            "iterations": int(solver_max_iter),
-            "structural_fail": True,
-        }
+    res = solve(
+        params=params,
+        tol=float(solver_tol),
+        max_iter=int(solver_max_iter),
+        **mkw,
+    )
+    res_norm = float(res.residual_norm)
+    iters = int(res.iterations)
+    converged = bool(res.status is SolveStatus.CONVERGED)
+    return {
+        "runtime": float(res.runtime_sec),
+        "setup_runtime": float(res.setup_runtime_sec),
+        "solve_runtime": float(res.solve_runtime_sec),
+        "infer_runtime": 0.0,
+        "failed": not converged,
+        "failure_reason": "" if converged else "max_iter_reached_without_convergence",
+        "attempt_status": "success" if converged else "nonconvergence",
+        "native_status": res.status.name.lower(),
+        "failure_stage": "" if converged else "solve",
+        "residual_norm": res_norm,
+        "iterations": iters,
+        "structural_fail": False,
+    }
 
 
 def _run_one_step(
@@ -767,88 +676,35 @@ def _run_one_step(
     prev_update_est: float,
     solver_tol: float,
     solver_max_iter: int,
-    success_runtime_history: deque[float],
-    b_min_runtime_sec: float,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], float, float, int]:
-    fail_runtime_sec = 1e9
-    total_runtime = 0.0
-    total_overhead = 0.0
-    failed_attempts = 0
-    local_prev_update_est = float(prev_update_est)
-
-    last_params: Dict[str, Any] | None = None
-    last_out: Dict[str, Any] | None = None
-    last_upd_sec = 0.0
-
-    for _attempt in range(int(RETRY_MAX_ATTEMPTS)):
-        sel_start = time.perf_counter_ns()
-        selected = policy.select(context=context, parameter_space=parameter_space)
-        sel_sec = (time.perf_counter_ns() - sel_start) / 1e9
-        params = selected[0] if isinstance(selected, tuple) else selected
-
-        out = _safe_solve(
-            params,
-            mkw,
-            fail_runtime_sec=fail_runtime_sec,
+    result = run_same_context_setup_reselection(
+        policy=policy,
+        parameter_space=parameter_space,
+        context=np.asarray(context, dtype=float),
+        solver_fn=lambda params: _solve_once(
+            dict(params),
+            dict(mkw),
             solver_tol=float(solver_tol),
             solver_max_iter=int(solver_max_iter),
-        )
-        total_runtime += float(out["runtime"])
-
-        loss_start = time.perf_counter_ns()
-        success_runtime_scale_sec = _rolling_success_scale_sec(
-            success_runtime_history,
-            b_min_runtime_sec=float(b_min_runtime_sec),
-        )
-        base_loss_sec = float(
-            runtime_loss_sec(
-                outcome=out,
-                fail_runtime_sec=fail_runtime_sec,
-                solver_tol=float(solver_tol),
-                success_runtime_scale_sec=float(success_runtime_scale_sec),
-                failure_penalty_multiplier=float(FAILURE_PENALTY_MULTIPLIER),
-                failure_severity_cap=float(FAILURE_SEVERITY_CAP),
-                structural_failure_surcharge_multiplier=float(STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER),
-            )
-        )
-        loss_eval_sec = (time.perf_counter_ns() - loss_start) / 1e9
-        end_to_end_loss_sec = base_loss_sec + float(sel_sec) + float(loss_eval_sec) + float(local_prev_update_est)
-
-        upd_sec = 0.0
-        if hasattr(policy, "update"):
-            upd_start = time.perf_counter_ns()
-            policy.update(loss=end_to_end_loss_sec, context=context, params=params, outcome=out)
-            upd_sec = (time.perf_counter_ns() - upd_start) / 1e9
-
-        total_overhead += float(sel_sec + loss_eval_sec + upd_sec)
-        last_params = dict(params)
-        last_out = dict(out)
-        last_upd_sec = float(upd_sec)
-        local_prev_update_est = float(upd_sec)
-
-        if not bool(out.get("failed", False)):
-            rt_success = float(out["runtime"])
-            if np.isfinite(rt_success) and rt_success > 0.0:
-                success_runtime_history.append(float(rt_success))
-            final_out = dict(out)
-            final_out["runtime"] = float(total_runtime)
-            final_out["failed"] = False
-            return last_params, final_out, float(total_overhead), float(last_upd_sec), int(failed_attempts)
-
-        failed_attempts += 1
-
-    final_out = dict(
-        last_out
-        or {
-            "runtime": fail_runtime_sec,
-            "failed": True,
-            "residual_norm": float("inf"),
-            "iterations": int(solver_max_iter),
-        }
+        ),
+        fallback_solver_fn=lambda _params: _solve_once(
+            dict(DEFAULT_PARAMS),
+            dict(mkw),
+            solver_tol=float(solver_tol),
+            solver_max_iter=int(solver_max_iter),
+        ),
+        default_params=DEFAULT_PARAMS,
+        prev_update_est=float(prev_update_est),
+        primary_is_default=isinstance(policy, FixedPolicy),
+        max_learned_attempts=3,
     )
-    final_out["runtime"] = float(total_runtime if total_runtime > 0.0 else fail_runtime_sec)
-    final_out["failed"] = True
-    return dict(last_params or DEFAULT_PARAMS), final_out, float(total_overhead), float(last_upd_sec), int(failed_attempts)
+    return (
+        dict(result.params),
+        dict(result.outcome),
+        float(result.timing["overhead_sec"]),
+        float(result.update_runtime_sec),
+        int(result.fallback_used),
+    )
 
 
 def _save_per_instance_csv(
@@ -859,7 +715,8 @@ def _save_per_instance_csv(
     runtime_sec: Dict[str, np.ndarray],
     overhead_sec: Dict[str, np.ndarray],
     failed_flags: Dict[str, np.ndarray],
-    retry_counts: Dict[str, np.ndarray],
+    fallback_counts: Dict[str, np.ndarray],
+    outcomes: Dict[str, Sequence[Dict[str, Any]]],
     traces: Dict[str, Dict[str, np.ndarray]],
 ) -> None:
     fieldnames = [
@@ -881,8 +738,21 @@ def _save_per_instance_csv(
         "overhead_sec",
         "end_to_end_sec",
         "failed",
-        "retry_count",
+        "fallback_used",
         "attempt_count",
+        "primary_status",
+        "primary_failure_reason",
+        "primary_setup_runtime_sec",
+        "primary_solve_runtime_sec",
+        "primary_residual_norm",
+        "primary_cycles",
+        "fallback_status",
+        "fallback_setup_runtime_sec",
+        "fallback_solve_runtime_sec",
+        "recovered",
+        "unrecovered_failure",
+        "bandit_update_committed",
+        "controller_update_committed",
         "strong_threshold",
         "max_row_sum",
         "trunc_factor",
@@ -903,6 +773,7 @@ def _save_per_instance_csv(
         for t, (mkw, _context) in enumerate(instances):
             for label, trace in traces.items():
                 branch = branch_map[label]
+                outcome = outcomes[label][t]
                 writer.writerow(
                     {
                         "t": int(t + 1),
@@ -923,8 +794,44 @@ def _save_per_instance_csv(
                         "overhead_sec": float(overhead_sec[label][t]),
                         "end_to_end_sec": float(runtime_sec[label][t] + overhead_sec[label][t]),
                         "failed": int(bool(failed_flags[label][t])),
-                        "retry_count": int(retry_counts[label][t]),
-                        "attempt_count": int(retry_counts[label][t] + 1),
+                        "fallback_used": bool(fallback_counts[label][t]),
+                        "attempt_count": int(
+                            outcome.get("primary_attempt_count", 1)
+                            + fallback_counts[label][t]
+                        ),
+                        "primary_status": str(outcome.get("primary_status", "success")),
+                        "primary_failure_reason": str(
+                            outcome.get("primary_failure_reason", "")
+                        ),
+                        "primary_setup_runtime_sec": float(
+                            outcome.get("primary_setup_runtime", 0.0)
+                        ),
+                        "primary_solve_runtime_sec": float(
+                            outcome.get("primary_solve_runtime", 0.0)
+                        ),
+                        "primary_residual_norm": float(
+                            outcome.get("primary_residual_norm", float("nan"))
+                        ),
+                        "primary_cycles": int(outcome.get("primary_cycles", 0)),
+                        "fallback_status": str(
+                            outcome.get("fallback_status", "not_run")
+                        ),
+                        "fallback_setup_runtime_sec": float(
+                            outcome.get("fallback_setup_runtime", 0.0)
+                        ),
+                        "fallback_solve_runtime_sec": float(
+                            outcome.get("fallback_solve_runtime", 0.0)
+                        ),
+                        "recovered": bool(outcome.get("recovered", False)),
+                        "unrecovered_failure": bool(
+                            outcome.get("unrecovered_failure", False)
+                        ),
+                        "bandit_update_committed": bool(
+                            outcome.get("bandit_update_committed", False)
+                        ),
+                        "controller_update_committed": bool(
+                            outcome.get("controller_update_committed", False)
+                        ),
                         "strong_threshold": float(trace["strong_threshold"][t]),
                         "max_row_sum": float(trace["max_row_sum"][t]),
                         "trunc_factor": float(trace["trunc_factor"][t]),
@@ -1180,18 +1087,6 @@ def main() -> None:
     if not branches:
         raise RuntimeError("No branches selected for run_setup_bandit_comparison.py")
 
-    branch_failure_scale_min: Dict[str, float] = {}
-    profile_failure_scale_cache: Dict[Tuple[float, int], float] = {}
-    for branch in branches:
-        profile_key = (float(branch.solver_tol), int(branch.solver_max_iter))
-        if profile_key not in profile_failure_scale_cache:
-            profile_failure_scale_cache[profile_key] = _compute_failure_scale_min_runtime_sec(
-                mkw=warm_mkw,
-                solver_tol=float(branch.solver_tol),
-                solver_max_iter=int(branch.solver_max_iter),
-            )
-        branch_failure_scale_min[branch.label] = float(profile_failure_scale_cache[profile_key])
-
     run_dir = create_run_output_dir(
         base_dir=plots_base_dir,
         script_name=Path(__file__).stem,
@@ -1209,20 +1104,18 @@ def main() -> None:
     runtime_sec = {label: np.zeros(T, dtype=float) for label in branch_labels}
     overhead_sec = {label: np.zeros(T, dtype=float) for label in branch_labels}
     failed_flags = {label: np.zeros(T, dtype=bool) for label in branch_labels}
-    retry_counts = {label: np.zeros(T, dtype=int) for label in branch_labels}
+    fallback_counts = {label: np.zeros(T, dtype=int) for label in branch_labels}
+    outcomes: Dict[str, List[Dict[str, Any]]] = {
+        label: [] for label in branch_labels
+    }
     traces = {label: init_param_trace(TRACE_KEYS_FINAL, T) for label in branch_labels}
     prev_update_est = {label: 0.0 for label in branch_labels}
-    success_runtime_history = {
-        label: deque(maxlen=int(FAILURE_SCALE_WINDOW))
-        for label in branch_labels
-    }
-
     print(f"Single run: unified tuning non-RL comparison, T={T}")
     for t, (mkw, context) in enumerate(instances):
         order = rng_order.permutation(len(branches))
         for i in order:
             branch = branches[int(i)]
-            params, out, step_overhead, upd_sec, retry_count = _run_one_step(
+            params, out, step_overhead, upd_sec, fallback_used = _run_one_step(
                 policy=branch.policy,
                 parameter_space=branch.parameter_space,
                 context=context,
@@ -1230,17 +1123,72 @@ def main() -> None:
                 prev_update_est=float(prev_update_est[branch.label]),
                 solver_tol=float(branch.solver_tol),
                 solver_max_iter=int(branch.solver_max_iter),
-                success_runtime_history=success_runtime_history[branch.label],
-                b_min_runtime_sec=float(branch_failure_scale_min[branch.label]),
             )
             runtime_sec[branch.label][t] = float(out["runtime"])
             overhead_sec[branch.label][t] = float(step_overhead)
             failed_flags[branch.label][t] = bool(out.get("failed", False))
-            retry_counts[branch.label][t] = int(retry_count)
+            fallback_counts[branch.label][t] = int(fallback_used)
+            outcomes[branch.label].append(dict(out))
             record_param_trace(traces[branch.label], t=t, params=params, keys=TRACE_KEYS_FINAL)
             prev_update_est[branch.label] = float(upd_sec)
 
         progress_bar(t + 1, T, prefix="  final run")
+
+    recovery_audit: Dict[str, Dict[str, int]] = {}
+    for branch in branches:
+        branch_outcomes = outcomes[branch.label]
+        update_count = sum(
+            bool(outcome.get("bandit_update_committed", False))
+            for outcome in branch_outcomes
+        )
+        unrecovered_count = sum(
+            bool(outcome.get("unrecovered_failure", False))
+            for outcome in branch_outcomes
+        )
+        if (
+            not isinstance(branch.policy, FixedPolicy)
+            and update_count + unrecovered_count != T
+        ):
+            raise AssertionError(
+                f"{branch.label}: updates plus unrecovered failures must equal {T}"
+            )
+        recovery_audit[branch.label] = {
+            "processed_instances": int(T),
+            "primary_selections": int(
+                sum(
+                    int(outcome.get("primary_attempt_count", 1))
+                    for outcome in branch_outcomes
+                )
+            ),
+            "learned_reselections": int(
+                sum(
+                    int(outcome.get("learned_reselection_count", 0))
+                    for outcome in branch_outcomes
+                )
+            ),
+            "native_attempts": int(
+                sum(
+                    int(outcome.get("primary_attempt_count", 1))
+                    for outcome in branch_outcomes
+                )
+                + np.sum(fallback_counts[branch.label])
+            ),
+            "fallback_uses": int(np.sum(fallback_counts[branch.label])),
+            "recovered_failures": int(
+                sum(
+                    bool(outcome.get("recovered", False))
+                    for outcome in branch_outcomes
+                )
+            ),
+            "unrecovered_failures": int(unrecovered_count),
+            "bandit_updates": int(update_count),
+            "bandit_observations": int(
+                sum(
+                    int(outcome.get("bandit_observation_count", 0))
+                    for outcome in branch_outcomes
+                )
+            ),
+        }
 
     active_trace_keys = _select_trace_keys(traces, TRACE_KEYS_FINAL)
     late_window_summary = _late_window_diagnostics(
@@ -1284,11 +1232,7 @@ def main() -> None:
             "legacy_solver_tol": float(LEGACY_SOLVER_TOL),
             "legacy_solver_max_iter": int(LEGACY_SOLVER_MAX_ITER),
             "compare_v2_tune3_solver_profiles": bool(FINAL_COMPARE_V2_TUNE3_SOLVER_PROFILES),
-            "failure_penalty_multiplier": float(FAILURE_PENALTY_MULTIPLIER),
-            "failure_scale_window": int(FAILURE_SCALE_WINDOW),
-            "failure_severity_cap": float(FAILURE_SEVERITY_CAP),
-            "failure_scale_min_runtime_sec_override": float(FAILURE_SCALE_MIN_RUNTIME_SEC),
-            "structural_failure_surcharge_multiplier": float(STRUCTURAL_FAILURE_SURCHARGE_MULTIPLIER),
+            "failure_protocol": "single_default_fallback",
             "shared_instance_stream": True,
             "within_step_branch_permutation": True,
             "permutation_seed": int(permutation_seed),
@@ -1299,10 +1243,6 @@ def main() -> None:
                     "solver_tol": float(branch.solver_tol),
                     "solver_max_iter": int(branch.solver_max_iter),
                 }
-                for branch in branches
-            },
-            "branch_failure_scale_min_runtime_sec": {
-                branch.label: float(branch_failure_scale_min[branch.label])
                 for branch in branches
             },
             "tune_dimensions": [int(v) for v in FINAL_TUNE_DIMS],
@@ -1334,9 +1274,8 @@ def main() -> None:
             "tune7_candidate_elite_fraction": float(TUNE7_CANDIDATE_ELITE_FRACTION),
             "branch_filter": list(FINAL_BRANCH_FILTER),
             "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags.items()},
-            "retry_count_total": {k: int(np.sum(v.astype(int))) for k, v in retry_counts.items()},
-            "retry_event_count_total": {k: int(np.sum(v > 0)) for k, v in retry_counts.items()},
-            "mean_retry_count": {k: float(np.mean(v)) for k, v in retry_counts.items()},
+            "fallback_count_total": {k: int(np.sum(v.astype(int))) for k, v in fallback_counts.items()},
+            "recovery_audit": recovery_audit,
             "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec.items()},
             "late_window_summary": late_window_summary,
             **late_window_flat,
@@ -1351,7 +1290,8 @@ def main() -> None:
         runtime_sec=runtime_sec,
         overhead_sec=overhead_sec,
         failed_flags=failed_flags,
-        retry_counts=retry_counts,
+        fallback_counts=fallback_counts,
+        outcomes=outcomes,
         traces=traces,
     )
 

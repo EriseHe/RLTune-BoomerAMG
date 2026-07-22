@@ -2,8 +2,12 @@ from __future__ import annotations
 
 import _project_paths  # noqa: F401
 
+from pathlib import Path
+import tempfile
 import unittest
 from types import SimpleNamespace
+
+import numpy as np
 
 from run_joint_online_sarsa_4k import (
     BEHAVIOR_MODES,
@@ -11,14 +15,28 @@ from run_joint_online_sarsa_4k import (
     LSVI_METHOD,
     LSVI_METHODS,
     RECURSIVE_LCB_METHODS,
+    RECURSIVE_LCB_PPO_METHODS,
     RECURSIVE_LSTDQ_METHOD,
+    RECURSIVE_LSTDQ_METHODS,
+    RECURSIVE_LSTDQ_V2_METHOD,
     RECURSIVE_MC_METHOD,
     REFERENCE_METHODS,
+    RECALIBRATED_LSVI_METHOD,
+    SOLVE_CONTROLLER_SEED_OFFSETS,
+    SOLVE_CONTROLLER_SCREEN_METHODS,
+    STRUCTURED_MODEL_BASED_METHOD,
+    _comparison_windows,
+    _empty_stream_summary,
     _make_lsvi_controller,
+    _make_recursive_lstdq_controller,
+    _make_recursive_lstdq_v2_controller,
+    _make_recalibrated_lsvi_controller,
+    _make_structured_model_based_controller,
     _validate_lsvi_protocol,
+    _write_solve_screen_report,
     candidate_grid,
 )
-from run_online_bandit_td_lambda import _build_paired_instance_stream
+from joint_online_common import _build_paired_instance_stream
 
 
 class JointOnlineSarsa4KTests(unittest.TestCase):
@@ -34,17 +52,28 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
             epsilon_start=0.3,
             epsilon_final=0.03,
             epsilon_decay_steps=20_000.0,
-            potential_scale_sec=0.0,
-            failure_penalty_sec=0.1,
             lsvi_ridge=1.0,
             lsvi_beta=2.0,
             lsvi_residual_floor_sec=1.0e-3,
             lsvi_refit_interval_episodes=100,
             recursive_mc_ridge=1.0,
             recursive_mc_beta=2.0,
+            recursive_mc_episode_half_life=500.0,
             recursive_lstdq_ridge=1.0,
             recursive_lstdq_beta=2.0,
             recursive_lstdq_lambda=0.8,
+            recursive_lstdq_residual_floor_sec=1.0e-3,
+            recursive_lstdq_lcb_lower_bound_sec=0.0,
+            recursive_lstdq_v2_beta=2.0,
+            recursive_lstdq_v2_coverage_ridge=1.0,
+            recursive_lstdq_v2_residual_window=2048,
+            recursive_lstdq_v2_min_samples=32,
+            structured_model_ridge=1.0,
+            structured_model_min_samples=32,
+            structured_model_scale_window=2048,
+            recalibrated_lsvi_beta=2.0,
+            recalibrated_lsvi_refit_sweeps=3,
+            recalibrated_lsvi_shrinkage_samples=32.0,
         )
 
     def test_two_behaviors_cross_six_alpha_lambda_candidates(self) -> None:
@@ -99,6 +128,43 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
         )
         self.assertEqual(manifest["segments"][0]["window"], [0, 500])
 
+    def test_joint_from_scratch_windows_cover_the_full_4k_stream(self) -> None:
+        windows = _comparison_windows(4000)
+        self.assertEqual(windows["all_4000"], (0, 4000))
+        self.assertEqual(windows["first_2000"], (0, 2000))
+        self.assertEqual(windows["last_2000"], (2000, 4000))
+        self.assertEqual(windows["last_1000"], (3000, 4000))
+
+    def test_solve_controller_screen_uses_canonical_60_cubed_stream(self) -> None:
+        args = SimpleNamespace(
+            train_seed_groups=(
+                "40800039,40806039,40812039,40818039,"
+                "40824039,40830039,40836039,40842039"
+            ),
+            train_shuffle_seeds="40848039",
+            train_cases_per_seed=500,
+            train_group_take=4000,
+            train_cases=4000,
+            instance_offset=0,
+            grid_n=60,
+            c_min=1.0,
+            c_max=1000.0,
+            seed=40800039,
+        )
+        stream, manifest = _build_paired_instance_stream(args)
+        self.assertEqual(len(stream), 4000)
+        self.assertEqual(
+            manifest["sha256"],
+            "156e6fdbbed6733d98e2c5f7e550e5d230c45217d0833ac64567563b5434459b",
+        )
+
+    def test_empty_warmup_summary_is_finite_and_zero(self) -> None:
+        summary = _empty_stream_summary()
+        self.assertEqual(summary["cases"], 0)
+        self.assertEqual(summary["failed_count"], 0)
+        self.assertTrue(all(value == 0.0 for value in summary["means_sec"].values()))
+        self.assertTrue(all(value == 0.0 for value in summary["totals_sec"].values()))
+
     def test_lsvi_mode_has_only_three_requested_methods(self) -> None:
         self.assertEqual(
             LSVI_METHODS,
@@ -117,6 +183,119 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
             ),
         )
 
+    def test_recursive_lcb_ppo_has_exactly_five_requested_methods(self) -> None:
+        self.assertEqual(
+            RECURSIVE_LCB_PPO_METHODS,
+            (
+                "bandit_default",
+                "bandit_fixed_w1.6",
+                "bandit_ppo",
+                RECURSIVE_MC_METHOD,
+                RECURSIVE_LSTDQ_METHOD,
+            ),
+        )
+
+    def test_recursive_lstdq_mode_has_only_three_requested_methods(self) -> None:
+        self.assertEqual(
+            RECURSIVE_LSTDQ_METHODS,
+            (
+                "bandit_default",
+                "bandit_fixed_w1.6",
+                RECURSIVE_LSTDQ_METHOD,
+            ),
+        )
+
+    def test_solve_controller_screen_has_exactly_five_requested_methods(self) -> None:
+        self.assertEqual(
+            SOLVE_CONTROLLER_SCREEN_METHODS,
+            (
+                "bandit_fixed_w1.6",
+                RECURSIVE_LSTDQ_METHOD,
+                RECURSIVE_LSTDQ_V2_METHOD,
+                STRUCTURED_MODEL_BASED_METHOD,
+                RECALIBRATED_LSVI_METHOD,
+            ),
+        )
+        self.assertEqual(
+            SOLVE_CONTROLLER_SEED_OFFSETS,
+            {
+                RECURSIVE_LSTDQ_METHOD: 1009,
+                RECURSIVE_LSTDQ_V2_METHOD: 2018,
+                STRUCTURED_MODEL_BASED_METHOD: 3027,
+                RECALIBRATED_LSVI_METHOD: 4036,
+            },
+        )
+
+    def test_new_controller_factories_share_encoder_and_action_grid(self) -> None:
+        args = self._lsvi_args()
+        args.shared_action_profile = "1to3_step0p05"
+        args.weights = None
+        args.action_rbf_centers = None
+        _validate_lsvi_protocol(args)
+        factories = (
+            _make_recursive_lstdq_v2_controller,
+            _make_structured_model_based_controller,
+            _make_recalibrated_lsvi_controller,
+        )
+        for offset, factory in enumerate(factories):
+            controller, encoder = factory(args, seed=40866039 + offset)
+            self.assertEqual(controller.feature_dim, encoder.feature_dim)
+            self.assertEqual(controller.weights.size, 41)
+
+    def test_screen_report_contains_all_locked_runtime_components(self) -> None:
+        means = {
+            "setup_runtime": 0.1,
+            "native_solve_runtime": 0.2,
+            "native_total_runtime": 0.3,
+            "controller_runtime": 0.01,
+            "setup_bandit_overhead": 0.02,
+            "end_to_end_runtime": 0.33,
+        }
+        summary = {
+            "means_sec": means,
+            "mean_iterations": 12.0,
+            "primary_failure_count": 1,
+            "recovered_failure_count": 1,
+            "unrecovered_failure_count": 0,
+        }
+        comparison = {
+            "same_setup_rate": 1.0,
+            "end_to_end_runtime": {
+                "candidate_improvement_pct": 1.0,
+                "candidate_improvement_95pct": [0.5, 1.5],
+            },
+        }
+        window = {
+            "methods": {
+                "bandit_fixed_w1.6": summary,
+                RECURSIVE_LSTDQ_V2_METHOD: summary,
+            },
+            "comparisons": {
+                "vs_fixed_w1.6": {RECURSIVE_LSTDQ_V2_METHOD: comparison}
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.md"
+            _write_solve_screen_report(
+                path,
+                window_results={"all_4000": window},
+                window_actions={},
+            )
+            report = path.read_text(encoding="utf-8")
+        self.assertIn("native total", report)
+        self.assertIn("cycles", report)
+        self.assertIn("330.000", report)
+
+    def test_recursive_lstdq_factory_uses_locked_confidence_controls(self) -> None:
+        args = self._lsvi_args()
+        controller, encoder = _make_recursive_lstdq_controller(
+            args,
+            seed=39967048,
+        )
+        self.assertEqual(controller.feature_dim, encoder.feature_dim)
+        self.assertEqual(controller.spec.lcb_lower_bound_sec, 0.0)
+        self.assertEqual(controller.summary()["covariance_residual"], "postfit_unclipped")
+
     def test_locked_lsvi_controller_matches_selected_screen(self) -> None:
         args = self._lsvi_args()
         _validate_lsvi_protocol(args)
@@ -130,6 +309,22 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
             self.assertAlmostEqual(float(actual), expected)
         self.assertEqual(controller.action_basis.shape[0], 11)
         self.assertEqual(controller.spec.uncertainty_beta, 2.0)
+
+    def test_extended_shared_action_profile_has_41_related_actions(self) -> None:
+        args = self._lsvi_args()
+        args.shared_action_profile = "1to3_step0p05"
+        args.weights = None
+        args.action_rbf_centers = None
+        _validate_lsvi_protocol(args)
+        controller, _encoder = _make_lsvi_controller(args, seed=39966039)
+        self.assertEqual(controller.weights.size, 41)
+        self.assertEqual(controller.action_basis.shape, (41, 9))
+        self.assertAlmostEqual(float(controller.weights[0]), 1.0)
+        self.assertAlmostEqual(float(controller.weights[-1]), 3.0)
+        self.assertGreater(
+            float(np.dot(controller.action_basis[4], controller.action_basis[5])),
+            0.0,
+        )
 
 
 if __name__ == "__main__":

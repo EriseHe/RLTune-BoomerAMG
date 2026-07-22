@@ -6,6 +6,8 @@ import argparse
 import csv
 import json
 import platform
+import shlex
+import sys
 from collections import deque
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -14,7 +16,7 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from amg_setup_gym_env import (
+from setup_action_space import (
     DEFAULT_SETUP_PARAMS,
     SetupObsEncoder,
     build_setup_parameter_spec,
@@ -29,14 +31,14 @@ from SolvePhase.algorithms.sarsa import (
     SolveStateEncoder,
     run_td_episode,
 )
-from run_online_bandit_rl import _build_bandit
-from run_online_bandit_td_lambda import (
+from joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
     _git_revision,
     _method_stream_summary,
     _policy_last_arm,
     _report_online_outcome,
+    _validate_recovery_stream,
 )
 from run_online_methods_2k import (
     _as_feedback,
@@ -47,22 +49,32 @@ from setup_aware_compare_common import (
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,
     augment_setup_params,
+    build_online_linucb_branch,
     classify_rl_failure,
     clone_branch_for_independent_updates,
     default_test_final_bandit_config_from_env,
     run_bandit_step_test_final,
+    solve_default_baseline_case,
     solve_fixed_w_case,
     solve_no_rl_case,
     solve_setup_aware_rl_case,
     validate_expected_setup_action_count,
 )
+
+_build_bandit = build_online_linucb_branch
 from SolvePhase.algorithms.lcb import (
+    HierarchicalLsviLcbController,
+    HierarchicalLsviLcbSpec,
     RecursiveLstdqLcbController,
     RecursiveLstdqLcbSpec,
+    RecursiveLstdqV2LcbController,
+    RecursiveLstdqV2LcbSpec,
     RecursiveMonteCarloLcbController,
     RecursiveMonteCarloLcbSpec,
     StagewiseLsviLcbController,
     StagewiseLsviLcbSpec,
+    StructuredModelBasedController,
+    StructuredModelBasedSpec,
 )
 
 
@@ -71,6 +83,7 @@ REFERENCE_METHODS = (
     "bandit_fixed_w1.6",
     "bandit_ppo",
 )
+DEFAULT_SETUP_METHOD = "default_setup"
 LSVI_METHOD = "bandit_stagewise_lsvi_lcb"
 LSVI_METHODS = (
     "bandit_default",
@@ -79,6 +92,9 @@ LSVI_METHODS = (
 )
 RECURSIVE_MC_METHOD = "bandit_recursive_mc_lcb"
 RECURSIVE_LSTDQ_METHOD = "bandit_recursive_lstdq_lcb"
+RECURSIVE_LSTDQ_V2_METHOD = "bandit_recursive_lstdq_v2_lcb"
+STRUCTURED_MODEL_BASED_METHOD = "bandit_structured_model_based"
+RECALIBRATED_LSVI_METHOD = "bandit_recalibrated_lsvi_lcb"
 BATCHED_LSVI_METHOD = "bandit_batched_lsvi_lcb"
 RECURSIVE_LCB_METHODS = (
     "bandit_default",
@@ -87,6 +103,31 @@ RECURSIVE_LCB_METHODS = (
     RECURSIVE_LSTDQ_METHOD,
     BATCHED_LSVI_METHOD,
 )
+RECURSIVE_LCB_PPO_METHODS = (
+    "bandit_default",
+    "bandit_fixed_w1.6",
+    "bandit_ppo",
+    RECURSIVE_MC_METHOD,
+    RECURSIVE_LSTDQ_METHOD,
+)
+RECURSIVE_LSTDQ_METHODS = (
+    "bandit_default",
+    "bandit_fixed_w1.6",
+    RECURSIVE_LSTDQ_METHOD,
+)
+SOLVE_CONTROLLER_SCREEN_METHODS = (
+    "bandit_fixed_w1.6",
+    RECURSIVE_LSTDQ_METHOD,
+    RECURSIVE_LSTDQ_V2_METHOD,
+    STRUCTURED_MODEL_BASED_METHOD,
+    RECALIBRATED_LSVI_METHOD,
+)
+SOLVE_CONTROLLER_SEED_OFFSETS = {
+    RECURSIVE_LSTDQ_METHOD: 1009,
+    RECURSIVE_LSTDQ_V2_METHOD: 2018,
+    STRUCTURED_MODEL_BASED_METHOD: 3027,
+    RECALIBRATED_LSVI_METHOD: 4036,
+}
 BEHAVIOR_MODES = ("uniform", "uncertainty_lcb")
 
 
@@ -127,18 +168,45 @@ def _parse_values(raw: str, cast: Any) -> tuple[Any, ...]:
     return tuple(cast(part.strip()) for part in str(raw).split(",") if part.strip())
 
 
+SHARED_ACTION_PROFILES = {
+    "1to2_step0p1": {
+        "weights": tuple(float(value) for value in np.linspace(1.0, 2.0, 11)),
+        "centers": tuple(float(value) for value in np.linspace(1.0, 2.0, 5)),
+    },
+    "1to3_step0p05": {
+        "weights": tuple(float(value) for value in np.linspace(1.0, 3.0, 41)),
+        "centers": tuple(float(value) for value in np.linspace(1.0, 3.0, 9)),
+    },
+}
+
+
 def _validate_shared_lcb_protocol(args: argparse.Namespace) -> None:
-    expected_weights = tuple(float(value) for value in np.arange(1.0, 2.01, 0.1))
-    expected_centers = (1.0, 1.25, 1.5, 1.75, 2.0)
+    profile_name = str(
+        getattr(args, "shared_action_profile", "1to2_step0p1")
+    )
+    if profile_name not in SHARED_ACTION_PROFILES:
+        raise ValueError(f"Unknown shared-action profile: {profile_name}")
+    profile = SHARED_ACTION_PROFILES[profile_name]
+    expected_weights = profile["weights"]
+    expected_centers = profile["centers"]
+    if getattr(args, "weights", None) is None:
+        args.weights = ",".join(f"{value:g}" for value in expected_weights)
+    if getattr(args, "action_rbf_centers", None) is None:
+        args.action_rbf_centers = ",".join(
+            f"{value:g}" for value in expected_centers
+        )
     weights = _parse_values(args.weights, float)
     centers = _parse_values(args.action_rbf_centers, float)
     if not np.allclose(weights, expected_weights, atol=1.0e-12, rtol=0.0):
-        raise ValueError("The locked shared-action space must be 1.0, 1.1, ..., 2.0")
+        raise ValueError(
+            f"Weights do not match shared-action profile {profile_name}"
+        )
     if not np.allclose(centers, expected_centers, atol=1.0e-12, rtol=0.0):
-        raise ValueError("The locked shared-action RBF centers do not match")
+        raise ValueError(
+            f"RBF centers do not match shared-action profile {profile_name}"
+        )
     locked_scalars = {
         "action_rbf_sigma": (float(args.action_rbf_sigma), 0.2),
-        "potential_scale_sec": (float(args.potential_scale_sec), 0.0),
         "lsvi_ridge": (float(args.lsvi_ridge), 1.0),
         "lsvi_beta": (float(args.lsvi_beta), 2.0),
         "lsvi_residual_floor_sec": (
@@ -149,15 +217,28 @@ def _validate_shared_lcb_protocol(args: argparse.Namespace) -> None:
     for name, (actual, expected) in locked_scalars.items():
         if not np.isclose(actual, expected, atol=1.0e-12, rtol=0.0):
             raise ValueError(f"Locked shared-action {name} must equal {expected:g}")
-    if getattr(args, "study_mode", "lsvi_lcb") == "recursive_lcb_suite":
+    if getattr(args, "study_mode", "lsvi_lcb") in {
+        "recursive_lcb_suite",
+        "recursive_lcb_ppo",
+        "recursive_lstdq_lcb",
+        "solve_controller_screen",
+    }:
         recursive_scalars = {
             "recursive_mc_ridge": (float(args.recursive_mc_ridge), 1.0),
             "recursive_mc_beta": (float(args.recursive_mc_beta), 2.0),
+            "recursive_mc_episode_half_life": (
+                float(args.recursive_mc_episode_half_life),
+                500.0,
+            ),
             "recursive_lstdq_ridge": (float(args.recursive_lstdq_ridge), 1.0),
             "recursive_lstdq_beta": (float(args.recursive_lstdq_beta), 2.0),
             "recursive_lstdq_lambda": (
                 float(args.recursive_lstdq_lambda),
                 0.8,
+            ),
+            "recursive_lstdq_lcb_lower_bound_sec": (
+                float(args.recursive_lstdq_lcb_lower_bound_sec),
+                0.0,
             ),
         }
         for name, (actual, expected) in recursive_scalars.items():
@@ -165,6 +246,41 @@ def _validate_shared_lcb_protocol(args: argparse.Namespace) -> None:
                 raise ValueError(f"Locked shared-action {name} must equal {expected:g}")
         if int(args.lsvi_refit_interval_episodes) != 100:
             raise ValueError("Locked batched LSVI refit interval must equal 100")
+    if getattr(args, "study_mode", "") == "solve_controller_screen":
+        locked_screen_values = {
+            "recursive_lstdq_v2_coverage_ridge": (
+                float(args.recursive_lstdq_v2_coverage_ridge),
+                1.0,
+            ),
+            "recursive_lstdq_v2_residual_window": (
+                int(args.recursive_lstdq_v2_residual_window),
+                2048,
+            ),
+            "recursive_lstdq_v2_min_samples": (
+                int(args.recursive_lstdq_v2_min_samples),
+                32,
+            ),
+            "structured_model_ridge": (float(args.structured_model_ridge), 1.0),
+            "structured_model_min_samples": (
+                int(args.structured_model_min_samples),
+                32,
+            ),
+            "structured_model_scale_window": (
+                int(args.structured_model_scale_window),
+                2048,
+            ),
+            "recalibrated_lsvi_refit_sweeps": (
+                int(args.recalibrated_lsvi_refit_sweeps),
+                3,
+            ),
+            "recalibrated_lsvi_shrinkage_samples": (
+                float(args.recalibrated_lsvi_shrinkage_samples),
+                32.0,
+            ),
+        }
+        for name, (actual, expected) in locked_screen_values.items():
+            if actual != expected:
+                raise ValueError(f"Locked solve screen {name} must equal {expected:g}")
 
 
 def _validate_lsvi_protocol(args: argparse.Namespace) -> None:
@@ -191,6 +307,29 @@ def _make_encoder(args: argparse.Namespace) -> SolveStateEncoder:
     )
 
 
+def _make_frozen_ppo_runner(args: argparse.Namespace):
+    ppo_args = SimpleNamespace(
+        ppo_model=args.ppo_model,
+        output_dir=args.output_dir,
+        grid_n=int(args.grid_n),
+        c_min=float(args.c_min),
+        c_max=float(args.c_max),
+        max_cycles=int(args.max_cycles),
+        tol=float(args.tol),
+        ppo_action_mode=str(args.ppo_action_mode),
+        ppo_w_center=float(args.ppo_w_center),
+        ppo_w_scale=float(args.ppo_w_scale),
+        ppo_initial_observation_weight=float(
+            args.ppo_initial_observation_weight
+        ),
+        ppo_force_default_first_action=bool(
+            args.ppo_force_default_first_action
+        ),
+        ppo_default_first_weight=float(args.ppo_default_first_weight),
+    )
+    return make_exp44_ppo_runner(ppo_args)
+
+
 def _make_controller(
     args: argparse.Namespace,
     candidate: SarsaCandidate,
@@ -209,8 +348,6 @@ def _make_controller(
         epsilon_start=float(args.epsilon_start),
         epsilon_final=float(args.epsilon_final),
         epsilon_decay_steps=float(args.epsilon_decay_steps),
-        potential_scale_sec=float(args.potential_scale_sec),
-        failure_penalty_sec=float(args.failure_penalty_sec),
         initial_q_sec=0.0,
         monte_carlo_alpha=0.0,
         adaptive_cycles=None,
@@ -252,8 +389,6 @@ def _make_shared_action_config(
         epsilon_start=float(args.epsilon_start),
         epsilon_final=float(args.epsilon_final),
         epsilon_decay_steps=float(args.epsilon_decay_steps),
-        potential_scale_sec=float(args.potential_scale_sec),
-        failure_penalty_sec=float(args.failure_penalty_sec),
         initial_q_sec=0.0,
         monte_carlo_alpha=0.0,
         adaptive_cycles=None,
@@ -285,7 +420,7 @@ def _make_lsvi_controller(
             ridge=float(args.lsvi_ridge),
             uncertainty_beta=float(args.lsvi_beta),
             residual_floor_sec=float(args.lsvi_residual_floor_sec),
-            q_max_sec=float(args.failure_penalty_sec),
+            q_max_sec=float(getattr(args, "q_max_sec", 0.1)),
             refit_interval_episodes=int(refit_interval_episodes),
         ),
         seed=int(seed),
@@ -306,7 +441,8 @@ def _make_recursive_mc_controller(
             ridge=float(args.recursive_mc_ridge),
             uncertainty_beta=float(args.recursive_mc_beta),
             residual_floor_sec=float(args.recursive_mc_residual_floor_sec),
-            q_max_sec=float(args.failure_penalty_sec),
+            q_max_sec=float(getattr(args, "q_max_sec", 0.1)),
+            episode_half_life=float(args.recursive_mc_episode_half_life),
         ),
         seed=int(seed),
     )
@@ -319,6 +455,7 @@ def _make_recursive_lstdq_controller(
     seed: int,
 ) -> tuple[RecursiveLstdqLcbController, SolveStateEncoder]:
     encoder = _make_encoder(args)
+    lcb_lower_bound = getattr(args, "recursive_lstdq_lcb_lower_bound_sec", 0.0)
     controller = RecursiveLstdqLcbController(
         feature_dim=encoder.feature_dim,
         config=_make_shared_action_config(
@@ -329,7 +466,87 @@ def _make_recursive_lstdq_controller(
             ridge=float(args.recursive_lstdq_ridge),
             uncertainty_beta=float(args.recursive_lstdq_beta),
             residual_floor_sec=float(args.recursive_lstdq_residual_floor_sec),
-            q_max_sec=float(args.failure_penalty_sec),
+            q_max_sec=float(getattr(args, "q_max_sec", 0.1)),
+            lcb_lower_bound_sec=(
+                None if lcb_lower_bound is None else float(lcb_lower_bound)
+            ),
+        ),
+        seed=int(seed),
+    )
+    return controller, encoder
+
+
+def _make_recursive_lstdq_v2_controller(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+) -> tuple[RecursiveLstdqV2LcbController, SolveStateEncoder]:
+    encoder = _make_encoder(args)
+    lcb_lower_bound = getattr(args, "recursive_lstdq_lcb_lower_bound_sec", 0.0)
+    controller = RecursiveLstdqV2LcbController(
+        feature_dim=encoder.feature_dim,
+        config=_make_shared_action_config(
+            args,
+            trace_lambda=float(args.recursive_lstdq_lambda),
+        ),
+        spec=RecursiveLstdqV2LcbSpec(
+            ridge=float(args.recursive_lstdq_ridge),
+            uncertainty_beta=float(args.recursive_lstdq_v2_beta),
+            residual_floor_sec=float(args.recursive_lstdq_residual_floor_sec),
+            lcb_lower_bound_sec=(
+                None if lcb_lower_bound is None else float(lcb_lower_bound)
+            ),
+            coverage_ridge=float(args.recursive_lstdq_v2_coverage_ridge),
+            residual_scale_window=int(
+                args.recursive_lstdq_v2_residual_window
+            ),
+            residual_scale_min_samples=int(
+                args.recursive_lstdq_v2_min_samples
+            ),
+        ),
+        seed=int(seed),
+    )
+    return controller, encoder
+
+
+def _make_structured_model_based_controller(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+) -> tuple[StructuredModelBasedController, SolveStateEncoder]:
+    encoder = _make_encoder(args)
+    controller = StructuredModelBasedController(
+        feature_dim=encoder.feature_dim,
+        config=_make_shared_action_config(args, trace_lambda=0.0),
+        spec=StructuredModelBasedSpec(
+            ridge=float(args.structured_model_ridge),
+            minimum_samples=int(args.structured_model_min_samples),
+            scale_window=int(args.structured_model_scale_window),
+        ),
+        seed=int(seed),
+    )
+    return controller, encoder
+
+
+def _make_recalibrated_lsvi_controller(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+) -> tuple[HierarchicalLsviLcbController, SolveStateEncoder]:
+    encoder = _make_encoder(args)
+    controller = HierarchicalLsviLcbController(
+        feature_dim=encoder.feature_dim,
+        config=_make_shared_action_config(args, trace_lambda=0.8),
+        spec=HierarchicalLsviLcbSpec(
+            horizon=int(args.max_cycles),
+            ridge=float(args.lsvi_ridge),
+            uncertainty_beta=float(args.recalibrated_lsvi_beta),
+            residual_floor_sec=float(args.lsvi_residual_floor_sec),
+            refit_interval_episodes=int(args.lsvi_refit_interval_episodes),
+            refit_sweeps=int(args.recalibrated_lsvi_refit_sweeps),
+            residual_shrinkage_samples=float(
+                args.recalibrated_lsvi_shrinkage_samples
+            ),
         ),
         seed=int(seed),
     )
@@ -352,6 +569,151 @@ def _controller_summary(controller: Any) -> Dict[str, Any]:
 def _write_json_line(handle: Any, row: Dict[str, Any]) -> None:
     handle.write(json.dumps(_json_ready(row), separators=(",", ":")))
     handle.write("\n")
+
+
+def _write_solve_screen_reproduction(
+    args: argparse.Namespace,
+    *,
+    stream_hash: str,
+) -> None:
+    """Write an auditable command and short protocol README beside results."""
+
+    output_default = args.output_dir.with_name(f"{args.output_dir.name}_reproduction")
+    command = [
+        sys.executable,
+        "-u",
+        "experiments/joint/solve_control/run_joint_online_sarsa_4k.py",
+        "--output-dir",
+        '"$OUTPUT_DIR"',
+        "--study-mode",
+        "solve_controller_screen",
+        "--seed",
+        str(args.seed),
+        "--bandit-seed",
+        str(args.bandit_seed),
+        "--controller-seed",
+        str(args.controller_seed),
+        "--method-order-seed",
+        str(args.method_order_seed),
+        "--train-cases",
+        str(args.train_cases),
+        "--warmup-cases",
+        str(args.warmup_cases),
+        "--online-cases",
+        str(args.online_cases),
+        "--train-seed-groups",
+        str(args.train_seed_groups),
+        "--train-shuffle-seeds",
+        str(args.train_shuffle_seeds),
+        "--train-cases-per-seed",
+        str(args.train_cases_per_seed),
+        "--train-group-take",
+        str(args.train_group_take),
+        "--matrix-grid-n",
+        str(args.grid_n),
+        "--setup-param-resolution",
+        str(args.setup_param_resolution),
+        "--max-cycles",
+        str(args.max_cycles),
+        "--shared-action-profile",
+        str(args.shared_action_profile),
+        "--recursive-lstdq-v2-beta",
+        str(args.recursive_lstdq_v2_beta),
+        "--recalibrated-lsvi-beta",
+        str(args.recalibrated_lsvi_beta),
+        "--progress-every",
+        str(args.progress_every),
+    ]
+    if bool(args.smoke):
+        command.append("--smoke")
+    quoted = " ".join(
+        token if token == '"$OUTPUT_DIR"' else shlex.quote(token)
+        for token in command
+    )
+    script = (
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        f'OUTPUT_DIR="${{OUTPUT_DIR:-{output_default}}}"\n'
+        f"{quoted}\n"
+    )
+    script_path = args.output_dir / "reproduce.sh"
+    script_path.write_text(script, encoding="utf-8")
+    script_path.chmod(0o755)
+    readme = f"""# 60^3 Solve-Controller Screen
+
+This directory contains the locked five-branch joint-online comparison.
+
+- methods: {', '.join(SOLVE_CONTROLLER_SCREEN_METHODS)}
+- stream SHA-256: `{stream_hash}`
+- LSTDQ v2 beta: `{args.recursive_lstdq_v2_beta:g}`
+- recalibrated LSVI beta: `{args.recalibrated_lsvi_beta:g}`
+- action grid: `1.00:0.05:3.00`
+- recovery and timing: active bounded-recovery joint protocol
+
+Run `OUTPUT_DIR=/new/path ./reproduce.sh` to reproduce without overwriting
+this directory.  `config.json`, `stream_manifest.json`, trajectories, 1K
+checkpoints, and final mutable states are written by the runner.
+"""
+    (args.output_dir / "README.md").write_text(readme, encoding="utf-8")
+
+
+def _empty_stream_summary() -> Dict[str, Any]:
+    runtime_fields = (
+        "setup_runtime",
+        "native_solve_runtime",
+        "native_total_runtime",
+        "controller_runtime",
+        "setup_bandit_overhead",
+        "setup_bandit_select",
+        "setup_bandit_loss_eval",
+        "setup_bandit_update",
+        "end_to_end_runtime",
+    )
+    return {
+        "cases": 0,
+        "failed_count": 0,
+        "mean_runtime_sec": 0.0,
+        "mean_runtime_with_overhead_sec": 0.0,
+        "mean_setup_runtime_sec": 0.0,
+        "mean_solve_runtime_sec": 0.0,
+        "mean_solve_with_overhead_sec": 0.0,
+        "mean_policy_overhead_sec": 0.0,
+        "mean_feature_runtime_sec": 0.0,
+        "mean_decision_runtime_sec": 0.0,
+        "mean_update_runtime_sec": 0.0,
+        "mean_iterations": 0.0,
+        "totals_sec": {field: 0.0 for field in runtime_fields},
+        "means_sec": {field: 0.0 for field in runtime_fields},
+        "unique_setup_count": 0,
+        "primary_failure_count": 0,
+        "setup_fallback_count": 0,
+        "recovered_failure_count": 0,
+        "unrecovered_failure_count": 0,
+        "bandit_update_count": 0,
+        "controller_update_count": 0,
+    }
+
+
+def _comparison_windows(case_count: int) -> Dict[str, tuple[int, int]]:
+    if int(case_count) == 2000:
+        return {
+            "all_2000": (0, 2000),
+            "first_1000": (0, 1000),
+            "last_1000": (1000, 2000),
+            "last_500": (1500, 2000),
+            "last_300": (1700, 2000),
+        }
+    if int(case_count) == 4000:
+        return {
+            "all_4000": (0, 4000),
+            "first_2000": (0, 2000),
+            "last_2000": (2000, 4000),
+            "first_1000": (0, 1000),
+            "last_1000": (3000, 4000),
+            "last_500": (3500, 4000),
+            "last_300": (3700, 4000),
+        }
+    return {f"all_{int(case_count)}": (0, int(case_count))}
 
 
 def _warmup_bandit(
@@ -387,7 +749,23 @@ def _warmup_bandit(
         tune7_variant="categorical",
     )
     validate_expected_setup_action_count(branch)
-    history = deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
+    if not instances:
+        records_path.parent.mkdir(parents=True, exist_ok=True)
+        records_path.write_text("", encoding="utf-8")
+        summary = _empty_stream_summary()
+        branch.policy.model.save_mutable_state(
+            state_path,
+            metadata={
+                "stream_hash": str(stream_hash),
+                "summary": summary,
+            },
+        )
+        _write_json(
+            args.output_dir / "warmup_progress.json",
+            {"completed_instances": 0, "summary": summary},
+        )
+        return branch, [], summary
+
     previous_update = 0.0
     rows: list[Dict[str, Any]] = []
     records_path.parent.mkdir(parents=True, exist_ok=True)
@@ -403,17 +781,24 @@ def _warmup_bandit(
                 )
                 return _as_feedback(native, include_controller=False)
 
-            params, native, timing, failed_attempts, update_sec = (
+            def solve_fallback(_params: Dict[str, Any]) -> Dict[str, Any]:
+                native = solve_no_rl_case(
+                    params=dict(DEFAULT_SETUP_PARAMS),
+                    mkw=dict(mkw),
+                    solver_tol=float(args.tol),
+                    solver_max_iter=int(args.max_cycles),
+                    augment_params=augment_setup_params,
+                )
+                return _as_feedback(native, include_controller=False)
+
+            params, native, timing, fallback_used, update_sec = (
                 run_bandit_step_test_final(
                     policy=branch.policy,
                     parameter_space=branch.parameter_space,
                     context=np.asarray(context, dtype=float),
                     solver_fn=solve_selected,
+                    fallback_solver_fn=solve_fallback,
                     prev_update_est=float(previous_update),
-                    success_runtime_history=history,
-                    b_min_runtime_sec=1.0e-3,
-                    solver_tol=float(args.tol),
-                    cfg=bandit_cfg,
                 )
             )
             previous_update = float(update_sec)
@@ -423,7 +808,7 @@ def _warmup_bandit(
                 "context": np.asarray(context, dtype=float).tolist(),
                 "params": dict(params),
                 "arm_index": _policy_last_arm(branch.policy),
-                "failed_attempts": int(failed_attempts),
+                "fallback_used": int(fallback_used),
                 "bandit_timing": dict(timing),
                 "outcome": _report_online_outcome(native, bandit_timing=timing),
             }
@@ -528,6 +913,13 @@ def _method_solver(
                 learn=True,
                 explore=True,
                 record_action_metadata=True,
+                fallback_attempt=lambda: solve_no_rl_case(
+                    params=dict(DEFAULT_SETUP_PARAMS),
+                    mkw=dict(mkw),
+                    solver_tol=float(args.tol),
+                    solver_max_iter=int(args.max_cycles),
+                    augment_params=augment_setup_params,
+                ),
             )
             return _as_feedback(native, include_controller=True)
 
@@ -574,6 +966,9 @@ def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     actions: list[float] = []
     explored: list[bool] = []
     uncertainties: list[float] = []
+    selected_q_values: list[float] = []
+    selected_scores: list[float] = []
+    calibration_ratios: list[float] = []
     for row in rows:
         outcome = row["outcome"]
         actions.extend(float(value) for value in outcome.get("cycle_actions", []))
@@ -582,6 +977,22 @@ def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             float(value)
             for value in outcome.get("cycle_selected_uncertainties", [])
         )
+        selected_q_values.extend(
+            float(value)
+            for value in outcome.get("cycle_selected_q_values", [])
+            if np.isfinite(float(value))
+        )
+        selected_scores.extend(
+            float(value)
+            for value in outcome.get("cycle_selection_scores", [])
+            if np.isfinite(float(value))
+        )
+        errors = outcome.get("postfit_td_errors") or outcome.get("td_errors", [])
+        widths = outcome.get("cycle_selected_uncertainties", [])
+        for error, width in zip(errors, widths):
+            if np.isfinite(float(error)) and float(width) > 0.0:
+                calibration_ratios.append(abs(float(error)) / float(width))
+    ratios = np.asarray(calibration_ratios, dtype=float)
     return {
         "decisions": int(len(actions)),
         "mean_weight": float(np.mean(actions)) if actions else float("nan"),
@@ -589,6 +1000,44 @@ def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
         "mean_selected_uncertainty_sec": (
             float(np.mean(uncertainties)) if uncertainties else 0.0
         ),
+        "mean_selected_q_sec": (
+            float(np.mean(selected_q_values)) if selected_q_values else 0.0
+        ),
+        "lower_bound_saturation_count": int(
+            sum(np.isclose(value, 0.0, atol=1.0e-12, rtol=0.0) for value in selected_scores)
+        ),
+        "lower_bound_saturation_rate": (
+            float(
+                np.mean(
+                    np.isclose(
+                        np.asarray(selected_scores, dtype=float),
+                        0.0,
+                        atol=1.0e-12,
+                        rtol=0.0,
+                    )
+                )
+            )
+            if selected_scores
+            else 0.0
+        ),
+        "confidence_calibration": {
+            "paired_updates": int(ratios.size),
+            "median_abs_error_over_uncertainty": (
+                float(np.median(ratios)) if ratios.size else 0.0
+            ),
+            "p90_abs_error_over_uncertainty": (
+                float(np.quantile(ratios, 0.9)) if ratios.size else 0.0
+            ),
+            "coverage_at_1x": (
+                float(np.mean(ratios <= 1.0)) if ratios.size else 0.0
+            ),
+            "coverage_at_2x": (
+                float(np.mean(ratios <= 2.0)) if ratios.size else 0.0
+            ),
+            "coverage_at_4x": (
+                float(np.mean(ratios <= 4.0)) if ratios.size else 0.0
+            ),
+        },
     }
 
 
@@ -609,7 +1058,12 @@ def _write_summary_csv(
         "mean_end_to_end_runtime_sec",
         "failures",
         "mean_iterations",
-        "setup_retries",
+        "setup_fallbacks",
+        "primary_failures",
+        "recovered_failures",
+        "unrecovered_failures",
+        "bandit_updates",
+        "controller_updates",
     )
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
@@ -630,22 +1084,161 @@ def _write_summary_csv(
                     "mean_end_to_end_runtime_sec": means["end_to_end_runtime"],
                     "failures": summary["failed_count"],
                     "mean_iterations": summary["mean_iterations"],
-                    "setup_retries": summary["setup_retry_count"],
+                    "setup_fallbacks": summary["setup_fallback_count"],
+                    "primary_failures": summary["primary_failure_count"],
+                    "recovered_failures": summary["recovered_failure_count"],
+                    "unrecovered_failures": summary["unrecovered_failure_count"],
+                    "bandit_updates": summary["bandit_update_count"],
+                    "controller_updates": summary["controller_update_count"],
                 }
             )
 
 
+def _write_solve_screen_report(
+    path: Path,
+    *,
+    window_results: Dict[str, Any],
+    window_actions: Dict[str, Dict[str, Any]],
+) -> None:
+    """Render the locked screening metrics without requiring plotting tools."""
+
+    preferred_windows = ("all_4000", "first_1000", "last_1000", "last_500")
+    lines = [
+        "# Solve-Controller Screening Report",
+        "",
+        "All runtimes are per-instance means in milliseconds. Improvement and",
+        "paired 95% intervals are relative to Online LinUCB + fixed `w=1.6`.",
+        "",
+    ]
+    report_windows = tuple(
+        name for name in preferred_windows if name in window_results
+    )
+    if not report_windows:
+        report_windows = tuple(window_results)
+    for window_name in report_windows:
+        window = window_results[window_name]
+        comparisons = window.get("comparisons", {}).get("vs_fixed_w1.6", {})
+        lines.extend(
+            [
+                f"## {window_name}",
+                "",
+                "| method | setup | native solve | native total | controller | bandit | end-to-end | cycles | E2E improvement (95% CI) | primary/recovered/unrecovered | same setup |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for method, summary in window["methods"].items():
+            means = summary["means_sec"]
+            if method == "bandit_fixed_w1.6":
+                improvement_text = "baseline"
+                same_setup = 1.0
+            else:
+                comparison = comparisons[method]
+                metric = comparison["end_to_end_runtime"]
+                interval = metric["candidate_improvement_95pct"]
+                improvement_text = (
+                    f"{metric['candidate_improvement_pct']:.2f}% "
+                    f"[{interval[0]:.2f}, {interval[1]:.2f}]"
+                )
+                same_setup = float(comparison["same_setup_rate"])
+            lines.append(
+                "| {method} | {setup:.3f} | {solve:.3f} | {native:.3f} | "
+                "{controller:.3f} | {bandit:.3f} | {e2e:.3f} | {cycles:.2f} | "
+                "{improvement} | {primary}/{recovered}/{unrecovered} | {same:.3f} |".format(
+                    method=method,
+                    setup=1000.0 * float(means["setup_runtime"]),
+                    solve=1000.0 * float(means["native_solve_runtime"]),
+                    native=1000.0 * float(means["native_total_runtime"]),
+                    controller=1000.0 * float(means["controller_runtime"]),
+                    bandit=1000.0 * float(means["setup_bandit_overhead"]),
+                    e2e=1000.0 * float(means["end_to_end_runtime"]),
+                    cycles=float(summary["mean_iterations"]),
+                    improvement=improvement_text,
+                    primary=int(summary["primary_failure_count"]),
+                    recovered=int(summary["recovered_failure_count"]),
+                    unrecovered=int(summary["unrecovered_failure_count"]),
+                    same=same_setup,
+                )
+            )
+        action_rows = window_actions.get(window_name, {})
+        if action_rows:
+            lines.extend(
+                [
+                    "",
+                    "Controller diagnostics:",
+                    "",
+                    "| method | decisions | mean w | explored | mean uncertainty (ms) | lower-bound saturation | calibration coverage 1x/2x/4x |",
+                    "|---|---:|---:|---:|---:|---:|---:|",
+                ]
+            )
+            for method, action in action_rows.items():
+                calibration = action["confidence_calibration"]
+                is_model_based = method == STRUCTURED_MODEL_BASED_METHOD
+                uncertainty_text = (
+                    "n/a"
+                    if is_model_based
+                    else f"{1000.0 * float(action['mean_selected_uncertainty_sec']):.3f}"
+                )
+                saturation_text = (
+                    "n/a"
+                    if is_model_based
+                    else f"{float(action['lower_bound_saturation_rate']):.3f}"
+                )
+                calibration_text = (
+                    "n/a"
+                    if is_model_based
+                    else (
+                        f"{float(calibration['coverage_at_1x']):.3f}/"
+                        f"{float(calibration['coverage_at_2x']):.3f}/"
+                        f"{float(calibration['coverage_at_4x']):.3f}"
+                    )
+                )
+                lines.append(
+                    "| {method} | {decisions} | {weight:.3f} | {explored:.3f} | "
+                    "{uncertainty} | {saturation} | {calibration} |".format(
+                        method=method,
+                        decisions=int(action["decisions"]),
+                        weight=float(action["mean_weight"]),
+                        explored=float(action["explored_rate"]),
+                        uncertainty=uncertainty_text,
+                        saturation=saturation_text,
+                        calibration=calibration_text,
+                    )
+                )
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def run(args: argparse.Namespace) -> Dict[str, Any]:
-    if args.study_mode in {"lsvi_lcb", "recursive_lcb_suite"}:
+    if args.study_mode in {
+        "lsvi_lcb",
+        "recursive_lcb_suite",
+        "recursive_lcb_ppo",
+        "recursive_lstdq_lcb",
+        "solve_controller_screen",
+    }:
         _validate_shared_lcb_protocol(args)
+    if (
+        args.study_mode == "solve_controller_screen"
+        and args.output_dir.exists()
+        and any(args.output_dir.iterdir())
+    ):
+        raise FileExistsError(
+            f"Refusing to overwrite solve-screen output: {args.output_dir}"
+        )
     if int(args.warmup_cases) + int(args.online_cases) != int(args.train_cases):
         raise ValueError("train_cases must equal warmup_cases + online_cases")
-    if (
-        not bool(args.smoke)
-        and (int(args.warmup_cases) != 2000 or int(args.online_cases) != 2000)
-    ):
-        raise ValueError("This locked protocol requires 2000 warmup + 2000 online cases")
-    if args.study_mode == "sarsa" and not args.ppo_model.exists():
+    partition = (int(args.warmup_cases), int(args.online_cases))
+    if not bool(args.smoke) and partition not in {(2000, 2000), (0, 4000)}:
+        raise ValueError(
+            "This locked protocol requires either 2000 warmup + 2000 online "
+            "cases or 0 warmup + 4000 joint-online cases"
+        )
+    if bool(args.reuse_warmup) and int(args.warmup_cases) == 0:
+        raise ValueError("A joint-from-scratch run cannot reuse a warmup state")
+    if args.study_mode in {
+        "sarsa",
+        "recursive_lcb_ppo",
+    } and not args.ppo_model.exists():
         raise FileNotFoundError(args.ppo_model)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -659,6 +1252,16 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         raise ValueError("Generated stream length does not match train_cases")
     if not bool(args.smoke) and len(full_stream) != 4000:
         raise ValueError("Locked stream must contain exactly 4000 instances")
+    if args.study_mode == "solve_controller_screen" and not bool(args.smoke):
+        if (int(args.warmup_cases), int(args.online_cases)) != (0, 4000):
+            raise ValueError("The final solve screen must learn jointly for all 4K cases")
+        if int(args.grid_n) != 60 or int(args.setup_param_resolution) != 20:
+            raise ValueError("The final solve screen requires 60^3 and setup resolution 20")
+        expected_hash = (
+            "156e6fdbbed6733d98e2c5f7e550e5d230c45217d0833ac64567563b5434459b"
+        )
+        if str(stream_manifest["sha256"]) != expected_hash:
+            raise ValueError("The final solve screen does not match the canonical stream")
     warmup_instances = full_stream[: int(args.warmup_cases)]
     online_instances = full_stream[int(args.warmup_cases) :]
 
@@ -670,15 +1273,51 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "bandit_fixed_w1.6": "fixed_w1.6",
             LSVI_METHOD: "stagewise_lsvi_lcb",
         }
-    elif args.study_mode == "recursive_lcb_suite":
+    elif args.study_mode == "solve_controller_screen":
         candidates = ()
-        methods = RECURSIVE_LCB_METHODS
+        methods = SOLVE_CONTROLLER_SCREEN_METHODS
+        family_by_method = {
+            "bandit_fixed_w1.6": "fixed_w1.6",
+            RECURSIVE_LSTDQ_METHOD: "recursive_lstdq_lcb",
+            RECURSIVE_LSTDQ_V2_METHOD: "recursive_lstdq_v2_lcb",
+            STRUCTURED_MODEL_BASED_METHOD: "structured_model_based",
+            RECALIBRATED_LSVI_METHOD: "recalibrated_lsvi_lcb",
+        }
+    elif args.study_mode in {
+        "recursive_lcb_suite",
+        "recursive_lcb_ppo",
+        "recursive_lstdq_lcb",
+    }:
+        candidates = ()
+        if args.study_mode == "recursive_lcb_suite":
+            methods = RECURSIVE_LCB_METHODS
+        elif args.study_mode == "recursive_lcb_ppo":
+            methods = RECURSIVE_LCB_PPO_METHODS
+        else:
+            methods = RECURSIVE_LSTDQ_METHODS
         family_by_method = {
             "bandit_default": "default",
             "bandit_fixed_w1.6": "fixed_w1.6",
-            RECURSIVE_MC_METHOD: "recursive_mc_lcb",
-            RECURSIVE_LSTDQ_METHOD: "recursive_lstdq_lcb",
-            BATCHED_LSVI_METHOD: "batched_lsvi_lcb",
+            **(
+                {"bandit_ppo": "ppo"}
+                if "bandit_ppo" in methods
+                else {}
+            ),
+            **(
+                {RECURSIVE_MC_METHOD: "recursive_mc_lcb"}
+                if RECURSIVE_MC_METHOD in methods
+                else {}
+            ),
+            **(
+                {RECURSIVE_LSTDQ_METHOD: "recursive_lstdq_lcb"}
+                if RECURSIVE_LSTDQ_METHOD in methods
+                else {}
+            ),
+            **(
+                {BATCHED_LSVI_METHOD: "batched_lsvi_lcb"}
+                if BATCHED_LSVI_METHOD in methods
+                else {}
+            ),
         }
     else:
         candidates = candidate_grid(
@@ -692,10 +1331,28 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "bandit_ppo": "ppo",
             **{candidate.name: candidate.family for candidate in candidates},
         }
+    if (
+        args.study_mode == "solve_controller_screen"
+        and bool(args.include_default_setup_baseline)
+    ):
+        raise ValueError("solve_controller_screen has a locked five-method roster")
+    if bool(args.include_default_setup_baseline):
+        methods = (DEFAULT_SETUP_METHOD, *methods)
+        family_by_method = {
+            DEFAULT_SETUP_METHOD: "default_setup",
+            **family_by_method,
+        }
+    bandit_methods = tuple(
+        method for method in methods if method != DEFAULT_SETUP_METHOD
+    )
     protocol = {
         "git_revision": _git_revision(),
         "platform": platform.platform(),
-        "purpose": "2K setup-bandit warmup + 2K persistent joint-online comparison",
+        "purpose": (
+            "4K joint-online setup-bandit and solve-controller learning from scratch"
+            if int(args.warmup_cases) == 0
+            else "2K setup-bandit warmup + 2K persistent joint-online comparison"
+        ),
         "stream": stream_manifest,
         "stream_partition": {
             "warmup": [0, int(args.warmup_cases)],
@@ -709,11 +1366,26 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "matrix_grid_n": int(args.grid_n),
             "setup_param_resolution": int(args.setup_param_resolution),
             "warmup_instances": int(args.warmup_cases),
+            "joint_from_scratch": int(args.warmup_cases) == 0,
             "common_snapshot_mutable_state_cloned": True,
             "immutable_action_catalog_and_g_actions_shared": True,
             "frozen_after_warmup": False,
             "independent_updates_per_method": True,
-            "retry_timing_accumulated": True,
+            "fallback_runtime_included_in_feedback": True,
+            "failure_head": {
+                "representation": "shared_context_action_features",
+                "ridge": 1.0,
+                "beta": 2.0,
+            },
+            "setup_construction_reselection": {
+                "max_learned_attempts_including_first": 3,
+                "temporary_exact_arm_exclusion": True,
+                "ranking": ["failure_ucb", "runtime_lcb"],
+                "runtime_target": "realized_suffix_cost",
+            },
+            "solve_failure_reselection": False,
+            "default_fallback_attempts": 1,
+            "online_branches": list(bandit_methods),
         },
         "sarsa": {
             "algorithm": "true-online SARSA(lambda)",
@@ -755,6 +1427,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         protocol.pop("ppo")
         protocol["stagewise_lsvi_lcb"] = {
             "state": "setup_full",
+            "action_profile": str(args.shared_action_profile),
             "actions": list(_parse_values(args.weights, float)),
             "action_basis": {
                 "mode": "compact_rbf",
@@ -765,7 +1438,6 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "ridge": float(args.lsvi_ridge),
             "uncertainty_beta": float(args.lsvi_beta),
             "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-            "potential_scale_sec": float(args.potential_scale_sec),
             "epsilon": {
                 "start": float(args.epsilon_start),
                 "final": float(args.epsilon_final),
@@ -774,18 +1446,18 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "update": "backward refit after every solve",
             "frozen": False,
         }
-    elif args.study_mode == "recursive_lcb_suite":
+    elif args.study_mode == "solve_controller_screen":
         protocol.pop("sarsa")
         protocol.pop("ppo")
         shared_protocol = {
             "state": "setup_full",
+            "action_profile": str(args.shared_action_profile),
             "actions": list(_parse_values(args.weights, float)),
             "action_basis": {
                 "mode": "compact_rbf",
                 "centers": list(_parse_values(args.action_rbf_centers, float)),
                 "sigma": float(args.action_rbf_sigma),
             },
-            "potential_scale_sec": float(args.potential_scale_sec),
             "epsilon": {
                 "start": float(args.epsilon_start),
                 "final": float(args.epsilon_final),
@@ -795,37 +1467,134 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "prepared_solver_default_forced_once": True,
             "frozen": False,
         }
-        protocol["recursive_mc_lcb"] = shared_protocol | {
-            "target": "undiscounted episodic cost-to-go",
-            "estimator": "recursive least squares via Sherman-Morrison",
-            "ridge": float(args.recursive_mc_ridge),
-            "uncertainty_beta": float(args.recursive_mc_beta),
-            "residual_floor_sec": float(args.recursive_mc_residual_floor_sec),
-            "history_storage": "none after episode update",
-        }
         protocol["recursive_lstdq_lcb"] = shared_protocol | {
+            "version": "v1",
             "target": "on-policy LSTDQ(lambda) Bellman equation",
-            "estimator": "recursive LSTD with Sherman-Morrison inverse",
             "ridge": float(args.recursive_lstdq_ridge),
             "trace_lambda": float(args.recursive_lstdq_lambda),
             "uncertainty_beta": float(args.recursive_lstdq_beta),
-            "uncertainty": "sandwich estimating-equation covariance",
-            "history_storage": "none",
+            "uncertainty": "unclipped post-fit sandwich covariance",
+            "lcb_lower_bound_sec": float(
+                args.recursive_lstdq_lcb_lower_bound_sec
+            ),
         }
-        protocol["batched_lsvi_lcb"] = shared_protocol | {
+        protocol["recursive_lstdq_v2_lcb"] = shared_protocol | {
+            "version": "v2",
+            "target": "same recursive LSTDQ mean as v1",
+            "ridge": float(args.recursive_lstdq_ridge),
+            "trace_lambda": float(args.recursive_lstdq_lambda),
+            "uncertainty_beta": float(args.recursive_lstdq_v2_beta),
+            "uncertainty": "rolling-MAD-scaled feature coverage",
+            "coverage_ridge": float(args.recursive_lstdq_v2_coverage_ridge),
+            "residual_window": int(args.recursive_lstdq_v2_residual_window),
+            "minimum_scale_samples": int(
+                args.recursive_lstdq_v2_min_samples
+            ),
+            "residual_floor_sec": float(
+                args.recursive_lstdq_residual_floor_sec
+            ),
+            "lcb_lower_bound_sec": float(
+                args.recursive_lstdq_lcb_lower_bound_sec
+            ),
+        }
+        protocol["structured_model_based"] = shared_protocol | {
+            "target": ["native_cycle_cost", "signed_log_residual_progress"],
+            "estimator": "shared recursive least squares",
+            "planning": "receding time per log-residual reduction",
+            "recovery_cost_in_physical_model": False,
+            "ridge": float(args.structured_model_ridge),
+            "minimum_samples": int(args.structured_model_min_samples),
+            "scale_window": int(args.structured_model_scale_window),
+        }
+        protocol["recalibrated_lsvi_lcb"] = shared_protocol | {
             "target": "stagewise optimistic Bellman backup",
             "horizon": int(args.max_cycles),
             "ridge": float(args.lsvi_ridge),
-            "uncertainty_beta": float(args.lsvi_beta),
+            "uncertainty_beta": float(args.recalibrated_lsvi_beta),
             "residual_floor_sec": float(args.lsvi_residual_floor_sec),
             "batch_size_episodes": int(args.lsvi_refit_interval_episodes),
-            "policy_updates": (
-                int(args.online_cases) // int(args.lsvi_refit_interval_episodes)
+            "backward_shared_sweeps": int(
+                args.recalibrated_lsvi_refit_sweeps
             ),
-            "update": "exact all-history backward refit at fixed batch boundaries",
+            "residual_shrinkage_samples": float(
+                args.recalibrated_lsvi_shrinkage_samples
+            ),
+            "value_cap": "maximum observed realized return",
         }
+    elif args.study_mode in {
+        "recursive_lcb_suite",
+        "recursive_lcb_ppo",
+        "recursive_lstdq_lcb",
+    }:
+        protocol.pop("sarsa")
+        if args.study_mode != "recursive_lcb_ppo":
+            protocol.pop("ppo")
+        shared_protocol = {
+            "state": "setup_full",
+            "action_profile": str(args.shared_action_profile),
+            "actions": list(_parse_values(args.weights, float)),
+            "action_basis": {
+                "mode": "compact_rbf",
+                "centers": list(_parse_values(args.action_rbf_centers, float)),
+                "sigma": float(args.action_rbf_sigma),
+            },
+            "epsilon": {
+                "start": float(args.epsilon_start),
+                "final": float(args.epsilon_final),
+                "decay_steps": float(args.epsilon_decay_steps),
+                "kind": "uniform epsilon-greedy floor",
+            },
+            "prepared_solver_default_forced_once": True,
+            "frozen": False,
+        }
+        if RECURSIVE_MC_METHOD in methods:
+            protocol["recursive_mc_lcb"] = shared_protocol | {
+                "target": "undiscounted episodic cost-to-go",
+                "estimator": "episode-forgetting recursive least squares",
+                "ridge": float(args.recursive_mc_ridge),
+                "uncertainty_beta": float(args.recursive_mc_beta),
+                "residual_floor_sec": float(
+                    args.recursive_mc_residual_floor_sec
+                ),
+                "episode_half_life": float(
+                    args.recursive_mc_episode_half_life
+                ),
+                "uncertainty": "post-fit episode-cluster sandwich covariance",
+                "history_storage": "none after episode update",
+            }
+        if RECURSIVE_LSTDQ_METHOD in methods:
+            protocol["recursive_lstdq_lcb"] = shared_protocol | {
+                "target": "on-policy LSTDQ(lambda) Bellman equation",
+                "estimator": "recursive LSTD with Sherman-Morrison inverse",
+                "ridge": float(args.recursive_lstdq_ridge),
+                "trace_lambda": float(args.recursive_lstdq_lambda),
+                "uncertainty_beta": float(args.recursive_lstdq_beta),
+                "lcb_lower_bound_sec": float(
+                    args.recursive_lstdq_lcb_lower_bound_sec
+                ),
+                "uncertainty": "unclipped post-fit sandwich covariance",
+                "history_storage": "none",
+            }
+        if BATCHED_LSVI_METHOD in methods:
+            protocol["batched_lsvi_lcb"] = shared_protocol | {
+                "target": "stagewise optimistic Bellman backup",
+                "horizon": int(args.max_cycles),
+                "ridge": float(args.lsvi_ridge),
+                "uncertainty_beta": float(args.lsvi_beta),
+                "residual_floor_sec": float(args.lsvi_residual_floor_sec),
+                "batch_size_episodes": int(args.lsvi_refit_interval_episodes),
+                "policy_updates": (
+                    int(args.online_cases)
+                    // int(args.lsvi_refit_interval_episodes)
+                ),
+                "update": "exact all-history backward refit at fixed batch boundaries",
+            }
     _write_json(args.output_dir / "config.json", protocol)
     _write_json(args.output_dir / "stream_manifest.json", stream_manifest)
+    if args.study_mode == "solve_controller_screen":
+        _write_solve_screen_reproduction(
+            args, stream_hash=str(stream_manifest["sha256"])
+        )
 
     warmup_branch, warmup_rows, warmup_summary = _warmup_bandit(
         args,
@@ -834,7 +1603,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     )
     branches = {
         method: clone_branch_for_independent_updates(warmup_branch)
-        for method in methods
+        for method in bandit_methods
     }
     if len({id(branch.policy) for branch in branches.values()}) != len(branches):
         raise RuntimeError("Bandit branches do not have independent policy objects")
@@ -858,15 +1627,54 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         controllers[LSVI_METHOD] = controller
         encoders[LSVI_METHOD] = encoder
         ppo_runner = None
-    elif args.study_mode == "recursive_lcb_suite":
+    elif args.study_mode == "solve_controller_screen":
         factories = (
-            (RECURSIVE_MC_METHOD, _make_recursive_mc_controller),
             (RECURSIVE_LSTDQ_METHOD, _make_recursive_lstdq_controller),
-            (BATCHED_LSVI_METHOD, _make_lsvi_controller),
+            (RECURSIVE_LSTDQ_V2_METHOD, _make_recursive_lstdq_v2_controller),
+            (
+                STRUCTURED_MODEL_BASED_METHOD,
+                _make_structured_model_based_controller,
+            ),
+            (
+                RECALIBRATED_LSVI_METHOD,
+                _make_recalibrated_lsvi_controller,
+            ),
         )
-        for controller_index, (method, factory) in enumerate(factories):
+        for method, factory in factories:
+            controller, encoder = factory(
+                args,
+                seed=int(
+                    args.controller_seed
+                    + SOLVE_CONTROLLER_SEED_OFFSETS[method]
+                ),
+            )
+            controllers[method] = controller
+            encoders[method] = encoder
+        ppo_runner = None
+    elif args.study_mode in {
+        "recursive_lcb_suite",
+        "recursive_lcb_ppo",
+        "recursive_lstdq_lcb",
+    }:
+        factories = []
+        if RECURSIVE_MC_METHOD in methods:
+            factories.append(
+                (RECURSIVE_MC_METHOD, _make_recursive_mc_controller)
+            )
+        if RECURSIVE_LSTDQ_METHOD in methods:
+            factories.append(
+                (RECURSIVE_LSTDQ_METHOD, _make_recursive_lstdq_controller)
+            )
+        if BATCHED_LSVI_METHOD in methods:
+            factories.append((BATCHED_LSVI_METHOD, _make_lsvi_controller))
+        seed_offsets = {
+            RECURSIVE_MC_METHOD: 0,
+            RECURSIVE_LSTDQ_METHOD: 1009,
+            BATCHED_LSVI_METHOD: 2018,
+        }
+        for method, factory in factories:
             factory_kwargs: Dict[str, Any] = {
-                "seed": int(args.controller_seed + controller_index * 1009),
+                "seed": int(args.controller_seed + seed_offsets[method]),
             }
             if method == BATCHED_LSVI_METHOD:
                 factory_kwargs["refit_interval_episodes"] = int(
@@ -875,7 +1683,11 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             controller, encoder = factory(args, **factory_kwargs)
             controllers[method] = controller
             encoders[method] = encoder
-        ppo_runner = None
+        ppo_runner = (
+            _make_frozen_ppo_runner(args)
+            if "bandit_ppo" in methods
+            else None
+        )
     else:
         for candidate_index, candidate in enumerate(candidates):
             controller, encoder = _make_controller(
@@ -886,33 +1698,10 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             controllers[candidate.name] = controller
             encoders[candidate.name] = encoder
 
-        ppo_args = SimpleNamespace(
-            ppo_model=args.ppo_model,
-            output_dir=args.output_dir,
-            grid_n=int(args.grid_n),
-            c_min=float(args.c_min),
-            c_max=float(args.c_max),
-            max_cycles=int(args.max_cycles),
-            tol=float(args.tol),
-            ppo_action_mode=str(args.ppo_action_mode),
-            ppo_w_center=float(args.ppo_w_center),
-            ppo_w_scale=float(args.ppo_w_scale),
-            ppo_initial_observation_weight=float(
-                args.ppo_initial_observation_weight
-            ),
-            ppo_force_default_first_action=bool(
-                args.ppo_force_default_first_action
-            ),
-            ppo_default_first_weight=float(args.ppo_default_first_weight),
-        )
-        ppo_runner = make_exp44_ppo_runner(ppo_args)
+        ppo_runner = _make_frozen_ppo_runner(args)
     bandit_cfg = default_test_final_bandit_config_from_env()
-    histories = {
-        method: deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
-        for method in methods
-    }
-    previous_update = {method: 0.0 for method in methods}
-    bandit_online_steps = {method: 0 for method in methods}
+    previous_update = {method: 0.0 for method in bandit_methods}
+    bandit_online_steps = {method: 0 for method in bandit_methods}
     records: Dict[str, list[Dict[str, Any]]] = {method: [] for method in methods}
     handles = {
         method: (trajectories_dir / f"{method}.jsonl").open("w", encoding="utf-8")
@@ -930,6 +1719,30 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             )
             case_rows: Dict[str, Dict[str, Any]] = {}
             for execution_rank, method in enumerate(order):
+                if method == DEFAULT_SETUP_METHOD:
+                    native = solve_default_baseline_case(
+                        mkw=dict(mkw),
+                        solver_tol=float(args.tol),
+                        solver_max_iter=int(args.max_cycles),
+                        augment_params=augment_setup_params,
+                    )
+                    outcome = _report_online_outcome(
+                        _as_feedback(native, include_controller=False),
+                        bandit_timing={},
+                    )
+                    case_rows[method] = {
+                        "stream_index": int(args.warmup_cases + online_index),
+                        "online_index": int(online_index),
+                        "execution_rank": int(execution_rank),
+                        "mkw": dict(mkw),
+                        "context": np.asarray(context, dtype=float).tolist(),
+                        "params": dict(DEFAULT_SETUP_PARAMS),
+                        "arm_index": -1,
+                        "fallback_used": 0,
+                        "bandit_timing": {},
+                        "outcome": outcome,
+                    }
+                    continue
                 solver_fn = _method_solver(
                     method,
                     args=args,
@@ -939,18 +1752,24 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                     encoders=encoders,
                     ppo_runner=ppo_runner,
                 )
+                def fallback_solver(_params: Dict[str, Any]) -> Dict[str, Any]:
+                    fallback_native = solve_no_rl_case(
+                        params=dict(DEFAULT_SETUP_PARAMS),
+                        mkw=dict(mkw),
+                        solver_tol=float(args.tol),
+                        solver_max_iter=int(args.max_cycles),
+                        augment_params=augment_setup_params,
+                    )
+                    return _as_feedback(fallback_native, include_controller=False)
                 branch = branches[method]
-                params, native, timing, failed_attempts, update_sec = (
+                params, native, timing, fallback_used, update_sec = (
                     run_bandit_step_test_final(
                         policy=branch.policy,
                         parameter_space=branch.parameter_space,
                         context=np.asarray(context, dtype=float),
                         solver_fn=solver_fn,
+                        fallback_solver_fn=fallback_solver,
                         prev_update_est=float(previous_update[method]),
-                        success_runtime_history=histories[method],
-                        b_min_runtime_sec=1.0e-3,
-                        solver_tol=float(args.tol),
-                        cfg=bandit_cfg,
                     )
                 )
                 previous_update[method] = float(update_sec)
@@ -963,7 +1782,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                     "context": np.asarray(context, dtype=float).tolist(),
                     "params": dict(params),
                     "arm_index": _policy_last_arm(branch.policy),
-                    "failed_attempts": int(failed_attempts),
+                    "fallback_used": int(fallback_used),
                     "bandit_timing": dict(timing),
                     "outcome": _report_online_outcome(native, bandit_timing=timing),
                 }
@@ -973,9 +1792,10 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 _write_json_line(handles[method], case_rows[method])
 
             done = online_index + 1
-            audit_episodes = {int(args.online_cases)}
-            if int(args.online_cases) >= 1000:
-                audit_episodes.add(1000)
+            audit_episodes = {
+                *range(1000, int(args.online_cases) + 1, 1000),
+                int(args.online_cases),
+            }
             if done in audit_episodes:
                 for method, controller in controllers.items():
                     controller.save(
@@ -1013,9 +1833,17 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             handle.close()
         order_handle.close()
 
+    recovery_audit = {
+        method: _validate_recovery_stream(
+            rows,
+            expect_bandit_transaction=method in bandit_methods,
+        )
+        for method, rows in records.items()
+    }
+
     if set(bandit_online_steps.values()) != {len(online_instances)}:
         raise RuntimeError(
-            "Every LinUCB branch must update once per online instance: "
+            "Every LinUCB branch must process every online instance: "
             f"{bandit_online_steps}"
         )
 
@@ -1029,16 +1857,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     for method, controller in controllers.items():
         controller.save(checkpoints_dir / f"{method}_final.npz")
 
-    if int(args.online_cases) == 2000:
-        windows = {
-            "all_2000": (0, 2000),
-            "first_1000": (0, 1000),
-            "last_1000": (1000, 2000),
-            "last_500": (1500, 2000),
-            "last_300": (1700, 2000),
-        }
-    else:
-        windows = {f"all_{int(args.online_cases)}": (0, int(args.online_cases))}
+    windows = _comparison_windows(int(args.online_cases))
     window_results = {
         name: _window_result(
             {method: rows[start:stop] for method, rows in records.items()},
@@ -1046,6 +1865,14 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         )
         for name, (start, stop) in windows.items()
     }
+    window_actions = {
+        name: {
+            method: _action_summary(records[method][start:stop])
+            for method in controllers
+        }
+        for name, (start, stop) in windows.items()
+    }
+    summary_name = f"summary_{int(args.online_cases)}.csv"
     result = {
         "protocol": protocol,
         "warmup": {
@@ -1062,14 +1889,21 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             for method, controller in controllers.items()
         },
         "bandit_online_steps": dict(bandit_online_steps),
+        "recovery_audit": recovery_audit,
         "actions": {
             method: _action_summary(records[method]) for method in controllers
         },
+        "window_actions": window_actions,
         "artifacts": {
             "trajectories": str(trajectories_dir),
-            "summary_csv": str(args.output_dir / "summary_2000.csv"),
+            "summary_csv": str(args.output_dir / summary_name),
             "checkpoints": str(checkpoints_dir),
             "final_bandit_states": str(final_bandit_dir),
+            **(
+                {"screen_report": str(args.output_dir / "screen_report.md")}
+                if args.study_mode == "solve_controller_screen"
+                else {}
+            ),
         },
     }
     if ppo_runner is not None:
@@ -1079,10 +1913,16 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             ),
         }
     _write_summary_csv(
-        args.output_dir / "summary_2000.csv",
+        args.output_dir / summary_name,
         records,
         family_by_method,
     )
+    if args.study_mode == "solve_controller_screen":
+        _write_solve_screen_report(
+            args.output_dir / "screen_report.md",
+            window_results=window_results,
+            window_actions=window_actions,
+        )
     _write_json(args.output_dir / "result.json", result)
     print(
         json.dumps(
@@ -1101,14 +1941,21 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Run a locked 2K setup-bandit warmup followed by a 2K persistent "
-            "online comparison of setup/solve controller variants."
+            "Run either the locked 2K+2K protocol or the same 4K stream with "
+            "setup bandits and solve controllers learning jointly from scratch."
         )
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
         "--study-mode",
-        choices=("sarsa", "lsvi_lcb", "recursive_lcb_suite"),
+        choices=(
+            "sarsa",
+            "lsvi_lcb",
+            "recursive_lcb_suite",
+            "recursive_lcb_ppo",
+            "recursive_lstdq_lcb",
+            "solve_controller_screen",
+        ),
         default="sarsa",
     )
     parser.add_argument(
@@ -1175,12 +2022,19 @@ def main() -> None:
         default="full_cartesian",
     )
     parser.add_argument(
+        "--shared-action-profile",
+        choices=tuple(SHARED_ACTION_PROFILES),
+        default="1to2_step0p1",
+    )
+    parser.add_argument(
         "--weights",
-        default="1.0,1.1,1.2,1.3,1.4,1.5,1.6,1.7,1.8,1.9,2.0",
+        default=None,
+        help="Optional explicit grid; must match --shared-action-profile.",
     )
     parser.add_argument(
         "--action-rbf-centers",
-        default="1.0,1.25,1.5,1.75,2.0",
+        default=None,
+        help="Optional explicit centers; must match --shared-action-profile.",
     )
     parser.add_argument("--action-rbf-sigma", type=float, default=0.2)
     parser.add_argument("--alphas", default="0.001")
@@ -1188,8 +2042,7 @@ def main() -> None:
     parser.add_argument("--epsilon-start", type=float, default=0.30)
     parser.add_argument("--epsilon-final", type=float, default=0.03)
     parser.add_argument("--epsilon-decay-steps", type=float, default=20_000.0)
-    parser.add_argument("--potential-scale-sec", type=float, default=0.001)
-    parser.add_argument("--failure-penalty-sec", type=float, default=0.1)
+    parser.add_argument("--q-max-sec", type=float, default=0.1)
     parser.add_argument("--uncertainty-beta", type=float, default=1.0)
     parser.add_argument("--uncertainty-ridge", type=float, default=1.0)
     parser.add_argument("--uncertainty-td-floor-sec", type=float, default=1.0e-3)
@@ -1202,13 +2055,48 @@ def main() -> None:
     parser.add_argument(
         "--recursive-mc-residual-floor-sec", type=float, default=1.0e-3
     )
+    parser.add_argument(
+        "--recursive-mc-episode-half-life", type=float, default=500.0
+    )
     parser.add_argument("--recursive-lstdq-ridge", type=float, default=1.0)
     parser.add_argument("--recursive-lstdq-beta", type=float, default=2.0)
     parser.add_argument("--recursive-lstdq-lambda", type=float, default=0.8)
     parser.add_argument(
         "--recursive-lstdq-residual-floor-sec", type=float, default=1.0e-3
     )
+    parser.add_argument(
+        "--recursive-lstdq-lcb-lower-bound-sec", type=float, default=0.0
+    )
+    parser.add_argument("--recursive-lstdq-v2-beta", type=float, default=2.0)
+    parser.add_argument(
+        "--recursive-lstdq-v2-coverage-ridge", type=float, default=1.0
+    )
+    parser.add_argument(
+        "--recursive-lstdq-v2-residual-window", type=int, default=2048
+    )
+    parser.add_argument(
+        "--recursive-lstdq-v2-min-samples", type=int, default=32
+    )
+    parser.add_argument("--structured-model-ridge", type=float, default=1.0)
+    parser.add_argument(
+        "--structured-model-min-samples", type=int, default=32
+    )
+    parser.add_argument(
+        "--structured-model-scale-window", type=int, default=2048
+    )
+    parser.add_argument("--recalibrated-lsvi-beta", type=float, default=2.0)
+    parser.add_argument(
+        "--recalibrated-lsvi-refit-sweeps", type=int, default=3
+    )
+    parser.add_argument(
+        "--recalibrated-lsvi-shrinkage-samples", type=float, default=32.0
+    )
     parser.add_argument("--progress-every", type=int, default=100)
+    parser.add_argument(
+        "--include-default-setup-baseline",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     parser.add_argument("--reuse-warmup", action="store_true")
     parser.add_argument("--smoke", action="store_true")
     run(parser.parse_args())

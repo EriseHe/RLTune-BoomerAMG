@@ -16,39 +16,31 @@ UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
 SHARED_EXT := dylib
 SHARED_FLAG := -dynamiclib
+SHARED_ID_FLAG := -Wl,-install_name,@rpath/libamg_runtime.dylib
 HYPRE_RPATH := @loader_path/../install/lib
 else
 SHARED_EXT := so
 SHARED_FLAG := -shared
+SHARED_ID_FLAG :=
 HYPRE_RPATH := $$ORIGIN/../install/lib
 endif
 
-ENV_TARGET := libamg_env.$(SHARED_EXT)
-SETUP_TARGET := libamg_setup_solver.$(SHARED_EXT)
+RUNTIME_TARGET := libamg_runtime.$(SHARED_EXT)
 COMMON_OBJECTS := $(BUILD_DIR)/amg_cycle.o $(BUILD_DIR)/amg_rl_shared.o
 
-.PHONY: all clean clean-env clean-setup print-vars
+.PHONY: all clean print-vars
 
-all: $(ENV_TARGET) $(SETUP_TARGET)
+all: $(RUNTIME_TARGET)
 
-$(ENV_TARGET): $(BUILD_DIR)/amg_env.o $(COMMON_OBJECTS)
-	$(MPICC) $(SHARED_FLAG) -o $@ $^ $(LDLIBS) -Wl,-rpath,$(HYPRE_RPATH)
-
-$(SETUP_TARGET): $(BUILD_DIR)/amg_setup_solver.o $(COMMON_OBJECTS)
-	$(MPICC) $(SHARED_FLAG) -o $@ $^ $(LDLIBS) -Wl,-rpath,$(HYPRE_RPATH)
+$(RUNTIME_TARGET): $(BUILD_DIR)/amg_runtime.o $(COMMON_OBJECTS)
+	$(MPICC) $(SHARED_FLAG) $(SHARED_ID_FLAG) -o $@ $^ $(LDLIBS) -Wl,-rpath,$(HYPRE_RPATH)
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(BUILD_DIR)
 	$(MPICC) $(CPPFLAGS) $(CFLAGS) -c $< -o $@
 
-clean-env:
-	$(RM) $(ENV_TARGET) $(BUILD_DIR)/amg_env.o
-
-clean-setup:
-	$(RM) $(SETUP_TARGET) $(BUILD_DIR)/amg_setup_solver.o
-
 clean:
-	$(RM) -r $(BUILD_DIR) $(ENV_TARGET) $(SETUP_TARGET)
+	$(RM) -r $(BUILD_DIR) $(RUNTIME_TARGET)
 
 print-vars:
 	@echo "ROOT=$(ROOT)"

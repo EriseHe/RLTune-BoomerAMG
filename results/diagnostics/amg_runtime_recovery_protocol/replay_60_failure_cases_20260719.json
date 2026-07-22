@@ -1,0 +1,68 @@
+{
+  "source_result": "results/joint/online_linear_lcb_v1/run_logs/joint_online_recursive_lcb_ppo_joint4k_n60_w1to3_step005_from_scratch_20260719/result.json",
+  "protocol": "one learned primary attempt, then one default setup + default solve fallback",
+  "controller": "fresh recursive LSTDQ-LCB, shared action 1.00:0.05:3.00",
+  "records": [
+    {
+      "stream_index": 2318,
+      "old_failed_attempts": 1000,
+      "primary_params": {
+        "agg_interp_type": 4,
+        "agg_tr": 0.0,
+        "agg_Pmx": 0,
+        "strong_threshold": 0.95,
+        "max_row_sum": 0.4,
+        "trunc_factor": 0.85,
+        "P_max_elmts": 12,
+        "agg_num_levels": 4,
+        "coarsen_type": 0,
+        "interp_type": 6
+      },
+      "primary_status": "nonconvergence",
+      "fallback_used": true,
+      "fallback_status": "success",
+      "recovered": true,
+      "unrecovered_failure": false,
+      "native_attempts": 2,
+      "primary_setup_runtime_sec": 0.17909400000000003,
+      "primary_solve_runtime_sec": 0.2730139999999999,
+      "fallback_setup_runtime_sec": 0.28195799999999993,
+      "fallback_solve_runtime_sec": 0.09837099999999999,
+      "end_to_end_runtime_sec": 0.8688155470108267,
+      "controller_update_committed": true,
+      "controller_episode_delta": 1,
+      "controller_step_delta": 50
+    },
+    {
+      "stream_index": 2640,
+      "old_failed_attempts": 1000,
+      "primary_params": {
+        "agg_interp_type": 4,
+        "agg_tr": 0.0,
+        "agg_Pmx": 0,
+        "strong_threshold": 0.3,
+        "max_row_sum": 0.8,
+        "trunc_factor": 0.75,
+        "P_max_elmts": 4,
+        "agg_num_levels": 2,
+        "coarsen_type": 2,
+        "interp_type": 6
+      },
+      "primary_status": "nonconvergence",
+      "fallback_used": true,
+      "fallback_status": "success",
+      "recovered": true,
+      "unrecovered_failure": false,
+      "native_attempts": 2,
+      "primary_setup_runtime_sec": 0.1120890000000001,
+      "primary_solve_runtime_sec": 0.19543699999999897,
+      "fallback_setup_runtime_sec": 0.260964,
+      "fallback_solve_runtime_sec": 0.10419099999999992,
+      "end_to_end_runtime_sec": 0.7021670030116969,
+      "controller_update_committed": true,
+      "controller_episode_delta": 1,
+      "controller_step_delta": 50
+    }
+  ],
+  "total_committed_controller_episodes": 2
+}

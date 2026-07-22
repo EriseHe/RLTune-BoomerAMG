@@ -1,145 +1,81 @@
 # RLTune-BoomerAMG
 
-Research code for online setup tuning and per-cycle solve control in
-HYPRE BoomerAMG.
+Research code for online setup tuning and per-cycle solve control in HYPRE
+BoomerAMG.
 
-## Repository Areas
+## Repository layout
 
 - `hypre/source/`: unmodified shared HYPRE fork.
-- `hypre/interfaces/`: project-owned C interfaces used by setup and solve.
-- `hypre/bindings/`: shared Python bindings used by setup and solve.
+- `hypre/interfaces/`: the single project-owned native runtime.
+- `hypre/bindings/`: Python binding and shared failure recovery protocol.
 - `hypre/build/`, `hypre/install/`: ignored out-of-source build products.
-- `problems/`: PDE definitions and deterministic streams shared by both phases.
-- `SetupPhase/`: contextual-bandit setup tuning and setup-only experiments.
-- `SolvePhase/`: project-owned solve controllers and solve-only tests.
-- `experiments/`: workflows that combine setup and solve components.
-- `docs/`: experiment and implementation notes.
-- `results/`: generated experiment outputs and reproducibility records only.
+- `problems/`: PDE definitions and deterministic instance streams.
+- `SetupPhase/`: contextual-bandit algorithms and setup-only experiments.
+- `SolvePhase/`: solve controllers and solve-only tests.
+- `experiments/`: workflows that combine setup and solve learning.
+- `experiments/archive/`: historical protocols excluded from active runs.
+- `docs/`: design and implementation notes.
+- `results/`: generated experiment outputs and reproducibility records.
 
-The complete HYPRE fork lives under `hypre/source/`. Setup and solve both link
-to one out-of-source installation and never modify the fork's numerical source.
+Setup and solve code both use `hypre.bindings` and the same
+`hypre/interfaces/libamg_runtime` library. No project interface or experiment
+code is built inside the HYPRE source fork.
 
-Build the native environment from the repository root:
+## Build
 
-```bash
-make -C hypre
-```
-
-## Environment
-
-Create the Python environment with:
+Create the Python environment:
 
 ```bash
 conda env create -f environment.yml
 ```
 
-## Latest Mature Tune7 Reproduction (`40^3`)
+Build the unchanged HYPRE fork out of source, install it under `hypre/install/`,
+and build the shared runtime:
 
-This is the current reproducible result for the mature-bandit setting as of
-2026-04-22. If failure count is not a hard constraint, the rerun reproduces the
-target PPO-over-bandit magnitude: the best checkpoint gives `6.21%` over mature
-`bandit_only` in the checkpoint-selection eval.
+```bash
+make -C hypre
+```
 
-### Evaluation setup
+## Learning architecture
 
-- Grid: `40 x 40 x 40`
-- Bandit background: `LinUCB v4 + tune7 categorical`
-- Mature protocol:
-  - trace length `T = 1500`
-  - warmup prefix skipped: first `1000` cases
-  - evaluated suffix: last `500` cases
-- Held-out eval seeds:
-  - `39394939`
-  - `39400939`
-- PPO solve controller:
-  - `OBS_MODE=solve_only`
-  - `W_ONLY=1`
-  - `ACTION_MODE=continuous`
-  - `W_CENTER=1.65`
-  - `W_SCALE=0.1`
-  - checkpoint used here: `results/joint/mature_tune7_ppo_repro_20260423/checkpoint_10000.zip`
+- Setup phase: Shared LinUCB v4 selects one Tune7 setup action per instance.
+- Solve phase: PPO, SARSA, and shared-action linear LCB controllers may select
+  a relaxation action at each AMG cycle.
+- Joint experiments: each method owns an independently updating LinUCB branch
+  after any configured common warmup snapshot.
 
-### Methods compared
+The active Exp44 protocol and commands are documented in
+`experiments/joint/exp44/README.md`.
 
-- `default`
-  - default setup + default solve
-- `bandit_only`
-  - mature bandit setup + no-RL solve
-- `fixed_w_1.60`
-  - mature bandit setup + fixed solve weight `w=1.60`
-- `ppo_best`
-  - mature bandit setup + PPO solve, using the best checkpoint from the rerun
+## Failure protocol
 
-### Best checkpoint result
+Every external instance starts with one learned setup attempt. A setup
+construction failure may trigger same-context reselection, up to three learned
+setup attempts in total. A solve failure, non-finite evaluation, max-cycle
+nonconvergence, or exhaustion of the learned setup attempts triggers one
+default setup + default solve fallback from a zero initial solution.
 
-This is the result to use if the goal is the `~6.2%` PPO gain. It uses cached
-mature suffixes directly and does not rerun bandit or resample `A,b`.
+- A recovered failure is charged its measured primary and fallback time.
+- LinUCB commits at most one transaction per external instance; a recovered
+  setup-reselection transaction may contain multiple measured observations.
+- A solve controller commits at most one episode per external instance.
+- If fallback also fails, pending learning updates are rolled back and the
+  instance is recorded as unrecovered.
+- No retry loops, artificial failure penalties, fake runtimes, or residual
+  potential shaping are used by active experiments.
 
-| Eval seed | Problems | Method | Mean runtime (s/problem) | Total runtime (s) | Failed |
-| --- | ---: | --- | ---: | ---: | ---: |
-| `39394939` | 500 | `bandit_only` | `0.090386588` | `45.193294` | 0 |
-| `39394939` | 500 | `ppo_best` | `0.088644032` | `44.322016` | 1 |
-| `39400939` | 500 | `bandit_only` | `0.104443272` | `52.221636` | 0 |
-| `39400939` | 500 | `ppo_best` | `0.094082498` | `47.041249` | 1 |
+Historical retry, shaping, and old online-Gym workflows are retained only under
+`experiments/archive/`.
 
-Combined checkpoint-selection result:
+## Tests
 
-| Problems | Method | Mean runtime (s/problem) | Total runtime (s) | Failed |
-| ---: | --- | ---: | ---: | ---: |
-| 1000 | `bandit_only` | `0.097414930` | `97.414930` | 0 |
-| 1000 | `ppo_best` | `0.091363265` | `91.363265` | 2 |
+The main active test groups are:
 
-PPO gain over mature `bandit_only`: `6.21%`.
+```bash
+python -m unittest discover -s SetupPhase/tests -p 'test_*.py' -v
+python -m unittest discover -s SolvePhase/tests -p 'test_*.py' -v
+python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py' -v
+```
 
-### Strict interleaved sanity check
-
-The stricter paired rerun also uses the cached mature suffix directly, but it
-interleaves `default`, `bandit_only`, `fixed_w_1.60`, and `ppo_best` within each
-case. This is useful as a timing-order sanity check, but it gives a more
-conservative number.
-
-| Eval seed | Problems | Method | Mean runtime (s/problem) | Total runtime (s) |
-| --- | ---: | --- | ---: | ---: |
-| `39394939` | 500 | `default` | `0.135541344` | `67.770672` |
-| `39394939` | 500 | `bandit_only` | `0.090726288` | `45.363144` |
-| `39394939` | 500 | `fixed_w_1.60` | `0.088710832` | `44.355416` |
-| `39394939` | 500 | `ppo_best` | `0.089143026` | `44.571513` |
-| `39400939` | 500 | `default` | `0.136349434` | `68.174717` |
-| `39400939` | 500 | `bandit_only` | `0.098937672` | `49.468836` |
-| `39400939` | 500 | `fixed_w_1.60` | `0.095520960` | `47.760480` |
-| `39400939` | 500 | `ppo_best` | `0.095814460` | `47.907230` |
-
-Combined over both held-out seeds (`1000` problems total):
-
-| Problems | Method | Mean runtime (s/problem) | Total runtime (s) | Failed |
-| ---: | --- | ---: | ---: | ---: |
-| 1000 | `default` | `0.135945389` | `135.945389` | 0 |
-| 1000 | `bandit_only` | `0.094831980` | `94.831980` | 0 |
-| 1000 | `fixed_w_1.60` | `0.092115896` | `92.115896` | 2 |
-| 1000 | `ppo_best` | `0.092478743` | `92.478743` | 2 |
-
-Relative to `bandit_only`:
-
-- `fixed_w_1.60`: `2.86%` faster
-- `ppo_best`: `2.48%` faster
-- `ppo_best` vs `fixed_w_1.60`: `0.39%` slower
-
-So the headline depends on the eval protocol: the checkpoint-selection eval
-reaches `6.21%` PPO-over-bandit, while the stricter interleaved sanity check
-shows only `2.48%` and fixed `w=1.60` is slightly faster there.
-
-### Where these numbers came from
-
-- Active Exp44 train/evaluation workflows:
-  - `experiments/joint/exp44/`
-- Generated checkpoints, traces, and summaries:
-  - `results/joint/mature_tune7_ppo_repro_20260423/`
-- Shared setup/solve evaluation implementation:
-  - `experiments/joint/solve_control/setup_aware_compare_common.py`
-
-Additional implementation notes are in:
-
-- `docs/archive/mature_tune7_ppo_ppt_notes.md`
-
-The ownership and dependency rules are documented in
+Repository ownership and dependency rules are documented in
 `docs/repository_layout.md`.

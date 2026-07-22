@@ -1,16 +1,23 @@
-# Exp44 Solve-Phase RL Workspace
+# Exp44: Absolute-Action PPO and Joint Online LCB Control
 
-This directory now keeps only the current full-range RL path and the minimum
-scripts needed to retrain and evaluate it.
+This directory defines the active Exp44 protocol. PPO is trained on 2000
+complete linear-system instances. The canonical joint comparison then uses a
+common 2000-instance LinUCB warmup followed by 2000 persistent online instances
+for five independently updating setup-bandit branches. Cycle transitions are
+recorded, but they are not the PPO training budget.
 
 ## High-level idea
 
-Exp44 is the current clean formulation:
+Exp44 uses the following formulation:
 
-- setup is chosen by a **mature saved bandit**
+- setup is chosen by **online LinUCB**
 - RL only controls the **solve phase**
 - the allowed relax-weight family is still the full range `w in [1, 2]`
 - the policy is **not** trained with teacher labels, sweeps, or rule warmstarts
+
+PPO trace construction starts from a mature saved LinUCB state. In the formal
+joint comparison, the common warmup state is cloned into five independent
+branches and each branch continues to update once per comparison instance.
 
 The active PPO now predicts an **absolute physical relaxation weight**:
 
@@ -27,8 +34,7 @@ where:
 - the first comparison action is forced to the prepared default once globally;
   every later cycle and instance is policy controlled
 
-This removes the old per-instance midpoint reset and the residual `+/-0.02`
-restriction.
+There is no residual `+/-0.02` restriction and no per-instance midpoint reset.
 
 ## Python environment
 
@@ -90,7 +96,7 @@ export PATH="$(brew --prefix open-mpi)/bin:$PATH"
 - `eval_exp44_model.sh`
   - evaluates one model on held-out forward continuation
 - `run_exp44_retrain_and_eval.sh`
-  - convenience wrapper: train new model, re-test old model, test new model
+  - convenience wrapper: train and evaluate the active model
 
 ### Core evaluation helpers
 
@@ -98,24 +104,19 @@ export PATH="$(brew --prefix open-mpi)/bin:$PATH"
 - `eval_forward_continuation_dual.py`
 - `aggregate_forward_continuation_from_run.py`
 
-## Native-library prerequisites
+## Native-library prerequisite
 
-The retained Exp44 path needs two local shared libraries:
+Setup and solve methods both use the single
+`hypre/interfaces/libamg_runtime.dylib` through `hypre.bindings`.
 
-1. solve-phase library: `hypre/interfaces/libamg_env.dylib`
-2. setup-phase library: `hypre/interfaces/libamg_setup_solver.dylib`
-
-If you start from a fresh checkout and these files do not exist, build them
-before running training or evaluation.
-
-### Build HYPRE and both interfaces
+### Build HYPRE and the runtime
 
 ```bash
 cd /path/to/RLTune-BoomerAMG
 make -C hypre
 ```
 
-That wrapper uses repository-relative paths and builds the setup solver with
+That wrapper uses repository-relative paths and builds the runtime with
 `@loader_path`-based HYPRE lookup, so the result does not depend on your local
 absolute checkout path.
 
@@ -153,7 +154,7 @@ held-out evaluation results are kept together under the same run tag.
 conda activate rl
 cd /path/to/RLTune-BoomerAMG
 
-RUN_TAG=exp44_absolute_default_lstm_canonical_20260718 \
+RUN_TAG=exp44_absolute_lstm_train2000_instances_seed39396939_20260719 \
 bash experiments/joint/exp44/train_exp44_absolute_lstm.sh
 ```
 
@@ -179,7 +180,7 @@ The training script does two things:
 7. Train PPO/LSTM on the frozen training trace.
 8. Score the checkpoint on internal validation traces using
    `seed_mean_minus_std_vs_bandit`.
-9. Save the retained checkpoint, validation table, figures, and training log
+9. Save the checkpoint, validation table, figures, and training log
    under `<run-tag>/training/`.
 
 Default Exp44 training config:
@@ -187,7 +188,8 @@ Default Exp44 training config:
 - `MATRIX_GRID_N=40`
 - `SETUP_PARAM_RESOLUTION=20`
 - Tune7 categorical setup actions: `2,880,000`
-- train seeds: `39396939,39402939,39408939`
+- train seed: `39396939`
+- training instances: `2000`
 - eval seeds: `39414939,39420939,39426939`
 - `ACTION_MODE=continuous_absolute`
 - `MODEL_TYPE=lstm`
@@ -198,15 +200,108 @@ Default Exp44 training config:
 - `W_GLOBAL_MAX=2.0`
 - `INITIAL_OBSERVATION_WEIGHT=1.0`
 - `INITIAL_POLICY_WEIGHT=1.0`
-- `TOTAL_TIMESTEPS=2500`
+- `TRAIN_EPISODES=2000`
+- `TOTAL_TIMESTEPS=100000` (safety ceiling only)
 - `CHECKPOINT_OBJECTIVE=seed_mean_minus_std_vs_bandit`
 
-To train on one complete pass over a fixed number of unique problem
-instances, set `TRAIN_EPISODES` equal to the generated training-trace size.
-For example, `RL_TRAIN_SEEDS=39396939`, `RL_TRAIN_CASES=2000`, and
-`TRAIN_EPISODES=2000` stop PPO after exactly 2000 completed solves; the result
-also records the resulting number of cycle transitions. The default
-`TRAIN_EPISODES=0` retains transition-budget training.
+The runner requires `TRAIN_EPISODES` to equal the generated training-trace
+size. It stops after exactly 2000 completed solves and records the resulting
+cycle-transition count. For the canonical July 19 run, 2000 episodes produced
+38,485 transitions.
+
+## Canonical 2K+2K joint comparison
+
+The active comparison contains exactly these five methods:
+
+1. Online LinUCB + default solve
+2. Online LinUCB + fixed `w=1.6`
+3. Online LinUCB + frozen 2000-instance absolute-action PPO
+4. Online LinUCB + Recursive MC-LCB
+5. Online LinUCB + Recursive LSTDQ-LCB
+
+All methods consume the same instance stream. The first 2000 instances warm up
+one LinUCB state; that mutable state is cloned at the comparison boundary. Each
+branch then performs 2000 independent LinUCB select/update steps. The immutable
+action catalog is shared, while mutable LinUCB matrices are not shared.
+
+```bash
+conda activate rl
+cd /path/to/RLTune-BoomerAMG
+
+python -u experiments/joint/solve_control/run_joint_online_sarsa_4k.py \
+  --output-dir results/joint/online_linear_lcb_v1/run_logs/<run-tag> \
+  --study-mode recursive_lcb_ppo \
+  --ppo-model results/joint/exp44/run_logs/\
+exp44_absolute_lstm_train2000_instances_seed39396939_20260719/\
+training/model_best.zip \
+  --matrix-grid-n 40 \
+  --setup-param-resolution 20
+```
+
+Canonical July 19 result, in milliseconds per comparison instance:
+
+| Method | Setup | Native solve | Native total | Controller | LinUCB | End-to-end |
+|---|---:|---:|---:|---:|---:|---:|
+| Default solve | 26.408 | 49.954 | 76.362 | 0.000 | 4.601 | 80.963 |
+| Fixed `w=1.6` | 27.276 | 44.068 | 71.344 | 0.000 | 4.585 | 75.929 |
+| Absolute PPO | 26.986 | 45.431 | 72.417 | 4.744 | 4.588 | 81.749 |
+| Recursive MC-LCB | 27.166 | 46.075 | 73.241 | 3.574 | 4.743 | 81.557 |
+| Recursive LSTDQ-LCB | 27.064 | 44.182 | 71.245 | 6.516 | 4.862 | 82.624 |
+
+All five methods completed 2000 formal records with zero solve failures. The
+full result and figures are under:
+
+```text
+results/joint/online_linear_lcb_v1/run_logs/
+joint_online_recursive_lcb_ppo_2kplus2k_20260719/
+```
+
+### 4K joint-from-scratch variant
+
+The matched variant removes only the shared 2000-instance setup-bandit warmup.
+All five LinUCB branches start from the same initial state and independently
+update from instance 1 through instance 4000. Recursive MC-LCB and Recursive
+LSTDQ-LCB also start from zero at instance 1; the offline PPO remains frozen.
+The instance stream, seeds, matrix grid, setup parameter resolution, action
+space, PPO checkpoint, and all controller parameters are unchanged.
+
+```bash
+python -u experiments/joint/solve_control/run_joint_online_sarsa_4k.py \
+  --output-dir results/joint/online_linear_lcb_v1/run_logs/<run-tag> \
+  --study-mode recursive_lcb_ppo \
+  --ppo-model results/joint/exp44/run_logs/\
+exp44_absolute_lstm_train2000_instances_seed39396939_20260719/\
+training/model_best.zip \
+  --matrix-grid-n 40 \
+  --setup-param-resolution 20 \
+  --train-cases 4000 \
+  --warmup-cases 0 \
+  --online-cases 4000
+```
+
+Full-stream means, in milliseconds per instance:
+
+| Method | Setup | Native solve | Native total | Controller | LinUCB | End-to-end |
+|---|---:|---:|---:|---:|---:|---:|
+| Default solve | 27.593 | 50.732 | 78.326 | 0.000 | 5.306 | 83.632 |
+| Fixed `w=1.6` | 32.235 | 48.598 | 80.833 | 0.000 | 5.479 | 86.312 |
+| Absolute PPO | 28.196 | 44.764 | 72.960 | 4.639 | 5.306 | 82.905 |
+| Recursive MC-LCB | 30.396 | 48.633 | 79.029 | 3.746 | 5.428 | 88.202 |
+| Recursive LSTDQ-LCB | 29.003 | 43.062 | 72.065 | 6.663 | 5.392 | 84.120 |
+
+In the last 2000 instances, Recursive LSTDQ-LCB improved native solve by
+`11.15%` and end-to-end time by `3.56%` relative to the independently learning
+fixed-`w=1.6` branch. It improved native solve by `5.24%` and end-to-end time by
+`0.98%` relative to the PPO branch. Because independently learning LinUCB
+branches quickly selected different setups, these are joint-system comparisons,
+not fixed-setup solve-controller comparisons.
+
+The complete result and figures are under:
+
+```text
+results/joint/online_linear_lcb_v1/run_logs/
+joint_online_recursive_lcb_ppo_joint4k_from_scratch_20260719/
+```
 
 ## Evaluation workflow
 
@@ -216,7 +311,7 @@ Evaluate an existing model:
 conda activate rl
 cd /path/to/RLTune-BoomerAMG
 
-MODEL_PATH=$PWD/results/joint/exp44/run_logs/exp44_absolute_default_lstm_canonical_20260718/training/model_best.zip \
+MODEL_PATH=$PWD/results/joint/exp44/run_logs/exp44_absolute_lstm_train2000_instances_seed39396939_20260719/training/model_best.zip \
 RUN_ID=exp44_eval_example \
 bash experiments/joint/exp44/eval_exp44_model.sh
 ```
@@ -224,9 +319,10 @@ bash experiments/joint/exp44/eval_exp44_model.sh
 Default held-out evaluation:
 
 - methods: `default,bandit,fixed,ppo`
-- seeds: `39393939,39394939,39400939,39406939,39412939`
+- seeds: `39393939,39394939,39400939`
 - window: `1500:2500` (`eval_1000`)
-- no VecNormalize file is needed for the retained Exp44 path
+- total held-out instances: `3 x 1000 = 3000`
+- no VecNormalize file is needed
 
 ### End-to-end held-out evaluation flow
 
@@ -249,7 +345,7 @@ Default held-out evaluation:
 The formal evaluator times LinUCB selection, feedback-loss evaluation, and
 update separately while constructing the online setup trace. The table reports
 their sum as `bandit_overhead_ms_per_instance`; the end-to-end figure stacks
-native runtime, PPO controller overhead, and LinUCB overhead.
+native setup, native solve, PPO controller overhead, and LinUCB overhead.
 
 ## Code path: high level to low level
 

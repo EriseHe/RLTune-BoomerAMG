@@ -71,10 +71,9 @@ class Exp44PpoSarsaOnlineTests(unittest.TestCase):
         self.assertAlmostEqual(result["candidate_improvement_pct"], 10.0)
         self.assertGreater(result["candidate_improvement_95pct"][0], 0.0)
 
-    def test_trace_summary_separates_retry_and_bandit_timing(self) -> None:
+    def test_trace_summary_separates_fallback_and_bandit_timing(self) -> None:
         records = [
             {
-                "failed_attempts": 2,
                 "bandit_timing": {
                     "select_sec": 0.1,
                     "loss_eval_sec": 0.2,
@@ -86,10 +85,10 @@ class Exp44PpoSarsaOnlineTests(unittest.TestCase):
                     "setup_runtime": 0.5,
                     "solve_runtime": 1.5,
                     "failed": False,
+                    "fallback_used": True,
                 },
             },
             {
-                "failed_attempts": 1,
                 "bandit_timing": {
                     "select_sec": 0.4,
                     "loss_eval_sec": 0.5,
@@ -101,12 +100,13 @@ class Exp44PpoSarsaOnlineTests(unittest.TestCase):
                     "setup_runtime": 1.0,
                     "solve_runtime": 2.0,
                     "failed": True,
+                    "fallback_used": False,
                 },
             },
         ]
         summary = _trace_summary(records)
         self.assertEqual(summary["cases"], 2)
-        self.assertEqual(summary["setup_retries"], 3)
+        self.assertEqual(summary["fallback_uses"], 1)
         self.assertEqual(summary["feedback_failures"], 1)
         self.assertAlmostEqual(summary["bandit_timing_totals_sec"]["overhead_sec"], 2.1)
         self.assertAlmostEqual(summary["feedback_totals_sec"]["solve_runtime"], 3.5)

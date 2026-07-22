@@ -1,5 +1,5 @@
 # amg_gym_env.py
-import os, ctypes, math
+import os, math
 from pathlib import Path
 import numpy as np
 import gymnasium as gym
@@ -8,10 +8,15 @@ import time
 
 from problems.amg import build_matrix_kwargs_difconv
 from problems.cases import generate_matrix_coeffs, generate_rhs_seed
+from hypre.bindings import (
+    AMGNativeError,
+    AMG_RUNTIME_LIBRARY,
+    SolveStatus,
+    create_env,
+)
 
 
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_AMG_ENV_LIBRARY = _REPO_ROOT / "hypre" / "interfaces" / "libamg_env.dylib"
+DEFAULT_AMG_RUNTIME_LIBRARY = AMG_RUNTIME_LIBRARY
 
 
 def build_policy_obs(*, r, r_prev, cycle, max_cycles, coeff_triplet, grid_triplet, last_w):
@@ -328,19 +333,20 @@ class BoomerAMGRelaxEnv(gym.Env):
         self.reward_mode   = int(os.environ.get("REWARD_MODE", "0"))
         self.reward_alpha  = float(os.environ.get("REWARD_ALPHA", "1.3"))
         self.term_bonus    = float(os.environ.get("TERM_BONUS", "2.0"))
-        self.trunc_penalty = float(os.environ.get("TRUNC_PENALTY", "2.0"))
         self.dt_penalty    = float(os.environ.get("DT_PENALTY", "0.0"))  # optional extra -dt term
 
-        resolved_lib_path = DEFAULT_AMG_ENV_LIBRARY if lib_path is None else Path(lib_path)
+        resolved_lib_path = DEFAULT_AMG_RUNTIME_LIBRARY if lib_path is None else Path(lib_path)
         resolved_lib_path = resolved_lib_path.expanduser().resolve()
+        if resolved_lib_path != DEFAULT_AMG_RUNTIME_LIBRARY.resolve():
+            raise RuntimeError(
+                "BoomerAMGRelaxEnv only supports the shared libamg_runtime "
+                f"binding at {DEFAULT_AMG_RUNTIME_LIBRARY}."
+            )
         if not resolved_lib_path.exists():
             raise RuntimeError(
-                f"Compiled solve interface not found at {resolved_lib_path}. "
+                f"Compiled AMG runtime not found at {resolved_lib_path}. "
                 "Build it with `make -C hypre/interfaces`."
             )
-        self.lib = ctypes.CDLL(str(resolved_lib_path))
-        self.AMGEnv_p = ctypes.c_void_p
-        self._bind()
 
         # Action: either (w, down, up) or w-only
         if self.w_only:
@@ -363,7 +369,7 @@ class BoomerAMGRelaxEnv(gym.Env):
         )
 
         # runtime state
-        self.env_ptr = None
+        self.prepared_env = None
         self.stencil = None
         self.r0 = None
         self.r_prev = None
@@ -402,52 +408,6 @@ class BoomerAMGRelaxEnv(gym.Env):
             self.c_norm_div = 1.0
 
         self.residual_curve = None
-
-    def _bind(self):
-        lib = self.lib
-        AMGEnv_p = self.AMGEnv_p
-
-        lib.amg_env_create.restype = AMGEnv_p
-        lib.amg_env_create.argtypes = [
-            ctypes.c_int, ctypes.c_int, ctypes.c_int,   # nx ny nz
-            ctypes.c_int, ctypes.c_int,                 # stencil rhs_type
-            ctypes.c_double, ctypes.c_int,              # tol max_cycles
-            ctypes.c_ulonglong,                         # rhs_seed
-            ctypes.c_double, ctypes.c_double,           # k c (7pt)
-            ctypes.c_double, ctypes.c_double, ctypes.c_double, ctypes.c_double  # a0..a3 (27pt)
-        ]
-
-        lib.amg_env_step.restype = ctypes.c_int
-        lib.amg_env_step.argtypes = [
-            AMGEnv_p,
-            ctypes.c_double,  # relax_weight
-            ctypes.c_int,     # sweeps_down
-            ctypes.c_int,     # sweeps_up
-            ctypes.POINTER(ctypes.c_double),  # r
-            ctypes.POINTER(ctypes.c_double),  # dt
-            ctypes.POINTER(ctypes.c_int),     # status
-        ]
-
-        lib.amg_env_get_r0.restype = ctypes.c_double
-        lib.amg_env_get_r0.argtypes = [AMGEnv_p]
-
-        lib.amg_env_get_r.restype = ctypes.c_double
-        lib.amg_env_get_r.argtypes = [AMGEnv_p]
-
-        lib.amg_env_get_cycle.restype = ctypes.c_int
-        lib.amg_env_get_cycle.argtypes = [AMGEnv_p]
-
-        lib.amg_env_get_setup_time.restype = ctypes.c_double
-        lib.amg_env_get_setup_time.argtypes = [AMGEnv_p]
-
-        lib.amg_env_get_cycle_type.restype = ctypes.c_int
-        lib.amg_env_get_cycle_type.argtypes = [AMGEnv_p]
-
-        lib.amg_env_get_relax_type.restype = ctypes.c_int
-        lib.amg_env_get_relax_type.argtypes = [AMGEnv_p]
-
-        lib.amg_env_destroy.restype = None
-        lib.amg_env_destroy.argtypes = [AMGEnv_p]
 
     def _coeff_ratios(self):
         if int(self.stencil or 0) == 0:
@@ -494,9 +454,9 @@ class BoomerAMGRelaxEnv(gym.Env):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
 
-        if self.env_ptr:
-            self.lib.amg_env_destroy(self.env_ptr)
-            self.env_ptr = None
+        if self.prepared_env is not None:
+            self.prepared_env.close()
+            self.prepared_env = None
 
         if self.randomize_grid:
             u = float(self.rng.random())
@@ -548,7 +508,7 @@ class BoomerAMGRelaxEnv(gym.Env):
             else:
                 self.cx, self.cy, self.cz = self.difconv_c
             self.ax, self.ay, self.az = self.difconv_a
-            # Map difconv params into amg_env_create slots: k,c,a0..a3
+            # Map DifConv params into the native runtime slots: k,c,a0..a3.
             self.a0, self.a1, self.a2, self.a3 = self.cz, self.ax, self.ay, self.az
             k, c = float(self.cx), float(self.cy)
         else:
@@ -600,18 +560,20 @@ class BoomerAMGRelaxEnv(gym.Env):
             self.a2 = float(matrix_kwargs["a2"])
             self.a3 = float(matrix_kwargs["a3"])
 
-        self.env_ptr = self.lib.amg_env_create(
-            nx, ny, nz,
-            self.stencil, rhs_type,
-            self.tol, self.max_cycles,
-            rhs_seed,
-            k, c, self.a0, self.a1, self.a2, self.a3
+        self.prepared_env = create_env(
+            nx=nx, ny=ny, nz=nz,
+            stencil=self.stencil,
+            rhs_type=rhs_type,
+            rhs_seed=rhs_seed,
+            k=k, c=c,
+            a0=self.a0, a1=self.a1, a2=self.a2, a3=self.a3,
         )
+        prepared = self.prepared_env.prepare_rl({})
 
-        self.r0 = float(self.lib.amg_env_get_r0(self.env_ptr))
+        self.r0 = float(prepared.initial_residual_norm)
         self.r_prev = self.r0
         self.cycle = 0
-        self.setup_time = float(self.lib.amg_env_get_setup_time(self.env_ptr))
+        self.setup_time = float(prepared.setup_runtime_sec)
 
         self.last_w = self.w_init if self.w_init is not None else self.w_center
         init_sweeps = self.sweeps_default if self.sweeps_init is None else int(self.sweeps_init)
@@ -620,7 +582,7 @@ class BoomerAMGRelaxEnv(gym.Env):
         self.last_sweeps_up = init_sweeps
 
         self.residual_curve = [self.r0]
-        r = float(self.lib.amg_env_get_r(self.env_ptr))
+        r = float(self.prepared_env.r)
 
         obs = self._make_obs(r, self.r_prev)
         info = {
@@ -630,8 +592,8 @@ class BoomerAMGRelaxEnv(gym.Env):
             "rhs_type": rhs_type,
             "rhs_seed": rhs_seed,
             "setup_time": float(self.setup_time),
-            "cycle_type": int(self.lib.amg_env_get_cycle_type(self.env_ptr)),
-            "relax_type": int(self.lib.amg_env_get_relax_type(self.env_ptr)),
+            "cycle_type": int(self.prepared_env.cycle_type),
+            "relax_type": int(self.prepared_env.relax_type),
             "r0": self.r0,
             "a0": float(self.a0), "a1": float(self.a1), "a2": float(self.a2), "a3": float(self.a3),
             "cx": float(self.cx), "cy": float(self.cy), "cz": float(self.cz),
@@ -663,21 +625,32 @@ class BoomerAMGRelaxEnv(gym.Env):
         self.last_sweeps_down = sweeps_down
         self.last_sweeps_up = sweeps_up
 
-        r_c  = ctypes.c_double()
-        dt_c = ctypes.c_double()
-        st_c = ctypes.c_int()
-
         # --- Measure both wall time and solver time around the C step
         t0 = time.perf_counter()
-        self.lib.amg_env_step(
-            self.env_ptr, w, sweeps_down, sweeps_up,
-            ctypes.byref(r_c), ctypes.byref(dt_c), ctypes.byref(st_c)
-        )
+        try:
+            r_solver, dt_solver = self.prepared_env.step_rl(
+                relax_weight=w,
+                sweeps_down=sweeps_down,
+                sweeps_up=sweeps_up,
+                coarse_sweeps=1,
+                tol=self.tol,
+                max_cycles=self.max_cycles,
+            )
+        except AMGNativeError as exc:
+            dt_wall = time.perf_counter() - t0
+            obs = np.zeros(self.observation_space.shape, dtype=np.float32)
+            return obs, -10.0, False, True, {
+                "bad_step": True,
+                "failure_reason": str(exc),
+                "failure_stage": exc.operation,
+                "dt_wall": dt_wall,
+                "dt_solver": exc.solve_runtime_sec,
+            }
         dt_wall = time.perf_counter() - t0
-
-        r_solver  = float(r_c.value)
-        dt_solver = float(dt_c.value)
-        self.cycle = int(self.lib.amg_env_get_cycle(self.env_ptr))
+        r_solver = float(r_solver)
+        dt_solver = float(dt_solver)
+        status = self.prepared_env.last_step.status
+        self.cycle = int(self.prepared_env.cycle)
 
         # --- Safety checks
         if (
@@ -692,7 +665,6 @@ class BoomerAMGRelaxEnv(gym.Env):
         reward_mode = int(getattr(self, "reward_mode", int(os.environ.get("REWARD_MODE", "0"))))
         reward_alpha = float(getattr(self, "reward_alpha", float(os.environ.get("REWARD_ALPHA", "1.3"))))
         term_bonus = float(getattr(self, "term_bonus", float(os.environ.get("TERM_BONUS", "2.0"))))
-        trunc_penalty = float(getattr(self, "trunc_penalty", float(os.environ.get("TRUNC_PENALTY", "2.0"))))
         dt_penalty = float(getattr(self, "dt_penalty", float(os.environ.get("DT_PENALTY", "0.0"))))
 
         # --- Compute progress signals
@@ -735,13 +707,11 @@ class BoomerAMGRelaxEnv(gym.Env):
         # Optional extra explicit time penalty (usually 0)
         reward -= dt_penalty * dt_eff
 
-        terminated = (st_c.value == 1)
-        truncated  = (st_c.value == 2)
+        terminated = status is SolveStatus.CONVERGED
+        truncated = status is SolveStatus.MAX_CYCLES
 
         if terminated:
             reward += term_bonus
-        if truncated:
-            reward -= trunc_penalty
 
         # Optional regularizers (already wired via env vars -> kwargs in your make_env)
         if self.cycle_penalty > 0.0:
@@ -787,6 +757,6 @@ class BoomerAMGRelaxEnv(gym.Env):
 
         return obs, float(reward), bool(terminated), bool(truncated), info
     def close(self):
-        if self.env_ptr:
-            self.lib.amg_env_destroy(self.env_ptr)
-            self.env_ptr = None
+        if self.prepared_env is not None:
+            self.prepared_env.close()
+            self.prepared_env = None

@@ -6,6 +6,10 @@ from .SharedLinUCB_AMG import SharedLinUCB_AMG
 from .SharedLinUCB_AMG_v2 import SharedLinUCB_AMG_v2
 from .SharedLinUCB_AMG_v3 import SharedLinUCB_AMG_v3
 from .SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
+from .setup_reselection import (
+    SetupReselectionResult,
+    run_same_context_setup_reselection,
+)
 
 __all__ = [
     "LinUCB_AMG",
@@ -14,4 +18,6 @@ __all__ = [
     "SharedLinUCB_AMG_v2",
     "SharedLinUCB_AMG_v3",
     "SharedLinUCB_AMG_v4",
+    "SetupReselectionResult",
+    "run_same_context_setup_reselection",
 ]

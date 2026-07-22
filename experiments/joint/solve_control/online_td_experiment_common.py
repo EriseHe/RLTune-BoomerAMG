@@ -21,6 +21,7 @@ from SolvePhase.algorithms.sarsa import (
     run_td_episode,
 )
 from setup_aware_compare_common import (
+    DEFAULT_SETUP_PARAMS,
     augment_setup_params,
     generate_difconv_instances,
     solve_fixed_w_case,
@@ -202,6 +203,13 @@ def _method_outcome(
             learn=learn,
             explore=explore,
             defer_monte_carlo_update=defer_monte_carlo_update,
+            fallback_attempt=lambda: solve_no_rl_case(
+                params=dict(DEFAULT_SETUP_PARAMS),
+                mkw=dict(mkw),
+                solver_tol=float(tol),
+                solver_max_iter=int(max_cycles),
+                augment_params=augment_setup_params,
+            ),
         )
     raise ValueError(f"Unknown method: {method}")
 
@@ -371,8 +379,6 @@ def main() -> None:
     parser.add_argument("--epsilon-start", type=float, default=0.20)
     parser.add_argument("--epsilon-final", type=float, default=0.01)
     parser.add_argument("--epsilon-decay-steps", type=float, default=4000.0)
-    parser.add_argument("--potential-scale-sec", type=float, default=0.0)
-    parser.add_argument("--failure-penalty-sec", type=float, default=0.05)
     parser.add_argument("--initial-q-sec", type=float, default=0.02)
     parser.add_argument("--monte-carlo-alpha", type=float, default=0.0)
     parser.add_argument("--monte-carlo-decay-power", type=float, default=0.0)
@@ -395,8 +401,6 @@ def main() -> None:
         epsilon_start=float(args.epsilon_start),
         epsilon_final=float(args.epsilon_final),
         epsilon_decay_steps=float(args.epsilon_decay_steps),
-        potential_scale_sec=float(args.potential_scale_sec),
-        failure_penalty_sec=float(args.failure_penalty_sec),
         initial_q_sec=float(args.initial_q_sec),
         monte_carlo_alpha=float(args.monte_carlo_alpha),
         monte_carlo_decay_power=float(args.monte_carlo_decay_power),

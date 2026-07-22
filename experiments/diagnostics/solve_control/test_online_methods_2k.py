@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from run_online_bandit_td_lambda import _build_paired_instance_stream
+from joint_online_common import _build_paired_instance_stream
 from run_online_methods_2k import (
     _as_feedback,
     _continuous_action_diagnostics,

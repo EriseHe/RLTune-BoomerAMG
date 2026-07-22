@@ -11,7 +11,7 @@ import numpy as np
 
 from learners.common import ParameterSpaceSpec, ParameterSpec
 from utils.setup_amg import build_actions_from_spec
-from amg_setup_gym_env import build_setup_parameter_spec
+from setup_action_space import build_setup_parameter_spec
 from setup_aware_compare_common import (
     EXP44_SETUP_PARAM_RESOLUTION,
     EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,

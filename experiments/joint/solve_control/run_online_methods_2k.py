@@ -20,13 +20,14 @@ from SolvePhase.algorithms.sarsa import (
 )
 from online_td_experiment_common import _action_diagnostics, _json_ready, _write_json
 from run_exp44_online_rl import make_controller
-from run_online_bandit_td_lambda import (
+from joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
     _git_revision,
     _method_stream_summary,
     _policy_last_arm,
     _report_online_outcome,
+    _validate_recovery_stream,
 )
 from setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
@@ -38,6 +39,7 @@ from setup_aware_compare_common import (
     classify_rl_failure,
     default_test_final_bandit_config_from_env,
     run_bandit_step_test_final,
+    solve_default_baseline_case,
     solve_fixed_w_case,
     solve_no_rl_case,
     solve_setup_aware_rl_case,
@@ -59,11 +61,24 @@ BASELINE_METHOD = "bandit_default"
 def _as_feedback(native: Dict[str, Any], *, include_controller: bool) -> Dict[str, Any]:
     feedback = dict(native)
     controller_runtime = float(native.get("infer_runtime", 0.0)) if include_controller else 0.0
-    feedback["native_runtime"] = float(native["runtime"])
-    feedback["native_solve_runtime"] = float(native.get("solve_runtime", 0.0))
+    native_runtime = float(native.get("native_runtime", native["runtime"]))
+    reported_solve_runtime = float(native.get("solve_runtime", 0.0))
+    inferred_native_solve = reported_solve_runtime
+    if not np.isclose(
+        float(native.get("setup_runtime", 0.0)) + reported_solve_runtime,
+        native_runtime,
+        rtol=1e-9,
+        atol=1e-12,
+    ):
+        inferred_native_solve = reported_solve_runtime - controller_runtime
+    native_solve_runtime = float(
+        native.get("native_solve_runtime", inferred_native_solve)
+    )
+    feedback["native_runtime"] = native_runtime
+    feedback["native_solve_runtime"] = native_solve_runtime
     feedback["infer_runtime"] = float(controller_runtime)
-    feedback["runtime"] = float(native["runtime"] + controller_runtime)
-    feedback["solve_runtime"] = float(native.get("solve_runtime", 0.0) + controller_runtime)
+    feedback["runtime"] = float(native_runtime + controller_runtime)
+    feedback["solve_runtime"] = float(native_solve_runtime + controller_runtime)
     return feedback
 
 
@@ -305,6 +320,13 @@ def _solver_for_method(
                 learn=True,
                 explore=True,
                 record_action_metadata=True,
+                fallback_attempt=lambda: solve_no_rl_case(
+                    params=dict(DEFAULT_SETUP_PARAMS),
+                    mkw=dict(mkw),
+                    solver_tol=float(args.tol),
+                    solver_max_iter=int(args.max_cycles),
+                    augment_params=augment_setup_params,
+                ),
             )
             return _as_feedback(native, include_controller=True)
 
@@ -389,7 +411,7 @@ def run(args: argparse.Namespace) -> None:
             "actions": int(action_count),
             "feature_dim": int(branches[BASELINE_METHOD].policy.model.d_phi),
             "independent_branch_updates_after_warmup": True,
-            "retry_max_attempts": int(bandit_cfg.retry_max_attempts),
+            "failure_protocol": "single_default_fallback",
         },
         "ppo": {
             "model": str(args.ppo_model),
@@ -421,10 +443,6 @@ def run(args: argparse.Namespace) -> None:
     _write_json(args.output_dir / "config.json", protocol)
     print(json.dumps(_json_ready({"stage": "methods_2k_start", **protocol})), flush=True)
 
-    histories = {
-        method: deque(maxlen=max(1, int(bandit_cfg.failure_scale_window)))
-        for method in BANDIT_METHODS
-    }
     previous_update = {method: 0.0 for method in BANDIT_METHODS}
     records: Dict[str, list[Dict[str, Any]]] = {method: [] for method in METHODS}
     rng = np.random.default_rng(int(args.seed + 91_003))
@@ -436,8 +454,7 @@ def run(args: argparse.Namespace) -> None:
         case_records: Dict[str, Dict[str, Any]] = {}
         for method in method_order:
             if method == "default_setup":
-                native = solve_no_rl_case(
-                    params=dict(DEFAULT_SETUP_PARAMS),
+                native = solve_default_baseline_case(
                     mkw=dict(mkw),
                     solver_tol=float(args.tol),
                     solver_max_iter=int(args.max_cycles),
@@ -453,7 +470,7 @@ def run(args: argparse.Namespace) -> None:
                     "context": np.asarray(context, dtype=float).tolist(),
                     "params": dict(DEFAULT_SETUP_PARAMS),
                     "arm_index": -1,
-                    "failed_attempts": 0,
+                    "fallback_used": 0,
                     "bandit_timing": {},
                     "outcome": outcome,
                 }
@@ -469,16 +486,22 @@ def run(args: argparse.Namespace) -> None:
                 encoder=encoder,
                 ppo_runner=ppo_runner,
             )
-            params, native, timing, failed_attempts, update_sec = run_bandit_step_test_final(
+            def fallback_solver(_params: Dict[str, Any]) -> Dict[str, Any]:
+                fallback_native = solve_no_rl_case(
+                    params=dict(DEFAULT_SETUP_PARAMS),
+                    mkw=dict(mkw),
+                    solver_tol=float(args.tol),
+                    solver_max_iter=int(args.max_cycles),
+                    augment_params=augment_setup_params,
+                )
+                return _as_feedback(fallback_native, include_controller=False)
+            params, native, timing, fallback_used, update_sec = run_bandit_step_test_final(
                 policy=branch.policy,
                 parameter_space=branch.parameter_space,
                 context=np.asarray(context, dtype=float),
                 solver_fn=solver_fn,
+                fallback_solver_fn=fallback_solver,
                 prev_update_est=float(previous_update[method]),
-                success_runtime_history=histories[method],
-                b_min_runtime_sec=1.0e-3,
-                solver_tol=float(args.tol),
-                cfg=bandit_cfg,
             )
             previous_update[method] = float(update_sec)
             case_records[method] = {
@@ -487,7 +510,7 @@ def run(args: argparse.Namespace) -> None:
                 "context": np.asarray(context, dtype=float).tolist(),
                 "params": dict(params),
                 "arm_index": _policy_last_arm(branch.policy),
-                "failed_attempts": int(failed_attempts),
+                "fallback_used": int(fallback_used),
                 "bandit_timing": dict(timing),
                 "outcome": _report_online_outcome(native, bandit_timing=timing),
             }
@@ -548,6 +571,14 @@ def run(args: argparse.Namespace) -> None:
     with (args.output_dir / "online_bandit_states.pkl").open("wb") as handle:
         pickle.dump(branches, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    recovery_audit = {
+        method: _validate_recovery_stream(
+            method_records,
+            expect_bandit_transaction=method in BANDIT_METHODS,
+        )
+        for method, method_records in records.items()
+    }
+
     windows = {
         f"all_{len(instances)}": records,
         "first_1000": {method: method_records[:1000] for method, method_records in records.items()},
@@ -569,6 +600,7 @@ def run(args: argparse.Namespace) -> None:
     }
     result = {
         "protocol": protocol,
+        "recovery_audit": recovery_audit,
         "methods": {
             method: _method_stream_summary(method_records)
             for method, method_records in records.items()
@@ -686,8 +718,6 @@ def main() -> None:
     parser.add_argument("--epsilon-start", type=float, default=0.3)
     parser.add_argument("--epsilon-final", type=float, default=0.03)
     parser.add_argument("--epsilon-decay-steps", type=float, default=20000.0)
-    parser.add_argument("--potential-scale-sec", type=float, default=0.001)
-    parser.add_argument("--failure-penalty-sec", type=float, default=0.1)
     parser.add_argument("--initial-q-sec", type=float, default=0.0)
     parser.add_argument(
         "--force-default-first-action",

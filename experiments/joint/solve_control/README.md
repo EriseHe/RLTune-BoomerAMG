@@ -1,4 +1,4 @@
-# Active Exp44 Code Path
+# Active Joint Setup/Solve Code
 
 This directory was reduced to the modules that still participate in the
 retained Exp44 workflow.
@@ -15,7 +15,10 @@ retained Exp44 workflow.
   - Gymnasium adapter used to train PPO over frozen traces
 - `SolvePhase/core/amg_gym_env.py`
   - action decoding shared by training and direct forward evaluation
-- `amg_setup_gym_env.py`
+- `setup_action_space.py`
+  - setup parameter specifications and observation encoding; no native runtime
+- `joint_online_common.py`
+  - instance streams, reporting, and recovery invariants
 - `SolvePhase/algorithms/ppo/`
   - PPO policy definitions
 
@@ -57,6 +60,111 @@ That function:
 2. calls `prepare_rl(params=...)`
 3. lets the RL policy control solve-phase `w`
 
+## Runtime and failure recovery
+
+All active setup, solve, and joint workflows call the same
+`hypre.bindings` package and `hypre/interfaces/libamg_runtime` native library.
+The numerical HYPRE fork under `hypre/source/` remains unmodified.
+
+Each external instance permits at most four native attempts:
+
+1. up to three learned setup attempts in the same context, including the first;
+2. learned reselection occurs only after setup construction failure;
+3. after a solve failure, or after all three setup attempts fail, one default
+   setup + default solve fallback.
+
+There are no unbounded retry loops or artificial failure penalties. Failed
+setup arms are excluded only within the current instance. LinUCB receives the
+measured suffix cost for every learned attempt and a context-conditioned
+failure label. If the default fallback also fails, the LinUCB transaction and
+solve-controller learning state are rolled back while consumed RNG state is
+retained.
+
+Solve-controller cost is raw measured time. Residual potential shaping is a
+retired diagnostic and is not part of the active protocol.
+
+Recursive LSTDQ-LCB keeps the full measured recovery cost in its LSTD target.
+Its confidence estimate uses the unclipped post-fit Bellman residual in the
+sandwich covariance. Because remaining runtime is non-negative, policy LCBs are
+bounded below by zero. If that support bound ties multiple actions, the lower
+predicted mean breaks the tie before the anchor action is considered.
+
+Recursive MC-LCB uses episode-level exponentially weighted RLS. Its sandwich
+covariance clusters all returns from one solve before updating, so correlated
+cycle returns are not treated as independent observations.
+
+## 60^3 fresh 4K reference run
+
+The post-fit covariance and bounded recovery protocol were exercised in the
+following joint-from-scratch reference run:
+
+- matrix grid: `60^3`
+- setup discretization: `20`
+- stream partition: `0` warmup + `4000` joint-online instances
+- solve action grid: `1.00:0.05:3.00`
+- maximum solve cycles: `50`
+- Recursive MC-LCB episode half-life: `500`
+- stream seeds: `40800039,40806039,...,40842039`
+- shuffle seed: `40848039`
+- stream SHA-256: `156e6fdbbed6733d98e2c5f7e550e5d230c45217d0833ac64567563b5434459b`
+- PPO checkpoint:
+  `results/joint/exp44/run_logs/exp44_absolute_lstm_train2000_instances_seed39396939_20260719/training/model_best.zip`
+- result directory:
+  `results/joint/online_linear_lcb_v2/run_logs/joint_online_recursive_lcb_ppo_joint4k_n60_w1to3_step005_recovery_v2_20260720/`
+
+The six branches are default setup + solve, online LinUCB + default solve,
+online LinUCB + fixed `w=1.6`, online LinUCB + absolute PPO, online LinUCB +
+Recursive MC-LCB, and online LinUCB + Recursive LSTDQ-LCB. Every LinUCB branch
+starts from the same empty mutable state and then updates independently on the
+same external instance stream.
+
+```bash
+/opt/anaconda3/envs/rl/bin/python -u \
+  experiments/joint/solve_control/run_joint_online_sarsa_4k.py \
+  --output-dir results/joint/online_linear_lcb_v2/run_logs/joint_online_recursive_lcb_ppo_joint4k_n60_w1to3_step005_recovery_v2_20260720 \
+  --study-mode recursive_lcb_ppo \
+  --ppo-model results/joint/exp44/run_logs/exp44_absolute_lstm_train2000_instances_seed39396939_20260719/training/model_best.zip \
+  --seed 40800039 --bandit-seed 40860039 \
+  --controller-seed 40866039 --method-order-seed 40872039 \
+  --train-cases 4000 --warmup-cases 0 --online-cases 4000 \
+  --train-seed-groups 40800039,40806039,40812039,40818039,40824039,40830039,40836039,40842039 \
+  --train-shuffle-seeds 40848039 --train-cases-per-seed 500 \
+  --train-group-take 4000 --matrix-grid-n 60 \
+  --setup-param-resolution 20 --max-cycles 50 \
+  --shared-action-profile 1to3_step0p05 \
+  --recursive-mc-episode-half-life 500 \
+  --include-default-setup-baseline --progress-every 100
+```
+
+## Five-controller 60^3 screen
+
+`--study-mode solve_controller_screen` is the locked successor screening mode.
+It contains exactly five independent joint-online branches and excludes the
+already-screened default, PPO, and Recursive MC controllers:
+
+1. Online LinUCB + fixed `w=1.6`;
+2. Online LinUCB + current post-fit-sandwich Recursive LSTDQ (v1);
+3. Online LinUCB + rolling-MAD coverage-scaled Recursive LSTDQ (v2);
+4. Online LinUCB + shared-RLS structured residual model-based control;
+5. Online LinUCB + hierarchical, recalibrated LSVI-LCB.
+
+Every branch starts from an empty, independently mutable LinUCB state. The
+runner enforces the canonical 4K stream hash, `60^3`, setup resolution `20`,
+the `1.00:0.05:3.00` solve-action grid, and the exact method roster. It writes
+the complete trajectories, per-1K checkpoints, final controller and LinUCB
+states, configuration, stream manifest, a compact screening report, and a
+reproduction script into a fresh output directory. LSTDQ v2 and LSVI beta must
+be frozen from the disjoint calibration before this mode is used for the final
+screen.
+
+The completed canonical screen is stored at
+`results/joint/online_linear_lcb_v3/run_logs/solve_controller_screen_joint4k_n60_20260721/`.
+LSTDQ v2 achieved `290.001 ms/case` end to end versus `300.183 ms/case` for
+fixed `w=1.6`, an improvement of `3.39%` with paired-bootstrap 95% interval
+`[2.42%, 4.28%]`. Its MAD-scaled coverage quantity is an exploration scale,
+not a calibrated confidence interval; see the run's `FINAL_REPORT.md` for the
+component audit and limitations.
+
 ## Numbered workflow
 
 ### Training-side workflow
@@ -88,5 +196,7 @@ Older experiment drivers, sweeps, teacher/BC code, and obsolete docs were moved
 to:
 
 - `experiments/archive/legacy_exp44_pre_cleanup/`
+- `experiments/archive/legacy_online_gym/`
+- `experiments/archive/legacy_failure_protocol/`
 
 They are not part of the retained Exp44 workflow.

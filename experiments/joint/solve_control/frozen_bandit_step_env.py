@@ -19,8 +19,8 @@ from amg_gym_env import (
     decode_policy_action_hierarchical,
     decode_policy_action_residual,
 )
-from amg_setup_gym_env import DEFAULT_SETUP_PARAMS, SetupObsEncoder, build_setup_parameter_spec
-from hypre.bindings import create_env
+from setup_action_space import DEFAULT_SETUP_PARAMS, SetupObsEncoder, build_setup_parameter_spec
+from hypre.bindings import SolveStatus, create_env
 from setup_aware_compare_common import augment_setup_params, solve_no_rl_case
 
 
@@ -60,9 +60,7 @@ class FrozenBanditStepEnv(gym.Env):
         sweeps_max: int,
         reward_mode: int = 3,
         term_bonus: float = 0.0,
-        trunc_penalty: float = 0.0,
         policy_step_cost_sec: float = 0.0,
-        potential_progress_scale: float = 0.0,
         episode_stride: int = 1,
         baseline_runtimes: Sequence[float] | None = None,
         reference_runtimes: Sequence[float] | None = None,
@@ -152,9 +150,7 @@ class FrozenBanditStepEnv(gym.Env):
         self.sweeps_default = int(np.clip(np.round(self.sweeps_center), self.sweeps_min, self.sweeps_max))
         self.reward_mode = int(reward_mode)
         self.term_bonus = float(term_bonus)
-        self.trunc_penalty = float(trunc_penalty)
         self.policy_step_cost_sec = float(policy_step_cost_sec)
-        self.potential_progress_scale = float(potential_progress_scale)
         self.episode_stride = max(1, int(episode_stride))
         self.next_index = 0
         self.c_max = float(c_max)
@@ -495,6 +491,8 @@ class FrozenBanditStepEnv(gym.Env):
             relax_type=(None if int(rt) < 0 else int(rt)),
             outer_weight=(None if float(ow) < 0.0 else float(ow)),
             add_relax_weight=(None if float(arw) < 0.0 else float(arw)),
+            tol=float(self.tol),
+            max_cycles=int(self.max_cycles),
         )
         self._solve_runtime += float(dt)
         self._cycle += 1
@@ -523,11 +521,9 @@ class FrozenBanditStepEnv(gym.Env):
         else:
             reward = -dt_eff
         reward -= self.policy_step_cost_sec
-        potential_prev = math.log(max(r_prev, self.tol) + eps)
-        potential_cur = math.log(max(r_cur, self.tol) + eps)
-        reward += self.potential_progress_scale * (potential_prev - potential_cur)
-        terminated = bool(np.isfinite(r_cur) and r_cur <= float(self.tol))
-        truncated = bool((not terminated) and self._cycle >= int(self.max_cycles))
+        native_status = self._env.last_step.status
+        terminated = native_status is SolveStatus.CONVERGED
+        truncated = native_status is SolveStatus.MAX_CYCLES
         if self.reward_mode == 4 and (terminated or truncated) and np.isfinite(float(self._baseline_runtime)):
             total_runtime = float(self._setup_time + self._solve_runtime)
             reward += float(self.relative_bonus_scale) * float(self._baseline_runtime - total_runtime)
@@ -548,8 +544,6 @@ class FrozenBanditStepEnv(gym.Env):
                     reward -= self.teacher_mismatch_penalty
         if terminated:
             reward += self.term_bonus
-        if truncated:
-            reward -= self.trunc_penalty
         self._r_prev = float(r_prev)
         self._r_cur = float(r_cur)
         info = {

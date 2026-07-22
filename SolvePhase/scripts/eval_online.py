@@ -12,7 +12,7 @@ try:
     from . import _project_paths  # noqa: F401
 except ImportError:
     import _project_paths  # type: ignore[no-redef]  # noqa: F401
-from amg_gym_env import BoomerAMGRelaxEnv, DEFAULT_AMG_ENV_LIBRARY
+from amg_gym_env import BoomerAMGRelaxEnv, DEFAULT_AMG_RUNTIME_LIBRARY
 
 # Eval-online uses the trained relax type (18) by default.
 os.environ.setdefault("AMG_RELAX_TYPE", "18")
@@ -219,7 +219,7 @@ def _load_model(model_type, path, env=None):
 
 
 def main():
-    lib_path = str(DEFAULT_AMG_ENV_LIBRARY)
+    lib_path = str(DEFAULT_AMG_RUNTIME_LIBRARY)
     seed_start = int(os.environ.get("EVAL_SEED_START", "100"))
     seed_count = int(os.environ.get("EVAL_SEED_COUNT", "6"))
     eval_seeds = list(range(seed_start, seed_start + seed_count))

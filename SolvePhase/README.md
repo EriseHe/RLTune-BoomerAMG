@@ -4,8 +4,9 @@ Solve-phase policy code and solve-only tests belong here. Native project
 wrappers live in `hypre/interfaces/`; no project Python or interface code lives
 inside the HYPRE fork.
 
-Build the unchanged fork and both shared interfaces with `make -C hypre`.
-Solve environments load `hypre/interfaces/libamg_env.dylib` by default.
+Build the unchanged fork and the shared runtime with `make -C hypre`.
+All setup and solve environments use `hypre/interfaces/libamg_runtime.dylib`
+through `hypre.bindings`.
 
 ## Layout
 

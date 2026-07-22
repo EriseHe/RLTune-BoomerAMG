@@ -388,3 +388,12 @@ class SharedLinUCB_AMG_v2:
         self.t += 1
         self._last_phi = None
         self._last_arm = None
+
+    def cancel_pending(self) -> None:
+        """Discard a selected arm when no valid loss was observed."""
+        if self._last_phi is None or self._last_arm is None:
+            return
+        if self.history and not np.isfinite(float(self.history[-1].loss)):
+            self.history.pop()
+        self._last_phi = None
+        self._last_arm = None

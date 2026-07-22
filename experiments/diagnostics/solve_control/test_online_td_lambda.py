@@ -13,8 +13,6 @@ from SolvePhase.algorithms.sarsa import (
     ExpectedSarsaLambdaConfig,
     OnlineFixedWeightIncumbent,
     SolveStateEncoder,
-    residual_progress_potential,
-    shaped_cycle_cost,
 )
 from run_exp44_online_rl import _average_repeated_rows
 
@@ -51,33 +49,6 @@ class OnlineTDLambdaTests(unittest.TestCase):
 
         self.assertEqual(encoder.feature_dim, 27)
         self.assertTrue(np.allclose(features[-2:], np.asarray([0.25, 1.5])))
-
-    def test_potential_shaping_telescopes_for_success_and_failure(self) -> None:
-        tol = 1.0e-6
-        scale = 1.0e-3
-        native_costs = (0.01, 0.02, 0.03)
-
-        def shaped_total(residuals, *, final_is_terminal=True):
-            return sum(
-                shaped_cycle_cost(
-                    cost,
-                    residual=residuals[index],
-                    next_residual=residuals[index + 1],
-                    tol=tol,
-                    scale_sec=scale,
-                    gamma=1.0,
-                    terminal=bool(final_is_terminal and index == len(native_costs) - 1),
-                )
-                for index, cost in enumerate(native_costs)
-            )
-
-        expected_offset = -residual_progress_potential(1.0, tol=tol, scale_sec=scale)
-        successful = shaped_total((1.0, 0.1, 1.0e-4, 1.0e-8))
-        overshot = shaped_total((1.0, 0.5, 1.0e-2, 1.0e-20))
-        truncated = shaped_total((1.0, 0.8, 0.7, 0.6))
-
-        for total in (successful, overshot, truncated):
-            self.assertTrue(np.isclose(total - sum(native_costs), expected_offset))
 
     def test_action_rbf_shares_td_update_with_nearby_weights(self) -> None:
         learner = ExpectedSarsaLambda(

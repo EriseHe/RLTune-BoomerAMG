@@ -1,7 +1,7 @@
 """
-High-level BoomerAMG solver for bandit experiments.
+High-level BoomerAMG runtime shared by setup and solve experiments.
 
-Thin Python wrapper around libamg_setup_solver.dylib (C calling HYPRE).
+Thin Python wrapper around libamg_runtime (C calling HYPRE).
 Matrix is built in C using the same Laplacian builders as the solve-phase
 RL environment, ensuring identical problem instances.
 
@@ -15,15 +15,19 @@ from __future__ import annotations
 
 import ctypes
 from dataclasses import dataclass, field
+from enum import IntEnum
 from pathlib import Path
+import sys
 from typing import Any, Dict, Optional
 
 # ---- load compiled C library ------------------------------------------------
 
 _SOLVER_DIR = Path(__file__).parent
 _REPO_ROOT = _SOLVER_DIR.parents[1]
-_LIB_PATH = _REPO_ROOT / "hypre" / "interfaces" / "libamg_setup_solver.dylib"
-_BUILD_SCRIPT = _SOLVER_DIR / "build_libamg_setup_solver.sh"
+_LIB_SUFFIX = ".dylib" if sys.platform == "darwin" else ".so"
+_LIB_PATH = _REPO_ROOT / "hypre" / "interfaces" / f"libamg_runtime{_LIB_SUFFIX}"
+AMG_RUNTIME_LIBRARY = _LIB_PATH
+_BUILD_SCRIPT = _SOLVER_DIR / "build_libamg_runtime.sh"
 if not _LIB_PATH.exists():
     raise RuntimeError(
         f"Compiled library not found at {_LIB_PATH}.\n"
@@ -37,7 +41,7 @@ try:
 except OSError as exc:
     raise RuntimeError(
         f"Failed to load {_LIB_PATH}.\n"
-        "Rebuild the setup solver with the portable wrapper:\n"
+        "Rebuild the AMG runtime with the portable wrapper:\n"
         f"  bash {_BUILD_SCRIPT}\n"
         "Then inspect the linked HYPRE path with:\n"
         f"  otool -L {_LIB_PATH}\n"
@@ -50,8 +54,8 @@ _I = ctypes.c_int
 _D = ctypes.c_double
 _ULL = ctypes.c_ulonglong
 
-_lib.amg_setup_create.restype = _VP
-_lib.amg_setup_create.argtypes = [
+_lib.amg_runtime_create.restype = _VP
+_lib.amg_runtime_create.argtypes = [
     _I, _I, _I,       # nx, ny, nz
     _I,               # stencil_type (0=difconv, 7 or 27=laplacian)
     _I, _ULL,         # rhs_type, rhs_seed
@@ -59,8 +63,8 @@ _lib.amg_setup_create.argtypes = [
     _D, _D, _D, _D,   # a0, a1, a2, a3  (27pt coeffs)
 ]
 
-_lib.amg_setup_solve.restype = _I
-_lib.amg_setup_solve.argtypes = [
+_lib.amg_runtime_solve.restype = _I
+_lib.amg_runtime_solve.argtypes = [
     _VP,                              # env
     _D, _I, _I, _D, _I, _I, _I, _I,  # strong_threshold..max_levels (incl. max_row_sum)
     _D, _I, _I, _I, _D, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
@@ -71,19 +75,20 @@ _lib.amg_setup_solve.argtypes = [
     ctypes.POINTER(_D),               # out_runtime_sec (hypre_MPI_Wtime around Setup+Solve)
     ctypes.POINTER(_D),               # out_setup_runtime_sec
     ctypes.POINTER(_D),               # out_solve_runtime_sec
+    ctypes.POINTER(_I),               # out_status
 ]
 
-_lib.amg_setup_destroy.restype = None
-_lib.amg_setup_destroy.argtypes = [_VP]
+_lib.amg_runtime_destroy.restype = None
+_lib.amg_runtime_destroy.argtypes = [_VP]
 
-_lib.amg_setup_get_n.restype = _I
-_lib.amg_setup_get_n.argtypes = [_VP]
+_lib.amg_runtime_get_n.restype = _I
+_lib.amg_runtime_get_n.argtypes = [_VP]
 
-_lib.amg_setup_get_nnz.restype = _I
-_lib.amg_setup_get_nnz.argtypes = [_VP]
+_lib.amg_runtime_get_nnz.restype = _I
+_lib.amg_runtime_get_nnz.argtypes = [_VP]
 
-_lib.amg_setup_prepare_rl.restype = _I
-_lib.amg_setup_prepare_rl.argtypes = [
+_lib.amg_runtime_prepare.restype = _I
+_lib.amg_runtime_prepare.argtypes = [
     _VP,
     _D, _I, _I, _D, _I, _I, _I, _I,
     _D, _I, _I, _I, _D, _I, _D, _I, _I,
@@ -91,22 +96,36 @@ _lib.amg_setup_prepare_rl.argtypes = [
     ctypes.POINTER(_D),
 ]
 
-_lib.amg_setup_step_rl.restype = _I
-_lib.amg_setup_step_rl.argtypes = [
+_lib.amg_runtime_step.restype = _I
+_lib.amg_runtime_step.argtypes = [
     _VP,
     _D, _I, _I, _I, _I, _I, _I, _I, _I, _I, _D, _D, _D, _I, _D, _I,
+    _D, _I,
     ctypes.POINTER(_D),
     ctypes.POINTER(_D),
+    ctypes.POINTER(_I),
 ]
 
-_lib.amg_setup_get_r0.restype = _D
-_lib.amg_setup_get_r0.argtypes = [_VP]
+_lib.amg_runtime_get_r0.restype = _D
+_lib.amg_runtime_get_r0.argtypes = [_VP]
 
-_lib.amg_setup_get_r.restype = _D
-_lib.amg_setup_get_r.argtypes = [_VP]
+_lib.amg_runtime_get_r.restype = _D
+_lib.amg_runtime_get_r.argtypes = [_VP]
 
-_lib.amg_setup_get_relax_weight.restype = _I
-_lib.amg_setup_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
+_lib.amg_runtime_get_cycle.restype = _I
+_lib.amg_runtime_get_cycle.argtypes = [_VP]
+
+_lib.amg_runtime_get_setup_time.restype = _D
+_lib.amg_runtime_get_setup_time.argtypes = [_VP]
+
+_lib.amg_runtime_get_cycle_type.restype = _I
+_lib.amg_runtime_get_cycle_type.argtypes = [_VP]
+
+_lib.amg_runtime_get_relax_type.restype = _I
+_lib.amg_runtime_get_relax_type.argtypes = [_VP]
+
+_lib.amg_runtime_get_relax_weight.restype = _I
+_lib.amg_runtime_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
 
 # ---- tunable params ---------------------------------------------------------
 
@@ -138,7 +157,62 @@ _PARAM_ORDER = [
     "relax_wt", "relax_order", "max_coarse_size",
 ]
 
+
+def _encode_params(params: Optional[Dict[str, Any]]) -> tuple[Dict[str, Any], list[Any]]:
+    normalized = dict(params or {})
+    unknown = set(normalized) - set(TUNABLE_PARAMS)
+    if unknown:
+        raise ValueError(f"Unknown param(s): {unknown}")
+    c_args = [
+        normalized[name]
+        if name in normalized
+        else (-1.0 if TUNABLE_PARAMS[name] is float else -1)
+        for name in _PARAM_ORDER
+    ]
+    return normalized, c_args
+
 # ---- result -----------------------------------------------------------------
+
+
+class NativeCode(IntEnum):
+    OK = 0
+    INVALID_ARGUMENT = -1
+    CREATE_ERROR = -2
+    SETUP_ERROR = -3
+    SOLVE_ERROR = -4
+    NONFINITE_RESULT = -5
+
+
+class SolveStatus(IntEnum):
+    CONTINUE = 0
+    CONVERGED = 1
+    MAX_CYCLES = 2
+
+
+class AMGNativeError(RuntimeError):
+    """Native runtime failure with the work completed before the error."""
+
+    def __init__(
+        self,
+        *,
+        operation: str,
+        code: int,
+        setup_runtime_sec: float = 0.0,
+        solve_runtime_sec: float = 0.0,
+    ) -> None:
+        try:
+            self.code = NativeCode(int(code))
+        except ValueError:
+            self.code = int(code)
+        self.operation = str(operation)
+        self.setup_runtime_sec = max(0.0, float(setup_runtime_sec))
+        self.solve_runtime_sec = max(0.0, float(solve_runtime_sec))
+        super().__init__(f"{self.operation} failed with native code {int(code)}")
+
+    @property
+    def runtime_sec(self) -> float:
+        return float(self.setup_runtime_sec + self.solve_runtime_sec)
+
 
 @dataclass
 class SolveResult:
@@ -148,6 +222,7 @@ class SolveResult:
     setup_runtime_sec: float
     solve_runtime_sec: float
     residual_norm: float
+    status: SolveStatus
     params: Dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -162,36 +237,47 @@ class PrepareResult:
     initial_relax_weight: float
 
 
+@dataclass(frozen=True)
+class StepResult:
+    residual_norm: float
+    runtime_sec: float
+    status: SolveStatus
+
+
 class PreparedAMGEnv:
     def __init__(self, env_ptr: int):
         self._env = env_ptr
+        self.last_step = StepResult(float("nan"), 0.0, SolveStatus.CONTINUE)
 
     def prepare_rl(self, params: Optional[Dict[str, Any]] = None) -> PrepareResult:
-        params = params or {}
-        unknown = set(params) - set(TUNABLE_PARAMS)
-        if unknown:
-            raise ValueError(f"Unknown param(s): {unknown}")
-
-        c_args = []
-        for name in _PARAM_ORDER:
-            if name in params:
-                c_args.append(params[name])
-            else:
-                c_args.append(-1.0 if TUNABLE_PARAMS[name] is float else -1)
+        _, c_args = _encode_params(params)
 
         out_setup = _D()
         out_r0 = _D()
-        rc = _lib.amg_setup_prepare_rl(self._env, *c_args, ctypes.byref(out_setup), ctypes.byref(out_r0))
+        rc = _lib.amg_runtime_prepare(
+            self._env,
+            *c_args,
+            ctypes.byref(out_setup),
+            ctypes.byref(out_r0),
+        )
         if rc != 0:
-            raise RuntimeError(f"amg_setup_prepare_rl returned {rc}")
+            raise AMGNativeError(
+                operation="setup",
+                code=rc,
+                setup_runtime_sec=float(out_setup.value),
+            )
         out_relax_weight = _D()
-        rc = _lib.amg_setup_get_relax_weight(
+        rc = _lib.amg_runtime_get_relax_weight(
             self._env,
             0,
             ctypes.byref(out_relax_weight),
         )
         if rc != 0:
-            raise RuntimeError(f"amg_setup_get_relax_weight returned {rc}")
+            raise AMGNativeError(
+                operation="get_relax_weight",
+                code=rc,
+                setup_runtime_sec=float(out_setup.value),
+            )
         return PrepareResult(
             setup_runtime_sec=float(out_setup.value),
             initial_residual_norm=float(out_r0.value),
@@ -217,10 +303,13 @@ class PreparedAMGEnv:
         level_relax_level: int | None = None,
         level_outer_weight: float | None = None,
         level_outer_level: int | None = None,
+        tol: float = 0.0,
+        max_cycles: int = 0,
     ) -> tuple[float, float]:
         out_r = _D()
         out_rt = _D()
-        rc = _lib.amg_setup_step_rl(
+        out_status = _I()
+        rc = _lib.amg_runtime_step(
             self._env,
             float(relax_weight),
             int(sweeps_down),
@@ -238,24 +327,106 @@ class PreparedAMGEnv:
             (-1 if level_relax_level is None else int(level_relax_level)),
             (-1.0 if level_outer_weight is None else float(level_outer_weight)),
             (-1 if level_outer_level is None else int(level_outer_level)),
+            float(tol),
+            int(max_cycles),
             ctypes.byref(out_r),
             ctypes.byref(out_rt),
+            ctypes.byref(out_status),
         )
         if rc != 0:
-            raise RuntimeError(f"amg_setup_step_rl returned {rc}")
+            raise AMGNativeError(
+                operation="solve_step",
+                code=rc,
+                solve_runtime_sec=float(out_rt.value),
+            )
+        self.last_step = StepResult(
+            residual_norm=float(out_r.value),
+            runtime_sec=float(out_rt.value),
+            status=SolveStatus(int(out_status.value)),
+        )
         return float(out_r.value), float(out_rt.value)
+
+    def solve(
+        self,
+        params: Optional[Dict[str, Any]] = None,
+        *,
+        tol: Optional[float] = None,
+        max_iter: Optional[int] = None,
+    ) -> SolveResult:
+        normalized, c_args = _encode_params(params)
+        out_iters = _I()
+        out_comp = _D()
+        out_res = _D()
+        out_rt = _D()
+        out_setup_rt = _D()
+        out_solve_rt = _D()
+        out_status = _I()
+        rc = _lib.amg_runtime_solve(
+            self._env,
+            *c_args,
+            (-1.0 if tol is None else float(tol)),
+            (-1 if max_iter is None else int(max_iter)),
+            ctypes.byref(out_iters),
+            ctypes.byref(out_comp),
+            ctypes.byref(out_res),
+            ctypes.byref(out_rt),
+            ctypes.byref(out_setup_rt),
+            ctypes.byref(out_solve_rt),
+            ctypes.byref(out_status),
+        )
+        if rc != 0:
+            raise AMGNativeError(
+                operation="setup" if rc == NativeCode.SETUP_ERROR else "solve",
+                code=rc,
+                setup_runtime_sec=float(out_setup_rt.value),
+                solve_runtime_sec=float(out_solve_rt.value),
+            )
+        return SolveResult(
+            iterations=int(out_iters.value),
+            complexity=float(out_comp.value),
+            runtime_sec=float(out_rt.value),
+            setup_runtime_sec=float(out_setup_rt.value),
+            solve_runtime_sec=float(out_solve_rt.value),
+            residual_norm=float(out_res.value),
+            status=SolveStatus(int(out_status.value)),
+            params=normalized,
+        )
 
     @property
     def r0(self) -> float:
-        return float(_lib.amg_setup_get_r0(self._env))
+        return float(_lib.amg_runtime_get_r0(self._env))
 
     @property
     def r(self) -> float:
-        return float(_lib.amg_setup_get_r(self._env))
+        return float(_lib.amg_runtime_get_r(self._env))
+
+    @property
+    def cycle(self) -> int:
+        return int(_lib.amg_runtime_get_cycle(self._env))
+
+    @property
+    def setup_runtime_sec(self) -> float:
+        return float(_lib.amg_runtime_get_setup_time(self._env))
+
+    @property
+    def cycle_type(self) -> int:
+        return int(_lib.amg_runtime_get_cycle_type(self._env))
+
+    @property
+    def relax_type(self) -> int:
+        return int(_lib.amg_runtime_get_relax_type(self._env))
+
+    @property
+    def n(self) -> int:
+        return int(_lib.amg_runtime_get_n(self._env))
+
+    @property
+    def nnz(self) -> int:
+        return int(_lib.amg_runtime_get_nnz(self._env))
 
     def close(self) -> None:
         if self._env:
-            _lib.amg_setup_destroy(self._env)
+            _lib.amg_runtime_destroy(self._env)
             self._env = None
 
     def __enter__(self):
@@ -301,58 +472,25 @@ def solve(
     SolveResult  (.iterations, .complexity, .work_units, .residual_norm,
                   .params)
     """
-    params = params or {}
-    unknown = set(params) - set(TUNABLE_PARAMS)
-    if unknown:
-        raise ValueError(f"Unknown param(s): {unknown}")
-
-    # Build matrix + vectors in C
-    env = _lib.amg_setup_create(
-        nx, ny, nz, stencil, rhs_type, rhs_seed,
-        k, c, a0, a1, a2, a3,
-    )
-    if not env:
-        raise RuntimeError("amg_setup_create failed")
-
-    # Build C args: -1 sentinel => HYPRE default
-    c_args = []
-    for name in _PARAM_ORDER:
-        if name in params:
-            c_args.append(params[name])
-        else:
-            c_args.append(-1.0 if TUNABLE_PARAMS[name] is float else -1)
-
-    out_iters = _I()
-    out_comp  = _D()
-    out_rt    = _D()
-    out_setup_rt = _D()
-    out_solve_rt = _D()
-    out_res   = _D()
-
-    try:
-        c_tol = (-1.0 if tol is None else float(tol))
-        c_max_iter = (-1 if max_iter is None else int(max_iter))
-        rc = _lib.amg_setup_solve(env, *c_args, c_tol, c_max_iter,
-                                  ctypes.byref(out_iters),
-                                  ctypes.byref(out_comp),
-                                  ctypes.byref(out_res),
-                                  ctypes.byref(out_rt),
-                                  ctypes.byref(out_setup_rt),
-                                  ctypes.byref(out_solve_rt))
-        if rc != 0:
-            raise RuntimeError(f"amg_setup_solve returned {rc}")
-
-        return SolveResult(
-            iterations=out_iters.value,
-            complexity=out_comp.value,
-            runtime_sec=out_rt.value,
-            setup_runtime_sec=out_setup_rt.value,
-            solve_runtime_sec=out_solve_rt.value,
-            residual_norm=out_res.value,
-            params=dict(params),
+    with create_env(
+        nx=nx,
+        ny=ny,
+        nz=nz,
+        stencil=stencil,
+        rhs_type=rhs_type,
+        rhs_seed=rhs_seed,
+        k=k,
+        c=c,
+        a0=a0,
+        a1=a1,
+        a2=a2,
+        a3=a3,
+    ) as env:
+        return env.solve(
+            params=params,
+            tol=tol,
+            max_iter=max_iter,
         )
-    finally:
-        _lib.amg_setup_destroy(env)
 
 
 def create_env(
@@ -364,10 +502,10 @@ def create_env(
     k: float = 1.0, c: float = 0.0,
     a0: float = 1.0, a1: float = 1.0, a2: float = 1.0, a3: float = 0.0,
 ) -> PreparedAMGEnv:
-    env = _lib.amg_setup_create(
+    env = _lib.amg_runtime_create(
         nx, ny, nz, stencil, rhs_type, rhs_seed,
         k, c, a0, a1, a2, a3,
     )
     if not env:
-        raise RuntimeError("amg_setup_create failed")
+        raise AMGNativeError(operation="create", code=NativeCode.CREATE_ERROR)
     return PreparedAMGEnv(env)

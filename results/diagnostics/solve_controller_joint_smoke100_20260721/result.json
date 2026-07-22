@@ -1,0 +1,1483 @@
+{
+  "protocol": {
+    "git_revision": "857c2c51fbe359e37e15fcdfcbdee56316154662",
+    "platform": "macOS-26.5-arm64-arm-64bit",
+    "purpose": "4K joint-online setup-bandit and solve-controller learning from scratch",
+    "stream": {
+      "mode": "grouped_shuffled_segments",
+      "segments": [
+        {
+          "segment": 0,
+          "seeds": [
+            42900039,
+            42906039
+          ],
+          "cases_per_seed": 50,
+          "window": [
+            0,
+            50
+          ],
+          "candidate_cases": 100,
+          "shuffle_seed": 42948039,
+          "selected_cases": 100
+        }
+      ],
+      "sha256": "a568345aac64d34bd45226df746b3f689de66341b259fd6bfa4d88064ed67be5"
+    },
+    "stream_partition": {
+      "warmup": [
+        0,
+        0
+      ],
+      "online": [
+        0,
+        100
+      ]
+    },
+    "methods": [
+      "bandit_fixed_w1.6",
+      "bandit_recursive_lstdq_lcb",
+      "bandit_recursive_lstdq_v2_lcb",
+      "bandit_structured_model_based",
+      "bandit_recalibrated_lsvi_lcb"
+    ],
+    "families": {
+      "bandit_fixed_w1.6": "fixed_w1.6",
+      "bandit_recursive_lstdq_lcb": "recursive_lstdq_lcb",
+      "bandit_recursive_lstdq_v2_lcb": "recursive_lstdq_v2_lcb",
+      "bandit_structured_model_based": "structured_model_based",
+      "bandit_recalibrated_lsvi_lcb": "recalibrated_lsvi_lcb"
+    },
+    "candidates": [],
+    "setup_bandit": {
+      "seed": 42960039,
+      "matrix_grid_n": 60,
+      "setup_param_resolution": 20,
+      "warmup_instances": 0,
+      "joint_from_scratch": true,
+      "common_snapshot_mutable_state_cloned": true,
+      "immutable_action_catalog_and_g_actions_shared": true,
+      "frozen_after_warmup": false,
+      "independent_updates_per_method": true,
+      "fallback_runtime_included_in_feedback": true,
+      "failure_head": {
+        "representation": "shared_context_action_features",
+        "ridge": 1.0,
+        "beta": 2.0
+      },
+      "setup_construction_reselection": {
+        "max_learned_attempts_including_first": 3,
+        "temporary_exact_arm_exclusion": true,
+        "ranking": [
+          "failure_ucb",
+          "runtime_lcb"
+        ],
+        "runtime_target": "realized_suffix_cost"
+      },
+      "solve_failure_reselection": false,
+      "default_fallback_attempts": 1,
+      "online_branches": [
+        "bandit_fixed_w1.6",
+        "bandit_recursive_lstdq_lcb",
+        "bandit_recursive_lstdq_v2_lcb",
+        "bandit_structured_model_based",
+        "bandit_recalibrated_lsvi_lcb"
+      ]
+    },
+    "randomized_method_order_per_instance": true,
+    "method_order_seed": 42972039,
+    "recursive_lstdq_lcb": {
+      "state": "setup_full",
+      "action_profile": "1to3_step0p05",
+      "actions": [
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
+        2.05,
+        2.1,
+        2.15,
+        2.2,
+        2.25,
+        2.3,
+        2.35,
+        2.4,
+        2.45,
+        2.5,
+        2.55,
+        2.6,
+        2.65,
+        2.7,
+        2.75,
+        2.8,
+        2.85,
+        2.9,
+        2.95,
+        3.0
+      ],
+      "action_basis": {
+        "mode": "compact_rbf",
+        "centers": [
+          1.0,
+          1.25,
+          1.5,
+          1.75,
+          2.0,
+          2.25,
+          2.5,
+          2.75,
+          3.0
+        ],
+        "sigma": 0.2
+      },
+      "epsilon": {
+        "start": 0.3,
+        "final": 0.03,
+        "decay_steps": 20000.0,
+        "kind": "uniform epsilon-greedy floor"
+      },
+      "prepared_solver_default_forced_once": true,
+      "frozen": false,
+      "version": "v1",
+      "target": "on-policy LSTDQ(lambda) Bellman equation",
+      "ridge": 1.0,
+      "trace_lambda": 0.8,
+      "uncertainty_beta": 2.0,
+      "uncertainty": "unclipped post-fit sandwich covariance",
+      "lcb_lower_bound_sec": 0.0
+    },
+    "recursive_lstdq_v2_lcb": {
+      "state": "setup_full",
+      "action_profile": "1to3_step0p05",
+      "actions": [
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
+        2.05,
+        2.1,
+        2.15,
+        2.2,
+        2.25,
+        2.3,
+        2.35,
+        2.4,
+        2.45,
+        2.5,
+        2.55,
+        2.6,
+        2.65,
+        2.7,
+        2.75,
+        2.8,
+        2.85,
+        2.9,
+        2.95,
+        3.0
+      ],
+      "action_basis": {
+        "mode": "compact_rbf",
+        "centers": [
+          1.0,
+          1.25,
+          1.5,
+          1.75,
+          2.0,
+          2.25,
+          2.5,
+          2.75,
+          3.0
+        ],
+        "sigma": 0.2
+      },
+      "epsilon": {
+        "start": 0.3,
+        "final": 0.03,
+        "decay_steps": 20000.0,
+        "kind": "uniform epsilon-greedy floor"
+      },
+      "prepared_solver_default_forced_once": true,
+      "frozen": false,
+      "version": "v2",
+      "target": "same recursive LSTDQ mean as v1",
+      "ridge": 1.0,
+      "trace_lambda": 0.8,
+      "uncertainty_beta": 4.0,
+      "uncertainty": "rolling-MAD-scaled feature coverage",
+      "coverage_ridge": 1.0,
+      "residual_window": 2048,
+      "minimum_scale_samples": 32,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0.0
+    },
+    "structured_model_based": {
+      "state": "setup_full",
+      "action_profile": "1to3_step0p05",
+      "actions": [
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
+        2.05,
+        2.1,
+        2.15,
+        2.2,
+        2.25,
+        2.3,
+        2.35,
+        2.4,
+        2.45,
+        2.5,
+        2.55,
+        2.6,
+        2.65,
+        2.7,
+        2.75,
+        2.8,
+        2.85,
+        2.9,
+        2.95,
+        3.0
+      ],
+      "action_basis": {
+        "mode": "compact_rbf",
+        "centers": [
+          1.0,
+          1.25,
+          1.5,
+          1.75,
+          2.0,
+          2.25,
+          2.5,
+          2.75,
+          3.0
+        ],
+        "sigma": 0.2
+      },
+      "epsilon": {
+        "start": 0.3,
+        "final": 0.03,
+        "decay_steps": 20000.0,
+        "kind": "uniform epsilon-greedy floor"
+      },
+      "prepared_solver_default_forced_once": true,
+      "frozen": false,
+      "target": [
+        "native_cycle_cost",
+        "signed_log_residual_progress"
+      ],
+      "estimator": "shared recursive least squares",
+      "planning": "receding time per log-residual reduction",
+      "recovery_cost_in_physical_model": false,
+      "ridge": 1.0,
+      "minimum_samples": 32,
+      "scale_window": 2048
+    },
+    "recalibrated_lsvi_lcb": {
+      "state": "setup_full",
+      "action_profile": "1to3_step0p05",
+      "actions": [
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
+        2.05,
+        2.1,
+        2.15,
+        2.2,
+        2.25,
+        2.3,
+        2.35,
+        2.4,
+        2.45,
+        2.5,
+        2.55,
+        2.6,
+        2.65,
+        2.7,
+        2.75,
+        2.8,
+        2.85,
+        2.9,
+        2.95,
+        3.0
+      ],
+      "action_basis": {
+        "mode": "compact_rbf",
+        "centers": [
+          1.0,
+          1.25,
+          1.5,
+          1.75,
+          2.0,
+          2.25,
+          2.5,
+          2.75,
+          3.0
+        ],
+        "sigma": 0.2
+      },
+      "epsilon": {
+        "start": 0.3,
+        "final": 0.03,
+        "decay_steps": 20000.0,
+        "kind": "uniform epsilon-greedy floor"
+      },
+      "prepared_solver_default_forced_once": true,
+      "frozen": false,
+      "target": "stagewise optimistic Bellman backup",
+      "horizon": 50,
+      "ridge": 1.0,
+      "uncertainty_beta": 1.0,
+      "residual_floor_sec": 0.001,
+      "batch_size_episodes": 100,
+      "backward_shared_sweeps": 3,
+      "residual_shrinkage_samples": 32.0,
+      "value_cap": "maximum observed realized return"
+    }
+  },
+  "warmup": {
+    "summary": {
+      "cases": 0,
+      "failed_count": 0,
+      "mean_runtime_sec": 0.0,
+      "mean_runtime_with_overhead_sec": 0.0,
+      "mean_setup_runtime_sec": 0.0,
+      "mean_solve_runtime_sec": 0.0,
+      "mean_solve_with_overhead_sec": 0.0,
+      "mean_policy_overhead_sec": 0.0,
+      "mean_feature_runtime_sec": 0.0,
+      "mean_decision_runtime_sec": 0.0,
+      "mean_update_runtime_sec": 0.0,
+      "mean_iterations": 0.0,
+      "totals_sec": {
+        "setup_runtime": 0.0,
+        "native_solve_runtime": 0.0,
+        "native_total_runtime": 0.0,
+        "controller_runtime": 0.0,
+        "setup_bandit_overhead": 0.0,
+        "setup_bandit_select": 0.0,
+        "setup_bandit_loss_eval": 0.0,
+        "setup_bandit_update": 0.0,
+        "end_to_end_runtime": 0.0
+      },
+      "means_sec": {
+        "setup_runtime": 0.0,
+        "native_solve_runtime": 0.0,
+        "native_total_runtime": 0.0,
+        "controller_runtime": 0.0,
+        "setup_bandit_overhead": 0.0,
+        "setup_bandit_select": 0.0,
+        "setup_bandit_loss_eval": 0.0,
+        "setup_bandit_update": 0.0,
+        "end_to_end_runtime": 0.0
+      },
+      "unique_setup_count": 0,
+      "primary_failure_count": 0,
+      "setup_fallback_count": 0,
+      "recovered_failure_count": 0,
+      "unrecovered_failure_count": 0,
+      "bandit_update_count": 0,
+      "controller_update_count": 0
+    },
+    "trajectory": "results/diagnostics/solve_controller_joint_smoke100_20260721/warmup_trajectory.jsonl",
+    "state": "results/diagnostics/solve_controller_joint_smoke100_20260721/bandit_warmup_0.npz",
+    "records": 0
+  },
+  "windows": {
+    "all_100": {
+      "methods": {
+        "bandit_fixed_w1.6": {
+          "cases": 100,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.8369059300000071,
+          "mean_runtime_with_overhead_sec": 0.8369059300000071,
+          "mean_setup_runtime_sec": 0.44426317999999704,
+          "mean_solve_runtime_sec": 0.3926427500000101,
+          "mean_solve_with_overhead_sec": 0.3926427500000101,
+          "mean_policy_overhead_sec": 0.0,
+          "mean_feature_runtime_sec": 0.0,
+          "mean_decision_runtime_sec": 0.0,
+          "mean_update_runtime_sec": 0.0,
+          "mean_iterations": 47.69,
+          "totals_sec": {
+            "setup_runtime": 44.4263179999997,
+            "native_solve_runtime": 39.26427500000101,
+            "native_total_runtime": 83.69059300000072,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.8738567079999998,
+            "setup_bandit_select": 0.48747337299999993,
+            "setup_bandit_loss_eval": 0.0005499559999999999,
+            "setup_bandit_update": 0.3858333790000002,
+            "end_to_end_runtime": 84.5644497080007
+          },
+          "means_sec": {
+            "setup_runtime": 0.44426317999999704,
+            "native_solve_runtime": 0.3926427500000101,
+            "native_total_runtime": 0.8369059300000071,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.00873856708,
+            "setup_bandit_select": 0.004874733730000001,
+            "setup_bandit_loss_eval": 5.499560000000001e-06,
+            "setup_bandit_update": 0.00385833379,
+            "end_to_end_runtime": 0.8456444970800071
+          },
+          "unique_setup_count": 81,
+          "primary_failure_count": 92,
+          "learned_setup_attempt_count": 100,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 100,
+          "setup_fallback_count": 92,
+          "recovered_failure_count": 92,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 100,
+          "controller_update_count": 0
+        },
+        "bandit_recursive_lstdq_lcb": {
+          "cases": 100,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.8201678800000093,
+          "mean_runtime_with_overhead_sec": 0.856235933809877,
+          "mean_setup_runtime_sec": 0.4256939200000017,
+          "mean_solve_runtime_sec": 0.3944739600000077,
+          "mean_solve_with_overhead_sec": 0.43054201380987533,
+          "mean_policy_overhead_sec": 0.0360680538098677,
+          "mean_feature_runtime_sec": 0.0015840360985021106,
+          "mean_decision_runtime_sec": 0.0157257512488286,
+          "mean_update_runtime_sec": 0.018758266462536994,
+          "mean_iterations": 49.55,
+          "totals_sec": {
+            "setup_runtime": 42.56939200000017,
+            "native_solve_runtime": 39.447396000000765,
+            "native_total_runtime": 82.01678800000093,
+            "controller_runtime": 3.6068053809867706,
+            "setup_bandit_overhead": 0.8761596650000003,
+            "setup_bandit_select": 0.4654266599999999,
+            "setup_bandit_loss_eval": 0.00047671099999999994,
+            "setup_bandit_update": 0.41025629399999997,
+            "end_to_end_runtime": 86.4997530459877
+          },
+          "means_sec": {
+            "setup_runtime": 0.4256939200000017,
+            "native_solve_runtime": 0.3944739600000077,
+            "native_total_runtime": 0.8201678800000093,
+            "controller_runtime": 0.0360680538098677,
+            "setup_bandit_overhead": 0.008761596650000002,
+            "setup_bandit_select": 0.0046542666,
+            "setup_bandit_loss_eval": 4.76711e-06,
+            "setup_bandit_update": 0.004102562939999999,
+            "end_to_end_runtime": 0.8649975304598772
+          },
+          "unique_setup_count": 79,
+          "primary_failure_count": 97,
+          "learned_setup_attempt_count": 100,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 100,
+          "setup_fallback_count": 97,
+          "recovered_failure_count": 97,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 100,
+          "controller_update_count": 100
+        },
+        "bandit_recursive_lstdq_v2_lcb": {
+          "cases": 100,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.797096849999989,
+          "mean_runtime_with_overhead_sec": 0.8417818612519932,
+          "mean_setup_runtime_sec": 0.41603974000000066,
+          "mean_solve_runtime_sec": 0.3810571099999883,
+          "mean_solve_with_overhead_sec": 0.4257421212519925,
+          "mean_policy_overhead_sec": 0.044685011252004185,
+          "mean_feature_runtime_sec": 0.001572551133867819,
+          "mean_decision_runtime_sec": 0.019806318490882404,
+          "mean_update_runtime_sec": 0.023306141627253963,
+          "mean_iterations": 47.06,
+          "totals_sec": {
+            "setup_runtime": 41.603974000000065,
+            "native_solve_runtime": 38.105710999998834,
+            "native_total_runtime": 79.7096849999989,
+            "controller_runtime": 4.468501125200419,
+            "setup_bandit_overhead": 0.8653400010000002,
+            "setup_bandit_select": 0.426475293,
+            "setup_bandit_loss_eval": 0.000504129,
+            "setup_bandit_update": 0.4383605789999998,
+            "end_to_end_runtime": 85.04352612619931
+          },
+          "means_sec": {
+            "setup_runtime": 0.41603974000000066,
+            "native_solve_runtime": 0.3810571099999883,
+            "native_total_runtime": 0.797096849999989,
+            "controller_runtime": 0.044685011252004185,
+            "setup_bandit_overhead": 0.008653400010000001,
+            "setup_bandit_select": 0.004264752930000001,
+            "setup_bandit_loss_eval": 5.04129e-06,
+            "setup_bandit_update": 0.00438360579,
+            "end_to_end_runtime": 0.8504352612619932
+          },
+          "unique_setup_count": 75,
+          "primary_failure_count": 90,
+          "learned_setup_attempt_count": 100,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 100,
+          "setup_fallback_count": 90,
+          "recovered_failure_count": 90,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 100,
+          "controller_update_count": 100
+        },
+        "bandit_structured_model_based": {
+          "cases": 100,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.7538535699999841,
+          "mean_runtime_with_overhead_sec": 0.7916216417111639,
+          "mean_setup_runtime_sec": 0.38593733999999924,
+          "mean_solve_runtime_sec": 0.3679162299999847,
+          "mean_solve_with_overhead_sec": 0.4056843017111645,
+          "mean_policy_overhead_sec": 0.0377680717111798,
+          "mean_feature_runtime_sec": 0.0014953348520793952,
+          "mean_decision_runtime_sec": 0.022406549382430967,
+          "mean_update_runtime_sec": 0.013866187476669439,
+          "mean_iterations": 45.46,
+          "totals_sec": {
+            "setup_runtime": 38.593733999999934,
+            "native_solve_runtime": 36.79162299999847,
+            "native_total_runtime": 75.38535699999841,
+            "controller_runtime": 3.77680717111798,
+            "setup_bandit_overhead": 0.9189859990000001,
+            "setup_bandit_select": 0.5224662139999999,
+            "setup_bandit_loss_eval": 0.0004549580000000002,
+            "setup_bandit_update": 0.396064827,
+            "end_to_end_runtime": 80.08115017011637
+          },
+          "means_sec": {
+            "setup_runtime": 0.38593733999999924,
+            "native_solve_runtime": 0.3679162299999847,
+            "native_total_runtime": 0.7538535699999841,
+            "controller_runtime": 0.0377680717111798,
+            "setup_bandit_overhead": 0.009189859989999999,
+            "setup_bandit_select": 0.005224662139999998,
+            "setup_bandit_loss_eval": 4.54958e-06,
+            "setup_bandit_update": 0.0039606482699999996,
+            "end_to_end_runtime": 0.8008115017011639
+          },
+          "unique_setup_count": 71,
+          "primary_failure_count": 83,
+          "learned_setup_attempt_count": 100,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 100,
+          "setup_fallback_count": 83,
+          "recovered_failure_count": 83,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 100,
+          "controller_update_count": 100
+        },
+        "bandit_recalibrated_lsvi_lcb": {
+          "cases": 100,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.8283959799999959,
+          "mean_runtime_with_overhead_sec": 0.8925743127789704,
+          "mean_setup_runtime_sec": 0.4314916100000027,
+          "mean_solve_runtime_sec": 0.39690436999999323,
+          "mean_solve_with_overhead_sec": 0.4610827027789676,
+          "mean_policy_overhead_sec": 0.06417833277897443,
+          "mean_feature_runtime_sec": 0.0015666510336450302,
+          "mean_decision_runtime_sec": 0.011683569024316966,
+          "mean_update_runtime_sec": 0.05092811272101244,
+          "mean_iterations": 48.76,
+          "totals_sec": {
+            "setup_runtime": 43.14916100000027,
+            "native_solve_runtime": 39.69043699999932,
+            "native_total_runtime": 82.83959799999958,
+            "controller_runtime": 6.417833277897444,
+            "setup_bandit_overhead": 0.8256856770000002,
+            "setup_bandit_select": 0.4319167900000001,
+            "setup_bandit_loss_eval": 0.0004984599999999999,
+            "setup_bandit_update": 0.393270427,
+            "end_to_end_runtime": 90.08311695489704
+          },
+          "means_sec": {
+            "setup_runtime": 0.4314916100000027,
+            "native_solve_runtime": 0.39690436999999323,
+            "native_total_runtime": 0.8283959799999959,
+            "controller_runtime": 0.06417833277897443,
+            "setup_bandit_overhead": 0.008256856770000001,
+            "setup_bandit_select": 0.0043191679,
+            "setup_bandit_loss_eval": 4.9846000000000005e-06,
+            "setup_bandit_update": 0.00393270427,
+            "end_to_end_runtime": 0.9008311695489704
+          },
+          "unique_setup_count": 78,
+          "primary_failure_count": 96,
+          "learned_setup_attempt_count": 100,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 100,
+          "setup_fallback_count": 96,
+          "recovered_failure_count": 96,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 100,
+          "controller_update_count": 100
+        }
+      },
+      "comparisons": {
+        "vs_fixed_w1.6": {
+          "bandit_recursive_lstdq_lcb": {
+            "setup_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.44426317999999704,
+              "candidate_mean_sec": 0.4256939200000017,
+              "baseline_total_sec": 44.4263179999997,
+              "candidate_total_sec": 42.56939200000017,
+              "candidate_savings_sec": 1.8569259999995333,
+              "candidate_improvement_pct": 4.179788205719735,
+              "candidate_improvement_95pct": [
+                -6.586065701942512,
+                14.7876598796375
+              ],
+              "candidate_win_rate": 0.59
+            },
+            "native_solve_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.3944739600000077,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 39.447396000000765,
+              "candidate_savings_sec": -0.18312099999975806,
+              "candidate_improvement_pct": -0.46638069848419156,
+              "candidate_improvement_95pct": [
+                -9.010977211374797,
+                7.023850848052418
+              ],
+              "candidate_win_rate": 0.5
+            },
+            "native_total_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8369059300000071,
+              "candidate_mean_sec": 0.8201678800000093,
+              "baseline_total_sec": 83.69059300000072,
+              "candidate_total_sec": 82.01678800000093,
+              "candidate_savings_sec": 1.673804999999775,
+              "candidate_improvement_pct": 1.9999918031406108,
+              "candidate_improvement_95pct": [
+                -6.148547246266071,
+                8.963196744058093
+              ],
+              "candidate_win_rate": 0.52
+            },
+            "controller_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.0,
+              "candidate_mean_sec": 0.0360680538098677,
+              "baseline_total_sec": 0.0,
+              "candidate_total_sec": 3.6068053809867706,
+              "candidate_savings_sec": -3.6068053809867706,
+              "candidate_improvement_pct": null,
+              "candidate_improvement_95pct": [
+                null,
+                null
+              ],
+              "candidate_win_rate": 0.0
+            },
+            "setup_bandit_overhead": {
+              "cases": 100,
+              "baseline_mean_sec": 0.00873856708,
+              "candidate_mean_sec": 0.008761596650000002,
+              "baseline_total_sec": 0.873856708,
+              "candidate_total_sec": 0.8761596650000001,
+              "candidate_savings_sec": -0.002302957000000011,
+              "candidate_improvement_pct": -0.26353943145563313,
+              "candidate_improvement_95pct": [
+                -9.292248896230511,
+                7.7604489367102
+              ],
+              "candidate_win_rate": 0.49
+            },
+            "solve_plus_controller": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.43054201380987533,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 43.054201380987536,
+              "candidate_savings_sec": -3.789926380986529,
+              "candidate_improvement_pct": -9.652352885635676,
+              "candidate_improvement_95pct": [
+                -18.664909001883565,
+                -1.795739026300694
+              ],
+              "candidate_win_rate": 0.29
+            },
+            "end_to_end_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8456444970800071,
+              "candidate_mean_sec": 0.8649975304598772,
+              "baseline_total_sec": 84.56444970800071,
+              "candidate_total_sec": 86.49975304598772,
+              "candidate_savings_sec": -1.9353033379869937,
+              "candidate_improvement_pct": -2.288554285718841,
+              "candidate_improvement_95pct": [
+                -9.878189278836974,
+                4.760633800442634
+              ],
+              "candidate_win_rate": 0.36
+            },
+            "same_setup_rate": 0.3
+          },
+          "bandit_recursive_lstdq_v2_lcb": {
+            "setup_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.44426317999999704,
+              "candidate_mean_sec": 0.41603974000000066,
+              "baseline_total_sec": 44.4263179999997,
+              "candidate_total_sec": 41.603974000000065,
+              "candidate_savings_sec": 2.8223439999996423,
+              "candidate_improvement_pct": 6.352864984218716,
+              "candidate_improvement_95pct": [
+                -5.7402697735940205,
+                17.197835982237503
+              ],
+              "candidate_win_rate": 0.53
+            },
+            "native_solve_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.3810571099999883,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 38.105710999998834,
+              "candidate_savings_sec": 1.1585640000021675,
+              "candidate_improvement_pct": 2.950682267792152,
+              "candidate_improvement_95pct": [
+                -4.847319000088823,
+                10.246403860900923
+              ],
+              "candidate_win_rate": 0.47
+            },
+            "native_total_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8369059300000071,
+              "candidate_mean_sec": 0.797096849999989,
+              "baseline_total_sec": 83.69059300000072,
+              "candidate_total_sec": 79.7096849999989,
+              "candidate_savings_sec": 3.9809080000018096,
+              "candidate_improvement_pct": 4.756697087809834,
+              "candidate_improvement_95pct": [
+                -3.622756590404713,
+                12.407661649901065
+              ],
+              "candidate_win_rate": 0.5
+            },
+            "controller_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.0,
+              "candidate_mean_sec": 0.044685011252004185,
+              "baseline_total_sec": 0.0,
+              "candidate_total_sec": 4.468501125200419,
+              "candidate_savings_sec": -4.468501125200419,
+              "candidate_improvement_pct": null,
+              "candidate_improvement_95pct": [
+                null,
+                null
+              ],
+              "candidate_win_rate": 0.0
+            },
+            "setup_bandit_overhead": {
+              "cases": 100,
+              "baseline_mean_sec": 0.00873856708,
+              "candidate_mean_sec": 0.008653400010000001,
+              "baseline_total_sec": 0.873856708,
+              "candidate_total_sec": 0.8653400010000001,
+              "candidate_savings_sec": 0.008516706999999997,
+              "candidate_improvement_pct": 0.9746113890333542,
+              "candidate_improvement_95pct": [
+                -7.936466160322946,
+                8.787139783378073
+              ],
+              "candidate_win_rate": 0.48
+            },
+            "solve_plus_controller": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.4257421212519925,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 42.57421212519925,
+              "candidate_savings_sec": -3.3099371251982515,
+              "candidate_improvement_pct": -8.429894924070691,
+              "candidate_improvement_95pct": [
+                -16.743168598127063,
+                0.17511281202978
+              ],
+              "candidate_win_rate": 0.25
+            },
+            "end_to_end_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8456444970800071,
+              "candidate_mean_sec": 0.8504352612619932,
+              "baseline_total_sec": 84.56444970800071,
+              "candidate_total_sec": 85.04352612619932,
+              "candidate_savings_sec": -0.4790764181986096,
+              "candidate_improvement_pct": -0.5665222441023983,
+              "candidate_improvement_95pct": [
+                -9.216935835299443,
+                7.348520843074553
+              ],
+              "candidate_win_rate": 0.34
+            },
+            "same_setup_rate": 0.32
+          },
+          "bandit_structured_model_based": {
+            "setup_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.44426317999999704,
+              "candidate_mean_sec": 0.38593733999999924,
+              "baseline_total_sec": 44.4263179999997,
+              "candidate_total_sec": 38.59373399999993,
+              "candidate_savings_sec": 5.832583999999772,
+              "candidate_improvement_pct": 13.12866846178839,
+              "candidate_improvement_95pct": [
+                2.52171094812503,
+                23.46306573399697
+              ],
+              "candidate_win_rate": 0.58
+            },
+            "native_solve_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.3679162299999847,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 36.79162299999847,
+              "candidate_savings_sec": 2.4726520000025385,
+              "candidate_improvement_pct": 6.297459968387233,
+              "candidate_improvement_95pct": [
+                -1.5850839304197857,
+                14.160628602826215
+              ],
+              "candidate_win_rate": 0.54
+            },
+            "native_total_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8369059300000071,
+              "candidate_mean_sec": 0.7538535699999841,
+              "baseline_total_sec": 83.69059300000072,
+              "candidate_total_sec": 75.38535699999841,
+              "candidate_savings_sec": 8.30523600000231,
+              "candidate_improvement_pct": 9.923738979842373,
+              "candidate_improvement_95pct": [
+                2.1469216123040886,
+                17.107472420011984
+              ],
+              "candidate_win_rate": 0.59
+            },
+            "controller_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.0,
+              "candidate_mean_sec": 0.0377680717111798,
+              "baseline_total_sec": 0.0,
+              "candidate_total_sec": 3.77680717111798,
+              "candidate_savings_sec": -3.77680717111798,
+              "candidate_improvement_pct": null,
+              "candidate_improvement_95pct": [
+                null,
+                null
+              ],
+              "candidate_win_rate": 0.0
+            },
+            "setup_bandit_overhead": {
+              "cases": 100,
+              "baseline_mean_sec": 0.00873856708,
+              "candidate_mean_sec": 0.009189859989999999,
+              "baseline_total_sec": 0.873856708,
+              "candidate_total_sec": 0.9189859989999999,
+              "candidate_savings_sec": -0.045129291000000016,
+              "candidate_improvement_pct": -5.164381137874128,
+              "candidate_improvement_95pct": [
+                -13.942679644643324,
+                2.4061008016622316
+              ],
+              "candidate_win_rate": 0.4
+            },
+            "solve_plus_controller": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.4056843017111645,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 40.56843017111645,
+              "candidate_savings_sec": -1.3041551711154418,
+              "candidate_improvement_pct": -3.3214803306960494,
+              "candidate_improvement_95pct": [
+                -11.944002350432775,
+                5.636664763827723
+              ],
+              "candidate_win_rate": 0.3
+            },
+            "end_to_end_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8456444970800071,
+              "candidate_mean_sec": 0.8008115017011639,
+              "baseline_total_sec": 84.56444970800071,
+              "candidate_total_sec": 80.08115017011639,
+              "candidate_savings_sec": 4.483299537884331,
+              "candidate_improvement_pct": 5.301636270755693,
+              "candidate_improvement_95pct": [
+                -2.577296331291942,
+                13.065451190525343
+              ],
+              "candidate_win_rate": 0.43
+            },
+            "same_setup_rate": 0.18
+          },
+          "bandit_recalibrated_lsvi_lcb": {
+            "setup_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.44426317999999704,
+              "candidate_mean_sec": 0.4314916100000027,
+              "baseline_total_sec": 44.4263179999997,
+              "candidate_total_sec": 43.14916100000027,
+              "candidate_savings_sec": 1.2771569999994359,
+              "candidate_improvement_pct": 2.8747757128993747,
+              "candidate_improvement_95pct": [
+                -8.882477749784565,
+                13.373356636057098
+              ],
+              "candidate_win_rate": 0.56
+            },
+            "native_solve_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.39690436999999323,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 39.69043699999932,
+              "candidate_savings_sec": -0.4261619999983144,
+              "candidate_improvement_pct": -1.0853683150861786,
+              "candidate_improvement_95pct": [
+                -9.273928237459721,
+                6.7295030769634
+              ],
+              "candidate_win_rate": 0.45
+            },
+            "native_total_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8369059300000071,
+              "candidate_mean_sec": 0.8283959799999959,
+              "baseline_total_sec": 83.69059300000072,
+              "candidate_total_sec": 82.8395979999996,
+              "candidate_savings_sec": 0.8509950000011215,
+              "candidate_improvement_pct": 1.0168347116397096,
+              "candidate_improvement_95pct": [
+                -7.535525476401028,
+                8.18376426548428
+              ],
+              "candidate_win_rate": 0.58
+            },
+            "controller_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.0,
+              "candidate_mean_sec": 0.06417833277897443,
+              "baseline_total_sec": 0.0,
+              "candidate_total_sec": 6.417833277897444,
+              "candidate_savings_sec": -6.417833277897444,
+              "candidate_improvement_pct": null,
+              "candidate_improvement_95pct": [
+                null,
+                null
+              ],
+              "candidate_win_rate": 0.0
+            },
+            "setup_bandit_overhead": {
+              "cases": 100,
+              "baseline_mean_sec": 0.00873856708,
+              "candidate_mean_sec": 0.008256856770000001,
+              "baseline_total_sec": 0.873856708,
+              "candidate_total_sec": 0.8256856770000002,
+              "candidate_savings_sec": 0.04817103099999998,
+              "candidate_improvement_pct": 5.512463377462559,
+              "candidate_improvement_95pct": [
+                -2.2664370687867064,
+                12.619569571392352
+              ],
+              "candidate_win_rate": 0.55
+            },
+            "solve_plus_controller": {
+              "cases": 100,
+              "baseline_mean_sec": 0.3926427500000101,
+              "candidate_mean_sec": 0.4610827027789676,
+              "baseline_total_sec": 39.26427500000101,
+              "candidate_total_sec": 46.108270277896764,
+              "candidate_savings_sec": -6.843995277895758,
+              "candidate_improvement_pct": -17.430591238207196,
+              "candidate_improvement_95pct": [
+                -30.55618395798331,
+                -6.3461860800832905
+              ],
+              "candidate_win_rate": 0.19
+            },
+            "end_to_end_runtime": {
+              "cases": 100,
+              "baseline_mean_sec": 0.8456444970800071,
+              "candidate_mean_sec": 0.9008311695489704,
+              "baseline_total_sec": 84.56444970800071,
+              "candidate_total_sec": 90.08311695489704,
+              "candidate_savings_sec": -5.518667246896321,
+              "candidate_improvement_pct": -6.52598966344861,
+              "candidate_improvement_95pct": [
+                -15.566446440615124,
+                1.3189353664481545
+              ],
+              "candidate_win_rate": 0.22
+            },
+            "same_setup_rate": 0.39
+          }
+        }
+      }
+    }
+  },
+  "controllers": {
+    "bandit_recursive_lstdq_lcb": {
+      "steps": 4955,
+      "episodes": 100,
+      "epsilon": 0.24074986556607628,
+      "joint_feature_dim": 288,
+      "sample_count": 4955,
+      "uncertainty_beta": 2.0,
+      "lcb_lower_bound_sec": 0.0,
+      "covariance_residual": "postfit_unclipped",
+      "inverse_rebuild_count": 0,
+      "stored_transition_count": 0
+    },
+    "bandit_recursive_lstdq_v2_lcb": {
+      "steps": 4706,
+      "episodes": 100,
+      "epsilon": 0.24339010276541403,
+      "joint_feature_dim": 288,
+      "sample_count": 4706,
+      "uncertainty_beta": 4.0,
+      "lcb_lower_bound_sec": 0.0,
+      "uncertainty": "rolling-MAD-scaled feature coverage",
+      "residual_scale_sec": 0.01272447220419507,
+      "residual_scale_window": 2048,
+      "residual_scale_samples": 2048,
+      "inverse_rebuild_count": 0,
+      "coverage_inverse_rebuild_count": 0,
+      "stored_transition_count": 0
+    },
+    "bandit_structured_model_based": {
+      "steps": 4546,
+      "episodes": 100,
+      "epsilon": 0.2451040703165915,
+      "joint_feature_dim": 288,
+      "sample_count": 4546,
+      "skipped_transition_count": 0,
+      "cost_floor_sec": 0.000506600000002777,
+      "progress_floor": 0.016755764676123525,
+      "inverse_rebuild_count": 0,
+      "stored_transition_count": 0
+    },
+    "bandit_recalibrated_lsvi_lcb": {
+      "steps": 4876,
+      "episodes": 100,
+      "epsilon": 0.24158397381433838,
+      "horizon": 50,
+      "joint_feature_dim": 288,
+      "sample_counts": [
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        100,
+        99,
+        98,
+        98,
+        98,
+        98,
+        98,
+        98,
+        98,
+        98,
+        98,
+        97,
+        97,
+        97,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96,
+        96
+      ],
+      "residual_scales_sec": [
+        0.005955242351999167,
+        0.005856908614731163,
+        0.006074927353480293,
+        0.006531670595790274,
+        0.006296314917625499,
+        0.00617781359885738,
+        0.006252865550470544,
+        0.00640749253897452,
+        0.006339296780265713,
+        0.006521879263584086,
+        0.006246115949377111,
+        0.00614573090679076,
+        0.006390042714605638,
+        0.006298273982780588,
+        0.006226936764052059,
+        0.006259507544983298,
+        0.006198101788893843,
+        0.006537152208505272,
+        0.006251991222868315,
+        0.0063856088982381645,
+        0.006297024988253662,
+        0.006337658267719259,
+        0.006336590609597327,
+        0.00613392493822183,
+        0.006118244993899615,
+        0.006775544746906652,
+        0.006322906257689826,
+        0.006079092263765656,
+        0.006406331270463927,
+        0.006419602440702186,
+        0.006003768903559295,
+        0.006234397246891179,
+        0.006069865583846784,
+        0.006847416759844412,
+        0.006480146088582119,
+        0.006449814136769712,
+        0.0065814183712006365,
+        0.006395036183514977,
+        0.006799077567510756,
+        0.0067861704252399875,
+        0.006581443080412148,
+        0.007751299068563221,
+        0.00717647259423173,
+        0.007003224440676832,
+        0.007038860213181666,
+        0.007627243458057741,
+        0.007279695566912299,
+        0.00925030824351025,
+        0.010856773264232714,
+        0.06479968145412258
+      ],
+      "global_residual_scale_sec": 0.011243231678943656,
+      "uncertainty_beta": 1.0,
+      "dynamic_value_cap_sec": 1.4320269999997777,
+      "refit_interval_episodes": 100,
+      "refit_sweeps": 3,
+      "refit_count": 1,
+      "inverse_rebuild_count": 0,
+      "stored_transition_count": 4876
+    }
+  },
+  "bandit_online_steps": {
+    "bandit_fixed_w1.6": 100,
+    "bandit_recursive_lstdq_lcb": 100,
+    "bandit_recursive_lstdq_v2_lcb": 100,
+    "bandit_structured_model_based": 100,
+    "bandit_recalibrated_lsvi_lcb": 100
+  },
+  "recovery_audit": {
+    "bandit_fixed_w1.6": {
+      "processed_instances": 100,
+      "primary_selections": 100,
+      "learned_reselections": 0,
+      "native_attempts": 192,
+      "fallback_uses": 92,
+      "recovered_failures": 92,
+      "unrecovered_failures": 0,
+      "bandit_updates": 100,
+      "bandit_observations": 100,
+      "controller_updates": 0,
+      "valid": true
+    },
+    "bandit_recursive_lstdq_lcb": {
+      "processed_instances": 100,
+      "primary_selections": 100,
+      "learned_reselections": 0,
+      "native_attempts": 197,
+      "fallback_uses": 97,
+      "recovered_failures": 97,
+      "unrecovered_failures": 0,
+      "bandit_updates": 100,
+      "bandit_observations": 100,
+      "controller_updates": 100,
+      "valid": true
+    },
+    "bandit_recursive_lstdq_v2_lcb": {
+      "processed_instances": 100,
+      "primary_selections": 100,
+      "learned_reselections": 0,
+      "native_attempts": 190,
+      "fallback_uses": 90,
+      "recovered_failures": 90,
+      "unrecovered_failures": 0,
+      "bandit_updates": 100,
+      "bandit_observations": 100,
+      "controller_updates": 100,
+      "valid": true
+    },
+    "bandit_structured_model_based": {
+      "processed_instances": 100,
+      "primary_selections": 100,
+      "learned_reselections": 0,
+      "native_attempts": 183,
+      "fallback_uses": 83,
+      "recovered_failures": 83,
+      "unrecovered_failures": 0,
+      "bandit_updates": 100,
+      "bandit_observations": 100,
+      "controller_updates": 100,
+      "valid": true
+    },
+    "bandit_recalibrated_lsvi_lcb": {
+      "processed_instances": 100,
+      "primary_selections": 100,
+      "learned_reselections": 0,
+      "native_attempts": 196,
+      "fallback_uses": 96,
+      "recovered_failures": 96,
+      "unrecovered_failures": 0,
+      "bandit_updates": 100,
+      "bandit_observations": 100,
+      "controller_updates": 100,
+      "valid": true
+    }
+  },
+  "actions": {
+    "bandit_recursive_lstdq_lcb": {
+      "decisions": 4955,
+      "mean_weight": 1.8172855701311805,
+      "explored_rate": 0.272452068617558,
+      "mean_selected_uncertainty_sec": 0.07195254602668351,
+      "mean_selected_q_sec": 0.5233376333170228,
+      "lower_bound_saturation_count": 154,
+      "lower_bound_saturation_rate": 0.031079717457114027,
+      "confidence_calibration": {
+        "paired_updates": 4955,
+        "median_abs_error_over_uncertainty": 0.09528528089028673,
+        "p90_abs_error_over_uncertainty": 0.42277274001411463,
+        "coverage_at_1x": 0.9828456104944501,
+        "coverage_at_2x": 0.9931382441977801,
+        "coverage_at_4x": 0.9989909182643795
+      }
+    },
+    "bandit_recursive_lstdq_v2_lcb": {
+      "decisions": 4706,
+      "mean_weight": 1.8559711007224822,
+      "explored_rate": 0.28198045048873777,
+      "mean_selected_uncertainty_sec": 0.002770176181794864,
+      "mean_selected_q_sec": 0.5261539005681908,
+      "lower_bound_saturation_count": 6,
+      "lower_bound_saturation_rate": 0.0012749681257968552,
+      "confidence_calibration": {
+        "paired_updates": 4706,
+        "median_abs_error_over_uncertainty": 2.692731278823617,
+        "p90_abs_error_over_uncertainty": 12.653473840028493,
+        "coverage_at_1x": 0.2382065448363791,
+        "coverage_at_2x": 0.41393965150871226,
+        "coverage_at_4x": 0.6230344241393965
+      }
+    },
+    "bandit_structured_model_based": {
+      "decisions": 4546,
+      "mean_weight": 1.7047954245490542,
+      "explored_rate": 0.2745270567531896,
+      "mean_selected_uncertainty_sec": 0.0,
+      "mean_selected_q_sec": 0.06998553810446602,
+      "lower_bound_saturation_count": 20,
+      "lower_bound_saturation_rate": 0.004399472063352398,
+      "confidence_calibration": {
+        "paired_updates": 0,
+        "median_abs_error_over_uncertainty": 0.0,
+        "p90_abs_error_over_uncertainty": 0.0,
+        "coverage_at_1x": 0.0,
+        "coverage_at_2x": 0.0,
+        "coverage_at_4x": 0.0
+      }
+    },
+    "bandit_recalibrated_lsvi_lcb": {
+      "decisions": 4876,
+      "mean_weight": 1.2700779327317473,
+      "explored_rate": 0.26763740771123873,
+      "mean_selected_uncertainty_sec": 0.00449176465985992,
+      "mean_selected_q_sec": 0.0,
+      "lower_bound_saturation_count": 4876,
+      "lower_bound_saturation_rate": 1.0,
+      "confidence_calibration": {
+        "paired_updates": 4876,
+        "median_abs_error_over_uncertainty": 1.0499875576551945,
+        "p90_abs_error_over_uncertainty": 2.1961263855942796,
+        "coverage_at_1x": 0.4273995077932732,
+        "coverage_at_2x": 0.8894585726004922,
+        "coverage_at_4x": 0.9626743232157506
+      }
+    }
+  },
+  "window_actions": {
+    "all_100": {
+      "bandit_recursive_lstdq_lcb": {
+        "decisions": 4955,
+        "mean_weight": 1.8172855701311805,
+        "explored_rate": 0.272452068617558,
+        "mean_selected_uncertainty_sec": 0.07195254602668351,
+        "mean_selected_q_sec": 0.5233376333170228,
+        "lower_bound_saturation_count": 154,
+        "lower_bound_saturation_rate": 0.031079717457114027,
+        "confidence_calibration": {
+          "paired_updates": 4955,
+          "median_abs_error_over_uncertainty": 0.09528528089028673,
+          "p90_abs_error_over_uncertainty": 0.42277274001411463,
+          "coverage_at_1x": 0.9828456104944501,
+          "coverage_at_2x": 0.9931382441977801,
+          "coverage_at_4x": 0.9989909182643795
+        }
+      },
+      "bandit_recursive_lstdq_v2_lcb": {
+        "decisions": 4706,
+        "mean_weight": 1.8559711007224822,
+        "explored_rate": 0.28198045048873777,
+        "mean_selected_uncertainty_sec": 0.002770176181794864,
+        "mean_selected_q_sec": 0.5261539005681908,
+        "lower_bound_saturation_count": 6,
+        "lower_bound_saturation_rate": 0.0012749681257968552,
+        "confidence_calibration": {
+          "paired_updates": 4706,
+          "median_abs_error_over_uncertainty": 2.692731278823617,
+          "p90_abs_error_over_uncertainty": 12.653473840028493,
+          "coverage_at_1x": 0.2382065448363791,
+          "coverage_at_2x": 0.41393965150871226,
+          "coverage_at_4x": 0.6230344241393965
+        }
+      },
+      "bandit_structured_model_based": {
+        "decisions": 4546,
+        "mean_weight": 1.7047954245490542,
+        "explored_rate": 0.2745270567531896,
+        "mean_selected_uncertainty_sec": 0.0,
+        "mean_selected_q_sec": 0.06998553810446602,
+        "lower_bound_saturation_count": 20,
+        "lower_bound_saturation_rate": 0.004399472063352398,
+        "confidence_calibration": {
+          "paired_updates": 0,
+          "median_abs_error_over_uncertainty": 0.0,
+          "p90_abs_error_over_uncertainty": 0.0,
+          "coverage_at_1x": 0.0,
+          "coverage_at_2x": 0.0,
+          "coverage_at_4x": 0.0
+        }
+      },
+      "bandit_recalibrated_lsvi_lcb": {
+        "decisions": 4876,
+        "mean_weight": 1.2700779327317473,
+        "explored_rate": 0.26763740771123873,
+        "mean_selected_uncertainty_sec": 0.00449176465985992,
+        "mean_selected_q_sec": 0.0,
+        "lower_bound_saturation_count": 4876,
+        "lower_bound_saturation_rate": 1.0,
+        "confidence_calibration": {
+          "paired_updates": 4876,
+          "median_abs_error_over_uncertainty": 1.0499875576551945,
+          "p90_abs_error_over_uncertainty": 2.1961263855942796,
+          "coverage_at_1x": 0.4273995077932732,
+          "coverage_at_2x": 0.8894585726004922,
+          "coverage_at_4x": 0.9626743232157506
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "trajectories": "results/diagnostics/solve_controller_joint_smoke100_20260721/trajectories",
+    "summary_csv": "results/diagnostics/solve_controller_joint_smoke100_20260721/summary_100.csv",
+    "checkpoints": "results/diagnostics/solve_controller_joint_smoke100_20260721/checkpoints",
+    "final_bandit_states": "results/diagnostics/solve_controller_joint_smoke100_20260721/final_bandit_states",
+    "screen_report": "results/diagnostics/solve_controller_joint_smoke100_20260721/screen_report.md"
+  }
+}
