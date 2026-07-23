@@ -20,7 +20,8 @@ Shared PDE streams live in `problems/`. Historical setup plots live in
 in `docs/archive/setup_phase_reference/`.
 
 The canonical Python package and command paths are lowercase `setup/`.
-`SetupPhase/` remains only as a compatibility layer for historical imports.
+Checkpoint-only module aliases are installed internally for historical pickle
+payloads; new code must import through `setup`.
 
 ## Native Solver
 

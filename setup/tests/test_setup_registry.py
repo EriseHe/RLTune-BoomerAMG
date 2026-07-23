@@ -3,7 +3,6 @@ from __future__ import annotations
 from setup.tests import _project_paths  # noqa: F401
 
 import unittest
-from importlib import import_module
 import os
 from pathlib import Path
 import subprocess
@@ -99,84 +98,32 @@ class SetupRegistryTests(unittest.TestCase):
             "setup.learners.thompson.config",
         )
 
-    def test_legacy_imports_alias_canonical_classes_and_modules(self) -> None:
-        compatibility_root = Path(__file__).resolve().parents[2] / "SetupPhase"
-        inserted = str(compatibility_root) not in sys.path
-        if inserted:
-            sys.path.insert(0, str(compatibility_root))
-        try:
-            qualified = import_module("SetupPhase.learners")
-            bare = import_module("learners")
-            canonical_module = import_module(
-                "setup.learners.linucb.SharedLinUCB_AMG_v4"
-            )
-            qualified_module = import_module(
-                "SetupPhase.learners.linucb.SharedLinUCB_AMG_v4"
-            )
-            bare_module = import_module(
-                "learners.linucb.SharedLinUCB_AMG_v4"
-            )
-
-            self.assertIs(
-                SharedLinUCB_AMG_v4,
-                qualified.SharedLinUCB_AMG_v4,
-            )
-            self.assertIs(SharedLinUCB_AMG_v4, bare.SharedLinUCB_AMG_v4)
-            self.assertIs(canonical_module, qualified_module)
-            self.assertIs(canonical_module, bare_module)
-        finally:
-            if inserted:
-                sys.path.remove(str(compatibility_root))
-
-    def test_import_order_preserves_identity_in_fresh_processes(self) -> None:
+    def test_bare_checkpoint_alias_preserves_identity_in_fresh_process(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]
-        compatibility_root = repo_root / "SetupPhase"
         environment = os.environ.copy()
         environment["PYTHONPATH"] = os.pathsep.join(
             (
-                str(compatibility_root),
                 str(repo_root),
                 environment.get("PYTHONPATH", ""),
             )
         )
         program = """
 import importlib
-import os
 from pathlib import Path
 import sys
 
-first_name = {
-    "canonical": "setup.learners",
-    "qualified": "SetupPhase.learners",
-    "bare": "learners",
-}[os.environ["SETUP_IMPORT_ORDER"]]
-first = importlib.import_module(first_name).SharedLinUCB_AMG_v4
 canonical = importlib.import_module("setup.learners")
-qualified = importlib.import_module("SetupPhase.learners")
 bare = importlib.import_module("learners")
-setup_phase = importlib.import_module("SetupPhase")
 canonical_leaf = importlib.import_module(
     "setup.learners.linucb.SharedLinUCB_AMG_v4"
-)
-qualified_leaf = importlib.import_module(
-    "SetupPhase.learners.linucb.SharedLinUCB_AMG_v4"
 )
 bare_leaf = importlib.import_module(
     "learners.linucb.SharedLinUCB_AMG_v4"
 )
-assert first is canonical.SharedLinUCB_AMG_v4
-assert first is qualified.SharedLinUCB_AMG_v4
-assert first is bare.SharedLinUCB_AMG_v4
-assert setup_phase.learners is canonical
-assert canonical_leaf is qualified_leaf is bare_leaf
-assert importlib.import_module("setup.registry") is importlib.import_module(
-    "SetupPhase.registry"
-)
+assert canonical.SharedLinUCB_AMG_v4 is bare.SharedLinUCB_AMG_v4
+assert canonical_leaf is bare_leaf
 canonical_linucb_config = importlib.import_module(
     "setup.learners.linucb.config"
-)
-assert canonical_linucb_config is importlib.import_module(
-    "SetupPhase.learners.linucb.config"
 )
 assert canonical_linucb_config is importlib.import_module(
     "learners.linucb.config"
@@ -185,16 +132,10 @@ canonical_linucb_factory = importlib.import_module(
     "setup.learners.linucb.factory"
 )
 assert canonical_linucb_factory is importlib.import_module(
-    "SetupPhase.learners.linucb.factory"
-)
-assert canonical_linucb_factory is importlib.import_module(
     "learners.linucb.factory"
 )
 canonical_lints_config = importlib.import_module(
     "setup.learners.thompson.config"
-)
-assert canonical_lints_config is importlib.import_module(
-    "SetupPhase.learners.thompson.config"
 )
 assert canonical_lints_config is importlib.import_module(
     "learners.thompson.config"
@@ -203,31 +144,18 @@ canonical_lints_factory = importlib.import_module(
     "setup.learners.thompson.factory"
 )
 assert canonical_lints_factory is importlib.import_module(
-    "SetupPhase.learners.thompson.factory"
-)
-assert canonical_lints_factory is importlib.import_module(
     "learners.thompson.factory"
-)
-assert importlib.import_module("setup.utils.setup_amg") is importlib.import_module(
-    "SetupPhase.utils.setup_amg"
-)
-assert setup_phase.utils is importlib.import_module("setup.utils")
-assert importlib.import_module("setup.utils.setup_amg") is importlib.import_module(
-    "utils.setup_amg"
 )
 assert str(Path.cwd() / "setup") not in sys.path
 """
-        for order in ("canonical", "qualified", "bare"):
-            with self.subTest(order=order):
-                environment["SETUP_IMPORT_ORDER"] = order
-                subprocess.run(
-                    (sys.executable, "-c", program),
-                    check=True,
-                    cwd=repo_root,
-                    env=environment,
-                    capture_output=True,
-                    text=True,
-                )
+        subprocess.run(
+            (sys.executable, "-c", program),
+            check=True,
+            cwd=repo_root,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
 
     def test_canonical_import_installs_pickle_module_aliases(self) -> None:
         repo_root = Path(__file__).resolve().parents[2]

@@ -12,12 +12,11 @@ logic:
 - `model_based/`: structured cycle-cost/progress control
 - `ppo/`: frozen setup-aware PPO config, checkpoint runner, and factory
 - `rblspi/`: recursive Bayesian LSTDQ / RBLSPI
-- `recursive_lstdq/`: recursive LSTDQ-LCB v1 and v2
+- `recursive_lstdq/`: versioned recursive LSTDQ-LCB controllers
 - `recursive_mc/`: recursive Monte Carlo LCB
 - `sarsa/`: online SARSA(lambda) and behavior policies
 - `registry.py`: compatibility re-export of the public solve registry
 
-`SolvePhase/` is a compatibility namespace only. New code should import from
-`solve.controllers`, and construct controllers through `solve.registry`. The
-registry dispatches typed requests to family factories; it does not call
-concrete controller constructors.
+New code should import from `solve.controllers` and construct controllers
+through `solve.registry`. The registry dispatches typed requests to family
+factories; it does not call concrete controller constructors.

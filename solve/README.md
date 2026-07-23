@@ -18,8 +18,7 @@ through `hypre.bindings`.
 
 PDE definitions and deterministic instance streams live in the shared
 `problems/` package. Workflows that also use a setup learner belong in
-`experiments/`, not in this directory. Historical `SolvePhase.*` paths remain
-as compatibility aliases only.
+`experiments/`, not in this directory.
 
 Online construction returns a `ControllerBundle`. The bundle owns the paired
 state encoder and exposes `run_case()`, `summary()`, `save()`, and
