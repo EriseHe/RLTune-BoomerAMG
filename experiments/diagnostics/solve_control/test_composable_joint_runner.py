@@ -97,6 +97,17 @@ class ComposableJointRunnerTests(unittest.TestCase):
         )
         self.assertEqual(rblspi.family, "rblspi")
         self.assertEqual(rblspi.solve_kind, "rblspi")
+        alternate_seed = runner._parse_composable_method(
+            "linucb_v3_alt:linucb@recommended@structured512:"
+            "recursive_lstdq_v3:100003"
+        )
+        self.assertEqual(alternate_seed.seed_offset, 100_003)
+        self.assertEqual(
+            runner._parse_composable_method(
+                alternate_seed.to_runner_token()
+            ),
+            alternate_seed,
+        )
 
     def test_composable_method_parser_rejects_ambiguous_or_unsafe_specs(self) -> None:
         invalid_specs = (
@@ -405,6 +416,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
                 "setup_space": "recommended",
                 "candidate_sampling": "structured512",
                 "solve": "recursive_lstdq_v3",
+                "seed_offset": 100_003,
             }
         ]
 
@@ -417,6 +429,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
             3.0,
         )
         self.assertAlmostEqual(float(controller_spec.trace_lambda), 0.8)
+        self.assertEqual(typed.methods[0].seed_offset, 100_003)
         runtime = high_level.runtime_config_from_spec(typed)
         self.assertAlmostEqual(runtime.recursive_lstdq_v3_beta, 3.0)
         specs = runner._validate_composable_protocol(runtime)
