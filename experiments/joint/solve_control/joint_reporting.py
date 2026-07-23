@@ -138,6 +138,53 @@ def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             if np.isfinite(float(error)) and float(width) > 0.0:
                 calibration_ratios.append(abs(float(error)) / float(width))
     ratios = np.asarray(calibration_ratios, dtype=float)
+    residual_width_diagnostic = {
+        "paired_updates": int(ratios.size),
+        "median_abs_residual_over_parameter_width": (
+            float(np.median(ratios)) if ratios.size else 0.0
+        ),
+        "p90_abs_residual_over_parameter_width": (
+            float(np.quantile(ratios, 0.9)) if ratios.size else 0.0
+        ),
+        "fraction_within_1x_parameter_width": (
+            float(np.mean(ratios <= 1.0)) if ratios.size else 0.0
+        ),
+        "fraction_within_2x_parameter_width": (
+            float(np.mean(ratios <= 2.0)) if ratios.size else 0.0
+        ),
+        "fraction_within_4x_parameter_width": (
+            float(np.mean(ratios <= 4.0)) if ratios.size else 0.0
+        ),
+        "semantics": (
+            "TD residual divided by selected parameter-uncertainty width; "
+            "not nominal predictive-interval coverage"
+        ),
+    }
+    # Preserve the historical result shape for existing report readers.  The
+    # canonical diagnostic above carries the corrected statistical semantics.
+    legacy_calibration = {
+        "paired_updates": residual_width_diagnostic["paired_updates"],
+        "median_abs_error_over_uncertainty": (
+            residual_width_diagnostic[
+                "median_abs_residual_over_parameter_width"
+            ]
+        ),
+        "p90_abs_error_over_uncertainty": (
+            residual_width_diagnostic[
+                "p90_abs_residual_over_parameter_width"
+            ]
+        ),
+        "coverage_at_1x": residual_width_diagnostic[
+            "fraction_within_1x_parameter_width"
+        ],
+        "coverage_at_2x": residual_width_diagnostic[
+            "fraction_within_2x_parameter_width"
+        ],
+        "coverage_at_4x": residual_width_diagnostic[
+            "fraction_within_4x_parameter_width"
+        ],
+        "deprecated_semantics": residual_width_diagnostic["semantics"],
+    }
     return {
         "decisions": int(len(actions)),
         "mean_weight": float(np.mean(actions)) if actions else float("nan"),
@@ -165,24 +212,8 @@ def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
             if selected_scores
             else 0.0
         ),
-        "confidence_calibration": {
-            "paired_updates": int(ratios.size),
-            "median_abs_error_over_uncertainty": (
-                float(np.median(ratios)) if ratios.size else 0.0
-            ),
-            "p90_abs_error_over_uncertainty": (
-                float(np.quantile(ratios, 0.9)) if ratios.size else 0.0
-            ),
-            "coverage_at_1x": (
-                float(np.mean(ratios <= 1.0)) if ratios.size else 0.0
-            ),
-            "coverage_at_2x": (
-                float(np.mean(ratios <= 2.0)) if ratios.size else 0.0
-            ),
-            "coverage_at_4x": (
-                float(np.mean(ratios <= 4.0)) if ratios.size else 0.0
-            ),
-        },
+        "residual_to_parameter_width": residual_width_diagnostic,
+        "confidence_calibration": legacy_calibration,
     }
 
 
@@ -327,12 +358,12 @@ def _write_solve_screen_report(
                     "",
                     "Controller diagnostics:",
                     "",
-                    "| method | decisions | mean w | explored | mean uncertainty (ms) | lower-bound saturation | calibration coverage 1x/2x/4x |",
+                    "| method | decisions | mean w | explored | mean parameter uncertainty (ms) | lower-bound saturation | TD residual within parameter width 1x/2x/4x |",
                     "|---|---:|---:|---:|---:|---:|---:|",
                 ]
             )
             for method, action in action_rows.items():
-                calibration = action["confidence_calibration"]
+                diagnostic = action["residual_to_parameter_width"]
                 is_model_based = method == _STRUCTURED_MODEL_BASED_METHOD
                 uncertainty_text = (
                     "n/a"
@@ -348,9 +379,9 @@ def _write_solve_screen_report(
                     "n/a"
                     if is_model_based
                     else (
-                        f"{float(calibration['coverage_at_1x']):.3f}/"
-                        f"{float(calibration['coverage_at_2x']):.3f}/"
-                        f"{float(calibration['coverage_at_4x']):.3f}"
+                        f"{float(diagnostic['fraction_within_1x_parameter_width']):.3f}/"
+                        f"{float(diagnostic['fraction_within_2x_parameter_width']):.3f}/"
+                        f"{float(diagnostic['fraction_within_4x_parameter_width']):.3f}"
                     )
                 )
                 lines.append(

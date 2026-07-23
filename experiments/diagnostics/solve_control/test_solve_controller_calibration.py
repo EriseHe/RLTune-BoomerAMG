@@ -7,6 +7,8 @@ import unittest
 
 from run_solve_controller_calibration import (
     MODEL_METHOD,
+    V2_CALIBRATION_BASELINE,
+    _apply_v3_calibration_gates,
     _build_controllers,
     _choose_candidate,
     _longest_excess_failure_chain,
@@ -39,12 +41,16 @@ class SolveControllerCalibrationTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(len(bundles), 7)
+        self.assertEqual(len(bundles), 10)
         self.assertTrue(
             all(
                 isinstance(bundle, ControllerBundle)
                 for bundle in bundles.values()
             )
+        )
+        self.assertEqual(
+            bundles["lstdq_v3_beta_2"].controller.spec.uncertainty_beta,
+            2.0,
         )
         self.assertEqual(
             bundles["lstdq_v2_beta_4"].controller.spec.uncertainty_beta,
@@ -57,6 +63,60 @@ class SolveControllerCalibrationTests(unittest.TestCase):
             1.0,
         )
         self.assertIsNone(betas[MODEL_METHOD])
+
+    def test_v3_gate_requires_calibration_runtime_and_overhead(self) -> None:
+        def candidate(
+            *,
+            total: float,
+            overhead: float,
+            fraction_4x: float,
+            median_ratio: float,
+        ):
+            summary = _summary(total=total, overhead=overhead)
+            summary["action_diagnostics"] = {
+                "residual_to_parameter_width": {
+                    "fraction_within_4x_parameter_width": fraction_4x,
+                    "median_abs_residual_over_parameter_width": median_ratio,
+                }
+            }
+            return summary
+
+        summaries = {
+            V2_CALIBRATION_BASELINE: candidate(
+                total=1.0,
+                overhead=0.020,
+                fraction_4x=0.20,
+                median_ratio=12.0,
+            ),
+            "lstdq_v3_beta_1": candidate(
+                total=1.01,
+                overhead=0.024,
+                fraction_4x=0.75,
+                median_ratio=3.5,
+            ),
+            "lstdq_v3_beta_2": candidate(
+                total=1.03,
+                overhead=0.024,
+                fraction_4x=0.75,
+                median_ratio=3.5,
+            ),
+            "lstdq_v3_beta_4": candidate(
+                total=1.01,
+                overhead=0.030,
+                fraction_4x=0.60,
+                median_ratio=8.0,
+            ),
+        }
+        _apply_v3_calibration_gates(summaries)
+        self.assertTrue(summaries["lstdq_v3_beta_1"]["eligible"])
+        self.assertFalse(summaries["lstdq_v3_beta_2"]["eligible"])
+        self.assertFalse(summaries["lstdq_v3_beta_4"]["eligible"])
+        self.assertIn(
+            "fraction_within_4x_below_0.70",
+            summaries["lstdq_v3_beta_4"]["v3_calibration_gate"][
+                "reasons"
+            ],
+        )
 
     def test_half_percent_tie_uses_overhead_then_smaller_beta(self) -> None:
         summaries = {

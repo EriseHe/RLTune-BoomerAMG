@@ -23,6 +23,7 @@ from online_td_experiment_common import _json_ready, _write_json
 from joint_controller_build import (
     make_setup_obs_encoder,
 )
+from joint_reporting import _action_summary
 from run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
 from setup_aware_compare_common import (
@@ -42,7 +43,10 @@ from solve.controllers.common import (
 )
 from solve.controllers.lsvi import HierarchicalLsviLcbSpec
 from solve.controllers.model_based import StructuredModelBasedSpec
-from solve.controllers.recursive_lstdq import RecursiveLstdqV2LcbSpec
+from solve.controllers.recursive_lstdq import (
+    RecursiveLstdqV2LcbSpec,
+    RecursiveLstdqV3LcbSpec,
+)
 from solve.registry import (
     OnlineControllerBuildSpec,
     build_online_solve_controller,
@@ -50,8 +54,10 @@ from solve.registry import (
 
 
 V2_BETAS = (1.0, 2.0, 4.0)
+V3_BETAS = (1.0, 2.0, 4.0)
 LSVI_BETAS = (1.0, 2.0, 4.0)
 MODEL_METHOD = "structured_model_based"
+V2_CALIBRATION_BASELINE = "lstdq_v2_beta_4"
 
 
 def _write_json_line(handle: Any, row: Dict[str, Any]) -> None:
@@ -127,6 +133,23 @@ def _build_controllers(
                 coverage_ridge=1.0,
                 residual_scale_window=2048,
                 residual_scale_min_samples=32,
+            ),
+            trace_lambda=0.8,
+        )
+        betas[name] = float(beta)
+
+    for beta in V3_BETAS:
+        name = f"lstdq_v3_beta_{beta:g}"
+        bundles[name] = _build_bundle(
+            args=args,
+            kind="recursive_lstdq_v3",
+            algorithm=RecursiveLstdqV3LcbSpec(
+                ridge=1.0,
+                uncertainty_beta=float(beta),
+                residual_floor_sec=1.0e-3,
+                q_max_sec=0.1,
+                inverse_denominator_floor=1.0e-10,
+                lcb_lower_bound_sec=0.0,
             ),
             trace_lambda=0.8,
         )
@@ -305,6 +328,85 @@ def _choose_candidate(
     )
 
 
+def _apply_v3_calibration_gates(
+    summaries: Dict[str, Dict[str, Any]],
+) -> None:
+    """Apply the locked v3 uncertainty, runtime, and overhead gates in place."""
+
+    baseline = summaries[V2_CALIBRATION_BASELINE]
+    if not bool(baseline["eligible"]):
+        raise RuntimeError(
+            f"{V2_CALIBRATION_BASELINE} must pass the base safety gates"
+        )
+    baseline_diagnostic = baseline["action_diagnostics"][
+        "residual_to_parameter_width"
+    ]
+    baseline_median_ratio = float(
+        baseline_diagnostic[
+            "median_abs_residual_over_parameter_width"
+        ]
+    )
+    baseline_end_to_end = float(
+        baseline["means_sec"]["end_to_end_runtime"]
+    )
+    baseline_overhead = float(
+        baseline["means_sec"]["controller_runtime"]
+    )
+    overhead_limit = min(
+        baseline_overhead * 1.25,
+        baseline_overhead + 0.005,
+    )
+
+    for name, summary in summaries.items():
+        if not name.startswith("lstdq_v3_beta_"):
+            continue
+        diagnostic = summary["action_diagnostics"][
+            "residual_to_parameter_width"
+        ]
+        reasons: list[str] = []
+        if not bool(summary["eligible"]):
+            reasons.append("base_safety_gate")
+        fraction_within_4x = float(
+            diagnostic["fraction_within_4x_parameter_width"]
+        )
+        if fraction_within_4x < 0.70:
+            reasons.append("fraction_within_4x_below_0.70")
+        median_ratio = float(
+            diagnostic["median_abs_residual_over_parameter_width"]
+        )
+        if (
+            baseline_median_ratio > 0.0
+            and median_ratio > baseline_median_ratio / 3.0
+        ):
+            reasons.append("median_ratio_not_3x_better_than_v2")
+        if (
+            float(summary["means_sec"]["end_to_end_runtime"])
+            > baseline_end_to_end * 1.02
+        ):
+            reasons.append("end_to_end_more_than_2pct_slower_than_v2")
+        if (
+            float(summary["means_sec"]["controller_runtime"])
+            > overhead_limit
+        ):
+            reasons.append("controller_overhead_exceeds_v2_gate")
+        summary["v3_calibration_gate"] = {
+            "passed": not reasons,
+            "reasons": reasons,
+            "baseline": V2_CALIBRATION_BASELINE,
+            "minimum_fraction_within_4x": 0.70,
+            "maximum_median_ratio": (
+                baseline_median_ratio / 3.0
+                if baseline_median_ratio > 0.0
+                else None
+            ),
+            "maximum_end_to_end_runtime_sec": (
+                baseline_end_to_end * 1.02
+            ),
+            "maximum_controller_runtime_sec": overhead_limit,
+        }
+        summary["eligible"] = bool(not reasons)
+
+
 def run(args: argparse.Namespace) -> Dict[str, Any]:
     if args.output_dir.exists() and any(args.output_dir.iterdir()):
         raise FileExistsError(f"Refusing to overwrite calibration output: {args.output_dir}")
@@ -406,6 +508,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 "recovery_audit": _validate_recovery_stream(
                     rows, expect_bandit_transaction=False
                 ),
+                "action_diagnostics": _action_summary(rows),
             }
         )
         summaries[name] = summary
@@ -413,10 +516,26 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             args.output_dir / "checkpoints" / f"{name}_final.npz"
         )
 
+    _apply_v3_calibration_gates(summaries)
     selected_v2 = _choose_candidate(
         (name for name in names if name.startswith("lstdq_v2_beta_")),
         summaries=summaries,
         betas=betas,
+    )
+    eligible_v3 = tuple(
+        name
+        for name in names
+        if name.startswith("lstdq_v3_beta_")
+        and bool(summaries[name]["eligible"])
+    )
+    selected_v3 = (
+        None
+        if not eligible_v3
+        else _choose_candidate(
+            eligible_v3,
+            summaries=summaries,
+            betas=betas,
+        )
     )
     selected_lsvi = _choose_candidate(
         (name for name in names if name.startswith("recalibrated_lsvi_beta_")),
@@ -427,6 +546,15 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         "lstdq_v2": {
             "method": selected_v2,
             "beta": float(betas[selected_v2]),
+        },
+        "lstdq_v3": {
+            "method": selected_v3,
+            "beta": (
+                None
+                if selected_v3 is None
+                else float(betas[selected_v3])
+            ),
+            "eligible": bool(selected_v3 is not None),
         },
         "structured_model_based": {"method": MODEL_METHOD},
         "recalibrated_lsvi": {
@@ -441,7 +569,11 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "grid_n": int(args.grid_n),
             "setup_param_resolution": int(args.setup_param_resolution),
             "action_grid": "1.00:0.05:3.00",
-            "betas": {"lstdq_v2": list(V2_BETAS), "lsvi": list(LSVI_BETAS)},
+            "betas": {
+                "lstdq_v2": list(V2_BETAS),
+                "lstdq_v3": list(V3_BETAS),
+                "lsvi": list(LSVI_BETAS),
+            },
             "seeds": {
                 "stream": str(args.train_seed_groups),
                 "shuffle": int(args.train_shuffle_seeds),
