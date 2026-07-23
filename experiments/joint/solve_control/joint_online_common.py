@@ -33,6 +33,64 @@ def _parse_values(raw: str, cast: Any) -> tuple[Any, ...]:
     return tuple(cast(part.strip()) for part in raw.split(",") if part.strip())
 
 
+def _problem_stream_spec(
+    args: argparse.Namespace,
+) -> tuple[str, tuple[int, int, int], tuple[float, float, float]]:
+    """Resolve the problem knobs while preserving the legacy stream defaults."""
+
+    raw_problem = str(
+        getattr(args, "problem", "scalar_anisotropic_diffusion")
+        or "scalar_anisotropic_diffusion"
+    )
+    problem_key = raw_problem.strip().lower().replace("-", "_")
+    problem_aliases = {
+        "scalar_anisotropic_diffusion": "scalar_anisotropic_diffusion",
+        "diffusion_convection": "diffusion_convection",
+        "difconv": "diffusion_convection",
+    }
+    try:
+        problem = problem_aliases[problem_key]
+    except KeyError as exc:
+        supported = ", ".join(sorted(problem_aliases))
+        raise ValueError(
+            f"Unsupported problem {raw_problem!r}; expected one of: {supported}"
+        ) from exc
+
+    raw_grid = getattr(args, "grid_shape", None)
+    if raw_grid is None or (isinstance(raw_grid, str) and not raw_grid.strip()):
+        grid_n = int(args.grid_n)
+        grid = (grid_n, grid_n, grid_n)
+    elif isinstance(raw_grid, str):
+        grid = _parse_values(raw_grid, int)
+    else:
+        grid = tuple(int(value) for value in raw_grid)
+    if len(grid) != 3 or any(int(value) <= 0 for value in grid):
+        raise ValueError("grid_shape must contain exactly three positive integers")
+    resolved_grid = tuple(int(value) for value in grid)
+
+    raw_advection = getattr(args, "advection", (0.0, 0.0, 0.0))
+    if raw_advection is None or (
+        isinstance(raw_advection, str) and not raw_advection.strip()
+    ):
+        advection = (0.0, 0.0, 0.0)
+    elif isinstance(raw_advection, str):
+        advection = _parse_values(raw_advection, float)
+    else:
+        advection = tuple(float(value) for value in raw_advection)
+    if len(advection) != 3 or not all(np.isfinite(advection)):
+        raise ValueError("advection must contain exactly three finite floats")
+    resolved_advection = tuple(float(value) for value in advection)
+    if problem == "scalar_anisotropic_diffusion":
+        if any(value != 0.0 for value in resolved_advection):
+            raise ValueError(
+                "scalar_anisotropic_diffusion requires zero advection; use "
+                "problem='diffusion_convection' for nonzero advection"
+            )
+        resolved_advection = (0.0, 0.0, 0.0)
+
+    return problem, resolved_grid, resolved_advection
+
+
 def _instance_stream_hash(
     stream: Sequence[tuple[Dict[str, Any], np.ndarray]],
 ) -> str:
@@ -53,8 +111,11 @@ def _instance_stream_hash(
 
 def configure_paired_environment(args: argparse.Namespace) -> None:
     setup_param_resolution = int(args.setup_param_resolution)
+    _problem, grid, _advection = _problem_stream_spec(args)
     values = {
-        "MATRIX_GRID_N": int(args.grid_n),
+        # Legacy consumers accept one grid dimension only.  Keep them safe for
+        # rectangular grids while the generated matrix kwargs retain all three.
+        "MATRIX_GRID_N": max(grid),
         "SETUP_PARAM_RESOLUTION": setup_param_resolution,
         "SETUP_ACTION_SPACE": str(args.setup_action_space),
         "C_MIN": float(args.c_min),
@@ -68,6 +129,7 @@ def configure_paired_environment(args: argparse.Namespace) -> None:
     if (
         str(args.setup_action_space) == "full_cartesian"
         and setup_param_resolution == EXP44_SETUP_PARAM_RESOLUTION
+        and not bool(getattr(args, "setup_configuration_spaces", {}))
     ):
         os.environ["EXPECTED_SETUP_ACTION_COUNT"] = str(
             EXP44_TUNE7_CATEGORICAL_ACTION_COUNT
@@ -284,6 +346,12 @@ def validate_recovery_stream(
 def build_paired_instance_stream(
     args: argparse.Namespace,
 ) -> tuple[list[tuple[Dict[str, Any], np.ndarray]], Dict[str, Any]]:
+    problem, grid, advection = _problem_stream_spec(args)
+    problem_manifest = {
+        "problem": problem,
+        "grid": [int(value) for value in grid],
+        "advection": [float(value) for value in advection],
+    }
     raw_groups = str(args.train_seed_groups).strip()
     if not raw_groups:
         instance_offset = int(args.instance_offset)
@@ -292,13 +360,14 @@ def build_paired_instance_stream(
         full_stream = generate_difconv_instances(
             T=int(args.train_cases) + instance_offset,
             seed=int(args.seed),
-            grid_choices=[(int(args.grid_n),) * 3],
+            grid_choices=[grid],
             c_min=float(args.c_min),
             c_max=float(args.c_max),
-            difconv_a=(0.0, 0.0, 0.0),
+            difconv_a=advection,
         )
         selected_stream = full_stream[instance_offset:]
         return selected_stream, {
+            **problem_manifest,
             "mode": "single_seed_continuation",
             "seed": int(args.seed),
             "window": [
@@ -329,10 +398,10 @@ def build_paired_instance_stream(
             generated = generate_difconv_instances(
                 T=int(args.instance_offset + args.train_cases_per_seed),
                 seed=int(seed),
-                grid_choices=[(int(args.grid_n),) * 3],
+                grid_choices=[grid],
                 c_min=float(args.c_min),
                 c_max=float(args.c_max),
-                difconv_a=(0.0, 0.0, 0.0),
+                difconv_a=advection,
             )
             candidates.extend(generated[int(args.instance_offset) :])
         order = np.random.default_rng(int(shuffle_seed)).permutation(len(candidates))
@@ -361,6 +430,7 @@ def build_paired_instance_stream(
             f"expected {args.train_cases}"
         )
     return stream, {
+        **problem_manifest,
         "mode": "grouped_shuffled_segments",
         "segments": segment_metadata,
         "sha256": _instance_stream_hash(stream),

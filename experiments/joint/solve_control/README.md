@@ -165,6 +165,45 @@ fixed `w=1.6`, an improvement of `3.39%` with paired-bootstrap 95% interval
 not a calibrated confidence interval; see the run's `FINAL_REPORT.md` for the
 component audit and limitations.
 
+## Composable high-level runner
+
+New joint experiments should use `run_joint_experiment.py`. It reads one JSON
+configuration and delegates to the same active joint-online engine used by the
+locked studies; it does not maintain a second solve/recovery loop. The config
+selects the problem and grid, instance counts and seeds, setup discretization,
+solve action/RBF discretization, controller parameters, and an explicit list of
+independent setup x solve branches.
+
+Supported setup choices are `default`, `linucb`, and `lints`. A named setup
+space can select either `uniform512` or `structured512` candidate sampling.
+The structured oracle keeps the same 512-arm scoring budget and combines 64
+default/incumbent/elite anchors, 192 branch-balanced global arms, up to 192
+cached coordinate neighbors, and 64 persistent Sobol numeric exploration
+arms. Both modes use AOT arm IDs and the same factorized RAM feature cache;
+the final 512-row feature block is reconstructed once per decision.
+
+Supported solve choices include `default`, `fixed`, PPO, Recursive MC, LSTDQ
+v1/v2, recursive BLSTDQ/RBLSPI, stagewise LSVI, structured model-based
+control, and recalibrated LSVI. RBLSPI maintains fixed-size `A`, `C`, and `b`
+statistics for the BLSTD posterior, samples one coherent Q-function per solve,
+and stores no accumulated transition history. Each online learner is
+instantiated independently even when two branches use the same algorithm.
+
+Validate the resolved stream and method roster without launching HYPRE:
+
+```bash
+/opt/anaconda3/envs/rl/bin/python -u \
+  experiments/joint/solve_control/run_joint_experiment.py \
+  --config experiments/joint/solve_control/configs/n40_lstdq_v2_factorial_joint4k.json \
+  --validate-only
+```
+
+Remove `--validate-only` to run and automatically generate the standard plots.
+Every result directory receives the resolved high-level config, low-level
+protocol, stream manifest, trajectories, checkpoints, reports, and a
+`reproduce.sh` script. `--output-dir` safely overrides the configured output
+path without editing the JSON.
+
 ## Numbered workflow
 
 ### Training-side workflow

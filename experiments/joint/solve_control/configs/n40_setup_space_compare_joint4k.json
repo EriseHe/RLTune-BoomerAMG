@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "name": "n40_setup_space_compare_joint4k",
+  "description": "40^3/4K comparison of default setup and three independent LinUCB setup configuration spaces; every branch uses the default solve.",
+  "output_dir": "results/joint/online_linear_lcb_v3/run_logs/setup_space_compare_4k_n40_20260722",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion",
+    "grid": [40, 40, 40],
+    "c_min": 1.0,
+    "c_max": 1000.0,
+    "advection": [0.0, 0.0, 0.0]
+  },
+  "stream": {
+    "cases": 4000,
+    "warmup_cases": 0,
+    "online_cases": 4000,
+    "instance_offset": 0,
+    "seed_groups": [
+      39800039,
+      39806039,
+      39812039,
+      39818039,
+      39824039,
+      39830039,
+      39836039,
+      39842039
+    ],
+    "shuffle_seeds": [39848039],
+    "cases_per_seed": 500,
+    "group_take": 4000,
+    "expected_sha256": "64b8b0d63e59c7addb835e671b4dbcf498effa9c79084e3218e52bc9a92ec03f",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 39860039,
+    "bandit": 39860039,
+    "controller": 39866039,
+    "method_order": 39872039
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "configuration_spaces": {
+      "original": {
+        "coarsen_types": [0, 2, 6, 8, 10],
+        "interp_types": [6, 8],
+        "agg_interp_types": [4]
+      },
+      "recommended": {
+        "coarsen_types": [0, 3, 6, 8, 10],
+        "interp_types": [0, 2, 3, 6, 8, 17],
+        "agg_interp_types": [4]
+      },
+      "expanded": {
+        "coarsen_types": [0, 3, 6, 8, 10, 21, 22],
+        "interp_types": [0, 2, 3, 4, 6, 7, 8, 12, 13, 14, 16, 17, 18],
+        "agg_interp_types": [1, 2, 3, 4, 5, 6, 7, 8]
+      }
+    }
+  },
+  "solve": {
+    "tolerance": 1e-6,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1.0,
+      "stop": 3.0,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1.0,
+        "stop": 3.0,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    }
+  },
+  "methods": [
+    {
+      "id": "default_setup",
+      "setup": "default",
+      "solve": "default"
+    },
+    {
+      "id": "linucb_original",
+      "setup": "linucb",
+      "setup_space": "original",
+      "solve": "default"
+    },
+    {
+      "id": "linucb_recommended",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "solve": "default"
+    },
+    {
+      "id": "linucb_expanded",
+      "setup": "linucb",
+      "setup_space": "expanded",
+      "solve": "default"
+    }
+  ],
+  "reporting": {
+    "progress_every": 100,
+    "rolling_window": 100,
+    "generate_plots": true
+  }
+}

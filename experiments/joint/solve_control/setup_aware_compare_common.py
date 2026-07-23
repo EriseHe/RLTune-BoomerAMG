@@ -31,10 +31,18 @@ from amg_gym_env import (
     decode_policy_action_hierarchical,
     decode_policy_action_residual,
 )
-from setup_action_space import SetupObsEncoder, build_setup_parameter_spec, build_setup_param_space
-from learners import SharedLinUCB_AMG_v4
+from setup_action_space import (
+    SetupConfigurationSpace,
+    SetupObsEncoder,
+    build_setup_parameter_spec,
+    build_setup_param_space,
+)
+from learners import SharedLinTS_AMG_v2, SharedLinUCB_AMG_v4
 from learners.linucb import run_same_context_setup_reselection
 from learners.common import (
+    AOTCandidateSchedule,
+    FactorizedActionFeatureCache,
+    GenericActionFeatureEncoder,
     ParameterSpaceSpec,
     ParameterSpec,
     resolve_tune7_candidate_strategy,
@@ -595,6 +603,9 @@ class RandomPolicy:
 def family_seed_map(*, seed: int) -> Dict[str, int]:
     return {
         "Shared LinUCB v4": int(seed + 13003),
+        # Candidate/tie RNGs are deliberately paired across the two learners.
+        # LinTS uses an independent posterior RNG internally.
+        "Shared LinTS v2": int(seed + 13003),
     }
 
 
@@ -603,6 +614,7 @@ def default_branch_label(*, method: str, tune_dim: int, tune7_variant: str) -> s
         return "default (fixed)"
     family = {
         "linucbv4": "Shared LinUCB v4",
+        "lints_v2": "Shared LinTS v2",
     }.get(str(method).strip().lower(), str(method))
     if int(tune_dim) == 7:
         suffix = "tune7" if str(tune7_variant).strip().lower() == "agg_conditional" else "tune7-categorical"
@@ -643,6 +655,7 @@ def build_single_branch(
     seed_map = family_seed_map(seed=int(seed))
     family = {
         "linucbv4": "Shared LinUCB v4",
+        "lints_v2": "Shared LinTS v2",
     }.get(method_key)
     if family is None:
         raise ValueError(f"Unsupported method: {method}")
@@ -845,6 +858,11 @@ def build_test_final_bandit_policy(
     parameter_spec: Optional[ParameterSpaceSpec],
     tune7_variant: str,
     cfg: TestFinalBanditConfig,
+    candidate_schedule: AOTCandidateSchedule | None = None,
+    action_feature_cache: FactorizedActionFeatureCache | None = None,
+    lin_ts_relative_sampling_scale: float = 0.15,
+    lin_ts_loss_scale_prior: float = 0.1,
+    candidate_sampling: str = "uniform512",
 ) -> GenericBanditPolicy:
     method_key = str(method).strip().lower()
     if int(tune_dim) == 7:
@@ -862,7 +880,24 @@ def build_test_final_bandit_policy(
             tune7_variant=tune7_variant,
             configured_strategy=cfg.tune7_candidate_strategy,
         )
-        if strategy == "adaptive_local":
+        sampling = str(candidate_sampling).strip().lower().replace("-", "")
+        if sampling not in AOTCandidateSchedule.SAMPLING_METHODS:
+            raise ValueError(
+                "candidate_sampling must be uniform512 or structured512"
+            )
+        if sampling == "structured512":
+            if candidate_schedule is None:
+                raise ValueError("structured512 requires an AOT candidate schedule")
+            tune7_kwargs.update(
+                {
+                    "alpha_decay": True,
+                    "candidate_pool_size": int(cfg.candidate_pool_size),
+                    "candidate_strategy": "structured",
+                    "elite_rank_metric": "mean_loss",
+                    "local_neighbor_radius": 2,
+                }
+            )
+        elif strategy == "adaptive_local":
             tune7_kwargs.update(
                 {
                     "alpha_decay": True,
@@ -884,17 +919,39 @@ def build_test_final_bandit_policy(
                     "candidate_pool_size": int(cfg.candidate_pool_size),
                 }
             )
-        model = SharedLinUCB_AMG_v4(
+        learner_class = {
+            "linucbv4": SharedLinUCB_AMG_v4,
+            "lints_v2": SharedLinTS_AMG_v2,
+        }.get(method_key)
+        if learner_class is None:
+            raise ValueError(f"Unsupported setup learner: {method!r}")
+        learner_kwargs: Dict[str, Any] = {}
+        if method_key == "lints_v2":
+            learner_kwargs.update(
+                {
+                    "relative_sampling_scale": float(
+                        lin_ts_relative_sampling_scale
+                    ),
+                    "loss_scale_prior": float(lin_ts_loss_scale_prior),
+                }
+            )
+        model = learner_class(
             actions,
             context_dim=int(context_dim),
             alpha=float(cfg.alpha),
             l2_reg=float(cfg.l2),
             seed=int(seed),
+            candidate_schedule=candidate_schedule,
+            action_feature_cache=action_feature_cache,
+            **learner_kwargs,
             **tune7_kwargs,
         )
         return GenericBanditPolicy(model)
 
-    raise ValueError(f"The retained Exp44 active path only supports linucbv4, got method={method!r}")
+    raise ValueError(
+        "The retained Exp44 active path only supports generic tune7 setup "
+        f"learners, got method={method!r}"
+    )
 
 
 def _safe_one_at_a_time_actions(parameter_spec: Any) -> list[Dict[str, Any]]:
@@ -935,13 +992,35 @@ def _safe_one_at_a_time_actions(parameter_spec: Any) -> list[Dict[str, Any]]:
 def build_online_linucb_branch(
     *,
     seed: int,
+    learner_kind: str = "linucb",
     tune_dim: int = 7,
     tune7_variant: str = "categorical",
     action_space_mode: str | None = None,
     solver_tol: float | None = None,
     solver_max_iter: int | None = None,
+    parameter_resolution: int | None = None,
+    configuration_space: SetupConfigurationSpace | None = None,
+    candidate_schedule_dir: Path | None = None,
+    candidate_schedule_rounds: int | None = None,
+    candidate_schedule_seed: int | None = None,
+    candidate_schedule_chunk_rounds: int = 256,
+    lin_ts_relative_sampling_scale: float = 0.15,
+    lin_ts_loss_scale_prior: float = 0.1,
+    candidate_sampling: str = "uniform512",
 ) -> tuple[BranchRun, TestFinalBanditConfig]:
-    """Build the canonical online setup branch without a Gym dependency."""
+    """Build a canonical online setup-bandit branch without a Gym dependency."""
+
+    learner_token = str(learner_kind).strip().lower()
+    learner_method = {
+        "linucb": "linucbv4",
+        "lints": "lints_v2",
+    }.get(learner_token)
+    if learner_method is None:
+        raise ValueError(f"Unsupported setup learner kind: {learner_kind!r}")
+    family = {
+        "linucb": "Shared LinUCB v4",
+        "lints": "Shared LinTS v2",
+    }[learner_token]
 
     cfg = default_test_final_bandit_config_from_env()
     mode = str(
@@ -959,13 +1038,88 @@ def build_online_linucb_branch(
         if solver_max_iter is None
         else solver_max_iter
     )
-    if mode == "full_cartesian":
+    if mode == "full_cartesian" and configuration_space is not None:
+        if int(tune_dim) != 7 or str(tune7_variant).strip().lower() != "categorical":
+            raise ValueError(
+                "Named setup configuration spaces require tune_dim=7 and "
+                "tune7_variant='categorical'"
+            )
+        setup_space = build_setup_param_space(
+            tune_dim=int(tune_dim),
+            tune7_variant=tune7_variant,
+            parameter_resolution=parameter_resolution,
+            configuration_space=configuration_space,
+            materialize=candidate_schedule_dir is None,
+        )
+        parameter_space = {
+            "actions": setup_space.actions,
+            "context_dim": int(DIFCONV_CONTEXT_DIM),
+        }
+        family_seed = int(family_seed_map(seed=int(seed))[family])
+        candidate_schedule = None
+        action_feature_cache = None
+        if candidate_schedule_dir is not None:
+            if candidate_schedule_rounds is None or candidate_schedule_rounds <= 0:
+                raise ValueError(
+                    "candidate_schedule_rounds must be positive for AOT mode"
+                )
+            encoder = GenericActionFeatureEncoder(setup_space.parameter_spec)
+            action_feature_cache = FactorizedActionFeatureCache(
+                setup_space.actions, encoder
+            )
+            candidate_schedule = AOTCandidateSchedule(
+                directory=Path(candidate_schedule_dir),
+                catalog=setup_space.actions,
+                rounds=int(candidate_schedule_rounds),
+                pool_size=int(cfg.candidate_pool_size),
+                seed=int(
+                    family_seed
+                    if candidate_schedule_seed is None
+                    else candidate_schedule_seed
+                ),
+                chunk_rounds=int(candidate_schedule_chunk_rounds),
+                sampling_method=str(candidate_sampling),
+                factorized_cache=action_feature_cache,
+            )
+        policy = build_test_final_bandit_policy(
+            method=learner_method,
+            tune_dim=int(tune_dim),
+            actions=setup_space.actions,
+            context_dim=int(DIFCONV_CONTEXT_DIM),
+            seed=family_seed,
+            default_params=dict(DEFAULT_SETUP_PARAMS),
+            default_arm_index=int(setup_space.default_arm_index),
+            parameter_spec=setup_space.parameter_spec,
+            tune7_variant=tune7_variant,
+            cfg=cfg,
+            candidate_schedule=candidate_schedule,
+            action_feature_cache=action_feature_cache,
+            lin_ts_relative_sampling_scale=float(
+                lin_ts_relative_sampling_scale
+            ),
+            lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
+            candidate_sampling=str(candidate_sampling),
+        )
+        branch = BranchRun(
+            label=(
+                f"{family} | {configuration_space.name} | "
+                f"{str(candidate_sampling)}"
+            ),
+            family=family,
+            tune_set=configuration_space.name,
+            seed=family_seed,
+            policy=policy,
+            parameter_space=parameter_space,
+            solver_tol=resolved_tol,
+            solver_max_iter=resolved_max_iter,
+        )
+    elif mode == "full_cartesian":
         bundle = build_action_space_bundle(
             final_tune_dims=[int(tune_dim)],
             tune7_variant=tune7_variant,
         )
         branch = build_single_branch(
-            method="linucbv4",
+            method=learner_method,
             tune_dim=int(tune_dim),
             tune7_variant=tune7_variant,
             seed=int(seed),
@@ -984,10 +1138,9 @@ def build_online_linucb_branch(
             "actions": actions,
             "context_dim": int(DIFCONV_CONTEXT_DIM),
         }
-        family = "Shared LinUCB v4"
         family_seed = int(family_seed_map(seed=int(seed))[family])
         policy = build_test_final_bandit_policy(
-            method="linucbv4",
+            method=learner_method,
             tune_dim=int(tune_dim),
             actions=actions,
             context_dim=int(DIFCONV_CONTEXT_DIM),
@@ -997,10 +1150,14 @@ def build_online_linucb_branch(
             parameter_spec=parameter_spec,
             tune7_variant=tune7_variant,
             cfg=cfg,
+            lin_ts_relative_sampling_scale=float(
+                lin_ts_relative_sampling_scale
+            ),
+            lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
         )
         branch = BranchRun(
             label=default_branch_label(
-                method="linucbv4",
+                method=learner_method,
                 tune_dim=int(tune_dim),
                 tune7_variant=tune7_variant,
             ),
@@ -1016,7 +1173,8 @@ def build_online_linucb_branch(
         raise ValueError(
             "SETUP_ACTION_SPACE must be safe_one_at_a_time or full_cartesian"
         )
-    validate_expected_setup_action_count(branch)
+    if configuration_space is None:
+        validate_expected_setup_action_count(branch)
     return branch, cfg
 
 

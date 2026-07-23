@@ -19,6 +19,7 @@ from run_joint_online_sarsa_4k import _window_result, _write_summary_csv
 
 FAMILY_ORDER = (
     "default_setup",
+    "default_setup_recursive_lstdq_v2_lcb",
     "default",
     "fixed_w1.6",
     "ppo",
@@ -34,6 +35,9 @@ FAMILY_ORDER = (
 )
 FAMILY_LABELS = {
     "default_setup": "Default setup + default solve",
+    "default_setup_recursive_lstdq_v2_lcb": (
+        "Default setup + Recursive LSTDQ v2-LCB"
+    ),
     "default": "Online LinUCB + default solve",
     "fixed_w1.6": "Online LinUCB + fixed w=1.6",
     "ppo": "Online LinUCB + 2000-instance absolute PPO",
@@ -49,9 +53,26 @@ FAMILY_LABELS = {
 }
 
 
+def _method_label(
+    method: str,
+    family_by_method: Dict[str, str],
+    method_labels: Dict[str, str],
+) -> str:
+    if method in method_labels:
+        return str(method_labels[method])
+    family = family_by_method[method]
+    return FAMILY_LABELS.get(family, family.replace("_", " "))
+
+
 def _active_families(family_by_method: Dict[str, str]) -> tuple[str, ...]:
     present = set(family_by_method.values())
-    return tuple(family for family in FAMILY_ORDER if family in present)
+    ordered = [family for family in FAMILY_ORDER if family in present]
+    ordered.extend(
+        family
+        for family in dict.fromkeys(family_by_method.values())
+        if family not in FAMILY_ORDER
+    )
+    return tuple(ordered)
 
 
 def _read_json_lines(path: Path) -> list[Dict[str, Any]]:
@@ -92,6 +113,71 @@ def _load_records(
         method: _read_json_lines(result_dir / "trajectories" / f"{method}.jsonl")
         for method in methods
     }
+
+
+def _same_setup_audit(
+    records: Dict[str, list[Dict[str, Any]]],
+    methods: Sequence[str],
+    expected_cases: int,
+) -> Dict[str, Any]:
+    if "bandit_fixed_w1.6" not in records:
+        return {}
+
+    audit_windows = {
+        "all": (0, expected_cases),
+        "first_half": (0, expected_cases // 2),
+        "last_half": (expected_cases // 2, expected_cases),
+        "last_500": (max(0, expected_cases - 500), expected_cases),
+    }
+    fixed_rows = records["bandit_fixed_w1.6"]
+    audit: Dict[str, Any] = {}
+    for method_index, method in enumerate(methods):
+        if method in {"bandit_default", "bandit_fixed_w1.6"}:
+            continue
+        audit[method] = {}
+        for window_index, (window_name, (start, stop)) in enumerate(
+            audit_windows.items()
+        ):
+            indices = [
+                index
+                for index in range(start, stop)
+                if records[method][index]["params"]
+                == fixed_rows[index]["params"]
+            ]
+            candidate = [records[method][index] for index in indices]
+            baseline = [fixed_rows[index] for index in indices]
+            audit[method][window_name] = {
+                "matching_cases": int(len(indices)),
+                "comparison": (
+                    _method_comparison(
+                        candidate,
+                        baseline,
+                        seed=int(
+                            8_217_001 + method_index * 1009 + window_index
+                        ),
+                    )
+                    if indices
+                    else None
+                ),
+            }
+    return audit
+
+
+def _summary_reference_method(
+    summary_rows: Sequence[Dict[str, str]],
+    methods: Sequence[str],
+) -> str:
+    available = {row["method"] for row in summary_rows}
+    return next(
+        method
+        for method in (
+            "bandit_default",
+            "default_setup",
+            "bandit_fixed_w1.6",
+            *methods,
+        )
+        if method in available
+    )
 
 
 def _metric(rows: Sequence[Dict[str, Any]], field: str) -> np.ndarray:
@@ -135,6 +221,7 @@ def _plot_five_family_weight_trajectory(
     path: Path,
     records: Dict[str, list[Dict[str, Any]]],
     family_by_method: Dict[str, str],
+    method_labels: Dict[str, str],
     candidate_by_method: Dict[str, Dict[str, Any]],
     statistic: str,
     window: int,
@@ -193,7 +280,7 @@ def _plot_five_family_weight_trajectory(
             if method in candidate_by_method:
                 label = _candidate_label(candidate_by_method[method])
             else:
-                label = FAMILY_LABELS[family]
+                label = _method_label(method, family_by_method, method_labels)
             color = palette(method_index % 10)
             axis.plot(
                 np.arange(1, values.size + 1),
@@ -484,6 +571,7 @@ def _plot_cumulative_components(
     path: Path,
     records: Dict[str, list[Dict[str, Any]]],
     family_by_method: Dict[str, str],
+    method_labels: Dict[str, str],
 ) -> None:
     fields = (
         ("setup_runtime", "Cumulative setup (s)"),
@@ -508,7 +596,7 @@ def _plot_cumulative_components(
                 np.cumsum(_metric(rows, field)),
                 color=palette(method_index % 10),
                 linewidth=1.45,
-                label=FAMILY_LABELS[family],
+                label=_method_label(method, family_by_method, method_labels),
             )
             axis.set_ylabel(ylabel)
             axis.grid(alpha=0.22, linewidth=0.7)
@@ -536,8 +624,10 @@ def _plot_first_last_components(
     )
     windows = (("first_1000", "First 1000"), ("last_1000", "Last 1000"))
     methods = tuple(result["protocol"]["methods"])
+    family_by_method = result["protocol"]["families"]
+    method_labels = result["protocol"].get("method_labels", {})
     labels = [
-        FAMILY_LABELS[result["protocol"]["families"][method]]
+        _method_label(method, family_by_method, method_labels)
         for method in methods
     ]
     colors = plt.get_cmap("Set2")(np.linspace(0.05, 0.95, len(components)))
@@ -590,16 +680,21 @@ def _plot_all_runtime_breakdown(
     window_key: str | None = None,
     figure_title: str | None = None,
 ) -> None:
-    methods = tuple(result["protocol"]["methods"])
-    labels = [
-        FAMILY_LABELS[result["protocol"]["families"][method]]
-        for method in methods
-    ]
     if window_key is None:
         window_key = next(
             key for key in result["windows"] if str(key).startswith("all_")
         )
     window = result["windows"][window_key]["methods"]
+    methods = _methods_by_native_runtime(
+        result["protocol"]["methods"],
+        window,
+    )
+    family_by_method = result["protocol"]["families"]
+    method_labels = result["protocol"].get("method_labels", {})
+    labels = [
+        _method_label(method, family_by_method, method_labels)
+        for method in methods
+    ]
     case_count = int(window[next(iter(methods))]["cases"])
     components = (
         ("setup_runtime", "Setup", "#66c2a5"),
@@ -643,6 +738,8 @@ def _plot_all_runtime_breakdown(
                 va="bottom",
                 fontsize=9,
             )
+        if bottoms.size and float(np.max(bottoms)) > 0.0:
+            axis.set_ylim(0.0, 1.08 * float(np.max(bottoms)))
         axis.set_title(title, fontweight="bold")
         axis.set_xticks(np.arange(len(methods)), labels, rotation=24, ha="right")
         axis.set_ylabel("Mean runtime (ms/case)")
@@ -663,14 +760,33 @@ def _plot_all_runtime_breakdown(
     plt.close(figure)
 
 
+def _methods_by_native_runtime(
+    methods: Sequence[str],
+    window: Dict[str, Any],
+) -> tuple[str, ...]:
+    """Order methods by setup plus native solve runtime, slowest first."""
+    return tuple(
+        sorted(
+            methods,
+            key=lambda method: (
+                float(window[method]["means_sec"]["setup_runtime"])
+                + float(window[method]["means_sec"]["native_solve_runtime"])
+            ),
+            reverse=True,
+        )
+    )
+
+
 def _plot_recovery_outcomes(
     *,
     path: Path,
     result: Dict[str, Any],
 ) -> None:
     methods = tuple(result["protocol"]["methods"])
+    family_by_method = result["protocol"]["families"]
+    method_labels = result["protocol"].get("method_labels", {})
     labels = [
-        FAMILY_LABELS[result["protocol"]["families"][method]]
+        _method_label(method, family_by_method, method_labels)
         for method in methods
     ]
     all_window_key = next(
@@ -745,6 +861,7 @@ def _plot_first_last_improvement_ci(
     result: Dict[str, Any],
 ) -> None:
     family_by_method = result["protocol"]["families"]
+    method_labels = result["protocol"].get("method_labels", {})
     methods = tuple(
         method
         for method in result["protocol"]["methods"]
@@ -755,7 +872,10 @@ def _plot_first_last_improvement_ci(
         ("native_solve_runtime", "Native solve"),
         ("end_to_end_runtime", "End-to-end"),
     )
-    labels = [FAMILY_LABELS[family_by_method[method]] for method in methods]
+    labels = [
+        _method_label(method, family_by_method, method_labels)
+        for method in methods
+    ]
     figure, axes = plt.subplots(
         1,
         2,
@@ -805,6 +925,7 @@ def _plot_five_family_trajectory(
     path: Path,
     records: Dict[str, list[Dict[str, Any]]],
     family_by_method: Dict[str, str],
+    method_labels: Dict[str, str],
     candidate_by_method: Dict[str, Dict[str, Any]],
     field: str,
     ylabel: str,
@@ -835,7 +956,7 @@ def _plot_five_family_trajectory(
             if method in candidate_by_method:
                 label = _candidate_label(candidate_by_method[method])
             else:
-                label = FAMILY_LABELS[family]
+                label = _method_label(method, family_by_method, method_labels)
             axis.plot(
                 np.arange(window, values.size + 1),
                 rolling,
@@ -912,6 +1033,12 @@ def generate_plots(
     protocol = result["protocol"]
     methods = tuple(protocol["methods"])
     family_by_method = dict(protocol["families"])
+    method_labels = dict(protocol.get("method_labels", {}))
+    for method, family in family_by_method.items():
+        FAMILY_LABELS.setdefault(
+            family,
+            method_labels.get(method, family.replace("_", " ")),
+        )
     candidate_by_method = {
         candidate["name"]: candidate for candidate in protocol["candidates"]
     }
@@ -979,40 +1106,7 @@ def generate_plots(
             },
         )
 
-    fixed_rows = records["bandit_fixed_w1.6"]
-    audit_windows = {
-        "all": (0, expected_cases),
-        "first_half": (0, expected_cases // 2),
-        "last_half": (expected_cases // 2, expected_cases),
-        "last_500": (max(0, expected_cases - 500), expected_cases),
-    }
-    same_setup_audit: Dict[str, Any] = {}
-    for method_index, method in enumerate(methods):
-        if method in {"bandit_default", "bandit_fixed_w1.6"}:
-            continue
-        same_setup_audit[method] = {}
-        for window_index, (window_name, (start, stop)) in enumerate(
-            audit_windows.items()
-        ):
-            indices = [
-                index
-                for index in range(start, stop)
-                if records[method][index]["params"] == fixed_rows[index]["params"]
-            ]
-            candidate = [records[method][index] for index in indices]
-            baseline = [fixed_rows[index] for index in indices]
-            same_setup_audit[method][window_name] = {
-                "matching_cases": int(len(indices)),
-                "comparison": (
-                    _method_comparison(
-                        candidate,
-                        baseline,
-                        seed=int(8_217_001 + method_index * 1009 + window_index),
-                    )
-                    if indices
-                    else None
-                ),
-            }
+    same_setup_audit = _same_setup_audit(records, methods, expected_cases)
     same_setup_path = artifact_dir / "same_setup_audit.json"
     _write_json(same_setup_path, same_setup_audit)
 
@@ -1037,6 +1131,7 @@ def generate_plots(
         path=solve_path,
         records=records,
         family_by_method=family_by_method,
+        method_labels=method_labels,
         candidate_by_method=candidate_by_method,
         field="solve_runtime",
         ylabel=f"Rolling {rolling_window} native solve (ms)",
@@ -1046,6 +1141,7 @@ def generate_plots(
         path=setup_path,
         records=records,
         family_by_method=family_by_method,
+        method_labels=method_labels,
         candidate_by_method=candidate_by_method,
         field="setup_runtime",
         ylabel=f"Rolling {rolling_window} setup (ms)",
@@ -1055,6 +1151,7 @@ def generate_plots(
         path=first_weight_path,
         records=records,
         family_by_method=family_by_method,
+        method_labels=method_labels,
         candidate_by_method=candidate_by_method,
         statistic="first_cycle",
         window=int(rolling_window),
@@ -1063,6 +1160,7 @@ def generate_plots(
         path=mean_weight_path,
         records=records,
         family_by_method=family_by_method,
+        method_labels=method_labels,
         candidate_by_method=candidate_by_method,
         statistic="solve_mean",
         window=int(rolling_window),
@@ -1103,7 +1201,11 @@ def generate_plots(
             action_max=float(action_max),
             methods=tuple(learned_action_methods),
             method_labels={
-                method: FAMILY_LABELS[family_by_method[method]]
+                method: _method_label(
+                    method,
+                    family_by_method,
+                    method_labels,
+                )
                 for method in learned_action_methods
             },
             column_labels={0: f"Persistent {expected_cases:,}-instance online comparison"},
@@ -1130,6 +1232,7 @@ def generate_plots(
         path=cumulative_path,
         records=records,
         family_by_method=family_by_method,
+        method_labels=method_labels,
     )
     _plot_all_runtime_breakdown(path=all_runtime_path, result=result)
     if "last_1000" in result["windows"]:
@@ -1146,6 +1249,11 @@ def generate_plots(
             path=first_last_components_path,
             result=result,
         )
+    has_fixed_improvement = has_split_windows and all(
+        "vs_fixed_w1.6" in result["windows"][window]["comparisons"]
+        for window in ("first_1000", "last_1000")
+    )
+    if has_fixed_improvement:
         _plot_first_last_improvement_ci(
             path=first_last_ci_path,
             result=result,
@@ -1154,11 +1262,7 @@ def generate_plots(
     summary_csv_path = artifact_dir / f"summary_{expected_cases}.csv"
     _write_summary_csv(summary_csv_path, records, family_by_method)
     summary_rows = list(csv.DictReader(summary_csv_path.open(encoding="utf-8")))
-    reference_method = (
-        "bandit_default"
-        if any(row["method"] == "bandit_default" for row in summary_rows)
-        else "bandit_fixed_w1.6"
-    )
+    reference_method = _summary_reference_method(summary_rows, methods)
     reference_row = next(
         row for row in summary_rows if row["method"] == reference_method
     )
@@ -1174,7 +1278,7 @@ def generate_plots(
                 f"lambda={float(candidate_by_method[method]['trace_lambda']):g}"
             )
         else:
-            display = FAMILY_LABELS[family_by_method[method]]
+            display = _method_label(method, family_by_method, method_labels)
         table_rows.append(
             {
                 "method": display,
@@ -1220,6 +1324,7 @@ def generate_plots(
     if has_split_windows:
         output["last_1000_runtime_breakdown"] = str(last_1000_runtime_path)
         output["first_vs_last_components"] = str(first_last_components_path)
+    if has_fixed_improvement:
         output["first_vs_last_improvement_ci"] = str(first_last_ci_path)
     if analysis_stop is not None:
         output["analysis_scope"] = str(artifact_dir / "analysis_scope.json")

@@ -20,6 +20,8 @@ from SolvePhase.algorithms.lcb import (
     BootstrapSarsaSpec,
     HierarchicalLsviLcbController,
     HierarchicalLsviLcbSpec,
+    RecursiveBlstdqController,
+    RecursiveBlstdqSpec,
     RecursiveLstdqLcbController,
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbController,
@@ -1020,6 +1022,125 @@ class RecursiveLstdqV2Tests(unittest.TestCase):
             retained,
         )
         self.assertEqual(restored.residual_scale, expected_scale)
+
+
+class RecursiveBlstdqTests(unittest.TestCase):
+    @staticmethod
+    def _controller(*, seed: int = 67) -> RecursiveBlstdqController:
+        config = _config(
+            weights=(1.0, 2.0),
+            anchor_weight=1.0,
+            action_basis_mode="legacy",
+            action_basis_centers=(),
+            action_rbf_sigma=0.0,
+            epsilon_start=0.0,
+            epsilon_final=0.0,
+            trace_lambda=0.0,
+        )
+        return RecursiveBlstdqController(
+            feature_dim=1,
+            config=config,
+            spec=RecursiveBlstdqSpec(
+                prior_precision=2.0,
+                noise_precision=3.0,
+                gram_ridge=0.25,
+            ),
+            seed=seed,
+        )
+
+    def test_posterior_matches_blstd_normal_equations(self) -> None:
+        controller = self._controller()
+        controller.a_matrix[:] = np.asarray([[1.0, 0.5], [-0.25, 2.0]])
+        controller.c_matrix[:] = np.asarray([[2.0, 0.2], [0.2, 1.5]])
+        controller.b[:] = np.asarray([0.1, 0.3])
+        controller._posterior_dirty = True
+        controller._refresh_posterior()
+
+        c_regularized = controller.c_matrix + 0.25 * np.eye(2)
+        c_inverse_a = np.linalg.solve(c_regularized, controller.a_matrix)
+        precision = 2.0 * np.eye(2) + 3.0 * (
+            controller.a_matrix.T @ c_inverse_a
+        )
+        natural = 3.0 * controller.a_matrix.T @ np.linalg.solve(
+            c_regularized, controller.b
+        )
+        expected_mean = np.linalg.solve(precision, natural)
+        np.testing.assert_allclose(
+            controller.posterior_precision_cholesky
+            @ controller.posterior_precision_cholesky.T,
+            precision,
+            rtol=1.0e-12,
+            atol=1.0e-14,
+        )
+        np.testing.assert_allclose(
+            controller.posterior_mean,
+            expected_mean,
+            rtol=1.0e-12,
+            atol=1.0e-14,
+        )
+
+    def test_one_sample_is_fixed_for_the_whole_episode(self) -> None:
+        controller = self._controller()
+        controller.start_episode(initial_environment_weight=1.0)
+        controller.select_action(np.asarray([1.0]), explore=True)
+        first = controller.sampled_theta.copy()
+        factor_count = controller.posterior_factorization_count
+        controller.select_action(np.asarray([2.0]), explore=True)
+        np.testing.assert_array_equal(controller.sampled_theta, first)
+        self.assertEqual(controller.posterior_factorization_count, factor_count)
+
+        controller.finish_episode(learned=True)
+        controller.start_episode(initial_environment_weight=1.0)
+        controller.select_action(np.asarray([1.0]), explore=True)
+        self.assertFalse(np.array_equal(controller.sampled_theta, first))
+        self.assertEqual(controller.posterior_factorization_count, factor_count)
+
+    def test_recursive_statistics_use_posterior_mean_target_policy(self) -> None:
+        controller = self._controller()
+        controller.start_episode(initial_environment_weight=1.0)
+        controller._ensure_episode_sample()
+        controller.posterior_mean[:] = np.asarray([1.0, 0.0])
+        controller.update(
+            features=np.asarray([1.0]),
+            action_index=0,
+            cost=0.2,
+            next_features=np.asarray([2.0]),
+            terminal=False,
+        )
+        np.testing.assert_allclose(
+            controller.a_matrix,
+            np.asarray([[1.0, -2.0], [0.0, 0.0]]),
+        )
+        np.testing.assert_allclose(
+            controller.c_matrix,
+            np.asarray([[1.0, 0.0], [0.0, 0.0]]),
+        )
+        np.testing.assert_allclose(controller.b, np.asarray([0.2, 0.0]))
+        self.assertEqual(controller.summary()["stored_transition_count"], 0)
+
+    def test_checkpoint_round_trip_restores_next_posterior_sample(self) -> None:
+        source = self._controller()
+        source.start_episode(initial_environment_weight=1.0)
+        source.select_action(np.asarray([1.0]), explore=True)
+        source.update(
+            features=np.asarray([1.0]),
+            action_index=0,
+            cost=0.01,
+            next_features=np.asarray([1.0]),
+            terminal=True,
+        )
+        source.finish_episode(learned=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "recursive_blstdq.npz"
+            source.save(path)
+            restored = self._controller(seed=99)
+            restored.load(path)
+        source.start_episode(initial_environment_weight=1.0)
+        restored.start_episode(initial_environment_weight=1.0)
+        source.select_action(np.asarray([1.0]), explore=True)
+        restored.select_action(np.asarray([1.0]), explore=True)
+        np.testing.assert_allclose(restored.posterior_mean, source.posterior_mean)
+        np.testing.assert_allclose(restored.sampled_theta, source.sampled_theta)
 
 
 class StructuredModelBasedTests(unittest.TestCase):

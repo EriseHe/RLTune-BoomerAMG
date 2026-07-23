@@ -309,7 +309,6 @@ class GenericActionFeatureEncoder:
             encoded[index] = self.encode_action(action)
         return encoded
 
-
 def action_feature_dimension_from_spec(parameter_spec: ParameterSpaceSpec) -> int:
     return int(GenericActionFeatureEncoder(parameter_spec).feature_dim)
 

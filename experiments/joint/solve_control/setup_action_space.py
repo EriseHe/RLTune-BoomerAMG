@@ -6,7 +6,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Sequence, Tuple
+from typing import Any, Dict, Mapping, Sequence, Tuple
 
 import numpy as np
 
@@ -17,7 +17,7 @@ if str(_SETUP_ROOT) not in sys.path:
     sys.path.insert(0, str(_SETUP_ROOT))
 
 from learners import SharedLinUCB_AMG_v4
-from learners.common import ParameterSpaceSpec, ParameterSpec
+from learners.common import CompactActionCatalog, ParameterSpaceSpec, ParameterSpec
 from problems.amg import DIFCONV_CONTEXT_DIM
 from utils.setup_amg import build_actions_from_spec
 
@@ -71,9 +71,82 @@ _MANUAL_SETUP_BOUNDS = {
 
 @dataclass(frozen=True)
 class SetupParamSpace:
-    actions: Tuple[Dict[str, Any], ...]
+    actions: Sequence[Dict[str, Any]]
     parameter_spec: ParameterSpaceSpec
     default_arm_index: int
+
+
+@dataclass(frozen=True)
+class SetupConfigurationSpace:
+    """Named categorical choices for one setup-bandit branch."""
+
+    name: str
+    coarsen_types: Tuple[int, ...]
+    interp_types: Tuple[int, ...]
+    agg_interp_types: Tuple[int, ...] = (
+        int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
+    )
+
+    def __post_init__(self) -> None:
+        name = str(self.name).strip()
+        if not name or any(character in name for character in "/\\:@"):
+            raise ValueError(
+                "Setup configuration-space names must be non-empty and cannot "
+                "contain path separators, ':' or '@'"
+            )
+        object.__setattr__(self, "name", name)
+        for field_name in (
+            "coarsen_types",
+            "interp_types",
+            "agg_interp_types",
+        ):
+            values = tuple(int(value) for value in getattr(self, field_name))
+            if not values:
+                raise ValueError(f"{field_name} cannot be empty")
+            if len(values) != len(set(values)):
+                raise ValueError(f"{field_name} cannot contain duplicate values")
+            object.__setattr__(self, field_name, values)
+
+    @classmethod
+    def from_mapping(
+        cls,
+        name: str,
+        raw: Mapping[str, Any],
+    ) -> "SetupConfigurationSpace":
+        allowed = {"coarsen_types", "interp_types", "agg_interp_types"}
+        unknown = set(raw) - allowed
+        if unknown:
+            raise ValueError(
+                f"Unknown keys in setup configuration space {name!r}: "
+                f"{sorted(unknown)}"
+            )
+        missing = {"coarsen_types", "interp_types"} - set(raw)
+        if missing:
+            raise ValueError(
+                f"Setup configuration space {name!r} is missing "
+                f"{sorted(missing)}"
+            )
+        return cls(
+            name=str(name),
+            coarsen_types=tuple(int(value) for value in raw["coarsen_types"]),
+            interp_types=tuple(int(value) for value in raw["interp_types"]),
+            agg_interp_types=tuple(
+                int(value)
+                for value in raw.get(
+                    "agg_interp_types",
+                    (DEFAULT_SETUP_PARAMS["agg_interp_type"],),
+                )
+            ),
+        )
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "coarsen_types": [int(value) for value in self.coarsen_types],
+            "interp_types": [int(value) for value in self.interp_types],
+            "agg_interp_types": [
+                int(value) for value in self.agg_interp_types
+            ],
+        }
 
 
 class SetupObsEncoder:
@@ -258,8 +331,22 @@ def _ensure_default_arm(actions: Sequence[Dict[str, Any]]) -> Tuple[Tuple[Dict[s
     return out, int(len(out) - 1)
 
 
-def build_setup_parameter_spec(*, tune_dim: int, tune7_variant: str = "categorical") -> Tuple[ParameterSpaceSpec, Dict[str, Any]]:
-    param_resolution = int(os.environ.get("SETUP_PARAM_RESOLUTION", "10"))
+def build_setup_parameter_spec(
+    *,
+    tune_dim: int,
+    tune7_variant: str = "categorical",
+    parameter_resolution: int | None = None,
+    coarsen_type_values: Sequence[int] | None = None,
+    interp_type_values: Sequence[int] | None = None,
+    agg_interp_type_values: Sequence[int] | None = None,
+) -> Tuple[ParameterSpaceSpec, Dict[str, Any]]:
+    param_resolution = int(
+        os.environ.get("SETUP_PARAM_RESOLUTION", "10")
+        if parameter_resolution is None
+        else parameter_resolution
+    )
+    if param_resolution <= 0:
+        raise ValueError("parameter_resolution must be positive")
     grid_max = float(os.environ.get("SETUP_GRID_MAX", os.environ.get("GRID_MAX", "0.95")))
     th_grid = np.linspace(0.0, grid_max, param_resolution)
     mxrs_grid = np.linspace(0.0, grid_max, param_resolution)
@@ -268,8 +355,28 @@ def build_setup_parameter_spec(*, tune_dim: int, tune7_variant: str = "categoric
     tr_grid = np.linspace(0.0, grid_max, param_resolution)
     p_max_values = _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
     agg_nl_values = _parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
-    coarsen_type_values = _parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)
-    interp_values = _parse_int_list_env("TUNE7_INTERP_TYPES", DEFAULT_TUNE7_INTERP_TYPES)
+    coarsen_values = (
+        _parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)
+        if coarsen_type_values is None
+        else [int(value) for value in coarsen_type_values]
+    )
+    interp_values = (
+        _parse_int_list_env("TUNE7_INTERP_TYPES", DEFAULT_TUNE7_INTERP_TYPES)
+        if interp_type_values is None
+        else [int(value) for value in interp_type_values]
+    )
+    agg_interp_values = (
+        None
+        if agg_interp_type_values is None
+        else tuple(int(value) for value in agg_interp_type_values)
+    )
+    for name, values in (
+        ("coarsen_type_values", coarsen_values),
+        ("interp_type_values", interp_values),
+        ("agg_interp_type_values", agg_interp_values),
+    ):
+        if values is not None and not values:
+            raise ValueError(f"{name} cannot be empty")
     agg_tr_values = _parse_float_list_env("TUNE7_AGG_TR_VALUES", DEFAULT_TUNE7_AGG_TR_VALUES)
     agg_pmx_values = _parse_int_list_env("TUNE7_AGG_PMX_VALUES", DEFAULT_TUNE7_AGG_PMX_VALUES)
 
@@ -367,7 +474,7 @@ def build_setup_parameter_spec(*, tune_dim: int, tune7_variant: str = "categoric
                     ParameterSpec(
                         name="coarsen_type",
                         kind="categorical",
-                        values=tuple(int(v) for v in coarsen_type_values),
+                        values=tuple(int(v) for v in coarsen_values),
                         default=int(DEFAULT_SETUP_PARAMS["coarsen_type"]),
                     ),
                     ParameterSpec(
@@ -381,13 +488,67 @@ def build_setup_parameter_spec(*, tune_dim: int, tune7_variant: str = "categoric
             fixed_params.pop("coarsen_type", None)
             fixed_params.pop("interp_type", None)
 
+            if agg_interp_values is not None and agg_interp_values != (
+                int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
+            ):
+                active_agg_levels = tuple(
+                    int(value)
+                    for value in agg_nl_values
+                    if int(value)
+                    != int(DEFAULT_SETUP_PARAMS["agg_num_levels"])
+                )
+                base_specs.append(
+                    ParameterSpec(
+                        name="agg_interp_type",
+                        kind="categorical",
+                        values=tuple(int(value) for value in agg_interp_values),
+                        default=int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
+                        active_if={"agg_num_levels": active_agg_levels},
+                    )
+                )
+                fixed_params.pop("agg_interp_type", None)
+
     return ParameterSpaceSpec(tuple(base_specs)), fixed_params
 
 
-def build_setup_param_space(*, tune_dim: int, tune7_variant: str = "categorical") -> SetupParamSpace:
-    parameter_spec, fixed_params = build_setup_parameter_spec(tune_dim=tune_dim, tune7_variant=tune7_variant)
-    actions = build_actions_from_spec(parameter_spec, fixed_params=fixed_params)
-    actions, default_arm_index = _ensure_default_arm(actions)
+def build_setup_param_space(
+    *,
+    tune_dim: int,
+    tune7_variant: str = "categorical",
+    parameter_resolution: int | None = None,
+    configuration_space: SetupConfigurationSpace | None = None,
+    materialize: bool = True,
+) -> SetupParamSpace:
+    parameter_spec, fixed_params = build_setup_parameter_spec(
+        tune_dim=tune_dim,
+        tune7_variant=tune7_variant,
+        parameter_resolution=parameter_resolution,
+        coarsen_type_values=(
+            None
+            if configuration_space is None
+            else configuration_space.coarsen_types
+        ),
+        interp_type_values=(
+            None
+            if configuration_space is None
+            else configuration_space.interp_types
+        ),
+        agg_interp_type_values=(
+            None
+            if configuration_space is None
+            else configuration_space.agg_interp_types
+        ),
+    )
+    if materialize:
+        actions = build_actions_from_spec(
+            parameter_spec, fixed_params=fixed_params
+        )
+        actions, default_arm_index = _ensure_default_arm(actions)
+    else:
+        actions = CompactActionCatalog(
+            parameter_spec, fixed_params=fixed_params
+        )
+        default_arm_index = int(actions.default_arm_index)
     return SetupParamSpace(actions=actions, parameter_spec=parameter_spec, default_arm_index=default_arm_index)
 
 

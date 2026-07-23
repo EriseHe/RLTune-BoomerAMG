@@ -2,17 +2,190 @@ from __future__ import annotations
 
 import _project_paths  # noqa: F401
 
+import tempfile
 import unittest
+from pathlib import Path
 
 import numpy as np
 
 from learners import SharedLinUCB_AMG_v4
 from learners.linucb import run_same_context_setup_reselection
-from learners.common import ParameterSpaceSpec, ParameterSpec
+from learners.common import (
+    AOTCandidateSchedule,
+    CompactActionCatalog,
+    FactorizedActionFeatureCache,
+    GenericActionFeatureEncoder,
+    ParameterSpaceSpec,
+    ParameterSpec,
+)
 from utils.setup_amg import build_actions_from_spec
 
 
 class SharedLinUCBV4Tests(unittest.TestCase):
+    def test_structured_aot_balances_agg_state_and_builds_local_neighbors(self) -> None:
+        parameter_spec = ParameterSpaceSpec(
+            parameters=(
+                ParameterSpec(
+                    name="weight",
+                    kind="continuous",
+                    values=(1.0, 1.5, 2.0, 2.5),
+                    default=1.5,
+                    center=1.5,
+                    scale=0.5,
+                ),
+                ParameterSpec(
+                    name="agg_num_levels",
+                    kind="integer",
+                    values=(0, 1, 2),
+                    default=0,
+                    center=0.0,
+                    scale=1.0,
+                ),
+                ParameterSpec(
+                    name="coarsen_type",
+                    kind="categorical",
+                    values=(0, 8, 10),
+                    default=10,
+                ),
+                ParameterSpec(
+                    name="interp_type",
+                    kind="categorical",
+                    values=(0, 6),
+                    default=6,
+                ),
+            )
+        )
+        catalog = CompactActionCatalog(parameter_spec)
+        encoder = GenericActionFeatureEncoder(parameter_spec)
+        cache = FactorizedActionFeatureCache(catalog, encoder)
+        with tempfile.TemporaryDirectory() as directory:
+            schedule = AOTCandidateSchedule(
+                directory=Path(directory),
+                catalog=catalog,
+                rounds=4,
+                pool_size=16,
+                seed=17,
+                sampling_method="structured512",
+                factorized_cache=cache,
+                structured_anchor_size=4,
+                structured_global_size=4,
+                structured_local_size=4,
+                structured_sobol_size=4,
+            )
+            first = schedule.next_arms()
+            self.assertEqual(np.unique(first).size, 16)
+            values, _active = catalog.decode_parameter_arrays(first)
+            np.testing.assert_array_equal(
+                np.sort(values["agg_num_levels"][:4] == 0),
+                np.asarray([False, False, True, True]),
+            )
+            np.testing.assert_array_equal(
+                np.sort(values["agg_num_levels"][4:8] == 0),
+                np.asarray([False, False, True, True]),
+            )
+
+            schedule.set_cursor(0)
+            model = SharedLinUCB_AMG_v4(
+                catalog,
+                context_dim=2,
+                parameter_spec=parameter_spec,
+                context_interaction_indices=(0, 1),
+                candidate_pool_size=16,
+                candidate_strategy="structured",
+                always_include_arms=[catalog.default_arm_index],
+                elite_cache_size=4,
+                candidate_schedule=schedule,
+                action_feature_cache=cache,
+                seed=19,
+            )
+            model.predict(np.asarray([1.0, 0.5]))
+            stats = model.candidate_stats_history[-1]
+            self.assertEqual(stats["strategy"], "structured_aot")
+            self.assertEqual(stats["candidate_count"], 16)
+            self.assertGreater(stats["local"], 0)
+            anchors = model._structured_anchor_arms(4)
+            first_neighbors = model._local_neighbor_arms(
+                anchors, include_categorical=True, radius=2
+            )
+            cached_count = len(model._local_neighbor_cache)
+            second_neighbors = model._local_neighbor_arms(
+                anchors, include_categorical=True, radius=2
+            )
+            np.testing.assert_array_equal(first_neighbors, second_neighbors)
+            self.assertEqual(len(model._local_neighbor_cache), cached_count)
+            model.update(0.1)
+
+    def test_aot_recovery_reuses_shared_inverse_uncertainty(self) -> None:
+        parameter_spec = ParameterSpaceSpec(
+            parameters=(
+                ParameterSpec(
+                    name="weight",
+                    kind="continuous",
+                    values=(1.0, 1.5, 2.0),
+                    default=1.5,
+                    center=1.5,
+                    scale=0.5,
+                ),
+                ParameterSpec(
+                    name="kind",
+                    kind="categorical",
+                    values=(0, 1, 2),
+                    default=1,
+                ),
+            )
+        )
+        catalog = CompactActionCatalog(parameter_spec)
+        encoder = GenericActionFeatureEncoder(parameter_spec)
+        cache = FactorizedActionFeatureCache(catalog, encoder)
+        with tempfile.TemporaryDirectory() as directory:
+            schedule = AOTCandidateSchedule(
+                directory=Path(directory),
+                catalog=catalog,
+                rounds=4,
+                pool_size=4,
+                seed=23,
+            )
+            model = SharedLinUCB_AMG_v4(
+                catalog,
+                context_dim=2,
+                parameter_spec=parameter_spec,
+                context_interaction_indices=(0, 1),
+                candidate_pool_size=4,
+                always_include_arms=[catalog.default_arm_index],
+                elite_cache_size=2,
+                candidate_schedule=schedule,
+                action_feature_cache=cache,
+                seed=29,
+            )
+            context = np.asarray([1.0, 0.5])
+            model.predict(context)
+            failed_arm = int(model._last_arm)
+            model.begin_recovery_transaction()
+            deferred = model.observe_pending_failure(failure_label=1.0)
+
+            original = model._mean_uncertainty_subset
+            contraction_calls = 0
+
+            def counted(*args, **kwargs):
+                nonlocal contraction_calls
+                if kwargs.get("precomputed_uncertainty") is None:
+                    contraction_calls += 1
+                return original(*args, **kwargs)
+
+            model._mean_uncertainty_subset = counted
+            model.select_recovery(context, excluded_arms=[failed_arm])
+            self.assertEqual(contraction_calls, 1)
+            self.assertEqual(
+                model.history[-1].pred_uncert,
+                model.history[-1].pred_failure_uncert,
+            )
+            model.update(0.2)
+            model.commit_deferred_observation(deferred, loss=0.3)
+            model.commit_recovery_transaction()
+            self.assertIsNone(model._g_actions)
+            self.assertEqual(schedule.cursor, 2)
+            self.assertEqual(len(model._cand._sparse_arm_stats), 2)
+
     @staticmethod
     def _model(*, seed: int = 7) -> SharedLinUCB_AMG_v4:
         parameter_spec = ParameterSpaceSpec(

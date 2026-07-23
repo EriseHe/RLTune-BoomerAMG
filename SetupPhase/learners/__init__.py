@@ -9,7 +9,12 @@ from .linucb import (
     SharedLinUCB_AMG_v3,
     SharedLinUCB_AMG_v4,
 )
-from .thompson import RFF_TS_AMG, SharedBootstrapTS_AMG, SharedLinTS_AMG
+from .thompson import (
+    RFF_TS_AMG,
+    SharedBootstrapTS_AMG,
+    SharedLinTS_AMG,
+    SharedLinTS_AMG_v2,
+)
 from .tsallis import TsallisINF_AMG
 
 __all__ = [
@@ -20,6 +25,7 @@ __all__ = [
     "RFF_TS_AMG",
     "SharedBootstrapTS_AMG",
     "SharedLinTS_AMG",
+    "SharedLinTS_AMG_v2",
     "SharedLinUCB_AMG",
     "SharedLinUCB_AMG_v2",
     "SharedLinUCB_AMG_v3",
