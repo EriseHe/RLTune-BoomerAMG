@@ -10,8 +10,8 @@ BoomerAMG.
 - `hypre/bindings/`: Python binding and shared failure recovery protocol.
 - `hypre/build/`, `hypre/install/`: ignored out-of-source build products.
 - `problems/`: PDE definitions and deterministic instance streams.
-- `SetupPhase/`: contextual-bandit algorithms and setup-only experiments.
-- `SolvePhase/`: solve controllers and solve-only tests.
+- `setup/`: setup learners, their registry, and setup-only entry points.
+- `solve/`: solve controllers, their registry, and solve-only entry points.
 - `experiments/`: workflows that combine setup and solve learning.
 - `experiments/archive/`: historical protocols excluded from active runs.
 - `docs/`: design and implementation notes.
@@ -72,8 +72,8 @@ Historical retry, shaping, and old online-Gym workflows are retained only under
 The main active test groups are:
 
 ```bash
-python -m unittest discover -s SetupPhase/tests -p 'test_*.py' -v
-python -m unittest discover -s SolvePhase/tests -p 'test_*.py' -v
+python -m unittest discover -s setup/tests -p 'test_*.py' -v
+python -m unittest discover -s solve/tests -p 'test_*.py' -v
 python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py' -v
 ```
 

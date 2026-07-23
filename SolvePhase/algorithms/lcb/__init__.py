@@ -1,4 +1,4 @@
-"""Shared-action LCB controllers for sequential solve control."""
+"""Compatibility namespace for historical shared-action LCB imports."""
 
 from .controllers import (
     BootstrapLcbSarsaController,

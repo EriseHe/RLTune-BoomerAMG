@@ -14,6 +14,7 @@ from .aot_candidates import (
     FactorizedActionFeatureCache,
 )
 from .candidate_subset import CandidateSelector, resolve_tune7_candidate_strategy
+from .config import LinTSV2Spec, LinUCBV4Spec, SharedSetupLearnerSpec
 
 __all__ = [
     "AOTCandidateSchedule",
@@ -21,8 +22,11 @@ __all__ = [
     "CompactActionCatalog",
     "FactorizedActionFeatureCache",
     "GenericActionFeatureEncoder",
+    "LinTSV2Spec",
+    "LinUCBV4Spec",
     "ParameterSpaceSpec",
     "ParameterSpec",
+    "SharedSetupLearnerSpec",
     "action_key_from_parameter_space_spec",
     "default_action_from_parameter_space_spec",
     "iter_actions_from_parameter_space_spec",

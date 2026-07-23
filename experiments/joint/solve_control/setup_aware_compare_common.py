@@ -4,7 +4,6 @@ import _project_paths  # noqa: F401
 
 import copy
 import os
-import sys
 import time
 from collections import deque
 from dataclasses import dataclass
@@ -17,35 +16,31 @@ from sb3_contrib import RecurrentPPO
 from stable_baselines3 import DQN, PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
-_THIS_FILE = Path(__file__).resolve()
-_REPO_ROOT = _THIS_FILE.parents[3]
-_SETUP_ROOT = _REPO_ROOT / "SetupPhase"
-_SETUP_SCRIPTS = _SETUP_ROOT / "scripts"
-for _path in (str(_SETUP_ROOT), str(_SETUP_SCRIPTS)):
-    if _path not in sys.path:
-        sys.path.insert(0, _path)
-
-from amg_gym_env import (
+from solve.core.amg_gym_env import (
     build_policy_obs,
     decode_policy_action,
     decode_policy_action_hierarchical,
     decode_policy_action_residual,
 )
-from setup_action_space import (
+from setup.space import (
     SetupConfigurationSpace,
     SetupObsEncoder,
     build_setup_parameter_spec,
     build_setup_param_space,
 )
-from learners import SharedLinTS_AMG_v2, SharedLinUCB_AMG_v4
-from learners.linucb import run_same_context_setup_reselection
-from learners.common import (
+from setup.learners.linucb import run_same_context_setup_reselection
+from setup.learners.common import (
     AOTCandidateSchedule,
     FactorizedActionFeatureCache,
     GenericActionFeatureEncoder,
     ParameterSpaceSpec,
     ParameterSpec,
+    SharedSetupLearnerSpec,
     resolve_tune7_candidate_strategy,
+)
+from setup.registry import (
+    build_online_setup_learner,
+    make_setup_learner_spec,
 )
 from hypre.bindings import (
     AMGNativeError,
@@ -55,10 +50,16 @@ from hypre.bindings import (
     run_with_default_fallback,
     solve,
 )
-from SolvePhase.core.outcomes import classify_rl_failure
+from solve.core.outcomes import classify_rl_failure
 from problems.amg import DIFCONV_CONTEXT_DIM
 from problems.streams import generate_difconv_instances as _generate_difconv_instances
-from utils.setup_amg import build_actions_from_spec, build_actions_th_mxrs_tr, init_param_trace, progress_bar, record_param_trace
+from setup.utils.setup_amg import (
+    build_actions_from_spec,
+    build_actions_th_mxrs_tr,
+    init_param_trace,
+    progress_bar,
+    record_param_trace,
+)
 
 
 EXP44_MATRIX_GRID_N = 40
@@ -919,12 +920,6 @@ def build_test_final_bandit_policy(
                     "candidate_pool_size": int(cfg.candidate_pool_size),
                 }
             )
-        learner_class = {
-            "linucbv4": SharedLinUCB_AMG_v4,
-            "lints_v2": SharedLinTS_AMG_v2,
-        }.get(method_key)
-        if learner_class is None:
-            raise ValueError(f"Unsupported setup learner: {method!r}")
         learner_kwargs: Dict[str, Any] = {}
         if method_key == "lints_v2":
             learner_kwargs.update(
@@ -935,16 +930,21 @@ def build_test_final_bandit_policy(
                     "loss_scale_prior": float(lin_ts_loss_scale_prior),
                 }
             )
-        model = learner_class(
-            actions,
-            context_dim=int(context_dim),
-            alpha=float(cfg.alpha),
-            l2_reg=float(cfg.l2),
-            seed=int(seed),
-            candidate_schedule=candidate_schedule,
-            action_feature_cache=action_feature_cache,
-            **learner_kwargs,
-            **tune7_kwargs,
+        model = build_online_setup_learner(
+            make_setup_learner_spec(
+                kind=method_key,
+                shared=SharedSetupLearnerSpec(
+                    actions=actions,
+                    context_dim=int(context_dim),
+                    seed=int(seed),
+                    alpha=float(cfg.alpha),
+                    l2_reg=float(cfg.l2),
+                    candidate_schedule=candidate_schedule,
+                    action_feature_cache=action_feature_cache,
+                    **tune7_kwargs,
+                ),
+                algorithm_parameters=learner_kwargs,
+            )
         )
         return GenericBanditPolicy(model)
 

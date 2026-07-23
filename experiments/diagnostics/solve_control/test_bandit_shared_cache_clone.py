@@ -8,8 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from learners import SharedLinUCB_AMG_v4
-from learners.common import ParameterSpaceSpec, ParameterSpec
+from setup.learners import SharedLinUCB_AMG_v4
+from setup.learners.common import ParameterSpaceSpec, ParameterSpec
 from setup_aware_compare_common import (
     BranchRun,
     GenericBanditPolicy,

@@ -12,12 +12,12 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from setup_action_space import (
+from setup.space import (
     DEFAULT_SETUP_PARAMS,
     SetupObsEncoder,
     build_setup_parameter_spec,
 )
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     OnlineFixedWeightIncumbent,

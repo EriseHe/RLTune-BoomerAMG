@@ -1,1 +1,1 @@
-"""Solve-phase tests."""
+"""Compatibility namespace for canonical :mod:`solve.tests`."""

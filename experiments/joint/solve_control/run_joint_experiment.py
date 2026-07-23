@@ -20,7 +20,7 @@ from run_joint_online_sarsa_4k import (
     build_parser,
     run,
 )
-from setup_action_space import (
+from setup.space import (
     SetupConfigurationSpace,
 )
 

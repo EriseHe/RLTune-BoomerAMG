@@ -7,7 +7,7 @@ import numpy as np
 from typing import Any, Dict, Iterable, List, Sequence
 from pathlib import Path
 
-from learners.common import (
+from setup.learners.common import (
     ParameterSpaceSpec,
     action_key_from_parameter_space_spec,
     default_action_from_parameter_space_spec,

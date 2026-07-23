@@ -1,34 +1,16 @@
-"""Public setup-learning algorithms grouped by bandit family."""
+"""Module alias for the canonical :mod:`setup.learners` package."""
 
-from .bayesian import Bayesianbandits_AMG_v1, Bayesianbandits_AMG_v2
-from .linucb import (
-    LinUCB_AMG,
-    LinUCB_AMG_v2,
-    SharedLinUCB_AMG,
-    SharedLinUCB_AMG_v2,
-    SharedLinUCB_AMG_v3,
-    SharedLinUCB_AMG_v4,
-)
-from .thompson import (
-    RFF_TS_AMG,
-    SharedBootstrapTS_AMG,
-    SharedLinTS_AMG,
-    SharedLinTS_AMG_v2,
-)
-from .tsallis import TsallisINF_AMG
+from pathlib import Path
+import sys
 
-__all__ = [
-    "Bayesianbandits_AMG_v1",
-    "Bayesianbandits_AMG_v2",
-    "LinUCB_AMG",
-    "LinUCB_AMG_v2",
-    "RFF_TS_AMG",
-    "SharedBootstrapTS_AMG",
-    "SharedLinTS_AMG",
-    "SharedLinTS_AMG_v2",
-    "SharedLinUCB_AMG",
-    "SharedLinUCB_AMG_v2",
-    "SharedLinUCB_AMG_v3",
-    "SharedLinUCB_AMG_v4",
-    "TsallisINF_AMG",
-]
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from setup._compat import install_legacy_learner_aliases
+
+
+install_legacy_learner_aliases(__name__)
+
+del Path, _REPO_ROOT, install_legacy_learner_aliases

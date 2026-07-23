@@ -1,0 +1,369 @@
+from __future__ import annotations
+
+import csv
+from pathlib import Path
+from typing import Any, Dict, Sequence
+
+import numpy as np
+
+from joint_online_common import _method_stream_summary
+from run_online_methods_2k import _method_comparison
+
+
+_STRUCTURED_MODEL_BASED_METHOD = "bandit_structured_model_based"
+
+
+def _empty_stream_summary() -> Dict[str, Any]:
+    runtime_fields = (
+        "setup_runtime",
+        "native_solve_runtime",
+        "native_total_runtime",
+        "controller_runtime",
+        "setup_bandit_overhead",
+        "setup_bandit_select",
+        "setup_bandit_loss_eval",
+        "setup_bandit_update",
+        "end_to_end_runtime",
+    )
+    return {
+        "cases": 0,
+        "failed_count": 0,
+        "mean_runtime_sec": 0.0,
+        "mean_runtime_with_overhead_sec": 0.0,
+        "mean_setup_runtime_sec": 0.0,
+        "mean_solve_runtime_sec": 0.0,
+        "mean_solve_with_overhead_sec": 0.0,
+        "mean_policy_overhead_sec": 0.0,
+        "mean_feature_runtime_sec": 0.0,
+        "mean_decision_runtime_sec": 0.0,
+        "mean_update_runtime_sec": 0.0,
+        "mean_iterations": 0.0,
+        "totals_sec": {field: 0.0 for field in runtime_fields},
+        "means_sec": {field: 0.0 for field in runtime_fields},
+        "unique_setup_count": 0,
+        "primary_failure_count": 0,
+        "setup_fallback_count": 0,
+        "recovered_failure_count": 0,
+        "unrecovered_failure_count": 0,
+        "bandit_update_count": 0,
+        "controller_update_count": 0,
+    }
+
+
+def _comparison_windows(case_count: int) -> Dict[str, tuple[int, int]]:
+    if int(case_count) == 2000:
+        return {
+            "all_2000": (0, 2000),
+            "first_1000": (0, 1000),
+            "last_1000": (1000, 2000),
+            "last_500": (1500, 2000),
+            "last_300": (1700, 2000),
+        }
+    if int(case_count) == 4000:
+        return {
+            "all_4000": (0, 4000),
+            "first_2000": (0, 2000),
+            "last_2000": (2000, 4000),
+            "first_1000": (0, 1000),
+            "last_1000": (3000, 4000),
+            "last_500": (3500, 4000),
+            "last_300": (3700, 4000),
+        }
+    return {f"all_{int(case_count)}": (0, int(case_count))}
+
+
+def _window_result(
+    records: Dict[str, list[Dict[str, Any]]],
+    *,
+    seed: int,
+) -> Dict[str, Any]:
+    available_references = {
+        "vs_bandit_default": "bandit_default",
+        "vs_fixed_w1.6": "bandit_fixed_w1.6",
+        "vs_ppo": "bandit_ppo",
+    }
+    references = {
+        label: method
+        for label, method in available_references.items()
+        if method in records
+    }
+    return {
+        "methods": {
+            method: _method_stream_summary(rows)
+            for method, rows in records.items()
+        },
+        "comparisons": {
+            label: {
+                method: _method_comparison(
+                    rows,
+                    records[reference],
+                    seed=int(seed + reference_index * 100_000 + method_index * 101),
+                )
+                for method_index, (method, rows) in enumerate(records.items())
+                if method != reference
+            }
+            for reference_index, (label, reference) in enumerate(references.items())
+        },
+    }
+
+
+def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+    actions: list[float] = []
+    explored: list[bool] = []
+    uncertainties: list[float] = []
+    selected_q_values: list[float] = []
+    selected_scores: list[float] = []
+    calibration_ratios: list[float] = []
+    for row in rows:
+        outcome = row["outcome"]
+        actions.extend(float(value) for value in outcome.get("cycle_actions", []))
+        explored.extend(bool(value) for value in outcome.get("cycle_explored", []))
+        uncertainties.extend(
+            float(value)
+            for value in outcome.get("cycle_selected_uncertainties", [])
+        )
+        selected_q_values.extend(
+            float(value)
+            for value in outcome.get("cycle_selected_q_values", [])
+            if np.isfinite(float(value))
+        )
+        selected_scores.extend(
+            float(value)
+            for value in outcome.get("cycle_selection_scores", [])
+            if np.isfinite(float(value))
+        )
+        errors = outcome.get("postfit_td_errors") or outcome.get("td_errors", [])
+        widths = outcome.get("cycle_selected_uncertainties", [])
+        for error, width in zip(errors, widths):
+            if np.isfinite(float(error)) and float(width) > 0.0:
+                calibration_ratios.append(abs(float(error)) / float(width))
+    ratios = np.asarray(calibration_ratios, dtype=float)
+    return {
+        "decisions": int(len(actions)),
+        "mean_weight": float(np.mean(actions)) if actions else float("nan"),
+        "explored_rate": float(np.mean(explored)) if explored else 0.0,
+        "mean_selected_uncertainty_sec": (
+            float(np.mean(uncertainties)) if uncertainties else 0.0
+        ),
+        "mean_selected_q_sec": (
+            float(np.mean(selected_q_values)) if selected_q_values else 0.0
+        ),
+        "lower_bound_saturation_count": int(
+            sum(np.isclose(value, 0.0, atol=1.0e-12, rtol=0.0) for value in selected_scores)
+        ),
+        "lower_bound_saturation_rate": (
+            float(
+                np.mean(
+                    np.isclose(
+                        np.asarray(selected_scores, dtype=float),
+                        0.0,
+                        atol=1.0e-12,
+                        rtol=0.0,
+                    )
+                )
+            )
+            if selected_scores
+            else 0.0
+        ),
+        "confidence_calibration": {
+            "paired_updates": int(ratios.size),
+            "median_abs_error_over_uncertainty": (
+                float(np.median(ratios)) if ratios.size else 0.0
+            ),
+            "p90_abs_error_over_uncertainty": (
+                float(np.quantile(ratios, 0.9)) if ratios.size else 0.0
+            ),
+            "coverage_at_1x": (
+                float(np.mean(ratios <= 1.0)) if ratios.size else 0.0
+            ),
+            "coverage_at_2x": (
+                float(np.mean(ratios <= 2.0)) if ratios.size else 0.0
+            ),
+            "coverage_at_4x": (
+                float(np.mean(ratios <= 4.0)) if ratios.size else 0.0
+            ),
+        },
+    }
+
+
+def _write_summary_csv(
+    path: Path,
+    records: Dict[str, list[Dict[str, Any]]],
+    family_by_method: Dict[str, str],
+) -> None:
+    fields = (
+        "method",
+        "family",
+        "cases",
+        "mean_setup_runtime_sec",
+        "mean_native_solve_runtime_sec",
+        "mean_native_total_runtime_sec",
+        "mean_controller_runtime_sec",
+        "mean_setup_bandit_overhead_sec",
+        "mean_end_to_end_runtime_sec",
+        "failures",
+        "mean_iterations",
+        "setup_fallbacks",
+        "primary_failures",
+        "recovered_failures",
+        "unrecovered_failures",
+        "bandit_updates",
+        "controller_updates",
+    )
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for method, rows in records.items():
+            summary = _method_stream_summary(rows)
+            means = summary["means_sec"]
+            writer.writerow(
+                {
+                    "method": method,
+                    "family": family_by_method[method],
+                    "cases": len(rows),
+                    "mean_setup_runtime_sec": means["setup_runtime"],
+                    "mean_native_solve_runtime_sec": means["native_solve_runtime"],
+                    "mean_native_total_runtime_sec": means["native_total_runtime"],
+                    "mean_controller_runtime_sec": means["controller_runtime"],
+                    "mean_setup_bandit_overhead_sec": means["setup_bandit_overhead"],
+                    "mean_end_to_end_runtime_sec": means["end_to_end_runtime"],
+                    "failures": summary["failed_count"],
+                    "mean_iterations": summary["mean_iterations"],
+                    "setup_fallbacks": summary["setup_fallback_count"],
+                    "primary_failures": summary["primary_failure_count"],
+                    "recovered_failures": summary["recovered_failure_count"],
+                    "unrecovered_failures": summary["unrecovered_failure_count"],
+                    "bandit_updates": summary["bandit_update_count"],
+                    "controller_updates": summary["controller_update_count"],
+                }
+            )
+
+
+def _write_solve_screen_report(
+    path: Path,
+    *,
+    window_results: Dict[str, Any],
+    window_actions: Dict[str, Dict[str, Any]],
+) -> None:
+    """Render the locked screening metrics without requiring plotting tools."""
+
+    preferred_windows = ("all_4000", "first_1000", "last_1000", "last_500")
+    has_fixed_reference = any(
+        "vs_fixed_w1.6" in window.get("comparisons", {})
+        for window in window_results.values()
+    )
+    comparison_note = (
+        "Improvement and paired 95% intervals are relative to Online "
+        "LinUCB + fixed `w=1.6`."
+        if has_fixed_reference
+        else "No fixed-`w=1.6` reference was included, so paired improvement "
+        "columns are reported as n/a."
+    )
+    lines = [
+        "# Solve-Controller Screening Report",
+        "",
+        "All runtimes are per-instance means in milliseconds.",
+        comparison_note,
+        "",
+    ]
+    report_windows = tuple(
+        name for name in preferred_windows if name in window_results
+    )
+    if not report_windows:
+        report_windows = tuple(window_results)
+    for window_name in report_windows:
+        window = window_results[window_name]
+        comparisons = window.get("comparisons", {}).get("vs_fixed_w1.6", {})
+        lines.extend(
+            [
+                f"## {window_name}",
+                "",
+                "| method | setup | native solve | native total | controller | bandit | end-to-end | cycles | E2E improvement (95% CI) | primary/recovered/unrecovered | same setup |",
+                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for method, summary in window["methods"].items():
+            means = summary["means_sec"]
+            if method == "bandit_fixed_w1.6":
+                improvement_text = "baseline"
+                same_setup_text = "1.000"
+            elif method in comparisons:
+                comparison = comparisons[method]
+                metric = comparison["end_to_end_runtime"]
+                interval = metric["candidate_improvement_95pct"]
+                improvement_text = (
+                    f"{metric['candidate_improvement_pct']:.2f}% "
+                    f"[{interval[0]:.2f}, {interval[1]:.2f}]"
+                )
+                same_setup_text = (
+                    f"{float(comparison['same_setup_rate']):.3f}"
+                )
+            else:
+                improvement_text = "n/a"
+                same_setup_text = "n/a"
+            lines.append(
+                "| {method} | {setup:.3f} | {solve:.3f} | {native:.3f} | "
+                "{controller:.3f} | {bandit:.3f} | {e2e:.3f} | {cycles:.2f} | "
+                "{improvement} | {primary}/{recovered}/{unrecovered} | {same} |".format(
+                    method=method,
+                    setup=1000.0 * float(means["setup_runtime"]),
+                    solve=1000.0 * float(means["native_solve_runtime"]),
+                    native=1000.0 * float(means["native_total_runtime"]),
+                    controller=1000.0 * float(means["controller_runtime"]),
+                    bandit=1000.0 * float(means["setup_bandit_overhead"]),
+                    e2e=1000.0 * float(means["end_to_end_runtime"]),
+                    cycles=float(summary["mean_iterations"]),
+                    improvement=improvement_text,
+                    primary=int(summary["primary_failure_count"]),
+                    recovered=int(summary["recovered_failure_count"]),
+                    unrecovered=int(summary["unrecovered_failure_count"]),
+                    same=same_setup_text,
+                )
+            )
+        action_rows = window_actions.get(window_name, {})
+        if action_rows:
+            lines.extend(
+                [
+                    "",
+                    "Controller diagnostics:",
+                    "",
+                    "| method | decisions | mean w | explored | mean uncertainty (ms) | lower-bound saturation | calibration coverage 1x/2x/4x |",
+                    "|---|---:|---:|---:|---:|---:|---:|",
+                ]
+            )
+            for method, action in action_rows.items():
+                calibration = action["confidence_calibration"]
+                is_model_based = method == _STRUCTURED_MODEL_BASED_METHOD
+                uncertainty_text = (
+                    "n/a"
+                    if is_model_based
+                    else f"{1000.0 * float(action['mean_selected_uncertainty_sec']):.3f}"
+                )
+                saturation_text = (
+                    "n/a"
+                    if is_model_based
+                    else f"{float(action['lower_bound_saturation_rate']):.3f}"
+                )
+                calibration_text = (
+                    "n/a"
+                    if is_model_based
+                    else (
+                        f"{float(calibration['coverage_at_1x']):.3f}/"
+                        f"{float(calibration['coverage_at_2x']):.3f}/"
+                        f"{float(calibration['coverage_at_4x']):.3f}"
+                    )
+                )
+                lines.append(
+                    "| {method} | {decisions} | {weight:.3f} | {explored:.3f} | "
+                    "{uncertainty} | {saturation} | {calibration} |".format(
+                        method=method,
+                        decisions=int(action["decisions"]),
+                        weight=float(action["mean_weight"]),
+                        explored=float(action["explored_rate"]),
+                        uncertainty=uncertainty_text,
+                        saturation=saturation_text,
+                        calibration=calibration_text,
+                    )
+                )
+        lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")

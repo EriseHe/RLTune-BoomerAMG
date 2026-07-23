@@ -1,11 +1,9 @@
-# Solve Algorithms
+# Compatibility Imports
 
-Solve controllers are grouped by algorithm family:
+This directory preserves historical `SolvePhase.algorithms.*` import paths.
+It contains no controller implementations. Canonical code is grouped by
+controller family under `solve/controllers/`.
 
-- `ppo/`: PPO policy definitions used by SB3 training
-- `sarsa/`: online SARSA(lambda), state encoding, and behavior policies
-- `lcb/`: shared-action Recursive MC-LCB, Recursive LSTDQ-LCB, bootstrap
-  SARSA-LCB, and stagewise LSVI-LCB controllers
-
-`SolvePhase/core/` contains solver environments and algorithm-independent
-outcome handling. Joint runners import controllers through these packages.
+Existing callers can continue to use `SolvePhase.algorithms.sarsa`,
+`SolvePhase.algorithms.lcb`, and the family-specific compatibility modules.
+New code should use `solve.controllers` and `solve.registry`.

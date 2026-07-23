@@ -16,7 +16,7 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
-from amg_gym_env import build_policy_obs
+from solve.core.amg_gym_env import build_policy_obs
 from frozen_bandit_step_env import FrozenBanditStepEnv
 from setup_aware_compare_common import (
     SetupAwareRLConfig,

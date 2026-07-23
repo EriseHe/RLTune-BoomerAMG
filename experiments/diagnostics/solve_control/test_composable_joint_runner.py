@@ -12,7 +12,7 @@ import run_joint_experiment as high_level
 import run_joint_online_sarsa_4k as runner
 import plot_joint_online_sarsa_4k as plotter
 from joint_online_common import _problem_stream_spec
-from setup_action_space import SetupConfigurationSpace
+from setup.space import SetupConfigurationSpace
 from setup_aware_compare_common import DEFAULT_SETUP_PARAMS
 
 

@@ -1,13 +1,7 @@
-"""Repository paths shared by solve-phase command-line entry points."""
+"""Compatibility alias for solve script path setup."""
 
-from pathlib import Path
-import sys
+import sys as _sys
 
+from solve.scripts import _project_paths as _implementation
 
-SOLVE_PHASE_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = SOLVE_PHASE_ROOT.parent
-CORE_DIR = SOLVE_PHASE_ROOT / "core"
-
-for path in (REPO_ROOT, CORE_DIR):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+_sys.modules[__name__] = _implementation

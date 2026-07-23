@@ -14,7 +14,7 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,

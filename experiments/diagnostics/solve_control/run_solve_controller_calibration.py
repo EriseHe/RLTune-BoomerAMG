@@ -27,7 +27,7 @@ from run_joint_online_sarsa_4k import (
     _make_structured_model_based_controller,
 )
 from run_online_methods_2k import _as_feedback
-from setup_action_space import DEFAULT_SETUP_PARAMS
+from setup.space import DEFAULT_SETUP_PARAMS
 from setup_aware_compare_common import (
     augment_setup_params,
     build_online_linucb_branch,
@@ -36,7 +36,7 @@ from setup_aware_compare_common import (
     solve_no_rl_case,
     validate_expected_setup_action_count,
 )
-from SolvePhase.algorithms.sarsa import run_td_episode
+from solve.controllers.sarsa import run_td_episode
 
 
 V2_BETAS = (1.0, 2.0, 4.0)

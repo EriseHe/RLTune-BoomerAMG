@@ -13,13 +13,13 @@ retained Exp44 workflow.
   - runner, setup-aware solve logic, trace builders, and shared evaluation helpers
 - `frozen_bandit_step_env.py`
   - Gymnasium adapter used to train PPO over frozen traces
-- `SolvePhase/core/amg_gym_env.py`
+- `solve/core/amg_gym_env.py`
   - action decoding shared by training and direct forward evaluation
 - `setup_action_space.py`
   - setup parameter specifications and observation encoding; no native runtime
 - `joint_online_common.py`
   - instance streams, reporting, and recovery invariants
-- `SolvePhase/algorithms/ppo/`
+- `solve/controllers/ppo/`
   - PPO policy definitions
 
 ## Active absolute `w` control
@@ -35,7 +35,7 @@ archived experiments, but it is not the active Exp44 configuration.
 
 Key locations for the active path:
 
-- `SolvePhase/core/amg_gym_env.py`
+- `solve/core/amg_gym_env.py`
   - `decode_policy_action(...)`
 - `frozen_bandit_step_env.py`
   - `step(...)` default continuous-action branch

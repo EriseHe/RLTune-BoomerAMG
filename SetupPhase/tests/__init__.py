@@ -1,1 +1,1 @@
-"""Setup-phase tests."""
+"""Compatibility namespace for canonical :mod:`setup.tests`."""

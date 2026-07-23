@@ -88,7 +88,7 @@ def stencil_27_laplace(*, rng: np.random.Generator, **extras: Any):
 
 
 # ---------------------------------------------------------------------------
-# DifConv sampler (stencil=0) - matches SolvePhase/core/amg_gym_env.py
+# DifConv sampler (stencil=0) - matches solve/core/amg_gym_env.py
 # ---------------------------------------------------------------------------
 
 DIFCONV_CONTEXT_DIM = 8
@@ -111,7 +111,7 @@ def build_matrix_kwargs_difconv(
     """
     Build kwargs to pass to `solver.solve` for the DifConv matrix (stencil=0).
 
-    This uses the same arg mapping as SolvePhase/core/amg_gym_env.py:
+    This uses the same arg mapping as solve/core/amg_gym_env.py:
       stencil=0, (k,c,a0..a3) <= (cx,cy,cz,ax,ay,az).
     """
     return dict(

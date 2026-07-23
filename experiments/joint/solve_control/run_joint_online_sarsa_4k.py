@@ -3,13 +3,9 @@ from __future__ import annotations
 import _project_paths  # noqa: F401
 
 import argparse
-import csv
 import json
-import platform
-import shlex
-import sys
 from collections import deque
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Sequence
@@ -18,22 +14,33 @@ import numpy as np
 
 from hypre.bindings import run_with_default_fallback
 
-from setup_action_space import (
+from setup.space import (
     DEFAULT_SETUP_PARAMS,
     SetupConfigurationSpace,
     SetupObsEncoder,
     build_setup_parameter_spec,
 )
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     BehaviorPolicySarsaController,
     SarsaBehaviorSpec,
 )
 from online_td_experiment_common import _json_ready, _write_json
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     ExpectedSarsaLambdaConfig,
     SolveStateEncoder,
     run_td_episode,
 )
+from solve.controllers.common import (
+    EpsilonScheduleSpec,
+    SharedActionSpec,
+    SolveStateSpec,
+)
+from solve.registry import (
+    COMPOSABLE_SOLVE_KINDS,
+    build_online_solve_controller,
+    make_online_controller_spec,
+)
+from setup.registry import COMPOSABLE_SETUP_KINDS, ONLINE_SETUP_KINDS
 from joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
@@ -43,9 +50,21 @@ from joint_online_common import (
     _report_online_outcome,
     _validate_recovery_stream,
 )
+from joint_artifacts import (
+    _write_json_line,
+    _write_solve_screen_reproduction,
+)
+from joint_reporting import (
+    _action_summary,
+    _comparison_windows,
+    _empty_stream_summary,
+    _window_result,
+    _write_solve_screen_report,
+    _write_summary_csv,
+)
+from joint_protocol import build_joint_protocol
 from run_online_methods_2k import (
     _as_feedback,
-    _method_comparison,
     make_exp44_ppo_runner,
 )
 from setup_aware_compare_common import (
@@ -65,22 +84,6 @@ from setup_aware_compare_common import (
 )
 
 _build_bandit = build_online_linucb_branch
-from SolvePhase.algorithms.lcb import (
-    HierarchicalLsviLcbController,
-    HierarchicalLsviLcbSpec,
-    RecursiveBlstdqController,
-    RecursiveBlstdqSpec,
-    RecursiveLstdqLcbController,
-    RecursiveLstdqLcbSpec,
-    RecursiveLstdqV2LcbController,
-    RecursiveLstdqV2LcbSpec,
-    RecursiveMonteCarloLcbController,
-    RecursiveMonteCarloLcbSpec,
-    StagewiseLsviLcbController,
-    StagewiseLsviLcbSpec,
-    StructuredModelBasedController,
-    StructuredModelBasedSpec,
-)
 
 
 REFERENCE_METHODS = (
@@ -135,21 +138,8 @@ SOLVE_CONTROLLER_SEED_OFFSETS = {
 }
 BEHAVIOR_MODES = ("uniform", "uncertainty_lcb")
 
-SETUP_BANDIT_KINDS = ("linucb", "lints")
+SETUP_BANDIT_KINDS = ONLINE_SETUP_KINDS
 SETUP_CANDIDATE_SAMPLING_METHODS = ("uniform512", "structured512")
-COMPOSABLE_SETUP_KINDS = ("default", *SETUP_BANDIT_KINDS)
-COMPOSABLE_SOLVE_KINDS = (
-    "default",
-    "fixed",
-    "ppo",
-    "recursive_mc",
-    "recursive_lstdq_v1",
-    "recursive_lstdq_v2",
-    "rblspi",
-    "stagewise_lsvi",
-    "structured_model_based",
-    "recalibrated_lsvi",
-)
 
 
 @dataclass(frozen=True)
@@ -548,22 +538,30 @@ def _validate_composable_protocol(
     return specs
 
 
-def _make_encoder(args: argparse.Namespace) -> SolveStateEncoder:
+def _make_setup_obs_encoder() -> SetupObsEncoder:
     parameter_spec, _fixed_params = build_setup_parameter_spec(
         tune_dim=7,
         tune7_variant="categorical",
     )
-    setup_encoder = SetupObsEncoder(
+    return SetupObsEncoder(
         parameter_spec,
         dict(DEFAULT_SETUP_PARAMS),
         tuple(parameter_spec.parameter_names),
     )
-    return SolveStateEncoder(
+
+
+def _make_solve_state_spec(args: argparse.Namespace) -> SolveStateSpec:
+    return SolveStateSpec(
         tol=float(args.tol),
         max_cycles=int(args.max_cycles),
         c_max=float(args.c_max),
         mode="setup_full",
-        setup_obs_encoder=setup_encoder,
+    )
+
+
+def _make_encoder(args: argparse.Namespace) -> SolveStateEncoder:
+    return _make_solve_state_spec(args).build_encoder(
+        setup_obs_encoder=_make_setup_obs_encoder()
     )
 
 
@@ -633,32 +631,59 @@ def _make_controller(
     return controller, encoder
 
 
+def _make_shared_action_spec(args: argparse.Namespace) -> SharedActionSpec:
+    weights = _parse_values(args.weights, float)
+    return SharedActionSpec(
+        weights=tuple(float(weight) for weight in weights),
+        anchor_weight=float(weights[0]),
+        rbf_sigma=float(args.action_rbf_sigma),
+        rbf_centers=tuple(
+            float(center)
+            for center in _parse_values(args.action_rbf_centers, float)
+        ),
+        epsilon=EpsilonScheduleSpec(
+            start=float(args.epsilon_start),
+            final=float(args.epsilon_final),
+            decay_steps=float(args.epsilon_decay_steps),
+        ),
+        force_default_first_action=True,
+    )
+
+
 def _make_shared_action_config(
     args: argparse.Namespace,
     *,
     trace_lambda: float,
 ) -> ExpectedSarsaLambdaConfig:
-    weights = _parse_values(args.weights, float)
-    return ExpectedSarsaLambdaConfig(
-        weights=tuple(float(weight) for weight in weights),
-        anchor_weight=float(weights[0]),
-        alpha=0.001,
-        td_decay_power=0.0,
-        gamma=1.0,
+    """Compatibility wrapper for diagnostics importing the old runner helper."""
+
+    return _make_shared_action_spec(args).to_td_config(
         trace_lambda=float(trace_lambda),
-        epsilon_start=float(args.epsilon_start),
-        epsilon_final=float(args.epsilon_final),
-        epsilon_decay_steps=float(args.epsilon_decay_steps),
-        initial_q_sec=0.0,
-        monte_carlo_alpha=0.0,
-        adaptive_cycles=None,
-        exploration_mode="uniform",
-        action_rbf_sigma=float(args.action_rbf_sigma),
-        action_basis_mode="compact_rbf",
-        action_basis_centers=_parse_values(args.action_rbf_centers, float),
-        td_algorithm="true_online_sarsa",
-        force_default_first_action=True,
     )
+
+
+def _make_online_controller_from_args(
+    args: argparse.Namespace,
+    *,
+    kind: str,
+    seed: int,
+    algorithm_parameters: Dict[str, Any],
+    trace_lambda: float | None = None,
+) -> tuple[Any, SolveStateEncoder]:
+    """Adapt the legacy argparse namespace to the solve-phase typed factory."""
+
+    request = make_online_controller_spec(
+        kind=kind,
+        state=_make_solve_state_spec(args),
+        actions=_make_shared_action_spec(args),
+        algorithm_parameters=algorithm_parameters,
+        trace_lambda=trace_lambda,
+    )
+    return build_online_solve_controller(
+        request,
+        setup_obs_encoder=_make_setup_obs_encoder(),
+        seed=int(seed),
+    ).as_legacy_tuple()
 
 
 def _make_lsvi_controller(
@@ -666,16 +691,12 @@ def _make_lsvi_controller(
     *,
     seed: int,
     refit_interval_episodes: int = 1,
-) -> tuple[StagewiseLsviLcbController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
-    config = _make_shared_action_config(
+) -> tuple[Any, SolveStateEncoder]:
+    return _make_online_controller_from_args(
         args,
-        trace_lambda=0.8,
-    )
-    controller = StagewiseLsviLcbController(
-        feature_dim=encoder.feature_dim,
-        config=config,
-        spec=StagewiseLsviLcbSpec(
+        kind="stagewise_lsvi",
+        seed=seed,
+        algorithm_parameters=dict(
             horizon=int(args.max_cycles),
             ridge=float(args.lsvi_ridge),
             uncertainty_beta=float(args.lsvi_beta),
@@ -683,46 +704,40 @@ def _make_lsvi_controller(
             q_max_sec=float(getattr(args, "q_max_sec", 0.1)),
             refit_interval_episodes=int(refit_interval_episodes),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_recursive_mc_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[RecursiveMonteCarloLcbController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
-    controller = RecursiveMonteCarloLcbController(
-        feature_dim=encoder.feature_dim,
-        config=_make_shared_action_config(args, trace_lambda=1.0),
-        spec=RecursiveMonteCarloLcbSpec(
+) -> tuple[Any, SolveStateEncoder]:
+    return _make_online_controller_from_args(
+        args,
+        kind="recursive_mc",
+        seed=seed,
+        algorithm_parameters=dict(
             ridge=float(args.recursive_mc_ridge),
             uncertainty_beta=float(args.recursive_mc_beta),
             residual_floor_sec=float(args.recursive_mc_residual_floor_sec),
             q_max_sec=float(getattr(args, "q_max_sec", 0.1)),
             episode_half_life=float(args.recursive_mc_episode_half_life),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_recursive_lstdq_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[RecursiveLstdqLcbController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
+) -> tuple[Any, SolveStateEncoder]:
     lcb_lower_bound = getattr(args, "recursive_lstdq_lcb_lower_bound_sec", 0.0)
-    controller = RecursiveLstdqLcbController(
-        feature_dim=encoder.feature_dim,
-        config=_make_shared_action_config(
-            args,
-            trace_lambda=float(args.recursive_lstdq_lambda),
-        ),
-        spec=RecursiveLstdqLcbSpec(
+    return _make_online_controller_from_args(
+        args,
+        kind="recursive_lstdq_v1",
+        seed=seed,
+        trace_lambda=float(args.recursive_lstdq_lambda),
+        algorithm_parameters=dict(
             ridge=float(args.recursive_lstdq_ridge),
             uncertainty_beta=float(args.recursive_lstdq_beta),
             residual_floor_sec=float(args.recursive_lstdq_residual_floor_sec),
@@ -731,25 +746,21 @@ def _make_recursive_lstdq_controller(
                 None if lcb_lower_bound is None else float(lcb_lower_bound)
             ),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_recursive_lstdq_v2_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[RecursiveLstdqV2LcbController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
+) -> tuple[Any, SolveStateEncoder]:
     lcb_lower_bound = getattr(args, "recursive_lstdq_lcb_lower_bound_sec", 0.0)
-    controller = RecursiveLstdqV2LcbController(
-        feature_dim=encoder.feature_dim,
-        config=_make_shared_action_config(
-            args,
-            trace_lambda=float(args.recursive_lstdq_lambda),
-        ),
-        spec=RecursiveLstdqV2LcbSpec(
+    return _make_online_controller_from_args(
+        args,
+        kind="recursive_lstdq_v2",
+        seed=seed,
+        trace_lambda=float(args.recursive_lstdq_lambda),
+        algorithm_parameters=dict(
             ridge=float(args.recursive_lstdq_ridge),
             uncertainty_beta=float(args.recursive_lstdq_v2_beta),
             residual_floor_sec=float(args.recursive_lstdq_residual_floor_sec),
@@ -764,64 +775,53 @@ def _make_recursive_lstdq_v2_controller(
                 args.recursive_lstdq_v2_min_samples
             ),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_recursive_blstdq_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[RecursiveBlstdqController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
-    config = replace(
-        _make_shared_action_config(args, trace_lambda=0.0),
-        epsilon_start=0.0,
-        epsilon_final=0.0,
-    )
-    controller = RecursiveBlstdqController(
-        feature_dim=encoder.feature_dim,
-        config=config,
-        spec=RecursiveBlstdqSpec(
+) -> tuple[Any, SolveStateEncoder]:
+    return _make_online_controller_from_args(
+        args,
+        kind="rblspi",
+        seed=seed,
+        algorithm_parameters=dict(
             prior_precision=float(args.rblspi_prior_precision),
             noise_precision=float(args.rblspi_noise_precision),
             gram_ridge=float(args.rblspi_gram_ridge),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_structured_model_based_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[StructuredModelBasedController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
-    controller = StructuredModelBasedController(
-        feature_dim=encoder.feature_dim,
-        config=_make_shared_action_config(args, trace_lambda=0.0),
-        spec=StructuredModelBasedSpec(
+) -> tuple[Any, SolveStateEncoder]:
+    return _make_online_controller_from_args(
+        args,
+        kind="structured_model_based",
+        seed=seed,
+        algorithm_parameters=dict(
             ridge=float(args.structured_model_ridge),
             minimum_samples=int(args.structured_model_min_samples),
             scale_window=int(args.structured_model_scale_window),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _make_recalibrated_lsvi_controller(
     args: argparse.Namespace,
     *,
     seed: int,
-) -> tuple[HierarchicalLsviLcbController, SolveStateEncoder]:
-    encoder = _make_encoder(args)
-    controller = HierarchicalLsviLcbController(
-        feature_dim=encoder.feature_dim,
-        config=_make_shared_action_config(args, trace_lambda=0.8),
-        spec=HierarchicalLsviLcbSpec(
+) -> tuple[Any, SolveStateEncoder]:
+    return _make_online_controller_from_args(
+        args,
+        kind="recalibrated_lsvi",
+        seed=seed,
+        algorithm_parameters=dict(
             horizon=int(args.max_cycles),
             ridge=float(args.lsvi_ridge),
             uncertainty_beta=float(args.recalibrated_lsvi_beta),
@@ -832,9 +832,7 @@ def _make_recalibrated_lsvi_controller(
                 args.recalibrated_lsvi_shrinkage_samples
             ),
         ),
-        seed=int(seed),
     )
-    return controller, encoder
 
 
 def _controller_summary(controller: Any) -> Dict[str, Any]:
@@ -848,156 +846,6 @@ def _controller_summary(controller: Any) -> Dict[str, Any]:
     elif hasattr(controller, "summary"):
         summary.update(controller.summary())
     return summary
-
-
-def _write_json_line(handle: Any, row: Dict[str, Any]) -> None:
-    handle.write(json.dumps(_json_ready(row), separators=(",", ":")))
-    handle.write("\n")
-
-
-def _write_solve_screen_reproduction(
-    args: argparse.Namespace,
-    *,
-    stream_hash: str,
-) -> None:
-    """Write an auditable command and short protocol README beside results."""
-
-    output_default = args.output_dir.with_name(f"{args.output_dir.name}_reproduction")
-    command = [
-        sys.executable,
-        "-u",
-        "experiments/joint/solve_control/run_joint_online_sarsa_4k.py",
-        "--output-dir",
-        '"$OUTPUT_DIR"',
-        "--study-mode",
-        "solve_controller_screen",
-        "--seed",
-        str(args.seed),
-        "--bandit-seed",
-        str(args.bandit_seed),
-        "--controller-seed",
-        str(args.controller_seed),
-        "--method-order-seed",
-        str(args.method_order_seed),
-        "--train-cases",
-        str(args.train_cases),
-        "--warmup-cases",
-        str(args.warmup_cases),
-        "--online-cases",
-        str(args.online_cases),
-        "--train-seed-groups",
-        str(args.train_seed_groups),
-        "--train-shuffle-seeds",
-        str(args.train_shuffle_seeds),
-        "--train-cases-per-seed",
-        str(args.train_cases_per_seed),
-        "--train-group-take",
-        str(args.train_group_take),
-        "--matrix-grid-n",
-        str(args.grid_n),
-        "--setup-param-resolution",
-        str(args.setup_param_resolution),
-        "--max-cycles",
-        str(args.max_cycles),
-        "--shared-action-profile",
-        str(args.shared_action_profile),
-        "--recursive-lstdq-v2-beta",
-        str(args.recursive_lstdq_v2_beta),
-        "--recalibrated-lsvi-beta",
-        str(args.recalibrated_lsvi_beta),
-        "--progress-every",
-        str(args.progress_every),
-    ]
-    if bool(args.smoke):
-        command.append("--smoke")
-    quoted = " ".join(
-        token if token == '"$OUTPUT_DIR"' else shlex.quote(token)
-        for token in command
-    )
-    script = (
-        "#!/usr/bin/env bash\n"
-        "set -euo pipefail\n"
-        f'OUTPUT_DIR="${{OUTPUT_DIR:-{output_default}}}"\n'
-        f"{quoted}\n"
-    )
-    script_path = args.output_dir / "reproduce.sh"
-    script_path.write_text(script, encoding="utf-8")
-    script_path.chmod(0o755)
-    readme = f"""# 60^3 Solve-Controller Screen
-
-This directory contains the locked five-branch joint-online comparison.
-
-- methods: {', '.join(SOLVE_CONTROLLER_SCREEN_METHODS)}
-- stream SHA-256: `{stream_hash}`
-- LSTDQ v2 beta: `{args.recursive_lstdq_v2_beta:g}`
-- recalibrated LSVI beta: `{args.recalibrated_lsvi_beta:g}`
-- action grid: `1.00:0.05:3.00`
-- recovery and timing: active bounded-recovery joint protocol
-
-Run `OUTPUT_DIR=/new/path ./reproduce.sh` to reproduce without overwriting
-this directory.  `config.json`, `stream_manifest.json`, trajectories, 1K
-checkpoints, and final mutable states are written by the runner.
-"""
-    (args.output_dir / "README.md").write_text(readme, encoding="utf-8")
-
-
-def _empty_stream_summary() -> Dict[str, Any]:
-    runtime_fields = (
-        "setup_runtime",
-        "native_solve_runtime",
-        "native_total_runtime",
-        "controller_runtime",
-        "setup_bandit_overhead",
-        "setup_bandit_select",
-        "setup_bandit_loss_eval",
-        "setup_bandit_update",
-        "end_to_end_runtime",
-    )
-    return {
-        "cases": 0,
-        "failed_count": 0,
-        "mean_runtime_sec": 0.0,
-        "mean_runtime_with_overhead_sec": 0.0,
-        "mean_setup_runtime_sec": 0.0,
-        "mean_solve_runtime_sec": 0.0,
-        "mean_solve_with_overhead_sec": 0.0,
-        "mean_policy_overhead_sec": 0.0,
-        "mean_feature_runtime_sec": 0.0,
-        "mean_decision_runtime_sec": 0.0,
-        "mean_update_runtime_sec": 0.0,
-        "mean_iterations": 0.0,
-        "totals_sec": {field: 0.0 for field in runtime_fields},
-        "means_sec": {field: 0.0 for field in runtime_fields},
-        "unique_setup_count": 0,
-        "primary_failure_count": 0,
-        "setup_fallback_count": 0,
-        "recovered_failure_count": 0,
-        "unrecovered_failure_count": 0,
-        "bandit_update_count": 0,
-        "controller_update_count": 0,
-    }
-
-
-def _comparison_windows(case_count: int) -> Dict[str, tuple[int, int]]:
-    if int(case_count) == 2000:
-        return {
-            "all_2000": (0, 2000),
-            "first_1000": (0, 1000),
-            "last_1000": (1000, 2000),
-            "last_500": (1500, 2000),
-            "last_300": (1700, 2000),
-        }
-    if int(case_count) == 4000:
-        return {
-            "all_4000": (0, 4000),
-            "first_2000": (0, 2000),
-            "last_2000": (2000, 4000),
-            "first_1000": (0, 1000),
-            "last_1000": (3000, 4000),
-            "last_500": (3500, 4000),
-            "last_300": (3700, 4000),
-        }
-    return {f"all_{int(case_count)}": (0, int(case_count))}
 
 
 def _warmup_bandit(
@@ -1267,303 +1115,6 @@ def _run_default_setup_method(
     return reported
 
 
-def _window_result(
-    records: Dict[str, list[Dict[str, Any]]],
-    *,
-    seed: int,
-) -> Dict[str, Any]:
-    available_references = {
-        "vs_bandit_default": "bandit_default",
-        "vs_fixed_w1.6": "bandit_fixed_w1.6",
-        "vs_ppo": "bandit_ppo",
-    }
-    references = {
-        label: method
-        for label, method in available_references.items()
-        if method in records
-    }
-    return {
-        "methods": {
-            method: _method_stream_summary(rows)
-            for method, rows in records.items()
-        },
-        "comparisons": {
-            label: {
-                method: _method_comparison(
-                    rows,
-                    records[reference],
-                    seed=int(seed + reference_index * 100_000 + method_index * 101),
-                )
-                for method_index, (method, rows) in enumerate(records.items())
-                if method != reference
-            }
-            for reference_index, (label, reference) in enumerate(references.items())
-        },
-    }
-
-
-def _action_summary(rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
-    actions: list[float] = []
-    explored: list[bool] = []
-    uncertainties: list[float] = []
-    selected_q_values: list[float] = []
-    selected_scores: list[float] = []
-    calibration_ratios: list[float] = []
-    for row in rows:
-        outcome = row["outcome"]
-        actions.extend(float(value) for value in outcome.get("cycle_actions", []))
-        explored.extend(bool(value) for value in outcome.get("cycle_explored", []))
-        uncertainties.extend(
-            float(value)
-            for value in outcome.get("cycle_selected_uncertainties", [])
-        )
-        selected_q_values.extend(
-            float(value)
-            for value in outcome.get("cycle_selected_q_values", [])
-            if np.isfinite(float(value))
-        )
-        selected_scores.extend(
-            float(value)
-            for value in outcome.get("cycle_selection_scores", [])
-            if np.isfinite(float(value))
-        )
-        errors = outcome.get("postfit_td_errors") or outcome.get("td_errors", [])
-        widths = outcome.get("cycle_selected_uncertainties", [])
-        for error, width in zip(errors, widths):
-            if np.isfinite(float(error)) and float(width) > 0.0:
-                calibration_ratios.append(abs(float(error)) / float(width))
-    ratios = np.asarray(calibration_ratios, dtype=float)
-    return {
-        "decisions": int(len(actions)),
-        "mean_weight": float(np.mean(actions)) if actions else float("nan"),
-        "explored_rate": float(np.mean(explored)) if explored else 0.0,
-        "mean_selected_uncertainty_sec": (
-            float(np.mean(uncertainties)) if uncertainties else 0.0
-        ),
-        "mean_selected_q_sec": (
-            float(np.mean(selected_q_values)) if selected_q_values else 0.0
-        ),
-        "lower_bound_saturation_count": int(
-            sum(np.isclose(value, 0.0, atol=1.0e-12, rtol=0.0) for value in selected_scores)
-        ),
-        "lower_bound_saturation_rate": (
-            float(
-                np.mean(
-                    np.isclose(
-                        np.asarray(selected_scores, dtype=float),
-                        0.0,
-                        atol=1.0e-12,
-                        rtol=0.0,
-                    )
-                )
-            )
-            if selected_scores
-            else 0.0
-        ),
-        "confidence_calibration": {
-            "paired_updates": int(ratios.size),
-            "median_abs_error_over_uncertainty": (
-                float(np.median(ratios)) if ratios.size else 0.0
-            ),
-            "p90_abs_error_over_uncertainty": (
-                float(np.quantile(ratios, 0.9)) if ratios.size else 0.0
-            ),
-            "coverage_at_1x": (
-                float(np.mean(ratios <= 1.0)) if ratios.size else 0.0
-            ),
-            "coverage_at_2x": (
-                float(np.mean(ratios <= 2.0)) if ratios.size else 0.0
-            ),
-            "coverage_at_4x": (
-                float(np.mean(ratios <= 4.0)) if ratios.size else 0.0
-            ),
-        },
-    }
-
-
-def _write_summary_csv(
-    path: Path,
-    records: Dict[str, list[Dict[str, Any]]],
-    family_by_method: Dict[str, str],
-) -> None:
-    fields = (
-        "method",
-        "family",
-        "cases",
-        "mean_setup_runtime_sec",
-        "mean_native_solve_runtime_sec",
-        "mean_native_total_runtime_sec",
-        "mean_controller_runtime_sec",
-        "mean_setup_bandit_overhead_sec",
-        "mean_end_to_end_runtime_sec",
-        "failures",
-        "mean_iterations",
-        "setup_fallbacks",
-        "primary_failures",
-        "recovered_failures",
-        "unrecovered_failures",
-        "bandit_updates",
-        "controller_updates",
-    )
-    with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
-        writer.writeheader()
-        for method, rows in records.items():
-            summary = _method_stream_summary(rows)
-            means = summary["means_sec"]
-            writer.writerow(
-                {
-                    "method": method,
-                    "family": family_by_method[method],
-                    "cases": len(rows),
-                    "mean_setup_runtime_sec": means["setup_runtime"],
-                    "mean_native_solve_runtime_sec": means["native_solve_runtime"],
-                    "mean_native_total_runtime_sec": means["native_total_runtime"],
-                    "mean_controller_runtime_sec": means["controller_runtime"],
-                    "mean_setup_bandit_overhead_sec": means["setup_bandit_overhead"],
-                    "mean_end_to_end_runtime_sec": means["end_to_end_runtime"],
-                    "failures": summary["failed_count"],
-                    "mean_iterations": summary["mean_iterations"],
-                    "setup_fallbacks": summary["setup_fallback_count"],
-                    "primary_failures": summary["primary_failure_count"],
-                    "recovered_failures": summary["recovered_failure_count"],
-                    "unrecovered_failures": summary["unrecovered_failure_count"],
-                    "bandit_updates": summary["bandit_update_count"],
-                    "controller_updates": summary["controller_update_count"],
-                }
-            )
-
-
-def _write_solve_screen_report(
-    path: Path,
-    *,
-    window_results: Dict[str, Any],
-    window_actions: Dict[str, Dict[str, Any]],
-) -> None:
-    """Render the locked screening metrics without requiring plotting tools."""
-
-    preferred_windows = ("all_4000", "first_1000", "last_1000", "last_500")
-    has_fixed_reference = any(
-        "vs_fixed_w1.6" in window.get("comparisons", {})
-        for window in window_results.values()
-    )
-    comparison_note = (
-        "Improvement and paired 95% intervals are relative to Online "
-        "LinUCB + fixed `w=1.6`."
-        if has_fixed_reference
-        else "No fixed-`w=1.6` reference was included, so paired improvement "
-        "columns are reported as n/a."
-    )
-    lines = [
-        "# Solve-Controller Screening Report",
-        "",
-        "All runtimes are per-instance means in milliseconds.",
-        comparison_note,
-        "",
-    ]
-    report_windows = tuple(
-        name for name in preferred_windows if name in window_results
-    )
-    if not report_windows:
-        report_windows = tuple(window_results)
-    for window_name in report_windows:
-        window = window_results[window_name]
-        comparisons = window.get("comparisons", {}).get("vs_fixed_w1.6", {})
-        lines.extend(
-            [
-                f"## {window_name}",
-                "",
-                "| method | setup | native solve | native total | controller | bandit | end-to-end | cycles | E2E improvement (95% CI) | primary/recovered/unrecovered | same setup |",
-                "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
-            ]
-        )
-        for method, summary in window["methods"].items():
-            means = summary["means_sec"]
-            if method == "bandit_fixed_w1.6":
-                improvement_text = "baseline"
-                same_setup_text = "1.000"
-            elif method in comparisons:
-                comparison = comparisons[method]
-                metric = comparison["end_to_end_runtime"]
-                interval = metric["candidate_improvement_95pct"]
-                improvement_text = (
-                    f"{metric['candidate_improvement_pct']:.2f}% "
-                    f"[{interval[0]:.2f}, {interval[1]:.2f}]"
-                )
-                same_setup_text = (
-                    f"{float(comparison['same_setup_rate']):.3f}"
-                )
-            else:
-                improvement_text = "n/a"
-                same_setup_text = "n/a"
-            lines.append(
-                "| {method} | {setup:.3f} | {solve:.3f} | {native:.3f} | "
-                "{controller:.3f} | {bandit:.3f} | {e2e:.3f} | {cycles:.2f} | "
-                "{improvement} | {primary}/{recovered}/{unrecovered} | {same} |".format(
-                    method=method,
-                    setup=1000.0 * float(means["setup_runtime"]),
-                    solve=1000.0 * float(means["native_solve_runtime"]),
-                    native=1000.0 * float(means["native_total_runtime"]),
-                    controller=1000.0 * float(means["controller_runtime"]),
-                    bandit=1000.0 * float(means["setup_bandit_overhead"]),
-                    e2e=1000.0 * float(means["end_to_end_runtime"]),
-                    cycles=float(summary["mean_iterations"]),
-                    improvement=improvement_text,
-                    primary=int(summary["primary_failure_count"]),
-                    recovered=int(summary["recovered_failure_count"]),
-                    unrecovered=int(summary["unrecovered_failure_count"]),
-                    same=same_setup_text,
-                )
-            )
-        action_rows = window_actions.get(window_name, {})
-        if action_rows:
-            lines.extend(
-                [
-                    "",
-                    "Controller diagnostics:",
-                    "",
-                    "| method | decisions | mean w | explored | mean uncertainty (ms) | lower-bound saturation | calibration coverage 1x/2x/4x |",
-                    "|---|---:|---:|---:|---:|---:|---:|",
-                ]
-            )
-            for method, action in action_rows.items():
-                calibration = action["confidence_calibration"]
-                is_model_based = method == STRUCTURED_MODEL_BASED_METHOD
-                uncertainty_text = (
-                    "n/a"
-                    if is_model_based
-                    else f"{1000.0 * float(action['mean_selected_uncertainty_sec']):.3f}"
-                )
-                saturation_text = (
-                    "n/a"
-                    if is_model_based
-                    else f"{float(action['lower_bound_saturation_rate']):.3f}"
-                )
-                calibration_text = (
-                    "n/a"
-                    if is_model_based
-                    else (
-                        f"{float(calibration['coverage_at_1x']):.3f}/"
-                        f"{float(calibration['coverage_at_2x']):.3f}/"
-                        f"{float(calibration['coverage_at_4x']):.3f}"
-                    )
-                )
-                lines.append(
-                    "| {method} | {decisions} | {weight:.3f} | {explored:.3f} | "
-                    "{uncertainty} | {saturation} | {calibration} |".format(
-                        method=method,
-                        decisions=int(action["decisions"]),
-                        weight=float(action["mean_weight"]),
-                        explored=float(action["explored_rate"]),
-                        uncertainty=uncertainty_text,
-                        saturation=saturation_text,
-                        calibration=calibration_text,
-                    )
-                )
-        lines.append("")
-    path.write_text("\n".join(lines), encoding="utf-8")
-
-
 def run(args: argparse.Namespace) -> Dict[str, Any]:
     composable_specs_tuple: tuple[ComposableMethodSpec, ...] = ()
     setup_configuration_spaces: Dict[str, SetupConfigurationSpace] = {}
@@ -1748,428 +1299,22 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
         bandit_methods = tuple(
             method for method in methods if method != DEFAULT_SETUP_METHOD
         )
-    resolved_setup_spaces = {
-        name: configuration_space.as_dict()
-        for name, configuration_space in setup_configuration_spaces.items()
-    }
-    protocol = {
-        "git_revision": _git_revision(),
-        "platform": platform.platform(),
-        "purpose": (
-            "4K joint-online setup-bandit and solve-controller learning from scratch"
-            if int(args.warmup_cases) == 0
-            else "2K setup-bandit warmup + 2K persistent joint-online comparison"
-        ),
-        "stream": stream_manifest,
-        "stream_partition": {
-            "warmup": [0, int(args.warmup_cases)],
-            "online": [int(args.warmup_cases), int(args.train_cases)],
-        },
-        "methods": list(methods),
-        "families": family_by_method,
-        "method_labels": {
-            spec.name: spec.label for spec in composable_specs_tuple
-        },
-        "method_specs": [asdict(spec) for spec in composable_specs_tuple],
-        "candidates": [asdict(candidate) | {"name": candidate.name} for candidate in candidates],
-        "setup_bandit": {
-            "seed": int(args.bandit_seed),
-            "matrix_grid_n": int(args.grid_n),
-            "problem": str(getattr(args, "problem", "scalar_anisotropic_diffusion")),
-            "grid_shape": list(stream_manifest.get("grid", [int(args.grid_n)] * 3)),
-            "setup_param_resolution": int(args.setup_param_resolution),
-            "warmup_instances": int(args.warmup_cases),
-            "joint_from_scratch": int(args.warmup_cases) == 0,
-            "common_snapshot_mutable_state_cloned": not bool(
-                setup_configuration_spaces
-            ),
-            "immutable_action_catalog_and_g_actions_shared": not bool(
-                setup_configuration_spaces
-            ),
-            "per_branch_parameter_space": bool(setup_configuration_spaces),
-            "candidate_mode": str(args.setup_candidate_mode),
-            "aot_schedule": (
-                {
-                    "max_selections_per_case": int(
-                        args.aot_max_selections_per_case
-                    ),
-                    "scheduled_rounds_per_branch": int(args.online_cases)
-                    * int(args.aot_max_selections_per_case),
-                    "pairing": "fixed-width block per online instance",
-                    "payload": "candidate_ids_only",
-                    "action_features": "shared_factorized_ram_cache",
-                }
-                if str(args.setup_candidate_mode) == "aot"
-                else None
-            ),
-            "configuration_spaces": resolved_setup_spaces,
-            "method_configuration_spaces": {
-                spec.name: spec.setup_space
-                for spec in composable_specs_tuple
-                if spec.setup_kind in SETUP_BANDIT_KINDS
-            },
-            "frozen_after_warmup": False,
-            "independent_updates_per_method": True,
-            "fallback_runtime_included_in_feedback": True,
-            "linear_ts_v2": {
-                "posterior": "Gaussian linear posterior",
-                "precision_factor": "rank-one Cholesky updates",
-                "relative_sampling_scale": float(
-                    args.lin_ts_relative_sampling_scale
-                ),
-                "loss_scale_prior_sec": float(args.lin_ts_loss_scale_prior),
-                "runtime_scale_reference": "first successful observation",
-                "posterior_rng_separate_from_candidate_rng": True,
-            },
-            "failure_head": {
-                "representation": "shared_context_action_features",
-                "ridge": 1.0,
-                "beta": 2.0,
-            },
-            "setup_construction_reselection": {
-                "max_learned_attempts_including_first": 3,
-                "temporary_exact_arm_exclusion": True,
-                "ranking": ["failure_ucb", "runtime_lcb"],
-                "runtime_target": "realized_suffix_cost",
-            },
-            "solve_failure_reselection": False,
-            "default_fallback_attempts": 1,
-            "online_branches": list(bandit_methods),
-        },
-        "sarsa": {
-            "algorithm": "true-online SARSA(lambda)",
-            "update_frequency": "one update per AMG cycle plus terminal update",
-            "state": "setup_full",
-            "actions": list(_parse_values(args.weights, float)),
-            "behavior_modes": list(BEHAVIOR_MODES),
-            "epsilon": {
-                "start": float(args.epsilon_start),
-                "final": float(args.epsilon_final),
-                "decay_steps": float(args.epsilon_decay_steps),
-            },
-            "uncertainty": {
-                "beta": float(args.uncertainty_beta),
-                "ridge": float(args.uncertainty_ridge),
-                "td_floor_sec": float(args.uncertainty_td_floor_sec),
-            },
-            "prepared_solver_default_forced_once": True,
-            "frozen": False,
-        },
-        "ppo": {
-            "model": str(args.ppo_model),
-            "frozen": True,
-            "action_mode": str(args.ppo_action_mode),
-            "w_center": float(args.ppo_w_center),
-            "w_scale": float(args.ppo_w_scale),
-            "initial_observation_weight": float(
-                args.ppo_initial_observation_weight
-            ),
-            "prepared_solver_default_forced_once": bool(
-                args.ppo_force_default_first_action
-            ),
-        },
-        "randomized_method_order_per_instance": True,
-        "method_order_seed": int(args.method_order_seed),
-    }
-    if args.study_mode == "composable":
-        protocol.pop("sarsa")
-        if not any(
-            spec.solve_kind == "ppo" for spec in composable_specs_tuple
-        ):
-            protocol.pop("ppo")
-        shared_protocol = {
-            "state": "setup_full",
-            "action_profile": "explicit",
-            "actions": list(_parse_values(args.weights, float)),
-            "action_basis": {
-                "mode": "compact_rbf",
-                "centers": list(
-                    _parse_values(args.action_rbf_centers, float)
-                ),
-                "sigma": float(args.action_rbf_sigma),
-            },
-            "epsilon": {
-                "start": float(args.epsilon_start),
-                "final": float(args.epsilon_final),
-                "decay_steps": float(args.epsilon_decay_steps),
-                "kind": "uniform epsilon-greedy floor",
-            },
-            "prepared_solver_default_forced_once": True,
-            "frozen": False,
-        }
-        solve_kinds = {spec.solve_kind for spec in composable_specs_tuple}
-        if "recursive_lstdq_v1" in solve_kinds:
-            protocol["recursive_lstdq_lcb"] = shared_protocol | {
-                "version": "v1",
-                "target": "on-policy LSTDQ(lambda) Bellman equation",
-                "ridge": float(args.recursive_lstdq_ridge),
-                "trace_lambda": float(args.recursive_lstdq_lambda),
-                "uncertainty_beta": float(args.recursive_lstdq_beta),
-                "uncertainty": "unclipped post-fit sandwich covariance",
-                "lcb_lower_bound_sec": float(
-                    args.recursive_lstdq_lcb_lower_bound_sec
-                ),
-            }
-        if "recursive_lstdq_v2" in solve_kinds:
-            protocol["recursive_lstdq_v2_lcb"] = shared_protocol | {
-                "version": "v2",
-                "target": "same recursive LSTDQ mean as v1",
-                "ridge": float(args.recursive_lstdq_ridge),
-                "trace_lambda": float(args.recursive_lstdq_lambda),
-                "uncertainty_beta": float(args.recursive_lstdq_v2_beta),
-                "uncertainty": "rolling-MAD-scaled feature coverage",
-                "coverage_ridge": float(
-                    args.recursive_lstdq_v2_coverage_ridge
-                ),
-                "residual_window": int(
-                    args.recursive_lstdq_v2_residual_window
-                ),
-                "minimum_scale_samples": int(
-                    args.recursive_lstdq_v2_min_samples
-                ),
-                "residual_floor_sec": float(
-                    args.recursive_lstdq_residual_floor_sec
-                ),
-                "lcb_lower_bound_sec": float(
-                    args.recursive_lstdq_lcb_lower_bound_sec
-                ),
-            }
-        if "rblspi" in solve_kinds:
-            protocol["recursive_blstdq_rblspi"] = shared_protocol | {
-                "target": "off-policy BLSTDQ empirical Bellman equation",
-                "posterior": (
-                    "S^-1=alpha*I+beta*A.T*C^-1*A; "
-                    "m=beta*S*A.T*C^-1*b"
-                ),
-                "exploration": "one sampled Q-function per solve episode",
-                "epsilon": {"kind": "none"},
-                "trace_lambda": 0.0,
-                "prior_precision": float(args.rblspi_prior_precision),
-                "noise_precision": float(args.rblspi_noise_precision),
-                "gram_ridge": float(args.rblspi_gram_ridge),
-                "history_storage": "none; recursive A/C/b statistics only",
-            }
-        if "recursive_mc" in solve_kinds:
-            protocol["recursive_mc_lcb"] = shared_protocol | {
-                "target": "undiscounted episodic cost-to-go",
-                "ridge": float(args.recursive_mc_ridge),
-                "uncertainty_beta": float(args.recursive_mc_beta),
-                "residual_floor_sec": float(
-                    args.recursive_mc_residual_floor_sec
-                ),
-                "episode_half_life": float(
-                    args.recursive_mc_episode_half_life
-                ),
-                "uncertainty": "post-fit episode-cluster sandwich covariance",
-            }
-        if "stagewise_lsvi" in solve_kinds:
-            protocol["stagewise_lsvi_lcb"] = shared_protocol | {
-                "horizon": int(args.max_cycles),
-                "ridge": float(args.lsvi_ridge),
-                "uncertainty_beta": float(args.lsvi_beta),
-                "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-                "refit_interval_episodes": int(
-                    args.lsvi_refit_interval_episodes
-                ),
-            }
-        if "structured_model_based" in solve_kinds:
-            protocol["structured_model_based"] = shared_protocol | {
-                "target": [
-                    "native_cycle_cost",
-                    "signed_log_residual_progress",
-                ],
-                "estimator": "shared recursive least squares",
-                "planning": "receding time per log-residual reduction",
-                "recovery_cost_in_physical_model": False,
-                "ridge": float(args.structured_model_ridge),
-                "minimum_samples": int(args.structured_model_min_samples),
-                "scale_window": int(args.structured_model_scale_window),
-            }
-        if "recalibrated_lsvi" in solve_kinds:
-            protocol["recalibrated_lsvi_lcb"] = shared_protocol | {
-                "target": "stagewise optimistic Bellman backup",
-                "horizon": int(args.max_cycles),
-                "ridge": float(args.lsvi_ridge),
-                "uncertainty_beta": float(args.recalibrated_lsvi_beta),
-                "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-                "batch_size_episodes": int(
-                    args.lsvi_refit_interval_episodes
-                ),
-                "backward_shared_sweeps": int(
-                    args.recalibrated_lsvi_refit_sweeps
-                ),
-                "residual_shrinkage_samples": float(
-                    args.recalibrated_lsvi_shrinkage_samples
-                ),
-                "value_cap": "maximum observed realized return",
-            }
-    elif args.study_mode == "lsvi_lcb":
-        protocol.pop("sarsa")
-        protocol.pop("ppo")
-        protocol["stagewise_lsvi_lcb"] = {
-            "state": "setup_full",
-            "action_profile": str(args.shared_action_profile),
-            "actions": list(_parse_values(args.weights, float)),
-            "action_basis": {
-                "mode": "compact_rbf",
-                "centers": list(_parse_values(args.action_rbf_centers, float)),
-                "sigma": float(args.action_rbf_sigma),
-            },
-            "horizon": int(args.max_cycles),
-            "ridge": float(args.lsvi_ridge),
-            "uncertainty_beta": float(args.lsvi_beta),
-            "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-            "epsilon": {
-                "start": float(args.epsilon_start),
-                "final": float(args.epsilon_final),
-                "decay_steps": float(args.epsilon_decay_steps),
-            },
-            "update": "backward refit after every solve",
-            "frozen": False,
-        }
-    elif args.study_mode == "solve_controller_screen":
-        protocol.pop("sarsa")
-        protocol.pop("ppo")
-        shared_protocol = {
-            "state": "setup_full",
-            "action_profile": str(args.shared_action_profile),
-            "actions": list(_parse_values(args.weights, float)),
-            "action_basis": {
-                "mode": "compact_rbf",
-                "centers": list(_parse_values(args.action_rbf_centers, float)),
-                "sigma": float(args.action_rbf_sigma),
-            },
-            "epsilon": {
-                "start": float(args.epsilon_start),
-                "final": float(args.epsilon_final),
-                "decay_steps": float(args.epsilon_decay_steps),
-                "kind": "uniform epsilon-greedy floor",
-            },
-            "prepared_solver_default_forced_once": True,
-            "frozen": False,
-        }
-        protocol["recursive_lstdq_lcb"] = shared_protocol | {
-            "version": "v1",
-            "target": "on-policy LSTDQ(lambda) Bellman equation",
-            "ridge": float(args.recursive_lstdq_ridge),
-            "trace_lambda": float(args.recursive_lstdq_lambda),
-            "uncertainty_beta": float(args.recursive_lstdq_beta),
-            "uncertainty": "unclipped post-fit sandwich covariance",
-            "lcb_lower_bound_sec": float(
-                args.recursive_lstdq_lcb_lower_bound_sec
-            ),
-        }
-        protocol["recursive_lstdq_v2_lcb"] = shared_protocol | {
-            "version": "v2",
-            "target": "same recursive LSTDQ mean as v1",
-            "ridge": float(args.recursive_lstdq_ridge),
-            "trace_lambda": float(args.recursive_lstdq_lambda),
-            "uncertainty_beta": float(args.recursive_lstdq_v2_beta),
-            "uncertainty": "rolling-MAD-scaled feature coverage",
-            "coverage_ridge": float(args.recursive_lstdq_v2_coverage_ridge),
-            "residual_window": int(args.recursive_lstdq_v2_residual_window),
-            "minimum_scale_samples": int(
-                args.recursive_lstdq_v2_min_samples
-            ),
-            "residual_floor_sec": float(
-                args.recursive_lstdq_residual_floor_sec
-            ),
-            "lcb_lower_bound_sec": float(
-                args.recursive_lstdq_lcb_lower_bound_sec
-            ),
-        }
-        protocol["structured_model_based"] = shared_protocol | {
-            "target": ["native_cycle_cost", "signed_log_residual_progress"],
-            "estimator": "shared recursive least squares",
-            "planning": "receding time per log-residual reduction",
-            "recovery_cost_in_physical_model": False,
-            "ridge": float(args.structured_model_ridge),
-            "minimum_samples": int(args.structured_model_min_samples),
-            "scale_window": int(args.structured_model_scale_window),
-        }
-        protocol["recalibrated_lsvi_lcb"] = shared_protocol | {
-            "target": "stagewise optimistic Bellman backup",
-            "horizon": int(args.max_cycles),
-            "ridge": float(args.lsvi_ridge),
-            "uncertainty_beta": float(args.recalibrated_lsvi_beta),
-            "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-            "batch_size_episodes": int(args.lsvi_refit_interval_episodes),
-            "backward_shared_sweeps": int(
-                args.recalibrated_lsvi_refit_sweeps
-            ),
-            "residual_shrinkage_samples": float(
-                args.recalibrated_lsvi_shrinkage_samples
-            ),
-            "value_cap": "maximum observed realized return",
-        }
-    elif args.study_mode in {
-        "recursive_lcb_suite",
-        "recursive_lcb_ppo",
-        "recursive_lstdq_lcb",
-    }:
-        protocol.pop("sarsa")
-        if args.study_mode != "recursive_lcb_ppo":
-            protocol.pop("ppo")
-        shared_protocol = {
-            "state": "setup_full",
-            "action_profile": str(args.shared_action_profile),
-            "actions": list(_parse_values(args.weights, float)),
-            "action_basis": {
-                "mode": "compact_rbf",
-                "centers": list(_parse_values(args.action_rbf_centers, float)),
-                "sigma": float(args.action_rbf_sigma),
-            },
-            "epsilon": {
-                "start": float(args.epsilon_start),
-                "final": float(args.epsilon_final),
-                "decay_steps": float(args.epsilon_decay_steps),
-                "kind": "uniform epsilon-greedy floor",
-            },
-            "prepared_solver_default_forced_once": True,
-            "frozen": False,
-        }
-        if RECURSIVE_MC_METHOD in methods:
-            protocol["recursive_mc_lcb"] = shared_protocol | {
-                "target": "undiscounted episodic cost-to-go",
-                "estimator": "episode-forgetting recursive least squares",
-                "ridge": float(args.recursive_mc_ridge),
-                "uncertainty_beta": float(args.recursive_mc_beta),
-                "residual_floor_sec": float(
-                    args.recursive_mc_residual_floor_sec
-                ),
-                "episode_half_life": float(
-                    args.recursive_mc_episode_half_life
-                ),
-                "uncertainty": "post-fit episode-cluster sandwich covariance",
-                "history_storage": "none after episode update",
-            }
-        if RECURSIVE_LSTDQ_METHOD in methods:
-            protocol["recursive_lstdq_lcb"] = shared_protocol | {
-                "target": "on-policy LSTDQ(lambda) Bellman equation",
-                "estimator": "recursive LSTD with Sherman-Morrison inverse",
-                "ridge": float(args.recursive_lstdq_ridge),
-                "trace_lambda": float(args.recursive_lstdq_lambda),
-                "uncertainty_beta": float(args.recursive_lstdq_beta),
-                "lcb_lower_bound_sec": float(
-                    args.recursive_lstdq_lcb_lower_bound_sec
-                ),
-                "uncertainty": "unclipped post-fit sandwich covariance",
-                "history_storage": "none",
-            }
-        if BATCHED_LSVI_METHOD in methods:
-            protocol["batched_lsvi_lcb"] = shared_protocol | {
-                "target": "stagewise optimistic Bellman backup",
-                "horizon": int(args.max_cycles),
-                "ridge": float(args.lsvi_ridge),
-                "uncertainty_beta": float(args.lsvi_beta),
-                "residual_floor_sec": float(args.lsvi_residual_floor_sec),
-                "batch_size_episodes": int(args.lsvi_refit_interval_episodes),
-                "policy_updates": (
-                    int(args.online_cases)
-                    // int(args.lsvi_refit_interval_episodes)
-                ),
-                "update": "exact all-history backward refit at fixed batch boundaries",
-            }
+    protocol = build_joint_protocol(
+        args,
+        git_revision=_git_revision(),
+        stream_manifest=stream_manifest,
+        methods=methods,
+        family_by_method=family_by_method,
+        composable_specs=composable_specs_tuple,
+        candidates=candidates,
+        setup_configuration_spaces=setup_configuration_spaces,
+        bandit_methods=bandit_methods,
+        behavior_modes=BEHAVIOR_MODES,
+        setup_bandit_kinds=SETUP_BANDIT_KINDS,
+        recursive_mc_method=RECURSIVE_MC_METHOD,
+        recursive_lstdq_method=RECURSIVE_LSTDQ_METHOD,
+        batched_lsvi_method=BATCHED_LSVI_METHOD,
+    )
     _write_json(args.output_dir / "config.json", protocol)
     _write_json(args.output_dir / "stream_manifest.json", stream_manifest)
     if args.study_mode == "solve_controller_screen":

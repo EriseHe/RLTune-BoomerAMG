@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, Sequence
 import numpy as np
 
 from online_td_experiment_common import _action_diagnostics, _git_revision, _json_ready, _write_json
-from SolvePhase.algorithms.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
+from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
 from joint_online_common import _method_stream_summary, _report_online_outcome
 from run_online_methods_2k import (
     _continuous_action_diagnostics,

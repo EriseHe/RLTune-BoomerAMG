@@ -1,13 +1,11 @@
+import _project_paths  # noqa: F401
+
 import ctypes
-import sys
 import unittest
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SETUP_ROOT = REPO_ROOT / "SetupPhase"
-if str(SETUP_ROOT) not in sys.path:
-    sys.path.insert(0, str(SETUP_ROOT))
 
 from hypre.bindings import create_env  # noqa: E402
 

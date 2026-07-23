@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from learners.common import (
+from setup.learners.common import (
     AOTCandidateSchedule,
     CompactActionCatalog,
     FactorizedActionFeatureCache,
@@ -19,8 +19,8 @@ from learners.common import (
     ParameterSpaceSpec,
     ParameterSpec,
 )
-from utils.setup_amg import build_actions_from_spec
-from setup_action_space import (
+from setup.utils.setup_amg import build_actions_from_spec
+from setup.space import (
     SetupConfigurationSpace,
     build_setup_parameter_spec,
     build_setup_param_space,

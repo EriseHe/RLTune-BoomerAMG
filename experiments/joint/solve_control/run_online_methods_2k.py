@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict, Sequence
 
 import numpy as np
 
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     SolveStateEncoder,
     run_td_episode,

@@ -1,7 +1,7 @@
 # Experiments
 
 Cross-component experiment protocols live here. These workflows may import
-both `SetupPhase/` and `SolvePhase/`, while generated data belongs under
+both `setup/` and `solve/`, while generated data belongs under
 `results/`.
 
 - `joint/`: setup-bandit plus solve-controller experiments.

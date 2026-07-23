@@ -5,8 +5,8 @@ The repository is divided by ownership rather than by experiment history.
 ```text
 problems/     shared PDE definitions and deterministic instance streams
 hypre/        unmodified HYPRE source, build/install trees, and native wrappers
-SetupPhase/   setup-only learners and entry points
-SolvePhase/   solve-only controllers, environments, and entry points
+setup/        setup-only learners and entry points
+solve/        solve-only controllers, environments, and entry points
 experiments/  workflows that compose setup and solve components
 results/      generated data, checkpoints, tables, and figures
 docs/         active documentation and archived research notes
@@ -16,13 +16,13 @@ docs/         active documentation and archived research notes
 
 ```text
 problems ───────────────┐
-hypre/bindings ─────────┼──> SetupPhase
-                       ├──> SolvePhase
-SetupPhase + SolvePhase ┴──> experiments
+hypre/bindings ─────────┼──> setup
+                       ├──> solve
+setup + solve ──────────┴──> experiments
 experiments ───────────────> results
 ```
 
-`SetupPhase` and `SolvePhase` must not import each other's experiment scripts.
+`setup` and `solve` must not import each other's experiment scripts.
 Code that needs both belongs in `experiments/`. Generated artifacts never
 belong beside source files.
 
@@ -33,8 +33,8 @@ LCB algorithm packages plus the solver environment adapters used by them.
 
 ## Naming
 
-`SetupPhase` and `SolvePhase` are clear research-area names, although lowercase
-Python package names are more conventional. If this repository later becomes
-an installable package, the natural package-level names are `rltune.setup` and
-`rltune.solve`. That naming-only migration should be kept separate from
-behavioral or experiment changes.
+The canonical Python packages are lowercase: `setup` and `solve`. Their public
+construction APIs are `setup.registry` and `solve.registry`; algorithm
+implementations remain organized under `setup.learners` and
+`solve.controllers`. The former `SetupPhase` and `SolvePhase` names are
+compatibility namespaces only and contain no implementation.

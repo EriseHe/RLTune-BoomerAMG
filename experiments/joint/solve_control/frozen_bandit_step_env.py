@@ -13,13 +13,17 @@ from gymnasium import spaces
 _THIS_FILE = Path(__file__).resolve()
 _REPO_ROOT = _THIS_FILE.parents[3]
 
-from amg_gym_env import (
+from solve.core.amg_gym_env import (
     build_policy_obs,
     decode_policy_action,
     decode_policy_action_hierarchical,
     decode_policy_action_residual,
 )
-from setup_action_space import DEFAULT_SETUP_PARAMS, SetupObsEncoder, build_setup_parameter_spec
+from setup.space import (
+    DEFAULT_SETUP_PARAMS,
+    SetupObsEncoder,
+    build_setup_parameter_spec,
+)
 from hypre.bindings import SolveStatus, create_env
 from setup_aware_compare_common import augment_setup_params, solve_no_rl_case
 

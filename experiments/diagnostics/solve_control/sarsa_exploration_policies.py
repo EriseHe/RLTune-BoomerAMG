@@ -4,7 +4,7 @@ import _project_paths  # noqa: F401
 
 from typing import Any
 
-from SolvePhase.algorithms.sarsa import (
+from solve.controllers.sarsa import (
     BehaviorPolicySarsaController,
     SarsaBehaviorSpec,
 )
