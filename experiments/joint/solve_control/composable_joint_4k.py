@@ -48,7 +48,7 @@ _CONTROLLER_SEED_OFFSETS = {
     "recursive_mc": 0,
     "recursive_lstdq_v1": 1009,
     "recursive_lstdq_v2": 2018,
-    "recursive_lstdq_v3": 3027,
+    "recursive_lstdq_v3": 2018,
     "rblspi": 5045,
     "stagewise_lsvi": 2018,
     "structured_model_based": 3027,
