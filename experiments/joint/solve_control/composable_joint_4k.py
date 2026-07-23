@@ -48,7 +48,7 @@ _CONTROLLER_SEED_OFFSETS = {
     "recursive_mc": 0,
     "recursive_lstdq_v1": 1009,
     "recursive_lstdq_v2": 2018,
-    "recursive_lstdq_v3": 3027,
+    "recursive_lstdq_v3": 2018,
     "rblspi": 5045,
     "stagewise_lsvi": 2018,
     "structured_model_based": 3027,
@@ -318,11 +318,22 @@ def build_named_setup_branches(
     aot_enabled = str(args.setup_candidate_mode) == "aot"
     for method in study.bandit_methods:
         method_spec = study.specs_by_name[method]
+        seed_offset = int(method_spec.seed_offset)
         configuration_space = study.setup_configuration_spaces[
             str(method_spec.setup_space)
         ]
+        candidate_schedule_dir = (
+            args.output_dir
+            / "aot_candidate_schedules"
+            / configuration_space.name
+            / method_spec.candidate_sampling
+        )
+        if seed_offset:
+            candidate_schedule_dir = (
+                candidate_schedule_dir / f"seed_offset_{seed_offset}"
+            )
         branch, _bandit_config = build_online_linucb_branch(
-            seed=int(args.bandit_seed),
+            seed=int(args.bandit_seed) + seed_offset,
             learner_kind=str(method_spec.setup_kind),
             tune_dim=7,
             tune7_variant="categorical",
@@ -332,10 +343,7 @@ def build_named_setup_branches(
             parameter_resolution=int(args.setup_param_resolution),
             configuration_space=configuration_space,
             candidate_schedule_dir=(
-                args.output_dir
-                / "aot_candidate_schedules"
-                / configuration_space.name
-                / method_spec.candidate_sampling
+                candidate_schedule_dir
                 if aot_enabled
                 else None
             ),
@@ -467,6 +475,7 @@ def build_composable_solve_runtime(
         controller_seed = int(
             args.controller_seed
             + _CONTROLLER_SEED_OFFSETS[solve_kind]
+            + int(method_spec.seed_offset)
         )
         if has_typed_controller_specs:
             typed_controller_spec = typed_controller_specs.get(solve_kind)
