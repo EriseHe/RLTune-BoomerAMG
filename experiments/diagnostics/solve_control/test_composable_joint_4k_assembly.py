@@ -69,7 +69,6 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
                 solve_kind="default",
                 setup_space=space.name,
                 candidate_sampling="structured512",
-                seed_offset=100_003,
             ),
         )
         study = composable.ComposableStudy(
@@ -122,10 +121,7 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
 
             self.assertEqual(build.call_count, 2)
             for call, spec in zip(build.call_args_list, specs):
-                self.assertEqual(
-                    call.kwargs["seed"],
-                    31 + spec.seed_offset,
-                )
+                self.assertEqual(call.kwargs["seed"], 31)
                 self.assertEqual(
                     call.kwargs["learner_kind"],
                     spec.setup_kind,
@@ -138,19 +134,12 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
                     call.kwargs["candidate_schedule_rounds"],
                     12000,
                 )
-                expected_schedule_dir = (
+                self.assertEqual(
+                    call.kwargs["candidate_schedule_dir"],
                     output_dir
                     / "aot_candidate_schedules"
                     / space.name
-                    / spec.candidate_sampling
-                )
-                if spec.seed_offset:
-                    expected_schedule_dir /= (
-                        f"seed_offset_{spec.seed_offset}"
-                    )
-                self.assertEqual(
-                    call.kwargs["candidate_schedule_dir"],
-                    expected_schedule_dir,
+                    / spec.candidate_sampling,
                 )
             self.assertTrue(artifacts.aot_enabled)
             self.assertEqual(tuple(artifacts.branches), study.methods)
@@ -175,7 +164,7 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
             ("recursive_mc", 0),
             ("recursive_lstdq_v1", 1009),
             ("recursive_lstdq_v2", 2018),
-            ("recursive_lstdq_v3", 2018),
+            ("recursive_lstdq_v3", 3027),
             ("rblspi", 5045),
             ("stagewise_lsvi", 2018),
             ("structured_model_based", 3027),
@@ -186,11 +175,6 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
                 name=kind,
                 setup_kind="linucb",
                 solve_kind=kind,
-                seed_offset=(
-                    100_003
-                    if kind == "recursive_lstdq_v3"
-                    else 0
-                ),
             )
             for kind, _offset in kinds_and_offsets
         ) + (
@@ -244,16 +228,12 @@ class ComposableJoint4KAssemblyTests(unittest.TestCase):
         )
         self.assertIsNone(runtime.ppo_runner)
         self.assertEqual(build.call_count, len(kinds_and_offsets))
-        for call, spec, (kind, offset) in zip(
+        for call, (kind, offset) in zip(
             build.call_args_list,
-            specs,
             kinds_and_offsets,
         ):
             self.assertIs(call.args[0], typed_specs[kind])
-            self.assertEqual(
-                call.kwargs["seed"],
-                101 + offset + spec.seed_offset,
-            )
+            self.assertEqual(call.kwargs["seed"], 101 + offset)
 
     def test_typed_solve_runtime_rejects_missing_and_unknown_online_kinds(
         self,

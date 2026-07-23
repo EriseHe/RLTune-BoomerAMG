@@ -78,7 +78,6 @@ def _validate_resolved(
                 "candidate_sampling": spec.candidate_sampling,
                 "solve": spec.solve_kind,
                 "fixed_weight": spec.fixed_weight,
-                "seed_offset": int(spec.seed_offset),
             }
             for spec in specs
         ],

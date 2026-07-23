@@ -15,7 +15,6 @@ METHOD_KEYS = {
     "candidate_sampling",
     "solve",
     "fixed_weight",
-    "seed_offset",
 }
 CANDIDATE_SAMPLING_METHODS = ("uniform512", "structured512")
 
@@ -30,7 +29,6 @@ class ComposableMethodSpec:
     setup_space: str | None = None
     candidate_sampling: str = "uniform512"
     fixed_weight: float | None = None
-    seed_offset: int = 0
 
     @property
     def family(self) -> str:
@@ -158,7 +156,6 @@ class ComposableMethodSpec:
                 raise ValueError(
                     f"method {name!r} fixed_weight must be finite and positive"
                 )
-        seed_offset = int(raw.get("seed_offset", 0))
 
         return cls(
             name=name,
@@ -167,7 +164,6 @@ class ComposableMethodSpec:
             setup_space=setup_space,
             candidate_sampling=candidate_sampling,
             fixed_weight=fixed_weight,
-            seed_offset=seed_offset,
         )
 
     def to_runner_token(self) -> str:
@@ -181,25 +177,19 @@ class ComposableMethodSpec:
         solve = self.solve_kind
         if solve == "fixed":
             solve = f"fixed@{float(self.fixed_weight):g}"
-        token = f"{self.name}:{setup}:{solve}"
-        if self.seed_offset:
-            token = f"{token}:{self.seed_offset}"
-        return token
+        return f"{self.name}:{setup}:{solve}"
 
     @classmethod
     def from_runner_token(cls, raw: str) -> "ComposableMethodSpec":
         """Parse the temporary ``name:setup:solve`` CLI boundary."""
 
-        parts = str(raw).split(":", 3)
-        if len(parts) not in {3, 4} or not all(
-            part.strip() for part in parts
-        ):
+        parts = str(raw).split(":", 2)
+        if len(parts) != 3 or not all(part.strip() for part in parts):
             raise ValueError(
-                "Composable methods must use "
-                "name:setup:solve[:seed_offset] syntax"
+                "Composable methods must use name:setup:solve syntax"
             )
         name, setup_token, solve_token = (
-            part.strip() for part in parts[:3]
+            part.strip() for part in parts
         )
         setup_parts = setup_token.split("@")
         if len(setup_parts) > 3:
@@ -221,8 +211,6 @@ class ComposableMethodSpec:
             method["fixed_weight"] = float(
                 solve_token.split("@", 1)[1]
             )
-        if len(parts) == 4:
-            method["seed_offset"] = int(parts[3])
         return cls.from_mapping(method)
 
 
