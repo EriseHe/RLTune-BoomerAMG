@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Any, Callable, Literal, Mapping
 
 from solve.controllers.common import (
     ControllerBundle,
+    OnlineControllerFactoryRequest,
     SharedActionSpec,
     SolveStateSpec,
 )
@@ -13,24 +14,31 @@ from solve.controllers.lsvi import (
     HierarchicalLsviLcbSpec,
     StagewiseLsviLcbController,
     StagewiseLsviLcbSpec,
+    build_hierarchical_lsvi_controller,
+    build_stagewise_lsvi_controller,
 )
 from solve.controllers.model_based import (
     StructuredModelBasedController,
     StructuredModelBasedSpec,
+    build_structured_model_based_controller,
 )
 from solve.controllers.rblspi import (
     RecursiveBlstdqController,
     RecursiveBlstdqSpec,
+    build_rblspi_controller,
 )
 from solve.controllers.recursive_lstdq import (
     RecursiveLstdqLcbController,
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbController,
     RecursiveLstdqV2LcbSpec,
+    build_recursive_lstdq_v1_controller,
+    build_recursive_lstdq_v2_controller,
 )
 from solve.controllers.recursive_mc import (
     RecursiveMonteCarloLcbController,
     RecursiveMonteCarloLcbSpec,
+    build_recursive_mc_controller,
 )
 
 
@@ -75,9 +83,11 @@ class SolveKindRegistration:
     backend: str
     controller_type: type[Any] | None = None
     spec_type: type[Any] | None = None
+    factory: (
+        Callable[[OnlineControllerFactoryRequest[Any]], ControllerBundle] | None
+    ) = None
     fixed_trace_lambda: float | None = None
     trace_lambda_from_request: bool = False
-    epsilon_enabled: bool = True
 
     @property
     def online(self) -> bool:
@@ -106,6 +116,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=RecursiveMonteCarloLcbController,
         spec_type=RecursiveMonteCarloLcbSpec,
+        factory=build_recursive_mc_controller,
         fixed_trace_lambda=1.0,
     ),
     "recursive_lstdq_v1": SolveKindRegistration(
@@ -114,6 +125,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=RecursiveLstdqLcbController,
         spec_type=RecursiveLstdqLcbSpec,
+        factory=build_recursive_lstdq_v1_controller,
         trace_lambda_from_request=True,
     ),
     "recursive_lstdq_v2": SolveKindRegistration(
@@ -122,6 +134,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=RecursiveLstdqV2LcbController,
         spec_type=RecursiveLstdqV2LcbSpec,
+        factory=build_recursive_lstdq_v2_controller,
         trace_lambda_from_request=True,
     ),
     "rblspi": SolveKindRegistration(
@@ -130,8 +143,8 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=RecursiveBlstdqController,
         spec_type=RecursiveBlstdqSpec,
+        factory=build_rblspi_controller,
         fixed_trace_lambda=0.0,
-        epsilon_enabled=False,
     ),
     "stagewise_lsvi": SolveKindRegistration(
         kind="stagewise_lsvi",
@@ -139,6 +152,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=StagewiseLsviLcbController,
         spec_type=StagewiseLsviLcbSpec,
+        factory=build_stagewise_lsvi_controller,
         fixed_trace_lambda=0.8,
     ),
     "structured_model_based": SolveKindRegistration(
@@ -147,6 +161,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=StructuredModelBasedController,
         spec_type=StructuredModelBasedSpec,
+        factory=build_structured_model_based_controller,
         fixed_trace_lambda=0.0,
     ),
     "recalibrated_lsvi": SolveKindRegistration(
@@ -155,6 +170,7 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         backend="online_controller",
         controller_type=HierarchicalLsviLcbController,
         spec_type=HierarchicalLsviLcbSpec,
+        factory=build_hierarchical_lsvi_controller,
         fixed_trace_lambda=0.8,
     ),
 }
@@ -206,26 +222,24 @@ def build_online_solve_controller(
     """Build one setup-aware online controller from a single typed request."""
 
     registration = _online_registration(spec.kind)
-    assert registration.controller_type is not None
     assert registration.spec_type is not None
+    assert registration.factory is not None
     if type(spec.algorithm) is not registration.spec_type:
         raise TypeError(
             f"{spec.kind} requires {registration.spec_type.__name__}, "
             f"got {type(spec.algorithm).__name__}"
         )
     trace_lambda = _resolve_trace_lambda(registration, spec.trace_lambda)
-    encoder = spec.state.build_encoder(setup_obs_encoder=setup_obs_encoder)
-    config = spec.actions.to_td_config(
-        trace_lambda=trace_lambda,
-        epsilon_enabled=registration.epsilon_enabled,
+    return registration.factory(
+        OnlineControllerFactoryRequest(
+            state=spec.state,
+            actions=spec.actions,
+            algorithm=spec.algorithm,
+            trace_lambda=trace_lambda,
+            setup_obs_encoder=setup_obs_encoder,
+            seed=int(seed),
+        )
     )
-    controller = registration.controller_type(
-        feature_dim=encoder.feature_dim,
-        config=config,
-        spec=spec.algorithm,
-        seed=int(seed),
-    )
-    return ControllerBundle(controller=controller, encoder=encoder)
 
 
 def solve_kind_registration(kind: str) -> SolveKindRegistration:
@@ -238,7 +252,9 @@ def solve_kind_registration(kind: str) -> SolveKindRegistration:
 def _online_registration(kind: str) -> SolveKindRegistration:
     registration = solve_kind_registration(kind)
     if not registration.online:
-        raise ValueError(f"{kind} is a {registration.backend} backend, not an online controller")
+        raise ValueError(
+            f"{kind} is a {registration.backend} backend, not an online controller"
+        )
     return registration
 
 

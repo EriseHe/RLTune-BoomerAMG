@@ -1,11 +1,11 @@
-"""Online TD(lambda) solve controllers and state/action encoding."""
+"""Online TD(lambda) solve controllers and transactional episode execution."""
 
 from __future__ import annotations
 
 import json
 import math
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Sequence
 
@@ -20,105 +20,14 @@ from hypre.bindings import (
     create_env,
     execute_attempt,
 )
+from solve.controllers.common.action_space import (
+    build_action_basis,
+    joint_action_features,
+)
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from solve.core.outcomes import classify_rl_failure
 
-
-@dataclass(frozen=True)
-class ExpectedSarsaLambdaConfig:
-    weights: tuple[float, ...] = (1.4, 1.5, 1.6)
-    anchor_weight: float = 1.4
-    alpha: float = 0.02
-    td_decay_power: float = 0.0
-    gamma: float = 1.0
-    trace_lambda: float = 0.8
-    epsilon_start: float = 0.20
-    epsilon_final: float = 0.01
-    epsilon_decay_steps: float = 4000.0
-    l2: float = 0.0
-    initial_q_sec: float = 0.02
-    monte_carlo_alpha: float = 0.0
-    monte_carlo_decay_power: float = 0.0
-    adaptive_cycles: int | None = None
-    exploration_mode: str = "uniform"
-    action_rbf_sigma: float = 0.0
-    action_basis_mode: str = "legacy"
-    action_basis_centers: tuple[float, ...] = ()
-    td_algorithm: str = "expected_sarsa"
-    force_default_first_action: bool = False
-
-
-def build_action_basis(
-    weights: Sequence[float],
-    *,
-    mode: str,
-    rbf_sigma: float,
-    rbf_centers: Sequence[float] = (),
-) -> np.ndarray:
-    """Build a fixed action basis shared by linear value estimators."""
-
-    action_values = np.asarray(tuple(float(weight) for weight in weights), dtype=float)
-    if action_values.ndim != 1 or action_values.size == 0:
-        raise ValueError("weights must contain at least one finite action")
-    if not np.all(np.isfinite(action_values)):
-        raise ValueError("weights must be finite")
-    basis_mode = str(mode).strip().lower()
-    sigma = float(rbf_sigma)
-    if sigma < 0.0:
-        raise ValueError("action_rbf_sigma must be non-negative")
-
-    if basis_mode == "legacy":
-        if rbf_centers:
-            raise ValueError("legacy action basis does not accept explicit centers")
-        if sigma <= 0.0:
-            return np.eye(action_values.size, dtype=float)
-        centers = action_values
-    elif basis_mode == "compact_rbf":
-        centers = np.asarray(tuple(float(value) for value in rbf_centers), dtype=float)
-        if sigma <= 0.0:
-            raise ValueError("compact_rbf action basis requires a positive RBF width")
-        if centers.ndim != 1 or centers.size == 0 or not np.all(np.isfinite(centers)):
-            raise ValueError("compact_rbf action basis requires finite centers")
-    else:
-        raise ValueError("action_basis_mode must be 'legacy' or 'compact_rbf'")
-
-    distances = action_values[:, None] - centers[None, :]
-    basis = np.exp(-0.5 * np.square(distances / sigma))
-    basis[np.abs(distances) > 2.5 * sigma] = 0.0
-    row_sums = np.sum(basis, axis=1, keepdims=True)
-    if np.any(row_sums <= 1.0e-15):
-        raise ValueError("action RBF centers do not cover every action")
-    return basis / row_sums
-
-
-def joint_action_features(
-    action_basis: np.ndarray,
-    features: np.ndarray,
-    *,
-    action_indices: int | Sequence[int] | np.ndarray | None = None,
-) -> np.ndarray:
-    """Return flattened joint features for all or selected discrete actions."""
-
-    basis = np.asarray(action_basis, dtype=float)
-    state = np.asarray(features, dtype=float)
-    if basis.ndim != 2 or state.ndim != 1:
-        raise ValueError("action basis must be 2D and state features must be 1D")
-    if action_indices is not None:
-        indices = np.asarray(action_indices, dtype=int)
-        if indices.ndim == 0:
-            indices = indices.reshape(1)
-        if indices.ndim != 1:
-            raise ValueError("action_indices must be a scalar or one-dimensional")
-        if np.any(indices < 0) or np.any(indices >= basis.shape[0]):
-            raise IndexError("action index is outside the action basis")
-        basis = basis[indices]
-        return (basis[:, :, None] * state[None, None, :]).reshape(
-            basis.shape[0],
-            basis.shape[1] * state.size,
-        )
-    return np.einsum("ab,f->abf", basis, state, optimize=True).reshape(
-        basis.shape[0],
-        basis.shape[1] * state.size,
-    )
+from .config import ExpectedSarsaLambdaConfig
 
 
 class OnlineFixedWeightIncumbent:
@@ -201,142 +110,6 @@ class OnlineFixedWeightIncumbent:
             "initial_weight": float(self.weights[self.initial_index]),
             "incumbent_weight": self.incumbent_weight,
         }
-
-
-class SolveStateEncoder:
-    """Small bounded feature map for a stream of short AMG solve episodes."""
-
-    _CYCLE_BOUNDS = np.asarray([1, 2, 3, 5, 8, 12], dtype=int)
-
-    def __init__(
-        self,
-        *,
-        tol: float,
-        max_cycles: int,
-        c_max: float,
-        time_scale_sec: float = 2.0e-3,
-        mode: str = "full",
-        setup_obs_encoder: Any | None = None,
-    ) -> None:
-        self.tol = float(tol)
-        self.max_cycles = int(max_cycles)
-        self.c_max = float(c_max)
-        self.time_scale_sec = float(time_scale_sec)
-        self.mode = str(mode).strip().lower()
-        self.setup_obs_encoder = setup_obs_encoder
-        self.cycle_bins = int(self._CYCLE_BOUNDS.size + 1)
-        self._cached_problem_key: tuple[float, float, float] | None = None
-        self._cached_problem_features = np.zeros(4, dtype=float)
-        self._cached_initial_residual: float | None = None
-        self._cached_initial_gap = 1.0
-        self._cached_setup_key: tuple[Any, ...] | None = None
-        self._cached_setup_features = np.empty(0, dtype=float)
-        if self.mode in {"full", "setup_full"}:
-            setup_dim = 0
-            if self.mode == "setup_full":
-                if self.setup_obs_encoder is None:
-                    raise ValueError("setup_full mode requires a setup observation encoder")
-                setup_dim = len(self.setup_obs_encoder.observed_keys)
-            self.feature_dim = 11 + 2 * self.cycle_bins + setup_dim
-            self._cycle_features = None
-        elif self.mode == "cycle_tabular":
-            self.feature_dim = int(self.max_cycles + 1)
-            self._cycle_features = np.eye(self.feature_dim, dtype=float)
-        else:
-            raise ValueError(f"Unknown solve state mode: {self.mode}")
-
-    def encode(
-        self,
-        *,
-        mkw: Dict[str, Any],
-        initial_residual: float,
-        residual: float,
-        previous_residual: float,
-        cycle: int,
-        last_weight: float,
-        last_cycle_time: float,
-        setup_params: Dict[str, Any] | None = None,
-    ) -> np.ndarray:
-        if self.mode == "cycle_tabular":
-            assert self._cycle_features is not None
-            return self._cycle_features[int(np.clip(cycle, 0, self.max_cycles))]
-
-        eps = 1.0e-30
-        initial_residual_value = float(initial_residual)
-        if self._cached_initial_residual != initial_residual_value:
-            self._cached_initial_residual = initial_residual_value
-            self._cached_initial_gap = max(
-                math.log(max(initial_residual_value, self.tol) / self.tol),
-                eps,
-            )
-        initial_gap = self._cached_initial_gap
-        gap = math.log(max(float(residual), self.tol) / self.tol)
-        gap_fraction = min(max(gap / initial_gap, 0.0), 1.5)
-        log_ratio = math.log((float(residual) + eps) / (float(previous_residual) + eps))
-        log_ratio = min(max(log_ratio / 5.0, -1.0), 1.0)
-        cycle_fraction = min(
-            max(float(cycle) / max(1.0, float(self.max_cycles)), 0.0),
-            1.0,
-        )
-        cycle_time = min(
-            max(float(last_cycle_time) / max(self.time_scale_sec, eps), 0.0),
-            5.0,
-        ) / 5.0
-        weight = min(max((float(last_weight) - 1.4) / 0.4, -1.0), 1.5)
-
-        problem_key = (float(mkw["k"]), float(mkw["c"]), float(mkw["a0"]))
-        if self._cached_problem_key != problem_key:
-            self._cached_problem_key = problem_key
-            c_denom = max(math.log(max(1.0, self.c_max)), eps)
-            coeffs = np.asarray(
-                [math.log(max(value, eps)) / c_denom for value in problem_key],
-                dtype=float,
-            )
-            coeffs = np.clip(coeffs, -1.0, 1.5)
-            self._cached_problem_features[:3] = coeffs
-            self._cached_problem_features[3] = float(np.max(coeffs) - np.min(coeffs))
-
-        cycle_bin = int(np.searchsorted(self._CYCLE_BOUNDS, int(cycle), side="right"))
-        features = np.zeros(self.feature_dim, dtype=float)
-        features[:7] = (
-            1.0,
-            cycle_fraction,
-            gap_fraction,
-            gap_fraction * gap_fraction,
-            log_ratio,
-            cycle_time,
-            weight,
-        )
-        features[7:11] = self._cached_problem_features
-        features[11 + cycle_bin] = 1.0
-        features[11 + self.cycle_bins + cycle_bin] = gap_fraction
-        if self.mode == "setup_full":
-            assert self.setup_obs_encoder is not None
-            params = {} if setup_params is None else setup_params
-            setup_defaults = getattr(self.setup_obs_encoder, "defaults", {})
-            setup_key = tuple(
-                params.get(key, setup_defaults.get(key, 0.0))
-                for key in self.setup_obs_encoder.observed_keys
-            )
-            if self._cached_setup_key != setup_key:
-                self._cached_setup_key = setup_key
-                setup_features = np.asarray(
-                    self.setup_obs_encoder.encode(params),
-                    dtype=float,
-                )
-                self._cached_setup_features = np.clip(setup_features, -2.0, 2.0)
-            features[11 + 2 * self.cycle_bins :] = self._cached_setup_features
-        if features.size != self.feature_dim:
-            raise RuntimeError(f"Expected {self.feature_dim} state features, got {features.size}")
-        return features
-
-    def constant_value_parameters(self, value: float) -> np.ndarray:
-        parameters = np.zeros(self.feature_dim, dtype=float)
-        if self.mode == "cycle_tabular":
-            parameters.fill(float(value))
-        else:
-            parameters[0] = float(value)
-        return parameters
 
 
 class ExpectedSarsaLambda:

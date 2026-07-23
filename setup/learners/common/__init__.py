@@ -15,6 +15,7 @@ from .aot_candidates import (
 )
 from .candidate_subset import CandidateSelector, resolve_tune7_candidate_strategy
 from .config import LinTSV2Spec, LinUCBV4Spec, SharedSetupLearnerSpec
+from .factory import SetupLearnerFactoryRequest
 
 __all__ = [
     "AOTCandidateSchedule",
@@ -27,6 +28,7 @@ __all__ = [
     "ParameterSpaceSpec",
     "ParameterSpec",
     "SharedSetupLearnerSpec",
+    "SetupLearnerFactoryRequest",
     "action_key_from_parameter_space_spec",
     "default_action_from_parameter_space_spec",
     "iter_actions_from_parameter_space_spec",

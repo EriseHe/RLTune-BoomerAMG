@@ -14,7 +14,7 @@ import numpy as np
 from plot_shared_action_rl_study import plot_action_trajectory_grid
 from online_td_experiment_common import _write_json
 from run_online_methods_2k import _method_comparison
-from run_joint_online_sarsa_4k import _window_result, _write_summary_csv
+from joint_reporting import _window_result, _write_summary_csv
 
 
 FAMILY_ORDER = (

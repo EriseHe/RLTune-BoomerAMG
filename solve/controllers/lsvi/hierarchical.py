@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,18 +15,7 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
-
-@dataclass(frozen=True)
-class HierarchicalLsviLcbSpec:
-    """Stagewise LSVI with a shared cross-stage ridge prior."""
-
-    horizon: int = 50
-    ridge: float = 1.0
-    uncertainty_beta: float = 2.0
-    residual_floor_sec: float = 1.0e-3
-    refit_interval_episodes: int = 100
-    refit_sweeps: int = 3
-    residual_shrinkage_samples: float = 32.0
+from .config import HierarchicalLsviLcbSpec
 
 _HIERARCHICAL_LSVI_CHECKPOINT_VERSION = 1
 

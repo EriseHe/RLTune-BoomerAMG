@@ -1,5 +1,11 @@
 """Recursive Bayesian LSTDQ / RBLSPI controller family."""
 
-from .controller import RecursiveBlstdqController, RecursiveBlstdqSpec
+from .config import RecursiveBlstdqSpec
+from .controller import RecursiveBlstdqController
+from .factory import build_rblspi_controller
 
-__all__ = ["RecursiveBlstdqController", "RecursiveBlstdqSpec"]
+__all__ = [
+    "RecursiveBlstdqController",
+    "RecursiveBlstdqSpec",
+    "build_rblspi_controller",
+]

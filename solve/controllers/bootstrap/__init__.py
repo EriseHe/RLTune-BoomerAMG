@@ -1,5 +1,6 @@
 """Bootstrap SARSA LCB controller family."""
 
-from .controller import BootstrapLcbSarsaController, BootstrapSarsaSpec
+from .config import BootstrapSarsaSpec
+from .controller import BootstrapLcbSarsaController
 
 __all__ = ["BootstrapLcbSarsaController", "BootstrapSarsaSpec"]

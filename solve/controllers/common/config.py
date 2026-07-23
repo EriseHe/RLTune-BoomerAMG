@@ -4,10 +4,9 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambdaConfig,
-    SolveStateEncoder,
-)
+from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+
+from .state_encoder import SolveStateEncoder
 
 
 @dataclass(frozen=True)

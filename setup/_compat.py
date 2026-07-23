@@ -44,7 +44,10 @@ _LEARNER_SUBMODULES = {
     "common.aot_candidates": "setup.learners.common.aot_candidates",
     "common.candidate_subset": "setup.learners.common.candidate_subset",
     "common.config": "setup.learners.common.config",
+    "common.factory": "setup.learners.common.factory",
     "linucb": "setup.learners.linucb",
+    "linucb.config": "setup.learners.linucb.config",
+    "linucb.factory": "setup.learners.linucb.factory",
     "linucb.LinUCB_AMG": "setup.learners.linucb.LinUCB_AMG",
     "linucb.LinUCB_AMG_v2": "setup.learners.linucb.LinUCB_AMG_v2",
     "linucb.SharedLinUCB_AMG": (
@@ -61,6 +64,8 @@ _LEARNER_SUBMODULES = {
     ),
     "linucb.setup_reselection": "setup.learners.linucb.setup_reselection",
     "thompson": "setup.learners.thompson",
+    "thompson.config": "setup.learners.thompson.config",
+    "thompson.factory": "setup.learners.thompson.factory",
     "thompson.RFF_TS_AMG": "setup.learners.thompson.RFF_TS_AMG",
     "thompson.SharedBootstrapTS_AMG": (
         "setup.learners.thompson.SharedBootstrapTS_AMG"

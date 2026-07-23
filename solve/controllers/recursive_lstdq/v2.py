@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,16 +17,8 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
-from .v1 import RecursiveLstdqLcbController, RecursiveLstdqLcbSpec
-
-
-@dataclass(frozen=True)
-class RecursiveLstdqV2LcbSpec(RecursiveLstdqLcbSpec):
-    """Coverage-calibrated confidence controls for recursive LSTDQ."""
-
-    coverage_ridge: float = 1.0
-    residual_scale_window: int = 2048
-    residual_scale_min_samples: int = 32
+from .config import RecursiveLstdqV2LcbSpec
+from .v1 import RecursiveLstdqLcbController
 
 _RECURSIVE_LSTDQ_V2_CHECKPOINT_VERSION = 1
 

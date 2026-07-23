@@ -7,10 +7,10 @@ solve policy.
 ## Layout
 
 - `learners/`: contextual bandits grouped into `linucb/`, `bayesian/`,
-  `thompson/`, and `tsallis/` families. These modules own the implementations
-  and their checkpoint formats.
-- `registry.py`: typed learner selection and construction shared by setup-only
-  and joint experiments.
+  `thompson/`, and `tsallis/` families. Active families own their typed
+  algorithm config, factory, implementation, and checkpoint format.
+- `registry.py`: typed learner selection and family-factory dispatch shared by
+  setup-only and joint experiments; it does not construct concrete learners.
 - `scripts/`: setup-only experiment and benchmark entry points.
 - `utils/`: setup action spaces, output paths, plotting, and experiment helpers.
 - `tests/`: setup-only unit and integration tests.

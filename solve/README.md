@@ -11,7 +11,7 @@ through `hypre.bindings`.
 ## Layout
 
 - `controllers/`: canonical solve-controller families.
-- `registry.py`: typed controller construction boundary.
+- `registry.py`: typed dispatch boundary for family-owned factories.
 - `core/`: solver environments and algorithm-independent outcome handling.
 - `scripts/`: solve-only training, evaluation, and smoke entry points.
 - `tests/`: solve-only tests.
@@ -20,3 +20,8 @@ PDE definitions and deterministic instance streams live in the shared
 `problems/` package. Workflows that also use a setup learner belong in
 `experiments/`, not in this directory. Historical `SolvePhase.*` paths remain
 as compatibility aliases only.
+
+Online construction returns a `ControllerBundle`. The bundle owns the paired
+state encoder and exposes `run_case()`, `summary()`, `save()`, and
+`protocol_metadata()`; setup selection, fallback choice, stream ordering, and
+reporting remain experiment responsibilities.

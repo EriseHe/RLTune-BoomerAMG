@@ -294,6 +294,10 @@ def build_joint_protocol(
     recursive_mc_method: str,
     recursive_lstdq_method: str,
     batched_lsvi_method: str,
+    solve_controller_protocols: Mapping[
+        str,
+        Mapping[str, Any],
+    ] | None = None,
 ) -> Dict[str, Any]:
     """Build the persisted experiment protocol without running an experiment."""
     protocol = _base_protocol(
@@ -313,77 +317,29 @@ def build_joint_protocol(
         protocol.pop("sarsa")
         if not any(spec.solve_kind == "ppo" for spec in composable_specs):
             protocol.pop("ppo")
-        shared_protocol = _shared_controller_protocol(
-            args,
-            action_profile="explicit",
-        )
-        solve_kinds = {spec.solve_kind for spec in composable_specs}
-        if "recursive_lstdq_v1" in solve_kinds:
-            protocol["recursive_lstdq_lcb"] = (
-                _recursive_lstdq_v1_protocol(args, shared_protocol)
+        if solve_controller_protocols is None:
+            raise ValueError(
+                "Composable protocol metadata must come from controller bundles"
             )
-        if "recursive_lstdq_v2" in solve_kinds:
-            protocol["recursive_lstdq_v2_lcb"] = (
-                _recursive_lstdq_v2_protocol(args, shared_protocol)
-            )
-        if "rblspi" in solve_kinds:
-            protocol["recursive_blstdq_rblspi"] = dict(shared_protocol) | {
-                "target": "off-policy BLSTDQ empirical Bellman equation",
-                "posterior": (
-                    "S^-1=alpha*I+beta*A.T*C^-1*A; "
-                    "m=beta*S*A.T*C^-1*b"
-                ),
-                "exploration": (
-                    "one sampled Q-function per solve episode"
-                ),
-                "epsilon": {"kind": "none"},
-                "trace_lambda": 0.0,
-                "prior_precision": float(
-                    args.rblspi_prior_precision
-                ),
-                "noise_precision": float(
-                    args.rblspi_noise_precision
-                ),
-                "gram_ridge": float(args.rblspi_gram_ridge),
-                "history_storage": (
-                    "none; recursive A/C/b statistics only"
-                ),
-            }
-        if "recursive_mc" in solve_kinds:
-            protocol["recursive_mc_lcb"] = dict(shared_protocol) | {
-                "target": "undiscounted episodic cost-to-go",
-                "ridge": float(args.recursive_mc_ridge),
-                "uncertainty_beta": float(args.recursive_mc_beta),
-                "residual_floor_sec": float(
-                    args.recursive_mc_residual_floor_sec
-                ),
-                "episode_half_life": float(
-                    args.recursive_mc_episode_half_life
-                ),
-                "uncertainty": (
-                    "post-fit episode-cluster sandwich covariance"
-                ),
-            }
-        if "stagewise_lsvi" in solve_kinds:
-            protocol["stagewise_lsvi_lcb"] = dict(shared_protocol) | {
-                "horizon": int(args.max_cycles),
-                "ridge": float(args.lsvi_ridge),
-                "uncertainty_beta": float(args.lsvi_beta),
-                "residual_floor_sec": float(
-                    args.lsvi_residual_floor_sec
-                ),
-                "refit_interval_episodes": int(
-                    args.lsvi_refit_interval_episodes
-                ),
-            }
-        if "structured_model_based" in solve_kinds:
-            protocol["structured_model_based"] = (
-                _structured_model_protocol(args, shared_protocol)
-            )
-        if "recalibrated_lsvi" in solve_kinds:
-            protocol["recalibrated_lsvi_lcb"] = (
-                _recalibrated_lsvi_protocol(args, shared_protocol)
-            )
+        resolved_controller_protocols = {
+            str(method): dict(metadata)
+            for method, metadata in solve_controller_protocols.items()
+        }
+        protocol["solve_controllers"] = resolved_controller_protocols
+        section_by_kind = {
+            "recursive_mc": "recursive_mc_lcb",
+            "recursive_lstdq_v1": "recursive_lstdq_lcb",
+            "recursive_lstdq_v2": "recursive_lstdq_v2_lcb",
+            "rblspi": "recursive_blstdq_rblspi",
+            "stagewise_lsvi": "stagewise_lsvi_lcb",
+            "structured_model_based": "structured_model_based",
+            "recalibrated_lsvi": "recalibrated_lsvi_lcb",
+        }
+        for spec in composable_specs:
+            metadata = resolved_controller_protocols.get(spec.name)
+            section = section_by_kind.get(spec.solve_kind)
+            if metadata is not None and section is not None:
+                protocol.setdefault(section, metadata)
     elif args.study_mode == "lsvi_lcb":
         protocol.pop("sarsa")
         protocol.pop("ppo")

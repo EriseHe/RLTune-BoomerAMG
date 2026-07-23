@@ -5,29 +5,12 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict
-from dataclasses import dataclass
 from typing import Any, Dict
 
 import numpy as np
 
+from .config import SarsaBehaviorSpec
 from .online_td_lambda import ExpectedSarsaLambda
-
-
-@dataclass(frozen=True)
-class SarsaBehaviorSpec:
-    action_mode: str
-    behavior_mode: str
-    initial_weight: float = 1.0
-    force_default_first_action: bool = True
-    residual_min: float = 1.0
-    residual_max: float = 2.0
-    uncertainty_beta: float = 1.0
-    uncertainty_ridge: float = 1.0
-    uncertainty_td_floor_sec: float = 1.0e-3
-
-    @property
-    def name(self) -> str:
-        return f"{self.action_mode}_{self.behavior_mode}"
 
 
 class BehaviorPolicySarsaController(ExpectedSarsaLambda):

@@ -18,6 +18,11 @@ from solve.controllers.sarsa import (
     SolveStateEncoder,
     run_td_episode,
 )
+from solve.controllers.ppo import (
+    FrozenPpoConfig,
+    SetupAwareSolvePolicyRunner,
+    build_frozen_ppo_runner,
+)
 from online_td_experiment_common import _action_diagnostics, _json_ready, _write_json
 from run_exp44_online_rl import make_controller
 from joint_online_common import (
@@ -33,8 +38,6 @@ from setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,
-    SetupAwareRLConfig,
-    SetupAwareSolvePolicyRunner,
     augment_setup_params,
     classify_rl_failure,
     default_test_final_bandit_config_from_env,
@@ -237,46 +240,10 @@ def _continuous_action_diagnostics(rows: Sequence[Dict[str, Any]]) -> Dict[str, 
 
 
 def make_exp44_ppo_runner(args: argparse.Namespace) -> SetupAwareSolvePolicyRunner:
-    action_mode = str(
-        getattr(args, "ppo_action_mode", "continuous_absolute")
-    ).strip().lower()
-    w_center = float(getattr(args, "ppo_w_center", 1.5))
-    w_scale = float(getattr(args, "ppo_w_scale", 0.5))
-    initial_weight = float(
-        getattr(args, "ppo_initial_observation_weight", 1.0)
-    )
-    return SetupAwareSolvePolicyRunner(
-        SetupAwareRLConfig(
-            tune_dim=7,
-            tune7_variant="categorical",
-            algo="ppo",
-            model_type="lstm",
-            model_path=args.ppo_model,
-            vec_path=args.output_dir / ".unused_vecnormalize.pkl",
-            fixed_grid=(int(args.grid_n),) * 3,
-            difconv_c_range=(float(args.c_min), float(args.c_max)),
-            w_only=True,
-            w_center=w_center,
-            w_scale=w_scale,
-            w_global_min=1.0,
-            w_global_max=2.0,
-            sweeps_min=1,
-            sweeps_max=1,
-            w_init=None,
-            sweeps_init=None,
-            solve_max_cycles=int(args.max_cycles),
-            solve_tol=float(args.tol),
-            default_setup_params={},
-            obs_mode="cycle_action_setup",
-            action_mode=action_mode,
-            initial_observation_weight=initial_weight,
-            force_default_first_action=bool(
-                getattr(args, "ppo_force_default_first_action", False)
-            ),
-            default_first_weight=float(
-                getattr(args, "ppo_default_first_weight", initial_weight)
-            ),
-        )
+    """Compatibility delegate to the solve-owned frozen PPO factory."""
+
+    return build_frozen_ppo_runner(
+        FrozenPpoConfig.from_runtime(args)
     )
 
 

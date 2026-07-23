@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -17,14 +17,7 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
-
-@dataclass(frozen=True)
-class RecursiveBlstdqSpec:
-    """Bayesian LSTDQ posterior controls for RBLSPI-style exploration."""
-
-    prior_precision: float = 1.0e4
-    noise_precision: float = 1.0e6
-    gram_ridge: float = 1.0e-6
+from .config import RecursiveBlstdqSpec
 
 _RECURSIVE_BLSTDQ_CHECKPOINT_VERSION = 1
 

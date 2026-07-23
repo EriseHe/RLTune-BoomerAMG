@@ -19,6 +19,16 @@ retained Exp44 workflow.
   - setup parameter specifications and observation encoding; no native runtime
 - `joint_online_common.py`
   - instance streams, reporting, and recovery invariants
+- `joint_4k_runner.py`
+  - canonical stream/protocol orchestrator; legacy study modes remain here
+- `composable_joint_4k.py`
+  - composable method validation, named setup-space/AOT branch assembly,
+    typed solve-controller bundles, and frozen PPO resolution
+- `joint_4k_execution.py`
+  - mode-neutral online comparison, checkpoint, retry/fallback, and reporting
+    loop
+- `run_joint_online_sarsa_4k.py`
+  - compatibility-only facade for the historical runner name
 - `solve/controllers/ppo/`
   - PPO policy definitions
 
@@ -120,7 +130,7 @@ same external instance stream.
 
 ```bash
 /opt/anaconda3/envs/rl/bin/python -u \
-  experiments/joint/solve_control/run_joint_online_sarsa_4k.py \
+  experiments/joint/solve_control/joint_4k_runner.py \
   --output-dir results/joint/online_linear_lcb_v2/run_logs/joint_online_recursive_lcb_ppo_joint4k_n60_w1to3_step005_recovery_v2_20260720 \
   --study-mode recursive_lcb_ppo \
   --ppo-model results/joint/exp44/run_logs/exp44_absolute_lstm_train2000_instances_seed39396939_20260719/training/model_best.zip \

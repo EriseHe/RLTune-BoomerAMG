@@ -2,11 +2,19 @@ from __future__ import annotations
 
 from solve.tests import _project_paths  # noqa: F401
 
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
-from solve.controllers.common import SharedActionSpec, SolveStateSpec
+from solve.controllers.common import (
+    OnlineSolveCase,
+    SharedActionSpec,
+    SolveStateSpec,
+)
 from solve.controllers.recursive_lstdq import (
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbSpec,
@@ -87,7 +95,28 @@ class SolveRegistryTests(unittest.TestCase):
                 )
                 registration = solve_kind_registration(kind)
                 self.assertIs(type(bundle.controller), registration.controller_type)
-                self.assertEqual(bundle.controller.feature_dim, bundle.encoder.feature_dim)
+                self.assertEqual(
+                    bundle.controller.feature_dim,
+                    bundle.encoder.feature_dim,
+                )
+                metadata = bundle.protocol_metadata()
+                self.assertEqual(metadata["kind"], kind)
+                self.assertEqual(metadata["family"], registration.family)
+                json.dumps(metadata)
+
+    def test_online_registrations_delegate_to_family_factories(self) -> None:
+        for kind in ONLINE_SOLVE_KINDS:
+            with self.subTest(kind=kind):
+                registration = solve_kind_registration(kind)
+                self.assertIsNotNone(registration.factory)
+                self.assertTrue(
+                    registration.factory.__module__.endswith(".factory"),
+                    registration.factory.__module__,
+                )
+                self.assertIn(
+                    f".{registration.family}.",
+                    registration.factory.__module__,
+                )
 
     def test_rblspi_disables_epsilon_without_a_second_config_path(self) -> None:
         request = make_online_controller_spec(
@@ -130,6 +159,139 @@ class SolveRegistryTests(unittest.TestCase):
                 setup_obs_encoder=self.setup_encoder,
                 seed=7,
             )
+
+    def test_bundle_owns_summary_save_and_protocol_metadata(self) -> None:
+        request = make_online_controller_spec(
+            kind="recursive_lstdq_v2",
+            state=self.state,
+            actions=self.actions,
+            algorithm_parameters={
+                "ridge": 2.0,
+                "coverage_ridge": 3.0,
+                "residual_scale_window": 64,
+                "residual_scale_min_samples": 8,
+            },
+            trace_lambda=0.7,
+        )
+        bundle = build_online_solve_controller(
+            request,
+            setup_obs_encoder=self.setup_encoder,
+            seed=17,
+        )
+
+        native_summary = bundle.controller.summary()
+        summary = bundle.summary()
+        self.assertEqual(summary["steps"], 0)
+        self.assertEqual(summary["episodes"], 0)
+        self.assertEqual(summary["epsilon"], bundle.controller.epsilon)
+        for key, value in native_summary.items():
+            self.assertEqual(summary[key], value)
+
+        metadata = bundle.protocol_metadata()
+        self.assertEqual(metadata["kind"], "recursive_lstdq_v2")
+        self.assertEqual(metadata["family"], "recursive_lstdq")
+        self.assertEqual(metadata["state"], "setup_full")
+        self.assertEqual(metadata["actions"], [1.0, 1.5, 2.0])
+        self.assertEqual(metadata["trace_lambda"], 0.7)
+        self.assertEqual(metadata["algorithm"]["ridge"], 2.0)
+        self.assertEqual(metadata["coverage_ridge"], 3.0)
+        json.dumps(metadata)
+        metadata["algorithm"]["ridge"] = -1.0
+        self.assertEqual(
+            bundle.protocol_metadata()["algorithm"]["ridge"],
+            2.0,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle_path = Path(tmp) / "bundle.npz"
+            native_path = Path(tmp) / "native.npz"
+            bundle.save(bundle_path)
+            bundle.controller.save(native_path)
+            with np.load(bundle_path, allow_pickle=False) as bundled, np.load(
+                native_path,
+                allow_pickle=False,
+            ) as native:
+                self.assertEqual(set(bundled.files), set(native.files))
+                for key in bundled.files:
+                    np.testing.assert_array_equal(bundled[key], native[key])
+
+    def test_bundle_run_case_is_a_thin_typed_td_adapter(self) -> None:
+        bundle = build_online_solve_controller(
+            make_online_controller_spec(
+                kind="recursive_mc",
+                state=self.state,
+                actions=self.actions,
+                algorithm_parameters={},
+            ),
+            setup_obs_encoder=self.setup_encoder,
+            seed=5,
+        )
+        fallback = lambda: {"runtime": 1.0}  # noqa: E731
+        case = OnlineSolveCase(
+            mkw={"nx": 4},
+            params={"strong_threshold": 0.5},
+            solve_tol=1.0e-6,
+            solve_max_cycles=50,
+            learn=True,
+            explore=True,
+            epsilon=0.2,
+            defer_monte_carlo_update=True,
+            record_action_metadata=True,
+            initial_environment_weight_override=1.25,
+            fallback_attempt=fallback,
+        )
+        expected = {"runtime": 0.25, "failed": False}
+        with patch(
+            "solve.controllers.sarsa.online_td_lambda.run_td_episode",
+            return_value=expected,
+        ) as run_episode:
+            self.assertIs(bundle.run_case(case), expected)
+        run_episode.assert_called_once_with(
+            mkw={"nx": 4},
+            params={"strong_threshold": 0.5},
+            controller=bundle.controller,
+            encoder=bundle.encoder,
+            solve_tol=1.0e-6,
+            solve_max_cycles=50,
+            learn=True,
+            explore=True,
+            epsilon=0.2,
+            defer_monte_carlo_update=True,
+            record_action_metadata=True,
+            initial_environment_weight_override=1.25,
+            fallback_attempt=fallback,
+        )
+
+    def test_specs_remain_available_from_legacy_implementation_modules(self) -> None:
+        from solve.controllers.lsvi.config import (
+            HierarchicalLsviLcbSpec as HierarchicalConfig,
+        )
+        from solve.controllers.lsvi.config import (
+            StagewiseLsviLcbSpec as StagewiseConfig,
+        )
+        from solve.controllers.lsvi.hierarchical import (
+            HierarchicalLsviLcbSpec as LegacyHierarchical,
+        )
+        from solve.controllers.lsvi.stagewise import (
+            StagewiseLsviLcbSpec as LegacyStagewise,
+        )
+        from solve.controllers.recursive_lstdq.config import (
+            RecursiveLstdqLcbSpec as LstdqConfig,
+        )
+        from solve.controllers.recursive_lstdq.config import (
+            RecursiveLstdqV2LcbSpec as LstdqV2Config,
+        )
+        from solve.controllers.recursive_lstdq.v1 import (
+            RecursiveLstdqLcbSpec as LegacyLstdq,
+        )
+        from solve.controllers.recursive_lstdq.v2 import (
+            RecursiveLstdqV2LcbSpec as LegacyLstdqV2,
+        )
+
+        self.assertIs(LegacyLstdq, LstdqConfig)
+        self.assertIs(LegacyLstdqV2, LstdqV2Config)
+        self.assertIs(LegacyStagewise, StagewiseConfig)
+        self.assertIs(LegacyHierarchical, HierarchicalConfig)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,14 +15,7 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
-
-@dataclass(frozen=True)
-class RecursiveMonteCarloLcbSpec:
-    ridge: float = 1.0
-    uncertainty_beta: float = 2.0
-    residual_floor_sec: float = 1.0e-3
-    q_max_sec: float = 0.1
-    episode_half_life: float = 500.0
+from .config import RecursiveMonteCarloLcbSpec
 
 _RECURSIVE_MC_CHECKPOINT_VERSION = 2
 

@@ -34,7 +34,7 @@ def _write_solve_screen_reproduction(
     command = [
         sys.executable,
         "-u",
-        "experiments/joint/solve_control/run_joint_online_sarsa_4k.py",
+        "experiments/joint/solve_control/joint_4k_runner.py",
         "--output-dir",
         '"$OUTPUT_DIR"',
         "--study-mode",

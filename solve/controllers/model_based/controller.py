@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import math
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
@@ -15,17 +15,7 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
-
-@dataclass(frozen=True)
-class StructuredModelBasedSpec:
-    """Shared RLS controls for physical cycle-cost/progress prediction."""
-
-    ridge: float = 1.0
-    minimum_samples: int = 32
-    scale_window: int = 2048
-    cost_floor_fraction: float = 0.1
-    progress_floor_fraction: float = 0.1
-    numerical_floor: float = 1.0e-12
+from .config import StructuredModelBasedSpec
 
 _STRUCTURED_MODEL_BASED_CHECKPOINT_VERSION = 1
 

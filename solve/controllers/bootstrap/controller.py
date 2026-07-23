@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass, replace
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Dict
 
@@ -14,12 +14,7 @@ from solve.controllers.sarsa import (
     ExpectedSarsaLambdaConfig,
 )
 
-
-@dataclass(frozen=True)
-class BootstrapSarsaSpec:
-    members: int = 5
-    episode_inclusion_probability: float = 0.8
-    uncertainty_beta: float = 1.0
+from .config import BootstrapSarsaSpec
 
 
 class BootstrapLcbSarsaController:

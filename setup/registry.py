@@ -1,15 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping, cast
+from typing import Any, Callable, Literal, Mapping, cast
 
-from .learners.common.config import (
-    LinTSV2Spec,
-    LinUCBV4Spec,
+from .learners.common import (
+    SetupLearnerFactoryRequest,
     SharedSetupLearnerSpec,
 )
-from .learners.linucb import SharedLinUCB_AMG_v4
-from .learners.thompson import SharedLinTS_AMG_v2
+from .learners.linucb.config import LinUCBV4Spec
+from .learners.linucb.factory import (
+    LINUCB_V4_LEARNER_TYPE,
+    build_linucb_v4_learner,
+)
+from .learners.thompson.config import LinTSV2Spec
+from .learners.thompson.factory import (
+    LINTS_V2_LEARNER_TYPE,
+    build_lints_v2_learner,
+)
 
 
 OnlineSetupKind = Literal["linucb", "lints"]
@@ -23,6 +30,9 @@ class SetupKindRegistration:
     backend: str
     learner_type: type[Any] | None = None
     spec_type: type[Any] | None = None
+    factory: (
+        Callable[[SetupLearnerFactoryRequest[Any]], Any] | None
+    ) = None
 
     @property
     def online(self) -> bool:
@@ -44,15 +54,17 @@ SETUP_KIND_REGISTRY: dict[str, SetupKindRegistration] = {
         kind="linucb",
         family="linucb",
         backend="online_learner",
-        learner_type=SharedLinUCB_AMG_v4,
+        learner_type=LINUCB_V4_LEARNER_TYPE,
         spec_type=LinUCBV4Spec,
+        factory=build_linucb_v4_learner,
     ),
     "lints": SetupKindRegistration(
         kind="lints",
         family="thompson",
         backend="online_learner",
-        learner_type=SharedLinTS_AMG_v2,
+        learner_type=LINTS_V2_LEARNER_TYPE,
         spec_type=LinTSV2Spec,
+        factory=build_lints_v2_learner,
     ),
 }
 
@@ -113,18 +125,18 @@ def build_online_setup_learner(spec: SetupLearnerBuildSpec) -> Any:
     """Build an active setup learner without altering its persisted state."""
 
     registration = _online_registration(spec.kind)
-    assert registration.learner_type is not None
     assert registration.spec_type is not None
+    assert registration.factory is not None
     if type(spec.algorithm) is not registration.spec_type:
         raise TypeError(
             f"{spec.kind} requires {registration.spec_type.__name__}, "
             f"got {type(spec.algorithm).__name__}"
         )
-    return registration.learner_type(
-        spec.shared.actions,
-        context_dim=int(spec.shared.context_dim),
-        **spec.shared.learner_kwargs(),
-        **spec.algorithm.learner_kwargs(),
+    return registration.factory(
+        SetupLearnerFactoryRequest(
+            shared=spec.shared,
+            algorithm=spec.algorithm,
+        )
     )
 
 

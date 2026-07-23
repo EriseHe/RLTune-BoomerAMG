@@ -14,8 +14,13 @@ import numpy as np
 from setup.learners.common import (
     LinTSV2Spec,
     LinUCBV4Spec,
+    SetupLearnerFactoryRequest,
     SharedSetupLearnerSpec,
 )
+from setup.learners.linucb.config import LinUCBV4Spec as FamilyLinUCBV4Spec
+from setup.learners.linucb.factory import build_linucb_v4_learner
+from setup.learners.thompson.config import LinTSV2Spec as FamilyLinTSV2Spec
+from setup.learners.thompson.factory import build_lints_v2_learner
 from setup.registry import (
     COMPOSABLE_SETUP_KINDS,
     ONLINE_SETUP_KINDS,
@@ -72,6 +77,26 @@ class SetupRegistryTests(unittest.TestCase):
         self.assertIs(
             setup_kind_registration("lints_v2").learner_type,
             SharedLinTS_AMG_v2,
+        )
+        self.assertIs(
+            setup_kind_registration("linucb").factory,
+            build_linucb_v4_learner,
+        )
+        self.assertIs(
+            setup_kind_registration("lints").factory,
+            build_lints_v2_learner,
+        )
+
+    def test_algorithm_specs_are_family_owned_compatibility_reexports(self) -> None:
+        self.assertIs(LinUCBV4Spec, FamilyLinUCBV4Spec)
+        self.assertIs(LinTSV2Spec, FamilyLinTSV2Spec)
+        self.assertEqual(
+            LinUCBV4Spec.__module__,
+            "setup.learners.linucb.config",
+        )
+        self.assertEqual(
+            LinTSV2Spec.__module__,
+            "setup.learners.thompson.config",
         )
 
     def test_legacy_imports_alias_canonical_classes_and_modules(self) -> None:
@@ -147,6 +172,42 @@ assert canonical_leaf is qualified_leaf is bare_leaf
 assert importlib.import_module("setup.registry") is importlib.import_module(
     "SetupPhase.registry"
 )
+canonical_linucb_config = importlib.import_module(
+    "setup.learners.linucb.config"
+)
+assert canonical_linucb_config is importlib.import_module(
+    "SetupPhase.learners.linucb.config"
+)
+assert canonical_linucb_config is importlib.import_module(
+    "learners.linucb.config"
+)
+canonical_linucb_factory = importlib.import_module(
+    "setup.learners.linucb.factory"
+)
+assert canonical_linucb_factory is importlib.import_module(
+    "SetupPhase.learners.linucb.factory"
+)
+assert canonical_linucb_factory is importlib.import_module(
+    "learners.linucb.factory"
+)
+canonical_lints_config = importlib.import_module(
+    "setup.learners.thompson.config"
+)
+assert canonical_lints_config is importlib.import_module(
+    "SetupPhase.learners.thompson.config"
+)
+assert canonical_lints_config is importlib.import_module(
+    "learners.thompson.config"
+)
+canonical_lints_factory = importlib.import_module(
+    "setup.learners.thompson.factory"
+)
+assert canonical_lints_factory is importlib.import_module(
+    "SetupPhase.learners.thompson.factory"
+)
+assert canonical_lints_factory is importlib.import_module(
+    "learners.thompson.factory"
+)
 assert importlib.import_module("setup.utils.setup_amg") is importlib.import_module(
     "SetupPhase.utils.setup_amg"
 )
@@ -218,6 +279,15 @@ assert str(Path.cwd() / "SetupPhase") not in sys.path
         np.testing.assert_allclose(built.A_inv, direct.A_inv)
         np.testing.assert_allclose(built.b, direct.b)
 
+        family_built = build_linucb_v4_learner(
+            SetupLearnerFactoryRequest(
+                shared=shared,
+                algorithm=LinUCBV4Spec(),
+            )
+        )
+        self.assertIsInstance(family_built, SharedLinUCB_AMG_v4)
+        np.testing.assert_allclose(family_built.A_inv, direct.A_inv)
+
     def test_lints_factory_matches_direct_constructor(self) -> None:
         shared = self._shared()
         algorithm = {
@@ -249,6 +319,18 @@ assert str(Path.cwd() / "SetupPhase") not in sys.path
         self.assertEqual(
             built.posterior_rng.bit_generator.state,
             direct.posterior_rng.bit_generator.state,
+        )
+
+        family_built = build_lints_v2_learner(
+            SetupLearnerFactoryRequest(
+                shared=shared,
+                algorithm=LinTSV2Spec(**algorithm),
+            )
+        )
+        self.assertIsInstance(family_built, SharedLinTS_AMG_v2)
+        np.testing.assert_allclose(
+            family_built._precision_cholesky,
+            direct._precision_cholesky,
         )
 
     def test_factory_rejects_algorithm_spec_from_another_kind(self) -> None:

@@ -12,11 +12,9 @@ try:
 except ImportError:  # pragma: no cover - NumPy fallback keeps SciPy optional.
     _blas_dger = None
 
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambdaConfig,
-    build_action_basis,
-    joint_action_features,
-)
+from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+
+from .action_space import build_action_basis, joint_action_features
 
 
 def _json_dataclass(value: Any) -> Dict[str, Any]:

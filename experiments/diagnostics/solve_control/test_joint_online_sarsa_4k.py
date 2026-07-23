@@ -6,9 +6,11 @@ from pathlib import Path
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 import numpy as np
 
+import legacy_joint_studies as legacy_studies
 from run_joint_online_sarsa_4k import (
     BEHAVIOR_MODES,
     BATCHED_LSVI_METHOD,
@@ -102,6 +104,224 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
         self.assertTrue(
             all(candidate.trace_lambda == 0.8 for candidate in candidates)
         )
+
+    def test_legacy_study_resolver_owns_every_frozen_roster(self) -> None:
+        expected_methods = {
+            "lsvi_lcb": LSVI_METHODS,
+            "recursive_lcb_suite": RECURSIVE_LCB_METHODS,
+            "recursive_lcb_ppo": RECURSIVE_LCB_PPO_METHODS,
+            "recursive_lstdq_lcb": RECURSIVE_LSTDQ_METHODS,
+            "solve_controller_screen": SOLVE_CONTROLLER_SCREEN_METHODS,
+        }
+        for study_mode, methods in expected_methods.items():
+            with self.subTest(study_mode=study_mode):
+                study = legacy_studies.resolve_legacy_study(
+                    SimpleNamespace(
+                        study_mode=study_mode,
+                        include_default_setup_baseline=False,
+                    )
+                )
+                self.assertEqual(study.methods, methods)
+                self.assertEqual(study.candidates, ())
+                self.assertEqual(study.bandit_methods, methods)
+                self.assertEqual(
+                    tuple(study.family_by_method),
+                    methods,
+                )
+
+        sarsa = legacy_studies.resolve_legacy_study(
+            SimpleNamespace(
+                study_mode="sarsa",
+                include_default_setup_baseline=False,
+                alphas="0.001",
+                trace_lambdas="0.8",
+            )
+        )
+        self.assertEqual(len(sarsa.candidates), len(BEHAVIOR_MODES))
+        self.assertEqual(
+            sarsa.methods,
+            (
+                *REFERENCE_METHODS,
+                *[candidate.name for candidate in sarsa.candidates],
+            ),
+        )
+
+    def test_legacy_recursive_runtime_delegates_to_bundle_helpers(self) -> None:
+        args = SimpleNamespace(
+            study_mode="recursive_lcb_suite",
+            include_default_setup_baseline=False,
+            controller_seed=100,
+            lsvi_refit_interval_episodes=37,
+        )
+        study = legacy_studies.resolve_legacy_study(args)
+        mc_bundle = object()
+        lstdq_bundle = object()
+        lsvi_bundle = object()
+        with (
+            patch.object(
+                legacy_studies,
+                "build_recursive_mc_controller_bundle",
+                return_value=mc_bundle,
+            ) as build_mc,
+            patch.object(
+                legacy_studies,
+                "build_recursive_lstdq_controller_bundle",
+                return_value=lstdq_bundle,
+            ) as build_lstdq,
+            patch.object(
+                legacy_studies,
+                "build_lsvi_controller_bundle",
+                return_value=lsvi_bundle,
+            ) as build_lsvi,
+        ):
+            runtime = legacy_studies.build_legacy_solve_runtime(
+                args,
+                study=study,
+                make_ppo_runner=Mock(),
+            )
+
+        self.assertEqual(
+            runtime.controller_bundles,
+            {
+                RECURSIVE_MC_METHOD: mc_bundle,
+                RECURSIVE_LSTDQ_METHOD: lstdq_bundle,
+                BATCHED_LSVI_METHOD: lsvi_bundle,
+            },
+        )
+        build_mc.assert_called_once_with(args, seed=100)
+        build_lstdq.assert_called_once_with(args, seed=1109)
+        build_lsvi.assert_called_once_with(
+            args,
+            seed=2118,
+            refit_interval_episodes=37,
+        )
+        self.assertIsNone(runtime.ppo_runner)
+
+    def test_legacy_lsvi_runtime_keeps_per_episode_refit_override(self) -> None:
+        args = SimpleNamespace(
+            study_mode="lsvi_lcb",
+            include_default_setup_baseline=False,
+            controller_seed=250,
+        )
+        study = legacy_studies.resolve_legacy_study(args)
+        bundle = object()
+        with patch.object(
+            legacy_studies,
+            "build_lsvi_controller_bundle",
+            return_value=bundle,
+        ) as build_lsvi:
+            runtime = legacy_studies.build_legacy_solve_runtime(
+                args,
+                study=study,
+                make_ppo_runner=Mock(),
+            )
+
+        self.assertEqual(
+            runtime.controller_bundles,
+            {LSVI_METHOD: bundle},
+        )
+        build_lsvi.assert_called_once_with(
+            args,
+            seed=250,
+            refit_interval_episodes=1,
+        )
+
+    def test_legacy_screen_runtime_preserves_seed_offsets(self) -> None:
+        args = SimpleNamespace(
+            study_mode="solve_controller_screen",
+            include_default_setup_baseline=False,
+            controller_seed=400,
+        )
+        study = legacy_studies.resolve_legacy_study(args)
+        patched_factories = {
+            RECURSIVE_LSTDQ_METHOD: (
+                "build_recursive_lstdq_controller_bundle"
+            ),
+            RECURSIVE_LSTDQ_V2_METHOD: (
+                "build_recursive_lstdq_v2_controller_bundle"
+            ),
+            STRUCTURED_MODEL_BASED_METHOD: (
+                "build_structured_model_based_controller_bundle"
+            ),
+            RECALIBRATED_LSVI_METHOD: (
+                "build_recalibrated_lsvi_controller_bundle"
+            ),
+        }
+        mocks = {
+            method: Mock(return_value=object())
+            for method in patched_factories
+        }
+        with (
+            patch.object(
+                legacy_studies,
+                patched_factories[RECURSIVE_LSTDQ_METHOD],
+                mocks[RECURSIVE_LSTDQ_METHOD],
+            ),
+            patch.object(
+                legacy_studies,
+                patched_factories[RECURSIVE_LSTDQ_V2_METHOD],
+                mocks[RECURSIVE_LSTDQ_V2_METHOD],
+            ),
+            patch.object(
+                legacy_studies,
+                patched_factories[STRUCTURED_MODEL_BASED_METHOD],
+                mocks[STRUCTURED_MODEL_BASED_METHOD],
+            ),
+            patch.object(
+                legacy_studies,
+                patched_factories[RECALIBRATED_LSVI_METHOD],
+                mocks[RECALIBRATED_LSVI_METHOD],
+            ),
+        ):
+            runtime = legacy_studies.build_legacy_solve_runtime(
+                args,
+                study=study,
+                make_ppo_runner=Mock(),
+            )
+
+        self.assertEqual(
+            set(runtime.controller_bundles),
+            set(patched_factories),
+        )
+        for method, factory in mocks.items():
+            factory.assert_called_once_with(
+                args,
+                seed=400 + SOLVE_CONTROLLER_SEED_OFFSETS[method],
+            )
+
+    def test_legacy_sarsa_runtime_builds_bundles_and_ppo_once(self) -> None:
+        args = SimpleNamespace(
+            study_mode="sarsa",
+            include_default_setup_baseline=False,
+            alphas="0.001",
+            trace_lambdas="0.8",
+            controller_seed=700,
+        )
+        study = legacy_studies.resolve_legacy_study(args)
+        build_bundle = Mock(side_effect=(object(), object()))
+        ppo_runner = object()
+        make_ppo = Mock(return_value=ppo_runner)
+        with patch.object(
+            legacy_studies,
+            "build_sarsa_controller_bundle",
+            build_bundle,
+        ):
+            runtime = legacy_studies.build_legacy_solve_runtime(
+                args,
+                study=study,
+                make_ppo_runner=make_ppo,
+            )
+
+        self.assertEqual(
+            list(runtime.controller_bundles),
+            [candidate.name for candidate in study.candidates],
+        )
+        self.assertEqual(
+            [call.kwargs["seed"] for call in build_bundle.call_args_list],
+            [700, 1709],
+        )
+        make_ppo.assert_called_once_with(args)
+        self.assertIs(runtime.ppo_runner, ppo_runner)
 
     def test_locked_4k_stream_hash_and_partition(self) -> None:
         args = SimpleNamespace(

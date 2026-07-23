@@ -1,9 +1,9 @@
 """Online SARSA controller family and behavior policies."""
 
-from .exploration import BehaviorPolicySarsaController, SarsaBehaviorSpec
+from .config import ExpectedSarsaLambdaConfig, SarsaBehaviorSpec
+from .exploration import BehaviorPolicySarsaController
 from .online_td_lambda import (
     ExpectedSarsaLambda,
-    ExpectedSarsaLambdaConfig,
     OnlineFixedWeightIncumbent,
     SolveStateEncoder,
     build_action_basis,

@@ -7,7 +7,6 @@ import _project_paths  # noqa: F401
 import argparse
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
@@ -21,10 +20,8 @@ from joint_online_common import (
     _validate_recovery_stream,
 )
 from online_td_experiment_common import _json_ready, _write_json
-from run_joint_online_sarsa_4k import (
-    _make_recalibrated_lsvi_controller,
-    _make_recursive_lstdq_v2_controller,
-    _make_structured_model_based_controller,
+from joint_controller_build import (
+    make_setup_obs_encoder,
 )
 from run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
@@ -36,7 +33,20 @@ from setup_aware_compare_common import (
     solve_no_rl_case,
     validate_expected_setup_action_count,
 )
-from solve.controllers.sarsa import run_td_episode
+from solve.controllers.common import (
+    ControllerBundle,
+    EpsilonScheduleSpec,
+    OnlineSolveCase,
+    SharedActionSpec,
+    SolveStateSpec,
+)
+from solve.controllers.lsvi import HierarchicalLsviLcbSpec
+from solve.controllers.model_based import StructuredModelBasedSpec
+from solve.controllers.recursive_lstdq import RecursiveLstdqV2LcbSpec
+from solve.registry import (
+    OnlineControllerBuildSpec,
+    build_online_solve_controller,
+)
 
 
 V2_BETAS = (1.0, 2.0, 4.0)
@@ -49,85 +59,109 @@ def _write_json_line(handle: Any, row: Dict[str, Any]) -> None:
     handle.write("\n")
 
 
-def _controller_args(args: argparse.Namespace, *, v2_beta: float, lsvi_beta: float) -> SimpleNamespace:
-    return SimpleNamespace(
-        tol=float(args.tol),
-        max_cycles=int(args.max_cycles),
-        c_max=float(args.c_max),
-        weights="",
-        action_rbf_centers="",
-        action_rbf_sigma=0.2,
-        epsilon_start=0.30,
-        epsilon_final=0.03,
-        epsilon_decay_steps=20_000.0,
-        recursive_lstdq_ridge=1.0,
-        recursive_lstdq_beta=2.0,
-        recursive_lstdq_lambda=0.8,
-        recursive_lstdq_residual_floor_sec=1.0e-3,
-        recursive_lstdq_lcb_lower_bound_sec=0.0,
-        recursive_lstdq_v2_beta=float(v2_beta),
-        recursive_lstdq_v2_coverage_ridge=1.0,
-        recursive_lstdq_v2_residual_window=2048,
-        recursive_lstdq_v2_min_samples=32,
-        structured_model_ridge=1.0,
-        structured_model_min_samples=32,
-        structured_model_scale_window=2048,
-        lsvi_ridge=1.0,
-        lsvi_residual_floor_sec=1.0e-3,
-        lsvi_refit_interval_episodes=100,
-        recalibrated_lsvi_beta=float(lsvi_beta),
-        recalibrated_lsvi_refit_sweeps=3,
-        recalibrated_lsvi_shrinkage_samples=32.0,
-    )
-
-
-def _set_action_grid(controller_args: SimpleNamespace) -> None:
+def _shared_controller_specs(
+    args: argparse.Namespace,
+) -> tuple[SolveStateSpec, SharedActionSpec]:
     weights = tuple(float(value) for value in np.linspace(1.0, 3.0, 41))
     centers = tuple(float(value) for value in np.linspace(1.0, 3.0, 9))
-    controller_args.weights = ",".join(f"{value:g}" for value in weights)
-    controller_args.action_rbf_centers = ",".join(
-        f"{value:g}" for value in centers
+    return (
+        SolveStateSpec(
+            tol=float(args.tol),
+            max_cycles=int(args.max_cycles),
+            c_max=float(args.c_max),
+            mode="setup_full",
+        ),
+        SharedActionSpec(
+            weights=weights,
+            rbf_centers=centers,
+            rbf_sigma=0.2,
+            epsilon=EpsilonScheduleSpec(
+                start=0.30,
+                final=0.03,
+                decay_steps=20_000.0,
+            ),
+            anchor_weight=weights[0],
+            force_default_first_action=True,
+        ),
     )
 
 
-def _build_controllers(args: argparse.Namespace) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, float | None]]:
-    controllers: Dict[str, Any] = {}
-    encoders: Dict[str, Any] = {}
+def _build_bundle(
+    *,
+    args: argparse.Namespace,
+    kind: str,
+    algorithm: Any,
+    trace_lambda: float | None,
+) -> ControllerBundle:
+    state, actions = _shared_controller_specs(args)
+    return build_online_solve_controller(
+        OnlineControllerBuildSpec(
+            kind=kind,
+            state=state,
+            actions=actions,
+            algorithm=algorithm,
+            trace_lambda=trace_lambda,
+        ),
+        setup_obs_encoder=make_setup_obs_encoder(),
+        seed=int(args.controller_seed),
+    )
+
+
+def _build_controllers(
+    args: argparse.Namespace,
+) -> tuple[Dict[str, ControllerBundle], Dict[str, float | None]]:
+    bundles: Dict[str, ControllerBundle] = {}
     betas: Dict[str, float | None] = {}
     for beta in V2_BETAS:
         name = f"lstdq_v2_beta_{beta:g}"
-        controller_args = _controller_args(args, v2_beta=beta, lsvi_beta=2.0)
-        _set_action_grid(controller_args)
-        controller, encoder = _make_recursive_lstdq_v2_controller(
-            controller_args,
-            seed=int(args.controller_seed),
+        bundles[name] = _build_bundle(
+            args=args,
+            kind="recursive_lstdq_v2",
+            algorithm=RecursiveLstdqV2LcbSpec(
+                ridge=1.0,
+                uncertainty_beta=float(beta),
+                residual_floor_sec=1.0e-3,
+                q_max_sec=0.1,
+                inverse_denominator_floor=1.0e-10,
+                lcb_lower_bound_sec=0.0,
+                coverage_ridge=1.0,
+                residual_scale_window=2048,
+                residual_scale_min_samples=32,
+            ),
+            trace_lambda=0.8,
         )
-        controllers[name] = controller
-        encoders[name] = encoder
         betas[name] = float(beta)
 
-    controller_args = _controller_args(args, v2_beta=2.0, lsvi_beta=2.0)
-    _set_action_grid(controller_args)
-    controller, encoder = _make_structured_model_based_controller(
-        controller_args,
-        seed=int(args.controller_seed),
+    bundles[MODEL_METHOD] = _build_bundle(
+        args=args,
+        kind="structured_model_based",
+        algorithm=StructuredModelBasedSpec(
+            ridge=1.0,
+            minimum_samples=32,
+            scale_window=2048,
+        ),
+        trace_lambda=None,
     )
-    controllers[MODEL_METHOD] = controller
-    encoders[MODEL_METHOD] = encoder
     betas[MODEL_METHOD] = None
 
     for beta in LSVI_BETAS:
         name = f"recalibrated_lsvi_beta_{beta:g}"
-        controller_args = _controller_args(args, v2_beta=2.0, lsvi_beta=beta)
-        _set_action_grid(controller_args)
-        controller, encoder = _make_recalibrated_lsvi_controller(
-            controller_args,
-            seed=int(args.controller_seed),
+        bundles[name] = _build_bundle(
+            args=args,
+            kind="recalibrated_lsvi",
+            algorithm=HierarchicalLsviLcbSpec(
+                horizon=int(args.max_cycles),
+                ridge=1.0,
+                uncertainty_beta=float(beta),
+                residual_floor_sec=1.0e-3,
+                refit_interval_episodes=100,
+                refit_sweeps=3,
+                residual_shrinkage_samples=32.0,
+            ),
+            trace_lambda=None,
         )
-        controllers[name] = controller
-        encoders[name] = encoder
         betas[name] = float(beta)
-    return controllers, encoders, betas
+    return bundles, betas
 
 
 def _generate_setup_trace(
@@ -284,39 +318,39 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     _write_json(args.output_dir / "stream_manifest.json", manifest)
     setup_rows = _generate_setup_trace(args, stream)
 
-    controllers, encoders, betas = _build_controllers(args)
+    controller_bundles, betas = _build_controllers(args)
     records: Dict[str, list[Dict[str, Any]]] = {
-        name: [] for name in controllers
+        name: [] for name in controller_bundles
     }
     handles = {
         name: (args.output_dir / "trajectories" / f"{name}.jsonl").open(
             "w", encoding="utf-8"
         )
-        for name in controllers
+        for name in controller_bundles
     }
     order_rng = np.random.default_rng(int(args.method_order_seed))
-    names = tuple(controllers)
+    names = tuple(controller_bundles)
     try:
         for index, ((mkw, _context), setup_row) in enumerate(zip(stream, setup_rows)):
             case_rows: Dict[str, Dict[str, Any]] = {}
             for rank, method_index in enumerate(order_rng.permutation(len(names))):
                 name = names[int(method_index)]
-                native = run_td_episode(
-                    mkw=dict(mkw),
-                    params=dict(setup_row["params"]),
-                    controller=controllers[name],
-                    encoder=encoders[name],
-                    solve_tol=float(args.tol),
-                    solve_max_cycles=int(args.max_cycles),
-                    learn=True,
-                    explore=True,
-                    record_action_metadata=True,
-                    fallback_attempt=lambda: solve_no_rl_case(
-                        params=dict(DEFAULT_SETUP_PARAMS),
+                native = controller_bundles[name].run_case(
+                    OnlineSolveCase(
                         mkw=dict(mkw),
-                        solver_tol=float(args.tol),
-                        solver_max_iter=int(args.max_cycles),
-                        augment_params=augment_setup_params,
+                        params=dict(setup_row["params"]),
+                        solve_tol=float(args.tol),
+                        solve_max_cycles=int(args.max_cycles),
+                        learn=True,
+                        explore=True,
+                        record_action_metadata=True,
+                        fallback_attempt=lambda: solve_no_rl_case(
+                            params=dict(DEFAULT_SETUP_PARAMS),
+                            mkw=dict(mkw),
+                            solver_tol=float(args.tol),
+                            solver_max_iter=int(args.max_cycles),
+                            augment_params=augment_setup_params,
+                        ),
                     ),
                 )
                 row = {
@@ -357,7 +391,8 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     for name, rows in records.items():
         summary = _method_stream_summary(rows)
         longest_chain = _longest_excess_failure_chain(rows, setup_rows)
-        finite = _controller_is_finite(controllers[name])
+        bundle = controller_bundles[name]
+        finite = _controller_is_finite(bundle.controller)
         summary.update(
             {
                 "finite_parameters": bool(finite),
@@ -367,14 +402,14 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                     and int(summary["unrecovered_failure_count"]) == 0
                     and longest_chain < 25
                 ),
-                "controller": controllers[name].summary(),
+                "controller": bundle.summary(),
                 "recovery_audit": _validate_recovery_stream(
                     rows, expect_bandit_transaction=False
                 ),
             }
         )
         summaries[name] = summary
-        controllers[name].save(
+        bundle.save(
             args.output_dir / "checkpoints" / f"{name}_final.npz"
         )
 

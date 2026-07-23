@@ -2,28 +2,20 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict
 
 import numpy as np
 
-from solve.controllers.common import _greedy_cost_index, _json_dataclass
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambdaConfig,
+from solve.controllers.common.action_space import (
     build_action_basis,
     joint_action_features,
 )
+from solve.controllers.common import _greedy_cost_index, _json_dataclass
+from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
 
-
-@dataclass(frozen=True)
-class StagewiseLsviLcbSpec:
-    horizon: int = 50
-    ridge: float = 1.0
-    uncertainty_beta: float = 2.0
-    residual_floor_sec: float = 1.0e-3
-    q_max_sec: float = 0.1
-    refit_interval_episodes: int = 1
+from .config import StagewiseLsviLcbSpec
 
 
 class StagewiseLsviLcbController:

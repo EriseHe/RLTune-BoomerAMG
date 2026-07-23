@@ -9,11 +9,22 @@ from pathlib import Path
 
 import numpy as np
 
+from solve.controllers.common import (
+    SolveStateEncoder,
+    build_action_basis,
+    joint_action_features,
+)
 from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
-    build_action_basis,
-    joint_action_features,
+    SolveStateEncoder as SarsaSolveStateEncoder,
+    build_action_basis as sarsa_build_action_basis,
+    joint_action_features as sarsa_joint_action_features,
+)
+from solve.controllers.sarsa.online_td_lambda import (
+    SolveStateEncoder as LegacySolveStateEncoder,
+    build_action_basis as legacy_build_action_basis,
+    joint_action_features as legacy_joint_action_features,
 )
 from solve.controllers.bootstrap import BootstrapLcbSarsaController, BootstrapSarsaSpec
 from solve.controllers.lsvi import (
@@ -62,6 +73,24 @@ def _config(**overrides: object) -> ExpectedSarsaLambdaConfig:
     }
     values.update(overrides)
     return ExpectedSarsaLambdaConfig(**values)
+
+
+class CommonPrimitiveOwnershipTests(unittest.TestCase):
+    def test_sarsa_paths_reexport_common_action_and_state_primitives(self) -> None:
+        self.assertIs(SarsaSolveStateEncoder, SolveStateEncoder)
+        self.assertIs(LegacySolveStateEncoder, SolveStateEncoder)
+        self.assertIs(sarsa_build_action_basis, build_action_basis)
+        self.assertIs(legacy_build_action_basis, build_action_basis)
+        self.assertIs(sarsa_joint_action_features, joint_action_features)
+        self.assertIs(legacy_joint_action_features, joint_action_features)
+        self.assertEqual(
+            SolveStateEncoder.__module__,
+            "solve.controllers.common.state_encoder",
+        )
+        self.assertEqual(
+            build_action_basis.__module__,
+            "solve.controllers.common.action_space",
+        )
 
 
 class SharedActionFeatureTests(unittest.TestCase):

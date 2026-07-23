@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import _project_paths  # noqa: F401
 
+import argparse
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -11,6 +13,7 @@ from unittest.mock import Mock, patch
 import run_joint_experiment as high_level
 import run_joint_online_sarsa_4k as runner
 import plot_joint_online_sarsa_4k as plotter
+from joint_method_spec import ComposableMethodSpec
 from joint_online_common import _problem_stream_spec
 from setup.space import SetupConfigurationSpace
 from setup_aware_compare_common import DEFAULT_SETUP_PARAMS
@@ -346,6 +349,160 @@ class ComposableJointRunnerTests(unittest.TestCase):
                 "bandit_fixed_w1.6",
             ),
         )
+
+    def test_high_level_json_is_decoded_to_typed_specs_without_cli_parser(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / "n40_lstdq_v2_factorial_joint4k.json"
+        )
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        typed = high_level.parse_joint_experiment_config(config)
+
+        self.assertEqual(typed.problem.grid, (40, 40, 40))
+        self.assertEqual(
+            set(typed.solve.controller_specs),
+            {"recursive_lstdq_v2"},
+        )
+        lstdq_v2 = typed.solve.controller_specs[
+            "recursive_lstdq_v2"
+        ]
+        self.assertAlmostEqual(lstdq_v2.algorithm.ridge, 1.0)
+        self.assertAlmostEqual(
+            lstdq_v2.algorithm.uncertainty_beta,
+            4.0,
+        )
+        self.assertAlmostEqual(float(lstdq_v2.trace_lambda), 0.8)
+
+        with patch.object(
+            runner,
+            "build_parser",
+            side_effect=AssertionError("legacy CLI parser was called"),
+        ):
+            args = high_level.config_to_args(config)
+        self.assertEqual(args.joint_experiment_spec, typed)
+        self.assertEqual(
+            args.solve_controller_specs["recursive_lstdq_v2"],
+            lstdq_v2,
+        )
+
+    def test_canonical_run_uses_frozen_typed_runtime_config(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / "n40_lstdq_v2_factorial_joint4k.json"
+        )
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        spec = high_level.parse_joint_experiment_config(config)
+        runtime = high_level.runtime_config_from_spec(spec)
+        legacy = high_level.legacy_namespace_from_spec(spec)
+
+        self.assertIsInstance(
+            runtime,
+            high_level.JointExperimentRuntimeConfig,
+        )
+        self.assertNotIsInstance(runtime, argparse.Namespace)
+        self.assertEqual(runtime.methods, spec.methods)
+        for field_name, value in vars(runtime).items():
+            self.assertEqual(getattr(legacy, field_name), value)
+        self.assertEqual(
+            legacy.method_specs,
+            [method.to_runner_token() for method in spec.methods],
+        )
+
+        sentinel = {"complete": True}
+        with (
+            patch.object(
+                ComposableMethodSpec,
+                "from_runner_token",
+                side_effect=AssertionError(
+                    "typed methods were reparsed from CLI text"
+                ),
+            ),
+            patch.object(high_level, "run", return_value=sentinel) as execute,
+        ):
+            validated = runner._validate_composable_protocol(runtime)
+            result = high_level.run_typed_experiment(spec)
+
+        self.assertEqual(validated, spec.methods)
+        self.assertIs(result, sentinel)
+        passed = execute.call_args.args[0]
+        self.assertIsInstance(
+            passed,
+            high_level.JointExperimentRuntimeConfig,
+        )
+        self.assertNotIsInstance(passed, argparse.Namespace)
+        self.assertEqual(passed, runtime)
+
+    def test_typed_schema_rejects_unknown_nested_keys(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / "n40_lstdq_v2_factorial_joint4k.json"
+        )
+        base = json.loads(config_path.read_text(encoding="utf-8"))
+        cases = (
+            (("problem",), "grdi", "Unknown problem keys"),
+            (("stream",), "casez", "Unknown stream keys"),
+            (("seeds",), "controller_seed", "Unknown seeds keys"),
+            (("solve",), "max_cyclez", "Unknown solve keys"),
+            (("solve", "rbf"), "sigm", "Unknown solve.rbf keys"),
+            (
+                ("solve", "lstdq_v2"),
+                "betaa",
+                "Unknown solve.lstdq_v2 keys",
+            ),
+            (("reporting",), "window", "Unknown reporting keys"),
+        )
+        for path, key, expected in cases:
+            with self.subTest(path=path, key=key):
+                config = copy.deepcopy(base)
+                target = config
+                for component in path:
+                    target = target[component]
+                target[key] = 1
+                with self.assertRaisesRegex(ValueError, expected):
+                    high_level.parse_joint_experiment_config(config)
+
+    def test_typed_stream_invariants_fail_before_runner_execution(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / "n40_lstdq_v2_factorial_joint4k.json"
+        )
+        base = json.loads(config_path.read_text(encoding="utf-8"))
+        cases = (
+            (
+                {"cases": 3999},
+                "stream.cases must equal warmup_cases \\+ online_cases",
+            ),
+            (
+                {"instance_offset": -1},
+                "stream.instance_offset must be non-negative",
+            ),
+            (
+                {"cases_per_seed": 0},
+                "stream cases_per_seed and group_take must be positive",
+            ),
+            (
+                {"cases": 0, "warmup_cases": 0, "online_cases": 0},
+                "stream.cases must be positive",
+            ),
+        )
+        for replacements, expected in cases:
+            with self.subTest(replacements=replacements):
+                config = copy.deepcopy(base)
+                config["stream"].update(replacements)
+                with self.assertRaisesRegex(ValueError, expected):
+                    high_level.parse_joint_experiment_config(config)
 
     def test_n40_setup_space_comparison_uses_default_solve_only(self) -> None:
         config_path = (
