@@ -24,6 +24,7 @@ from solve.controllers.recursive_lstdq import (
     RecursiveLstdqFamilySpecs,
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbSpec,
+    RecursiveLstdqV3LcbSpec,
 )
 from solve.controllers.recursive_mc import RecursiveMonteCarloLcbSpec
 from solve.registry import (
@@ -86,6 +87,7 @@ SOLVE_KEYS = {
     "max_cycles",
     "lstdq",
     "lstdq_v2",
+    "lstdq_v3",
     "rblspi",
     "recursive_mc",
     "lsvi",
@@ -400,6 +402,7 @@ class JointSolveSpec:
     recursive_mc: RecursiveMonteCarloLcbSpec
     recursive_lstdq_v1: RecursiveLstdqLcbSpec
     recursive_lstdq_v2: RecursiveLstdqV2LcbSpec
+    recursive_lstdq_v3: RecursiveLstdqV3LcbSpec
     rblspi: RecursiveBlstdqSpec
     stagewise_lsvi: StagewiseLsviLcbSpec
     structured_model: StructuredModelBasedSpec
@@ -462,6 +465,10 @@ class JointSolveSpec:
             raw.get("lstdq_v2", {}),
             name="solve.lstdq_v2",
         )
+        lstdq_v3 = mapping(
+            raw.get("lstdq_v3", {}),
+            name="solve.lstdq_v3",
+        )
         rblspi_raw = mapping(
             raw.get("rblspi", {}),
             name="solve.rblspi",
@@ -482,6 +489,7 @@ class JointSolveSpec:
         lstdq_specs = RecursiveLstdqFamilySpecs.from_mappings(
             lstdq,
             lstdq_v2,
+            lstdq_v3,
         )
         lsvi_specs = LsviFamilySpecs.from_mappings(
             lsvi,
@@ -490,6 +498,7 @@ class JointSolveSpec:
         )
         lstdq_v1_spec = lstdq_specs.v1
         lstdq_v2_spec = lstdq_specs.v2
+        lstdq_v3_spec = lstdq_specs.v3
         trace_lambda = lstdq_specs.trace_lambda
         recursive_mc_spec = RecursiveMonteCarloLcbSpec.from_mapping(
             recursive_mc_raw
@@ -502,6 +511,7 @@ class JointSolveSpec:
             "recursive_mc": recursive_mc_spec,
             "recursive_lstdq_v1": lstdq_v1_spec,
             "recursive_lstdq_v2": lstdq_v2_spec,
+            "recursive_lstdq_v3": lstdq_v3_spec,
             "rblspi": rblspi_spec,
             "stagewise_lsvi": stagewise_spec,
             "structured_model_based": structured_spec,
@@ -516,7 +526,11 @@ class JointSolveSpec:
             requested_trace = (
                 trace_lambda
                 if kind
-                in {"recursive_lstdq_v1", "recursive_lstdq_v2"}
+                in {
+                    "recursive_lstdq_v1",
+                    "recursive_lstdq_v2",
+                    "recursive_lstdq_v3",
+                }
                 else None
             )
             controller_specs[kind] = OnlineControllerBuildSpec(
@@ -534,6 +548,7 @@ class JointSolveSpec:
             recursive_mc=recursive_mc_spec,
             recursive_lstdq_v1=lstdq_v1_spec,
             recursive_lstdq_v2=lstdq_v2_spec,
+            recursive_lstdq_v3=lstdq_v3_spec,
             rblspi=rblspi_spec,
             stagewise_lsvi=stagewise_spec,
             structured_model=structured_spec,
@@ -634,6 +649,7 @@ class JointExperimentRuntimeConfig:
     recursive_lstdq_v2_coverage_ridge: float
     recursive_lstdq_v2_residual_window: int
     recursive_lstdq_v2_min_samples: int
+    recursive_lstdq_v3_beta: float
     rblspi_prior_precision: float
     rblspi_noise_precision: float
     rblspi_gram_ridge: float
@@ -730,6 +746,7 @@ def runtime_config_from_spec(
     epsilon = actions.epsilon
     v1 = solve.recursive_lstdq_v1
     v2 = solve.recursive_lstdq_v2
+    v3 = solve.recursive_lstdq_v3
     recursive_mc = solve.recursive_mc
     lsvi = solve.stagewise_lsvi
     structured = solve.structured_model
@@ -822,6 +839,7 @@ def runtime_config_from_spec(
         recursive_lstdq_v2_min_samples=(
             v2.residual_scale_min_samples
         ),
+        recursive_lstdq_v3_beta=v3.uncertainty_beta,
         rblspi_prior_precision=solve.rblspi.prior_precision,
         rblspi_noise_precision=solve.rblspi.noise_precision,
         rblspi_gram_ridge=solve.rblspi.gram_ridge,

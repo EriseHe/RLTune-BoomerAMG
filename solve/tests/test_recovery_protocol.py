@@ -19,6 +19,10 @@ from solve.controllers.sarsa import (
     ExpectedSarsaLambdaConfig,
     run_td_episode,
 )
+from solve.controllers.recursive_lstdq import (
+    RecursiveLstdqV3LcbController,
+    RecursiveLstdqV3LcbSpec,
+)
 
 
 class _Encoder:
@@ -117,6 +121,20 @@ def _controller(seed: int = 7):
         td_algorithm="true_online_sarsa",
     )
     return ExpectedSarsaLambda(feature_dim=1, config=config, seed=seed)
+
+
+def _v3_controller(seed: int = 7) -> RecursiveLstdqV3LcbController:
+    base = _controller(seed=seed)
+    return RecursiveLstdqV3LcbController(
+        feature_dim=1,
+        config=base.config,
+        spec=RecursiveLstdqV3LcbSpec(
+            ridge=1.0,
+            uncertainty_beta=2.0,
+            residual_floor_sec=1.0e-3,
+        ),
+        seed=seed,
+    )
 
 
 class _RecordingController(ExpectedSarsaLambda):
@@ -344,6 +362,75 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertEqual(controller.episodes, 1)
         self.assertEqual(controller.steps, 1)
         self.assertGreater(outcome["runtime"], 0.02)
+
+    def test_v3_recovered_nonconvergence_commits_one_cluster(self):
+        controller = _v3_controller()
+        covariance_before = controller.episode_moment_covariance.copy()
+        with patch(
+            "solve.controllers.sarsa.online_td_lambda.create_env",
+            return_value=_FakeEnv([1.0]),
+        ):
+            outcome = run_td_episode(
+                mkw={},
+                params={},
+                controller=controller,
+                encoder=_Encoder(),
+                solve_tol=1.0e-6,
+                solve_max_cycles=1,
+                learn=True,
+                explore=False,
+                fallback_attempt=lambda: _result(failed=False, runtime=0.02),
+            )
+
+        self.assertTrue(outcome["controller_update_committed"])
+        self.assertEqual(controller.episodes, 1)
+        self.assertEqual(controller.episode_moment_count, 1)
+        self.assertFalse(
+            np.array_equal(
+                controller.episode_moment_covariance,
+                covariance_before,
+            )
+        )
+
+    def test_v3_unrecovered_failure_restores_cluster_and_mean_state(self):
+        controller = _v3_controller()
+        state_before = controller.snapshot_learning_state()
+        with patch(
+            "solve.controllers.sarsa.online_td_lambda.create_env",
+            return_value=_FakeEnv([1.0]),
+        ):
+            outcome = run_td_episode(
+                mkw={},
+                params={},
+                controller=controller,
+                encoder=_Encoder(),
+                solve_tol=1.0e-6,
+                solve_max_cycles=1,
+                learn=True,
+                explore=True,
+                fallback_attempt=lambda: _result(failed=True),
+            )
+
+        state_after = controller.snapshot_learning_state()
+        for key in (
+            "a_matrix",
+            "a_inverse",
+            "b",
+            "theta",
+            "episode_moment_covariance",
+            "trace",
+        ):
+            np.testing.assert_array_equal(state_after[key], state_before[key])
+        for key in (
+            "steps",
+            "episodes",
+            "sample_count",
+            "episode_moment_count",
+            "episode_active",
+        ):
+            self.assertEqual(state_after[key], state_before[key])
+        self.assertTrue(outcome["unrecovered_failure"])
+        self.assertFalse(outcome["controller_update_committed"])
 
 
 if __name__ == "__main__":

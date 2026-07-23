@@ -18,6 +18,7 @@ from solve.controllers.common import (
 from solve.controllers.recursive_lstdq import (
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbSpec,
+    RecursiveLstdqV3LcbSpec,
 )
 from solve.registry import (
     COMPOSABLE_SOLVE_KINDS,
@@ -62,6 +63,7 @@ class SolveRegistryTests(unittest.TestCase):
                 "recursive_mc",
                 "recursive_lstdq_v1",
                 "recursive_lstdq_v2",
+                "recursive_lstdq_v3",
                 "rblspi",
                 "stagewise_lsvi",
                 "structured_model_based",
@@ -134,7 +136,7 @@ class SolveRegistryTests(unittest.TestCase):
         self.assertEqual(controller.config.epsilon_final, 0.0)
         self.assertEqual(controller.config.trace_lambda, 0.0)
 
-    def test_v2_spec_cannot_be_silently_routed_to_v1(self) -> None:
+    def test_versioned_lstdq_specs_cannot_be_silently_cross_routed(self) -> None:
         with self.assertRaisesRegex(TypeError, "requires RecursiveLstdqLcbSpec"):
             build_online_solve_controller(
                 OnlineControllerBuildSpec(
@@ -154,6 +156,30 @@ class SolveRegistryTests(unittest.TestCase):
                     state=self.state,
                     actions=self.actions,
                     algorithm=RecursiveLstdqLcbSpec(),
+                    trace_lambda=0.8,
+                ),
+                setup_obs_encoder=self.setup_encoder,
+                seed=7,
+            )
+        with self.assertRaisesRegex(TypeError, "requires RecursiveLstdqV3LcbSpec"):
+            build_online_solve_controller(
+                OnlineControllerBuildSpec(
+                    kind="recursive_lstdq_v3",
+                    state=self.state,
+                    actions=self.actions,
+                    algorithm=RecursiveLstdqV2LcbSpec(),
+                    trace_lambda=0.8,
+                ),
+                setup_obs_encoder=self.setup_encoder,
+                seed=7,
+            )
+        with self.assertRaisesRegex(TypeError, "requires RecursiveLstdqV2LcbSpec"):
+            build_online_solve_controller(
+                OnlineControllerBuildSpec(
+                    kind="recursive_lstdq_v2",
+                    state=self.state,
+                    actions=self.actions,
+                    algorithm=RecursiveLstdqV3LcbSpec(),
                     trace_lambda=0.8,
                 ),
                 setup_obs_encoder=self.setup_encoder,
@@ -214,6 +240,34 @@ class SolveRegistryTests(unittest.TestCase):
                 self.assertEqual(set(bundled.files), set(native.files))
                 for key in bundled.files:
                     np.testing.assert_array_equal(bundled[key], native[key])
+
+    def test_v3_protocol_declares_episode_cluster_parameter_uncertainty(
+        self,
+    ) -> None:
+        bundle = build_online_solve_controller(
+            make_online_controller_spec(
+                kind="recursive_lstdq_v3",
+                state=self.state,
+                actions=self.actions,
+                algorithm_parameters={"uncertainty_beta": 3.0},
+                trace_lambda=0.8,
+            ),
+            setup_obs_encoder=self.setup_encoder,
+            seed=19,
+        )
+        metadata = bundle.protocol_metadata()
+        self.assertEqual(
+            metadata["uncertainty"],
+            "episode-cluster post-fit sandwich covariance",
+        )
+        self.assertEqual(
+            metadata["uncertainty_semantics"],
+            "parameter uncertainty",
+        )
+        self.assertEqual(
+            metadata["cluster_unit"],
+            "complete committed AMG solve episode",
+        )
 
     def test_bundle_run_case_is_a_thin_typed_td_adapter(self) -> None:
         bundle = build_online_solve_controller(
@@ -281,15 +335,22 @@ class SolveRegistryTests(unittest.TestCase):
         from solve.controllers.recursive_lstdq.config import (
             RecursiveLstdqV2LcbSpec as LstdqV2Config,
         )
+        from solve.controllers.recursive_lstdq.config import (
+            RecursiveLstdqV3LcbSpec as LstdqV3Config,
+        )
         from solve.controllers.recursive_lstdq.v1 import (
             RecursiveLstdqLcbSpec as LegacyLstdq,
         )
         from solve.controllers.recursive_lstdq.v2 import (
             RecursiveLstdqV2LcbSpec as LegacyLstdqV2,
         )
+        from solve.controllers.recursive_lstdq.v3 import (
+            RecursiveLstdqV3LcbSpec as LegacyLstdqV3,
+        )
 
         self.assertIs(LegacyLstdq, LstdqConfig)
         self.assertIs(LegacyLstdqV2, LstdqV2Config)
+        self.assertIs(LegacyLstdqV3, LstdqV3Config)
         self.assertIs(LegacyStagewise, StagewiseConfig)
         self.assertIs(LegacyHierarchical, HierarchicalConfig)
 

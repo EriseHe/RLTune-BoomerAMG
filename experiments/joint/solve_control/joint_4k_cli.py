@@ -228,6 +228,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=32,
     )
     parser.add_argument(
+        "--recursive-lstdq-v3-beta",
+        type=float,
+        default=2.0,
+    )
+    parser.add_argument(
         "--rblspi-prior-precision",
         type=float,
         default=1.0e4,

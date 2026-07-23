@@ -17,6 +17,7 @@ from solve.controllers.common import (
 )
 from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
 
+from .common import _FactorizedLstdqScoring
 from .config import RecursiveLstdqV2LcbSpec
 from .v1 import RecursiveLstdqLcbController
 
@@ -70,19 +71,9 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
             self.coverage_matrix = np.asfortranarray(self.coverage_matrix)
             self.coverage_inverse = np.asfortranarray(self.coverage_inverse)
         self.coverage_inverse_rebuild_count = 0
-        self._coverage_basis_dim = int(self.action_basis.shape[1])
-        self._coverage_state_lift = np.zeros(
-            (self._coverage_basis_dim, self.joint_dim),
-            dtype=float,
-        )
-        self._coverage_state_lift_blocks = self._coverage_state_lift.reshape(
-            self._coverage_basis_dim,
-            self._coverage_basis_dim,
-            self.feature_dim,
-        )
-        self._coverage_basis_indices = np.arange(
-            self._coverage_basis_dim,
-            dtype=int,
+        self._factorized_scoring = _FactorizedLstdqScoring(
+            action_basis=self.action_basis,
+            feature_dim=self.feature_dim,
         )
         self.postfit_td_residuals = _RollingFloatWindow(
             int(spec.residual_scale_window)
@@ -114,33 +105,19 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
         cycle: int | None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         del cycle
-        state = np.asarray(features, dtype=float)
-        if state.shape != (self.feature_dim,):
-            raise ValueError(
-                f"Expected {self.feature_dim} state features, got {state.shape}"
-            )
+        state = self._factorized_scoring.prepare_state(features)
 
         # Every joint feature is z_a = b_a (x) state.  Contracting the
         # 288-dimensional quadratic through the 9-dimensional action basis is
         # algebraically identical to forming all 41 joint feature vectors, but
         # avoids the 41 x 288 by 288 dense product on every solver cycle.
-        self._coverage_state_lift.fill(0.0)
-        self._coverage_state_lift_blocks[
-            self._coverage_basis_indices,
-            self._coverage_basis_indices,
-            :,
-        ] = state
+        state_lift = self._factorized_scoring.state_lift
         reduced_coverage = (
-            self._coverage_state_lift @ self.coverage_inverse
-        ) @ self._coverage_state_lift.T
-        state_parameters = self.theta.reshape(
-            self._coverage_basis_dim,
-            self.feature_dim,
-        ) @ state
-        means = self.action_basis @ state_parameters
-        quadratic = np.sum(
-            (self.action_basis @ reduced_coverage) * self.action_basis,
-            axis=1,
+            state_lift @ self.coverage_inverse
+        ) @ state_lift.T
+        means = self._factorized_scoring.means(self.theta, state)
+        quadratic = self._factorized_scoring.action_quadratic(
+            reduced_coverage
         )
         uncertainty = float(self.residual_scale) * np.sqrt(
             np.maximum(quadratic, 0.0)

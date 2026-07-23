@@ -26,6 +26,7 @@ _V2_JSON_KEYS = frozenset(
         "min_samples",
     }
 )
+_V3_JSON_KEYS = frozenset({"beta"})
 
 
 @dataclass(frozen=True)
@@ -50,11 +51,17 @@ class RecursiveLstdqV2LcbSpec(RecursiveLstdqLcbSpec):
 
 
 @dataclass(frozen=True)
+class RecursiveLstdqV3LcbSpec(RecursiveLstdqLcbSpec):
+    """Episode-cluster sandwich confidence controls for recursive LSTDQ."""
+
+
+@dataclass(frozen=True)
 class RecursiveLstdqFamilySpecs:
-    """Decoded v1/v2 specs and their shared trace configuration."""
+    """Decoded versioned specs and their shared trace configuration."""
 
     v1: RecursiveLstdqLcbSpec
     v2: RecursiveLstdqV2LcbSpec
+    v3: RecursiveLstdqV3LcbSpec
     trace_lambda: float
 
     @classmethod
@@ -62,11 +69,15 @@ class RecursiveLstdqFamilySpecs:
         cls,
         shared_raw: Mapping[str, Any],
         v2_raw: Mapping[str, Any],
+        v3_raw: Mapping[str, Any] | None = None,
         *,
         shared_name: str = "solve.lstdq",
         v2_name: str = "solve.lstdq_v2",
+        v3_name: str = "solve.lstdq_v3",
     ) -> "RecursiveLstdqFamilySpecs":
-        """Decode shared LSTDQ values, then apply v2-only overrides once."""
+        """Decode shared LSTDQ values, then apply version-only overrides."""
+
+        resolved_v3_raw = {} if v3_raw is None else v3_raw
 
         reject_unknown_config_keys(
             shared_raw,
@@ -74,6 +85,11 @@ class RecursiveLstdqFamilySpecs:
             name=shared_name,
         )
         reject_unknown_config_keys(v2_raw, _V2_JSON_KEYS, name=v2_name)
+        reject_unknown_config_keys(
+            resolved_v3_raw,
+            _V3_JSON_KEYS,
+            name=v3_name,
+        )
 
         shared_parameters = {
             "ridge": float(
@@ -144,6 +160,16 @@ class RecursiveLstdqFamilySpecs:
                     )
                 ),
             ),
+            v3=RecursiveLstdqV3LcbSpec(
+                **shared_parameters,
+                uncertainty_beta=float(
+                    config_value(
+                        resolved_v3_raw,
+                        "beta",
+                        RecursiveLstdqV3LcbSpec.uncertainty_beta,
+                    )
+                ),
+            ),
             trace_lambda=float(
                 config_value(shared_raw, "trace_lambda", 0.8)
             ),
@@ -154,4 +180,5 @@ __all__ = [
     "RecursiveLstdqFamilySpecs",
     "RecursiveLstdqLcbSpec",
     "RecursiveLstdqV2LcbSpec",
+    "RecursiveLstdqV3LcbSpec",
 ]

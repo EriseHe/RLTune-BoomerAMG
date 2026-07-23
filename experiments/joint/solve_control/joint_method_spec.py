@@ -56,6 +56,7 @@ class ComposableMethodSpec:
             "recursive_mc": "recursive_mc_lcb",
             "recursive_lstdq_v1": "recursive_lstdq_lcb",
             "recursive_lstdq_v2": "recursive_lstdq_v2_lcb",
+            "recursive_lstdq_v3": "recursive_lstdq_v3_lcb",
             "rblspi": "rblspi",
             "stagewise_lsvi": "stagewise_lsvi_lcb",
             "structured_model_based": "structured_model_based",
@@ -84,6 +85,7 @@ class ComposableMethodSpec:
                 "recursive_mc": "Recursive MC-LCB",
                 "recursive_lstdq_v1": "Recursive LSTDQ-LCB",
                 "recursive_lstdq_v2": "Recursive LSTDQ v2-LCB",
+                "recursive_lstdq_v3": "Recursive LSTDQ v3-LCB",
                 "rblspi": "Recursive BLSTDQ / RBLSPI",
                 "stagewise_lsvi": "Stagewise LSVI-LCB",
                 "structured_model_based": (

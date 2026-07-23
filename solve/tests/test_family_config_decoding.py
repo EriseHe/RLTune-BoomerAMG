@@ -12,7 +12,7 @@ from solve.controllers.recursive_mc import RecursiveMonteCarloLcbSpec
 
 
 class FamilyConfigDecodingTests(unittest.TestCase):
-    def test_recursive_lstdq_owns_shared_and_v2_aliases(self) -> None:
+    def test_recursive_lstdq_owns_shared_and_version_aliases(self) -> None:
         shared = {
             "ridge": 2.0,
             "beta": 3.0,
@@ -26,8 +26,9 @@ class FamilyConfigDecodingTests(unittest.TestCase):
             "residual_window": 64,
             "min_samples": 8,
         }
+        v3 = {"beta": 6.0}
 
-        decoded = RecursiveLstdqFamilySpecs.from_mappings(shared, v2)
+        decoded = RecursiveLstdqFamilySpecs.from_mappings(shared, v2, v3)
 
         self.assertEqual(decoded.trace_lambda, 0.7)
         self.assertEqual(decoded.v1.ridge, 2.0)
@@ -41,6 +42,10 @@ class FamilyConfigDecodingTests(unittest.TestCase):
         self.assertEqual(decoded.v2.coverage_ridge, 5.0)
         self.assertEqual(decoded.v2.residual_scale_window, 64)
         self.assertEqual(decoded.v2.residual_scale_min_samples, 8)
+        self.assertEqual(decoded.v3.ridge, 2.0)
+        self.assertEqual(decoded.v3.residual_floor_sec, 0.004)
+        self.assertEqual(decoded.v3.lcb_lower_bound_sec, 0.02)
+        self.assertEqual(decoded.v3.uncertainty_beta, 6.0)
 
     def test_lsvi_owns_shared_and_hierarchical_aliases(self) -> None:
         decoded = LsviFamilySpecs.from_mappings(
@@ -146,6 +151,14 @@ class FamilyConfigDecodingTests(unittest.TestCase):
                 "Unknown solve.lstdq_v2 keys",
             ),
             (
+                lambda: RecursiveLstdqFamilySpecs.from_mappings(
+                    {},
+                    {},
+                    {"ridge": 1},
+                ),
+                "Unknown solve.lstdq_v3 keys",
+            ),
+            (
                 lambda: RecursiveBlstdqSpec.from_mapping(
                     {"not_rblspi": 1}
                 ),
@@ -184,6 +197,7 @@ class FamilyConfigDecodingTests(unittest.TestCase):
         self.assertEqual(lstdq.v1.uncertainty_beta, 2.0)
         self.assertEqual(lstdq.v2.uncertainty_beta, 2.0)
         self.assertEqual(lstdq.v2.residual_scale_window, 2048)
+        self.assertEqual(lstdq.v3.uncertainty_beta, 2.0)
         self.assertEqual(lstdq.trace_lambda, 0.8)
 
         lsvi = LsviFamilySpecs.from_mappings({}, {}, horizon=50)

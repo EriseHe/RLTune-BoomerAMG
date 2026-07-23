@@ -46,6 +46,7 @@ from joint_controller_build import (
     make_recursive_blstdq_controller as _make_recursive_blstdq_controller,
     make_recursive_lstdq_controller as _make_recursive_lstdq_controller,
     make_recursive_lstdq_v2_controller as _make_recursive_lstdq_v2_controller,
+    make_recursive_lstdq_v3_controller as _make_recursive_lstdq_v3_controller,
     make_recursive_mc_controller as _make_recursive_mc_controller,
     make_setup_obs_encoder as _make_setup_obs_encoder,
     make_shared_action_config as _make_shared_action_config,

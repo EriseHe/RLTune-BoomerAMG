@@ -330,6 +330,7 @@ def build_joint_protocol(
             "recursive_mc": "recursive_mc_lcb",
             "recursive_lstdq_v1": "recursive_lstdq_lcb",
             "recursive_lstdq_v2": "recursive_lstdq_v2_lcb",
+            "recursive_lstdq_v3": "recursive_lstdq_v3_lcb",
             "rblspi": "recursive_blstdq_rblspi",
             "stagewise_lsvi": "stagewise_lsvi_lcb",
             "structured_model_based": "structured_model_based",

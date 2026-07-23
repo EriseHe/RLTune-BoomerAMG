@@ -388,6 +388,45 @@ class ComposableJointRunnerTests(unittest.TestCase):
             lstdq_v2,
         )
 
+    def test_high_level_v3_uses_typed_episode_cluster_controller(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / "n40_recommended_lstdq_ucb_vs_rblspi_joint4k.json"
+        )
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        config["solve"]["lstdq_v3"] = {"beta": 3.0}
+        config["methods"] = [
+            {
+                "id": "linucb_v3",
+                "setup": "linucb",
+                "setup_space": "recommended",
+                "candidate_sampling": "structured512",
+                "solve": "recursive_lstdq_v3",
+            }
+        ]
+
+        typed = high_level.parse_joint_experiment_config(config)
+        controller_spec = typed.solve.controller_specs[
+            "recursive_lstdq_v3"
+        ]
+        self.assertAlmostEqual(
+            controller_spec.algorithm.uncertainty_beta,
+            3.0,
+        )
+        self.assertAlmostEqual(float(controller_spec.trace_lambda), 0.8)
+        runtime = high_level.runtime_config_from_spec(typed)
+        self.assertAlmostEqual(runtime.recursive_lstdq_v3_beta, 3.0)
+        specs = runner._validate_composable_protocol(runtime)
+        self.assertEqual(specs[0].family, "recursive_lstdq_v3_lcb")
+        self.assertEqual(
+            specs[0].label,
+            "Online LinUCB [recommended; structured-512] + "
+            "Recursive LSTDQ v3-LCB",
+        )
+
     def test_canonical_run_uses_frozen_typed_runtime_config(self) -> None:
         config_path = (
             Path(__file__).resolve().parents[2]

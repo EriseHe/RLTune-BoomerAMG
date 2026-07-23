@@ -32,8 +32,11 @@ from solve.controllers.recursive_lstdq import (
     RecursiveLstdqLcbSpec,
     RecursiveLstdqV2LcbController,
     RecursiveLstdqV2LcbSpec,
+    RecursiveLstdqV3LcbController,
+    RecursiveLstdqV3LcbSpec,
     build_recursive_lstdq_v1_controller,
     build_recursive_lstdq_v2_controller,
+    build_recursive_lstdq_v3_controller,
 )
 from solve.controllers.recursive_mc import (
     RecursiveMonteCarloLcbController,
@@ -46,6 +49,7 @@ OnlineSolveKind = Literal[
     "recursive_mc",
     "recursive_lstdq_v1",
     "recursive_lstdq_v2",
+    "recursive_lstdq_v3",
     "rblspi",
     "stagewise_lsvi",
     "structured_model_based",
@@ -56,6 +60,7 @@ AlgorithmSpec = (
     RecursiveMonteCarloLcbSpec
     | RecursiveLstdqLcbSpec
     | RecursiveLstdqV2LcbSpec
+    | RecursiveLstdqV3LcbSpec
     | RecursiveBlstdqSpec
     | StagewiseLsviLcbSpec
     | StructuredModelBasedSpec
@@ -135,6 +140,15 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         controller_type=RecursiveLstdqV2LcbController,
         spec_type=RecursiveLstdqV2LcbSpec,
         factory=build_recursive_lstdq_v2_controller,
+        trace_lambda_from_request=True,
+    ),
+    "recursive_lstdq_v3": SolveKindRegistration(
+        kind="recursive_lstdq_v3",
+        family="recursive_lstdq",
+        backend="online_controller",
+        controller_type=RecursiveLstdqV3LcbController,
+        spec_type=RecursiveLstdqV3LcbSpec,
+        factory=build_recursive_lstdq_v3_controller,
         trace_lambda_from_request=True,
     ),
     "rblspi": SolveKindRegistration(

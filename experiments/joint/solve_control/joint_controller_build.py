@@ -294,6 +294,45 @@ def make_recursive_lstdq_v2_controller(
     ).as_legacy_tuple()
 
 
+def build_recursive_lstdq_v3_controller_bundle(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+) -> ControllerBundle:
+    lcb_lower_bound = getattr(
+        args,
+        "recursive_lstdq_lcb_lower_bound_sec",
+        0.0,
+    )
+    return build_online_controller_bundle_from_args(
+        args,
+        kind="recursive_lstdq_v3",
+        seed=seed,
+        trace_lambda=float(args.recursive_lstdq_lambda),
+        algorithm_parameters=dict(
+            ridge=float(args.recursive_lstdq_ridge),
+            uncertainty_beta=float(args.recursive_lstdq_v3_beta),
+            residual_floor_sec=float(args.recursive_lstdq_residual_floor_sec),
+            lcb_lower_bound_sec=(
+                None
+                if lcb_lower_bound is None
+                else float(lcb_lower_bound)
+            ),
+        ),
+    )
+
+
+def make_recursive_lstdq_v3_controller(
+    args: argparse.Namespace,
+    *,
+    seed: int,
+) -> tuple[Any, SolveStateEncoder]:
+    return build_recursive_lstdq_v3_controller_bundle(
+        args,
+        seed=seed,
+    ).as_legacy_tuple()
+
+
 def build_recursive_blstdq_controller_bundle(
     args: argparse.Namespace,
     *,
@@ -393,6 +432,7 @@ __all__ = [
     "build_recursive_blstdq_controller_bundle",
     "build_recursive_lstdq_controller_bundle",
     "build_recursive_lstdq_v2_controller_bundle",
+    "build_recursive_lstdq_v3_controller_bundle",
     "build_recursive_mc_controller_bundle",
     "build_structured_model_based_controller_bundle",
     "make_encoder",
@@ -402,6 +442,7 @@ __all__ = [
     "make_recursive_blstdq_controller",
     "make_recursive_lstdq_controller",
     "make_recursive_lstdq_v2_controller",
+    "make_recursive_lstdq_v3_controller",
     "make_recursive_mc_controller",
     "make_setup_obs_encoder",
     "make_shared_action_config",
