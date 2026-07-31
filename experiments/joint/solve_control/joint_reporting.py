@@ -51,25 +51,28 @@ def _empty_stream_summary() -> Dict[str, Any]:
 
 
 def _comparison_windows(case_count: int) -> Dict[str, tuple[int, int]]:
-    if int(case_count) == 2000:
-        return {
-            "all_2000": (0, 2000),
-            "first_1000": (0, 1000),
-            "last_1000": (1000, 2000),
-            "last_500": (1500, 2000),
-            "last_300": (1700, 2000),
-        }
-    if int(case_count) == 4000:
-        return {
-            "all_4000": (0, 4000),
-            "first_2000": (0, 2000),
-            "last_2000": (2000, 4000),
-            "first_1000": (0, 1000),
-            "last_1000": (3000, 4000),
-            "last_500": (3500, 4000),
-            "last_300": (3700, 4000),
-        }
-    return {f"all_{int(case_count)}": (0, int(case_count))}
+    count = int(case_count)
+    if count <= 0:
+        raise ValueError("case_count must be positive")
+
+    windows = {f"all_{count}": (0, count)}
+    if count >= 4_000:
+        windows.update(
+            {
+                "first_2000": (0, 2_000),
+                "last_2000": (count - 2_000, count),
+            }
+        )
+    if count >= 1_000:
+        windows.update(
+            {
+                "first_1000": (0, 1_000),
+                "last_1000": (count - 1_000, count),
+                "last_500": (count - 500, count),
+                "last_300": (count - 300, count),
+            }
+        )
+    return windows
 
 
 def _window_result(
@@ -78,6 +81,7 @@ def _window_result(
     seed: int,
 ) -> Dict[str, Any]:
     available_references = {
+        "vs_default_setup_default_solve": "default_setup_default_solve",
         "vs_bandit_default": "bandit_default",
         "vs_fixed_w1.6": "bandit_fixed_w1.6",
         "vs_ppo": "bandit_ppo",
@@ -242,7 +246,11 @@ def _write_summary_csv(
         "controller_updates",
     )
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fields,
+            lineterminator="\n",
+        )
         writer.writeheader()
         for method, rows in records.items():
             summary = _method_stream_summary(rows)
@@ -278,18 +286,60 @@ def _write_solve_screen_report(
 ) -> None:
     """Render the locked screening metrics without requiring plotting tools."""
 
-    preferred_windows = ("all_4000", "first_1000", "last_1000", "last_500")
-    has_fixed_reference = any(
-        "vs_fixed_w1.6" in window.get("comparisons", {})
-        for window in window_results.values()
+    all_window = next(
+        (
+            name
+            for name in window_results
+            if str(name).startswith("all_")
+        ),
+        None,
     )
-    comparison_note = (
-        "Improvement and paired 95% intervals are relative to Online "
-        "LinUCB + fixed `w=1.6`."
-        if has_fixed_reference
-        else "No fixed-`w=1.6` reference was included, so paired improvement "
-        "columns are reported as n/a."
+    preferred_windows = tuple(
+        name
+        for name in (
+            all_window,
+            "first_1000",
+            "last_1000",
+            "last_500",
+        )
+        if name is not None
     )
+    reference_options = (
+        (
+            "vs_default_setup_default_solve",
+            "default_setup_default_solve",
+            "default setup + default solve",
+        ),
+        (
+            "vs_fixed_w1.6",
+            "bandit_fixed_w1.6",
+            "Online LinUCB + fixed `w=1.6`",
+        ),
+    )
+    selected_reference = next(
+        (
+            option
+            for option in reference_options
+            if any(
+                option[0] in window.get("comparisons", {})
+                for window in window_results.values()
+            )
+        ),
+        None,
+    )
+    if selected_reference is None:
+        comparison_key = None
+        baseline_method = None
+        comparison_note = (
+            "No supported reference branch was included, so paired "
+            "improvement columns are reported as n/a."
+        )
+    else:
+        comparison_key, baseline_method, baseline_label = selected_reference
+        comparison_note = (
+            "Improvement and paired 95% intervals are relative to "
+            f"{baseline_label}."
+        )
     lines = [
         "# Solve-Controller Screening Report",
         "",
@@ -304,7 +354,11 @@ def _write_solve_screen_report(
         report_windows = tuple(window_results)
     for window_name in report_windows:
         window = window_results[window_name]
-        comparisons = window.get("comparisons", {}).get("vs_fixed_w1.6", {})
+        comparisons = (
+            window.get("comparisons", {}).get(comparison_key, {})
+            if comparison_key is not None
+            else {}
+        )
         lines.extend(
             [
                 f"## {window_name}",
@@ -315,7 +369,7 @@ def _write_solve_screen_report(
         )
         for method, summary in window["methods"].items():
             means = summary["means_sec"]
-            if method == "bandit_fixed_w1.6":
+            if method == baseline_method:
                 improvement_text = "baseline"
                 same_setup_text = "1.000"
             elif method in comparisons:

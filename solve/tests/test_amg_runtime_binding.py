@@ -82,6 +82,11 @@ class AMGRuntimeBindingTests(unittest.TestCase):
                 with create_env(**matrix_kwargs) as env:
                     prepared = env.prepare_rl(params={})
                     self.assertGreaterEqual(prepared.setup_runtime_sec, 0.0)
+                    self.assertEqual(prepared.initial_residual_norm, 1.0)
+                    self.assertGreater(
+                        prepared.absolute_initial_residual_norm,
+                        0.0,
+                    )
                     for _ in range(50):
                         residual, runtime = env.step_rl(
                             relax_weight=prepared.initial_relax_weight,
@@ -98,6 +103,77 @@ class AMGRuntimeBindingTests(unittest.TestCase):
                         {SolveStatus.CONVERGED, SolveStatus.MAX_CYCLES},
                     )
                     self.assertEqual(residual, env.last_step.residual_norm)
+                    self.assertAlmostEqual(
+                        residual,
+                        env.last_step.absolute_residual_norm
+                        / prepared.absolute_initial_residual_norm,
+                        places=12,
+                    )
+
+    def test_prepared_step_uses_the_native_relative_residual_criterion(self):
+        with create_env(
+            nx=8,
+            ny=8,
+            nz=8,
+            stencil=7,
+            rhs_type=1,
+            rhs_seed=31,
+        ) as env:
+            prepared = env.prepare_rl(params={})
+            tolerance = 0.5
+            residual, _runtime = env.step_rl(
+                relax_weight=prepared.initial_relax_weight,
+                sweeps_down=1,
+                sweeps_up=1,
+                tol=tolerance,
+                max_cycles=5,
+            )
+
+            expected_status = (
+                SolveStatus.CONVERGED
+                if residual <= tolerance
+                else SolveStatus.CONTINUE
+            )
+            self.assertIs(env.last_step.status, expected_status)
+            self.assertAlmostEqual(
+                env.last_step.absolute_residual_norm,
+                residual * prepared.absolute_initial_residual_norm,
+                places=12,
+            )
+
+    def test_default_and_cycle_control_stop_at_the_same_relative_target(self):
+        matrix = dict(
+            nx=10,
+            ny=10,
+            nz=10,
+            stencil=7,
+            rhs_type=1,
+            rhs_seed=73,
+        )
+        tolerance = 1.0e-6
+        native = solve(tol=tolerance, max_iter=50, **matrix)
+
+        with create_env(**matrix) as env:
+            prepared = env.prepare_rl(params={})
+            for cycles in range(1, 51):
+                controlled_residual, _runtime = env.step_rl(
+                    relax_weight=prepared.initial_relax_weight,
+                    sweeps_down=1,
+                    sweeps_up=1,
+                    tol=tolerance,
+                    max_cycles=50,
+                )
+                if env.last_step.status is not SolveStatus.CONTINUE:
+                    break
+
+        self.assertIs(native.status, SolveStatus.CONVERGED)
+        self.assertIs(env.last_step.status, SolveStatus.CONVERGED)
+        self.assertEqual(cycles, native.iterations)
+        self.assertAlmostEqual(
+            controlled_residual,
+            native.residual_norm,
+            places=12,
+        )
 
     def test_setup_error_is_typed_and_cleared(self):
         with self.assertRaises(AMGNativeError) as raised:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Mapping, Sequence, Tuple
 
 import numpy as np
 
@@ -92,6 +92,69 @@ def stencil_27_laplace(*, rng: np.random.Generator, **extras: Any):
 # ---------------------------------------------------------------------------
 
 DIFCONV_CONTEXT_DIM = 8
+DIFFUSION_ADVECTION_CONTEXT_FIELDS = (
+    "bias",
+    "c_x",
+    "c_y",
+    "c_z",
+    "c_mean",
+    "a_x",
+    "a_y",
+    "a_z",
+)
+DIFFUSION_ADVECTION_CONTEXT_DIM = len(
+    DIFFUSION_ADVECTION_CONTEXT_FIELDS
+)
+DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS = (
+    "diffusion_log_mean",
+    "diffusion_log_contrast_xy",
+    "diffusion_log_contrast_xyz",
+    "cell_peclet_x",
+    "cell_peclet_y",
+    "cell_peclet_z",
+)
+
+
+def _complete_quadratic_field_names(
+    fields: Sequence[str],
+) -> tuple[str, ...]:
+    linear = tuple(str(field) for field in fields)
+    squares = tuple(f"{field}^2" for field in linear)
+    pairs = tuple(
+        f"{left}*{right}"
+        for index, left in enumerate(linear)
+        for right in linear[index + 1 :]
+    )
+    return ("bias", *linear, *squares, *pairs)
+
+
+DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_FIELDS = (
+    _complete_quadratic_field_names(
+        DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS
+    )
+)
+DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_DIM = len(
+    DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_FIELDS
+)
+
+
+def normalize_diffusion_advection_context(
+    values: Sequence[float] | np.ndarray,
+) -> np.ndarray:
+    """Validate the canonical PDE context shared by setup and solve."""
+
+    context = np.asarray(values, dtype=float).reshape(-1)
+    if context.size != DIFFUSION_ADVECTION_CONTEXT_DIM:
+        raise ValueError(
+            "PDE context must contain "
+            f"{DIFFUSION_ADVECTION_CONTEXT_DIM} values "
+            f"({', '.join(DIFFUSION_ADVECTION_CONTEXT_FIELDS)})"
+        )
+    if not np.all(np.isfinite(context)):
+        raise ValueError("PDE context values must be finite")
+    if not np.isclose(context[0], 1.0, atol=1.0e-12, rtol=0.0):
+        raise ValueError("PDE context bias field must equal 1")
+    return context
 
 
 def build_matrix_kwargs_difconv(
@@ -164,6 +227,222 @@ def build_context_difconv(
     nz_norm = float(nz) / n_denom
 
     return np.array([1.0, s1, s2, s3, c_scale, nx_norm, ny_norm, nz_norm], dtype=float)
+
+
+def _signed_log_normalize(value: float, *, scale: float) -> float:
+    denominator = float(np.log1p(max(abs(float(scale)), 0.0)))
+    if denominator <= np.finfo(float).eps:
+        return 0.0
+    return float(
+        np.sign(float(value))
+        * np.log1p(abs(float(value)))
+        / denominator
+    )
+
+
+def build_context_diffusion_advection(
+    *,
+    cx: float,
+    cy: float,
+    cz: float,
+    ax: float,
+    ay: float,
+    az: float,
+    nx: int,
+    ny: int,
+    nz: int,
+    grid_norm_div: float,
+    c_norm_div: float,
+    a_norm_div: float,
+) -> np.ndarray:
+    """Build the canonical PDE context shared by setup and solve learners."""
+
+    legacy_context = build_context_difconv(
+        cx=cx,
+        cy=cy,
+        cz=cz,
+        nx=nx,
+        ny=ny,
+        nz=nz,
+        grid_norm_div=grid_norm_div,
+        c_norm_div=c_norm_div,
+    )
+    advection_context = np.asarray(
+        [
+            _signed_log_normalize(ax, scale=a_norm_div),
+            _signed_log_normalize(ay, scale=a_norm_div),
+            _signed_log_normalize(az, scale=a_norm_div),
+        ],
+        dtype=float,
+    )
+    return np.concatenate((legacy_context[:5], advection_context))
+
+
+def build_context_diffusion_advection_from_matrix_kwargs(
+    matrix_kwargs: Mapping[str, Any],
+    *,
+    grid_norm_div: float,
+    c_norm_div: float,
+    a_norm_div: float,
+) -> np.ndarray:
+    """Build the canonical learner context from the exact solver inputs."""
+
+    return build_context_diffusion_advection(
+        cx=float(matrix_kwargs["k"]),
+        cy=float(matrix_kwargs["c"]),
+        cz=float(matrix_kwargs["a0"]),
+        ax=float(matrix_kwargs.get("a1", 0.0)),
+        ay=float(matrix_kwargs.get("a2", 0.0)),
+        az=float(matrix_kwargs.get("a3", 0.0)),
+        nx=int(matrix_kwargs.get("nx", 1)),
+        ny=int(matrix_kwargs.get("ny", 1)),
+        nz=int(matrix_kwargs.get("nz", 1)),
+        grid_norm_div=float(grid_norm_div),
+        c_norm_div=float(c_norm_div),
+        a_norm_div=float(a_norm_div),
+    )
+
+
+def build_directional_cell_peclet_from_matrix_kwargs(
+    matrix_kwargs: Mapping[str, Any],
+) -> np.ndarray:
+    """Return the three signed cell Péclet ratios of the DifConv stencil.
+
+    The native forward-difference stencil compares ``a_i / h_i`` against
+    ``c_i / h_i**2`` in each direction, so its directional cell Péclet ratio
+    is ``a_i * h_i / c_i`` with ``h_i = 1 / (n_i + 1)``.
+    """
+
+    diffusion = np.asarray(
+        [
+            matrix_kwargs["k"],
+            matrix_kwargs["c"],
+            matrix_kwargs["a0"],
+        ],
+        dtype=float,
+    )
+    advection = np.asarray(
+        [
+            matrix_kwargs.get("a1", 0.0),
+            matrix_kwargs.get("a2", 0.0),
+            matrix_kwargs.get("a3", 0.0),
+        ],
+        dtype=float,
+    )
+    grid_shape = np.asarray(
+        [
+            matrix_kwargs["nx"],
+            matrix_kwargs["ny"],
+            matrix_kwargs["nz"],
+        ],
+        dtype=float,
+    )
+    if not (
+        np.all(np.isfinite(diffusion))
+        and np.all(np.isfinite(advection))
+        and np.all(np.isfinite(grid_shape))
+    ):
+        raise ValueError("Péclet inputs must be finite")
+    if np.any(diffusion <= 0.0):
+        raise ValueError("Péclet diffusion coefficients must be positive")
+    if np.any(grid_shape < 1.0):
+        raise ValueError("Péclet grid dimensions must be positive")
+
+    directional_peclet = advection / diffusion / (grid_shape + 1.0)
+    if not np.all(np.isfinite(directional_peclet)):
+        raise ValueError("Péclet ratios must be finite")
+    return directional_peclet
+
+
+def build_normalized_cell_peclet_from_matrix_kwargs(
+    matrix_kwargs: Mapping[str, Any],
+) -> float:
+    """Return the strongest absolute cell Péclet ratio mapped to ``[0, 1)``."""
+
+    directional_peclet = np.abs(
+        build_directional_cell_peclet_from_matrix_kwargs(matrix_kwargs)
+    )
+    cell_peclet = float(np.max(directional_peclet))
+    if not np.isfinite(cell_peclet):
+        raise ValueError("Péclet ratio must be finite")
+    return float(cell_peclet / (1.0 + cell_peclet))
+
+
+def build_diffusion_advection_physics_coordinates(
+    *,
+    canonical_context: Sequence[float] | np.ndarray,
+    matrix_kwargs: Mapping[str, Any],
+) -> np.ndarray:
+    """Build six non-redundant, bounded PDE coordinates.
+
+    The three normalized log-diffusion coefficients are represented by one
+    scale coordinate and two orthogonal anisotropy contrasts.  The remaining
+    coordinates are signed directional cell Péclet ratios, smoothly bounded
+    to ``(-1, 1)``.  This removes the redundant canonical ``c_mean`` field
+    while preserving all three diffusion degrees of freedom.
+    """
+
+    canonical = normalize_diffusion_advection_context(canonical_context)
+    diffusion = canonical[1:4]
+    coordinates = np.asarray(
+        [
+            float(np.mean(diffusion)),
+            float((diffusion[0] - diffusion[1]) / np.sqrt(2.0)),
+            float(
+                (diffusion[0] + diffusion[1] - 2.0 * diffusion[2])
+                / np.sqrt(6.0)
+            ),
+        ],
+        dtype=float,
+    )
+    directional_peclet = (
+        build_directional_cell_peclet_from_matrix_kwargs(matrix_kwargs)
+    )
+    bounded_peclet = directional_peclet / (
+        1.0 + np.abs(directional_peclet)
+    )
+    return np.concatenate((coordinates, bounded_peclet))
+
+
+def build_diffusion_advection_physics_context(
+    *,
+    canonical_context: Sequence[float] | np.ndarray,
+    matrix_kwargs: Mapping[str, Any],
+) -> np.ndarray:
+    """Return bias plus the six non-redundant physical PDE coordinates."""
+
+    coordinates = build_diffusion_advection_physics_coordinates(
+        canonical_context=canonical_context,
+        matrix_kwargs=matrix_kwargs,
+    )
+    return np.concatenate(([1.0], coordinates))
+
+
+def build_diffusion_advection_quadratic_context(
+    *,
+    canonical_context: Sequence[float] | np.ndarray,
+    matrix_kwargs: Mapping[str, Any],
+) -> np.ndarray:
+    """Lift the six physical PDE coordinates into a complete Q2 basis."""
+
+    linear_context = build_diffusion_advection_physics_context(
+        canonical_context=canonical_context,
+        matrix_kwargs=matrix_kwargs,
+    )
+    coordinates = linear_context[1:]
+    squares = coordinates * coordinates
+    pairs = np.asarray(
+        [
+            coordinates[left] * coordinates[right]
+            for left in range(coordinates.size)
+            for right in range(left + 1, coordinates.size)
+        ],
+        dtype=float,
+    )
+    context = np.concatenate((linear_context, squares, pairs))
+    if context.size != DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_DIM:
+        raise AssertionError("quadratic PDE context dimension drifted")
+    return context
 
 
 def stencil_0_difconv_rl(*, rng: np.random.Generator, **extras: Any):

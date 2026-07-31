@@ -144,14 +144,33 @@ def _base_protocol(
         name: configuration_space.as_dict()
         for name, configuration_space in setup_configuration_spaces.items()
     }
+    solve_activation_cases = {
+        spec.name: int(spec.solve_activation_case)
+        for spec in composable_specs
+        if int(spec.solve_activation_case) > 0
+    }
+    setup_from_scratch = int(args.warmup_cases) == 0
+    joint_from_scratch = setup_from_scratch and not solve_activation_cases
+    if solve_activation_cases:
+        purpose = (
+            f"{int(args.online_cases)} persistent joint-online instances; "
+            "setup-bandit learning starts at instance 1 and solve controllers "
+            "activate only after their default-solve prefixes"
+        )
+    elif setup_from_scratch:
+        purpose = (
+            f"{int(args.online_cases)}-instance joint-online setup-bandit and "
+            "solve-controller learning from scratch"
+        )
+    else:
+        purpose = (
+            f"up to {int(args.warmup_cases)} setup-bandit warmup instances "
+            f"+ {int(args.online_cases)} persistent joint-online instances"
+        )
     return {
         "git_revision": git_revision,
         "platform": platform.platform(),
-        "purpose": (
-            "4K joint-online setup-bandit and solve-controller learning from scratch"
-            if int(args.warmup_cases) == 0
-            else "2K setup-bandit warmup + 2K persistent joint-online comparison"
-        ),
+        "purpose": purpose,
         "stream": stream_manifest,
         "stream_partition": {
             "warmup": [0, int(args.warmup_cases)],
@@ -178,7 +197,14 @@ def _base_protocol(
             ),
             "setup_param_resolution": int(args.setup_param_resolution),
             "warmup_instances": int(args.warmup_cases),
-            "joint_from_scratch": int(args.warmup_cases) == 0,
+            "method_warmup_instances": {
+                spec.name: int(spec.setup_warmup_cases)
+                for spec in composable_specs
+                if spec.setup_kind in setup_bandit_kinds
+            },
+            "solve_activation_case": solve_activation_cases,
+            "setup_from_scratch": setup_from_scratch,
+            "joint_from_scratch": joint_from_scratch,
             "common_snapshot_mutable_state_cloned": not bool(
                 setup_configuration_spaces
             ),
@@ -192,8 +218,9 @@ def _base_protocol(
                     "max_selections_per_case": int(
                         args.aot_max_selections_per_case
                     ),
-                    "scheduled_rounds_per_branch": int(args.online_cases)
-                    * int(args.aot_max_selections_per_case),
+                    "scheduled_rounds_per_branch": (
+                        int(args.online_cases) + int(args.warmup_cases)
+                    ) * int(args.aot_max_selections_per_case),
                     "pairing": "fixed-width block per online instance",
                     "payload": "candidate_ids_only",
                     "action_features": "shared_factorized_ram_cache",

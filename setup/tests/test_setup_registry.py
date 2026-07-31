@@ -13,11 +13,24 @@ import numpy as np
 from setup.learners.common import (
     LinTSV2Spec,
     LinUCBV4Spec,
+    LinUCBV5RBFSpec,
+    LinUCBV5Spec,
+    LinUCBV6Spec,
     SetupLearnerFactoryRequest,
     SharedSetupLearnerSpec,
 )
 from setup.learners.linucb.config import LinUCBV4Spec as FamilyLinUCBV4Spec
-from setup.learners.linucb.factory import build_linucb_v4_learner
+from setup.learners.linucb.config import LinUCBV5Spec as FamilyLinUCBV5Spec
+from setup.learners.linucb.config import (
+    LinUCBV5RBFSpec as FamilyLinUCBV5RBFSpec,
+)
+from setup.learners.linucb.config import LinUCBV6Spec as FamilyLinUCBV6Spec
+from setup.learners.linucb.factory import (
+    build_linucb_v4_learner,
+    build_linucb_v5_learner,
+    build_linucb_v5_rbf_learner,
+    build_linucb_v6_learner,
+)
 from setup.learners.thompson.config import LinTSV2Spec as FamilyLinTSV2Spec
 from setup.learners.thompson.factory import build_lints_v2_learner
 from setup.registry import (
@@ -28,7 +41,13 @@ from setup.registry import (
     make_setup_learner_spec,
     setup_kind_registration,
 )
-from setup.learners import SharedLinTS_AMG_v2, SharedLinUCB_AMG_v4
+from setup.learners import (
+    SharedLinTS_AMG_v2,
+    SharedLinUCB_AMG_v4,
+    SharedLinUCB_AMG_v5,
+    SharedLinUCB_AMG_v5_RBF,
+    SharedLinUCB_AMG_v6,
+)
 from setup.learners.common import ParameterSpaceSpec, ParameterSpec
 from setup.utils.setup_amg import build_actions_from_spec
 
@@ -64,14 +83,42 @@ class SetupRegistryTests(unittest.TestCase):
     def test_registry_covers_composable_and_online_setup_kinds(self) -> None:
         self.assertEqual(
             COMPOSABLE_SETUP_KINDS,
-            ("default", "linucb", "lints"),
+            (
+                "default",
+                "linucb",
+                "linucb_v5",
+                "linucb_v5_rbf",
+                "linucb_v6",
+                "lints",
+            ),
         )
-        self.assertEqual(ONLINE_SETUP_KINDS, ("linucb", "lints"))
+        self.assertEqual(
+            ONLINE_SETUP_KINDS,
+            (
+                "linucb",
+                "linucb_v5",
+                "linucb_v5_rbf",
+                "linucb_v6",
+                "lints",
+            ),
+        )
         self.assertFalse(setup_kind_registration("random").online)
         self.assertNotIn("random", COMPOSABLE_SETUP_KINDS)
         self.assertIs(
             setup_kind_registration("linucbv4").learner_type,
             SharedLinUCB_AMG_v4,
+        )
+        self.assertIs(
+            setup_kind_registration("linucbv5").learner_type,
+            SharedLinUCB_AMG_v5,
+        )
+        self.assertIs(
+            setup_kind_registration("linucbv5rbf").learner_type,
+            SharedLinUCB_AMG_v5_RBF,
+        )
+        self.assertIs(
+            setup_kind_registration("linucbv6").learner_type,
+            SharedLinUCB_AMG_v6,
         )
         self.assertIs(
             setup_kind_registration("lints_v2").learner_type,
@@ -82,15 +129,42 @@ class SetupRegistryTests(unittest.TestCase):
             build_linucb_v4_learner,
         )
         self.assertIs(
+            setup_kind_registration("linucb_v5").factory,
+            build_linucb_v5_learner,
+        )
+        self.assertIs(
+            setup_kind_registration("linucb_v5_rbf").factory,
+            build_linucb_v5_rbf_learner,
+        )
+        self.assertIs(
+            setup_kind_registration("linucb_v6").factory,
+            build_linucb_v6_learner,
+        )
+        self.assertIs(
             setup_kind_registration("lints").factory,
             build_lints_v2_learner,
         )
 
     def test_algorithm_specs_are_family_owned_compatibility_reexports(self) -> None:
         self.assertIs(LinUCBV4Spec, FamilyLinUCBV4Spec)
+        self.assertIs(LinUCBV5Spec, FamilyLinUCBV5Spec)
+        self.assertIs(LinUCBV5RBFSpec, FamilyLinUCBV5RBFSpec)
+        self.assertIs(LinUCBV6Spec, FamilyLinUCBV6Spec)
         self.assertIs(LinTSV2Spec, FamilyLinTSV2Spec)
         self.assertEqual(
             LinUCBV4Spec.__module__,
+            "setup.learners.linucb.config",
+        )
+        self.assertEqual(
+            LinUCBV5Spec.__module__,
+            "setup.learners.linucb.config",
+        )
+        self.assertEqual(
+            LinUCBV5RBFSpec.__module__,
+            "setup.learners.linucb.config",
+        )
+        self.assertEqual(
+            LinUCBV6Spec.__module__,
             "setup.learners.linucb.config",
         )
         self.assertEqual(

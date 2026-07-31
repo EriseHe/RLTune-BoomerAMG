@@ -22,6 +22,11 @@ _LEARNER_SUBMODULES = {
     "SharedLinUCB_AMG_v2": "setup.learners.linucb.SharedLinUCB_AMG_v2",
     "SharedLinUCB_AMG_v3": "setup.learners.linucb.SharedLinUCB_AMG_v3",
     "SharedLinUCB_AMG_v4": "setup.learners.linucb.SharedLinUCB_AMG_v4",
+    "SharedLinUCB_AMG_v5": "setup.learners.linucb.SharedLinUCB_AMG_v5",
+    "SharedLinUCB_AMG_v5_RBF": (
+        "setup.learners.linucb.SharedLinUCB_AMG_v5_RBF"
+    ),
+    "SharedLinUCB_AMG_v6": "setup.learners.linucb.SharedLinUCB_AMG_v6",
     "RFF_TS_AMG": "setup.learners.thompson.RFF_TS_AMG",
     "SharedBootstrapTS_AMG": (
         "setup.learners.thompson.SharedBootstrapTS_AMG"
@@ -61,6 +66,15 @@ _LEARNER_SUBMODULES = {
     ),
     "linucb.SharedLinUCB_AMG_v4": (
         "setup.learners.linucb.SharedLinUCB_AMG_v4"
+    ),
+    "linucb.SharedLinUCB_AMG_v5": (
+        "setup.learners.linucb.SharedLinUCB_AMG_v5"
+    ),
+    "linucb.SharedLinUCB_AMG_v5_RBF": (
+        "setup.learners.linucb.SharedLinUCB_AMG_v5_RBF"
+    ),
+    "linucb.SharedLinUCB_AMG_v6": (
+        "setup.learners.linucb.SharedLinUCB_AMG_v6"
     ),
     "linucb.setup_reselection": "setup.learners.linucb.setup_reselection",
     "thompson": "setup.learners.thompson",

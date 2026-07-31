@@ -710,6 +710,7 @@ AMG_API int amg_runtime_step(
             env->x,
             env->r,
             tol,
+            env->r0,
             max_cycles,
             &env->cycles_done,
             relax_weight,

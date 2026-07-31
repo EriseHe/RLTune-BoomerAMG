@@ -10,9 +10,14 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
+import numpy as np
+
+import generate_joint_experiment_plots as plot_entrypoint
+import joint_4k_runner as core_runner
+import joint_experiment_plotting as plotter
 import run_joint_experiment as high_level
 import run_joint_online_sarsa_4k as runner
-import plot_joint_online_sarsa_4k as plotter
+import plot_shared_action_rl_study as shared_plotter
 from joint_method_spec import ComposableMethodSpec
 from joint_online_common import _problem_stream_spec
 from setup.space import SetupConfigurationSpace
@@ -73,7 +78,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(named_space.candidate_sampling, "uniform512")
         self.assertEqual(
             named_space.label,
-            "Online LinUCB [recommended; uniform-512] + default solve",
+            "Online LinUCB [uniform-512] + default solve",
         )
         structured = runner._parse_composable_method(
             "linucb_structured:linucb@recommended@structured512:default"
@@ -81,7 +86,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(structured.candidate_sampling, "structured512")
         self.assertEqual(
             structured.label,
-            "Online LinUCB [recommended; structured-512] + default solve",
+            "Online LinUCB + default solve",
         )
         lin_ts = runner._parse_composable_method(
             "lints_original:lints@original:default"
@@ -107,6 +112,45 @@ class ComposableJointRunnerTests(unittest.TestCase):
                 alternate_seed.to_runner_token()
             ),
             alternate_seed,
+        )
+        legacy_context = runner._parse_composable_method(
+            "legacy_context:linucb_v5:"
+            "recursive_lstdq_v3@legacy:0:0:1000:1e-6"
+        )
+        self.assertEqual(legacy_context.solve_context, "legacy")
+        self.assertEqual(
+            runner._parse_composable_method(
+                legacy_context.to_runner_token()
+            ),
+            legacy_context,
+        )
+        physics_context = runner._parse_composable_method(
+            "physics_context:linucb@recommended@structured512@"
+            "physics_linear:recursive_lstdq_v3@physics_linear:0:0:1000:1e-6"
+        )
+        self.assertEqual(physics_context.setup_context, "physics_linear")
+        self.assertEqual(physics_context.solve_context, "physics_linear")
+        self.assertEqual(
+            runner._parse_composable_method(
+                physics_context.to_runner_token()
+            ),
+            physics_context,
+        )
+        no_c_mean = runner._parse_composable_method(
+            "no_c_mean:linucb@recommended@structured512@"
+            "canonical_no_c_mean:default"
+        )
+        self.assertEqual(
+            no_c_mean.setup_context,
+            "canonical_no_c_mean",
+        )
+        self.assertEqual(
+            runner._parse_composable_method(no_c_mean.to_runner_token()),
+            no_c_mean,
+        )
+        self.assertEqual(
+            no_c_mean.label,
+            "Online LinUCB [context=canonical-no-c-mean] + default solve",
         )
 
     def test_composable_method_parser_rejects_ambiguous_or_unsafe_specs(self) -> None:
@@ -334,6 +378,80 @@ class ComposableJointRunnerTests(unittest.TestCase):
             "Online LinUCB [original] + default solve",
         )
 
+    def test_weight_reporting_accepts_staged_default_solve_prefix(self) -> None:
+        rows = [
+            {
+                "outcome": {
+                    "final_w": None,
+                    "native_status": "converged",
+                    "iterations": 13,
+                }
+            },
+            {"outcome": {"cycle_actions": [1.5, 1.7], "final_w": 1.7}},
+        ]
+        np.testing.assert_allclose(
+            plotter._selected_weights(
+                rows,
+                family="recursive_lstdq_v3_lcb",
+                statistic="first_cycle",
+            ),
+            [1.0, 1.5],
+        )
+        np.testing.assert_allclose(
+            plotter._selected_weights(
+                rows,
+                family="recursive_lstdq_v3_lcb",
+                statistic="solve_mean",
+            ),
+            [1.0, 1.6],
+        )
+
+        failed_prefix = {
+            "outcome": {
+                "final_w": None,
+                "failed": True,
+                "unrecovered_failure": True,
+                "iterations": 0,
+            }
+        }
+        self.assertTrue(
+            np.isnan(
+                plotter._selected_weights(
+                    [failed_prefix],
+                    family="recursive_lstdq_v3_lcb",
+                    statistic="first_cycle",
+                )[0]
+            )
+        )
+
+        with self.assertRaisesRegex(ValueError, "cycle_actions and final_w"):
+            plotter._selected_weights(
+                [{"outcome": {}}],
+                family="recursive_lstdq_v3_lcb",
+                statistic="first_cycle",
+            )
+
+    def test_action_matrix_fills_staged_native_default_cycles(self) -> None:
+        rows = [
+            {
+                "outcome": {
+                    "cycle_actions": [],
+                    "native_status": "converged",
+                    "iterations": 3,
+                }
+            },
+            {"outcome": {"cycle_actions": [1.5, 2.0]}},
+        ]
+        matrix = shared_plotter._action_matrix(
+            rows,
+            max_cycles=4,
+            native_default_weight=1.0,
+        )
+        np.testing.assert_allclose(matrix[:3, 0], [1.0, 1.0, 1.0])
+        self.assertTrue(np.isnan(matrix[3, 0]))
+        np.testing.assert_allclose(matrix[:2, 1], [1.5, 2.0])
+        self.assertTrue(np.isnan(matrix[2:, 1]).all())
+
     def test_canonical_n40_high_level_config_resolves_protocol(self) -> None:
         config_path = (
             Path(__file__).resolve().parents[2]
@@ -436,8 +554,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(specs[0].family, "recursive_lstdq_v3_lcb")
         self.assertEqual(
             specs[0].label,
-            "Online LinUCB [recommended; structured-512] + "
-            "Recursive LSTDQ v3-LCB",
+            "Online LinUCB + Recursive LSTDQ v3-LCB",
         )
 
     def test_canonical_run_uses_frozen_typed_runtime_config(self) -> None:
@@ -701,6 +818,71 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertAlmostEqual(args.rblspi_noise_precision, 1.0e6)
         self.assertAlmostEqual(args.rblspi_gram_ridge, 1.0e-6)
 
+    def test_frozen_setup_replay_config_preserves_source_path(self) -> None:
+        config_path = (
+            Path(__file__).resolve().parents[2]
+            / "joint"
+            / "solve_control"
+            / "configs"
+            / (
+                "n60_diffusion_advection_frozen_default_setup_trace_"
+                "lstdq_v3_legacy_vs_canonical_context_staged1000_"
+                "4k_tol1e6.json"
+            )
+        )
+        typed = high_level.parse_joint_experiment_config(
+            json.loads(config_path.read_text(encoding="utf-8"))
+        )
+        runtime = high_level.runtime_config_from_spec(typed)
+
+        self.assertIsNotNone(runtime.setup_replay_trajectory)
+        self.assertIn(
+            "linucb_v5_recommended_structured512_default_solve.jsonl",
+            str(runtime.setup_replay_trajectory),
+        )
+        self.assertEqual(
+            {method.solve_context for method in runtime.methods},
+            {"legacy", "canonical"},
+        )
+
+    def test_setup_replay_loader_requires_exact_instance_alignment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "setup.jsonl"
+            row = {
+                "online_index": 0,
+                "mkw": {"nx": 4, "ny": 4, "nz": 4, "k": 2.0},
+                "context": [1.0, 0.5],
+                "params": {"coarsen_type": 10},
+                "arm_index": 7,
+            }
+            path.write_text(json.dumps(row) + "\n", encoding="utf-8")
+            instances = [
+                (
+                    dict(row["mkw"]),
+                    np.asarray(row["context"], dtype=float),
+                )
+            ]
+
+            rows, metadata = core_runner._load_setup_replay_trajectory(
+                path,
+                online_instances=instances,
+            )
+            self.assertEqual(rows[0]["params"], row["params"])
+            self.assertEqual(metadata["mode"], "frozen_per_instance_trajectory")
+            self.assertFalse(metadata["updates"])
+
+            mismatched = [
+                (
+                    dict(row["mkw"]) | {"k": 3.0},
+                    np.asarray(row["context"], dtype=float),
+                )
+            ]
+            with self.assertRaisesRegex(ValueError, "PDE instance"):
+                core_runner._load_setup_replay_trajectory(
+                    path,
+                    online_instances=mismatched,
+                )
+
     def test_high_level_reproduction_script_has_valid_continuation_args(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output_dir = Path(directory) / "result"
@@ -731,13 +913,79 @@ class ComposableJointRunnerTests(unittest.TestCase):
                 config_path=Path("config.json"),
                 args=args,
                 validation=validation,
-                plot_summary=None,
             )
 
             script = (output_dir / "reproduce.sh").read_text(encoding="utf-8")
             self.assertIn('\n  --config "', script)
             self.assertIn('\n  --output-dir "$OUTPUT_DIR"', script)
             self.assertNotIn("\n+  --", script)
+
+    def test_plot_entrypoint_only_processes_existing_results(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result_dir = Path(directory)
+            summary = {"runtime_breakdown": "runtime.png"}
+            with patch.object(
+                plot_entrypoint,
+                "generate_plots",
+                return_value=summary,
+            ) as generate:
+                output = plot_entrypoint.generate_experiment_plots(
+                    result_dir=result_dir,
+                    rolling_window=25,
+                )
+
+            self.assertEqual(output, summary)
+            generate.assert_called_once_with(
+                result_dir=result_dir,
+                rolling_window=25,
+                analysis_stop=None,
+            )
+            self.assertEqual(
+                json.loads(
+                    (result_dir / "high_level_plot_summary.json").read_text(
+                        encoding="utf-8"
+                    )
+                ),
+                summary,
+            )
+
+    def test_high_level_reporting_flag_invokes_separate_plotter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result_dir = Path(directory)
+            summary = {"runtime_breakdown": "runtime.png"}
+            spec = Mock(
+                reporting=Mock(generate_plots=True, rolling_window=25)
+            )
+            with patch.object(
+                plot_entrypoint,
+                "generate_experiment_plots",
+                return_value=summary,
+            ) as generate:
+                output = high_level._generate_requested_plots(
+                    spec=spec,
+                    result_dir=result_dir,
+                )
+
+            self.assertEqual(output, summary)
+            generate.assert_called_once_with(
+                result_dir=result_dir,
+                rolling_window=25,
+            )
+
+    def test_high_level_reporting_flag_can_skip_plotter(self) -> None:
+        result_dir = Path("/tmp/unused-plot-result")
+        spec = Mock(reporting=Mock(generate_plots=False, rolling_window=25))
+        with patch.object(
+            plot_entrypoint,
+            "generate_experiment_plots",
+        ) as generate:
+            output = high_level._generate_requested_plots(
+                spec=spec,
+                result_dir=result_dir,
+            )
+
+        self.assertIsNone(output)
+        generate.assert_not_called()
 
 
 if __name__ == "__main__":

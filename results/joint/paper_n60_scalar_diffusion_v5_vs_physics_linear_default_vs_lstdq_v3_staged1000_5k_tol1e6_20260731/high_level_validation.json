@@ -1,0 +1,197 @@
+{
+  "output_dir": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731",
+  "stream": {
+    "problem": "scalar_anisotropic_diffusion",
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "advection": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "mode": "grouped_shuffled_segments",
+    "segments": [
+      {
+        "segment": 0,
+        "seeds": [
+          52700057,
+          52706057,
+          52712057,
+          52718057,
+          52724057,
+          52730057,
+          52736057,
+          52742057
+        ],
+        "cases_per_seed": 625,
+        "window": [
+          0,
+          625
+        ],
+        "candidate_cases": 5000,
+        "shuffle_seed": 52748057,
+        "selected_cases": 5000
+      }
+    ],
+    "sha256": "07258e0e51e1b9ecc73cdac1344d25050496b6e150da5de1359f0234a2afc722"
+  },
+  "methods": [
+    {
+      "id": "default_setup_default_solve",
+      "setup": "default",
+      "setup_space": null,
+      "setup_context": "default",
+      "candidate_sampling": "uniform512",
+      "solve": "default",
+      "fixed_weight": null,
+      "seed_offset": 0,
+      "setup_warmup_cases": 0,
+      "solve_activation_case": 0,
+      "solve_tolerance": null,
+      "solve_context": "canonical"
+    },
+    {
+      "id": "linucb_v5_canonical8d_recommended_structured512_default_solve",
+      "setup": "linucb_v5",
+      "setup_space": "recommended",
+      "setup_context": "default",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "fixed_weight": null,
+      "seed_offset": 0,
+      "setup_warmup_cases": 0,
+      "solve_activation_case": 0,
+      "solve_tolerance": null,
+      "solve_context": "canonical"
+    },
+    {
+      "id": "linucb_physics_linear7d_recommended_structured512_default_solve",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "physics_linear",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "fixed_weight": null,
+      "seed_offset": 0,
+      "setup_warmup_cases": 0,
+      "solve_activation_case": 0,
+      "solve_tolerance": null,
+      "solve_context": "canonical"
+    },
+    {
+      "id": "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6",
+      "setup": "linucb_v5",
+      "setup_space": "recommended",
+      "setup_context": "default",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "fixed_weight": null,
+      "seed_offset": 0,
+      "setup_warmup_cases": 0,
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "solve_context": "canonical"
+    },
+    {
+      "id": "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "physics_linear",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "fixed_weight": null,
+      "seed_offset": 0,
+      "setup_warmup_cases": 0,
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "solve_context": "physics_linear"
+    }
+  ],
+  "setup_configuration_spaces": {
+    "recommended": {
+      "coarsen_types": [
+        0,
+        2,
+        3,
+        6,
+        8,
+        10
+      ],
+      "interp_types": [
+        0,
+        2,
+        3,
+        6,
+        8,
+        17
+      ],
+      "agg_interp_types": [
+        4
+      ]
+    }
+  },
+  "setup_candidate_mode": "aot",
+  "setup_replay_trajectory": null,
+  "aot_max_selections_per_case": 3,
+  "lin_ts": {
+    "relative_sampling_scale": 0.15,
+    "loss_scale_prior_sec": 0.1
+  },
+  "actions": [
+    1.0,
+    1.05,
+    1.1,
+    1.15,
+    1.2,
+    1.25,
+    1.3,
+    1.35,
+    1.4,
+    1.45,
+    1.5,
+    1.55,
+    1.6,
+    1.65,
+    1.7,
+    1.75,
+    1.8,
+    1.85,
+    1.9,
+    1.95,
+    2.0,
+    2.05,
+    2.1,
+    2.15,
+    2.2,
+    2.25,
+    2.3,
+    2.35,
+    2.4,
+    2.45,
+    2.5,
+    2.55,
+    2.6,
+    2.65,
+    2.7,
+    2.75,
+    2.8,
+    2.85,
+    2.9,
+    2.95,
+    3.0
+  ],
+  "rbf_centers": [
+    1.0,
+    1.25,
+    1.5,
+    1.75,
+    2.0,
+    2.25,
+    2.5,
+    2.75,
+    3.0
+  ]
+}

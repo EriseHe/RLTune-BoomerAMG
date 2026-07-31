@@ -61,7 +61,7 @@ class BanditRecoveryTimingTests(unittest.TestCase):
             run_bandit_step_test_final(
                 policy=policy,
                 parameter_space={"actions": [{"arm": 0}]},
-                context=np.zeros(2, dtype=float),
+                problem_context=np.zeros(2, dtype=float),
                 solver_fn=lambda _params: next(outcomes),
                 fallback_solver_fn=lambda _params: next(outcomes),
                 prev_update_est=0.0,

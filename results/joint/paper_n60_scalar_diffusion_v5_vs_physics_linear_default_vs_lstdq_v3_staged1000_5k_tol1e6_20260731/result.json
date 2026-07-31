@@ -1,0 +1,1096 @@
+{
+  "protocol": {
+    "git_revision": "12b6f3d34890a6e821f71b926a9961a7065ed358",
+    "platform": "macOS-26.5-arm64-arm-64bit",
+    "purpose": "5000 persistent joint-online instances; setup-bandit learning starts at instance 1 and solve controllers activate only after their default-solve prefixes",
+    "stream": {
+      "problem": "scalar_anisotropic_diffusion",
+      "grid": [
+        60,
+        60,
+        60
+      ],
+      "advection": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mode": "grouped_shuffled_segments",
+      "segments": [
+        {
+          "segment": 0,
+          "seeds": [
+            52700057,
+            52706057,
+            52712057,
+            52718057,
+            52724057,
+            52730057,
+            52736057,
+            52742057
+          ],
+          "cases_per_seed": 625,
+          "window": [
+            0,
+            625
+          ],
+          "candidate_cases": 5000,
+          "shuffle_seed": 52748057,
+          "selected_cases": 5000
+        }
+      ],
+      "sha256": "07258e0e51e1b9ecc73cdac1344d25050496b6e150da5de1359f0234a2afc722"
+    },
+    "stream_partition": {
+      "warmup": [
+        0,
+        0
+      ],
+      "online": [
+        0,
+        5000
+      ]
+    },
+    "methods": [
+      "default_setup_default_solve",
+      "linucb_v5_canonical8d_recommended_structured512_default_solve",
+      "linucb_physics_linear7d_recommended_structured512_default_solve",
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6",
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6"
+    ],
+    "families": {
+      "default_setup_default_solve": "default_setup",
+      "linucb_v5_canonical8d_recommended_structured512_default_solve": "default",
+      "linucb_physics_linear7d_recommended_structured512_default_solve": "default",
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": "recursive_lstdq_v3_lcb",
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": "recursive_lstdq_v3_lcb"
+    },
+    "method_labels": {
+      "default_setup_default_solve": "Default setup + default solve",
+      "linucb_v5_canonical8d_recommended_structured512_default_solve": "Online LinUCB v5 + default solve",
+      "linucb_physics_linear7d_recommended_structured512_default_solve": "Online LinUCB [context=physics-linear] + default solve",
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": "Online LinUCB v5 + Recursive LSTDQ v3-LCB; activate=1000; tol=1e-06",
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": "Online LinUCB [context=physics-linear] + Recursive LSTDQ v3-LCB; activate=1000; tol=1e-06; context=physics_linear"
+    },
+    "method_specs": [
+      {
+        "name": "default_setup_default_solve",
+        "setup_kind": "default",
+        "solve_kind": "default",
+        "setup_space": null,
+        "setup_context": "default",
+        "candidate_sampling": "uniform512",
+        "fixed_weight": null,
+        "seed_offset": 0,
+        "setup_warmup_cases": 0,
+        "solve_activation_case": 0,
+        "solve_tolerance": null,
+        "solve_context": "canonical"
+      },
+      {
+        "name": "linucb_v5_canonical8d_recommended_structured512_default_solve",
+        "setup_kind": "linucb_v5",
+        "solve_kind": "default",
+        "setup_space": "recommended",
+        "setup_context": "default",
+        "candidate_sampling": "structured512",
+        "fixed_weight": null,
+        "seed_offset": 0,
+        "setup_warmup_cases": 0,
+        "solve_activation_case": 0,
+        "solve_tolerance": null,
+        "solve_context": "canonical"
+      },
+      {
+        "name": "linucb_physics_linear7d_recommended_structured512_default_solve",
+        "setup_kind": "linucb",
+        "solve_kind": "default",
+        "setup_space": "recommended",
+        "setup_context": "physics_linear",
+        "candidate_sampling": "structured512",
+        "fixed_weight": null,
+        "seed_offset": 0,
+        "setup_warmup_cases": 0,
+        "solve_activation_case": 0,
+        "solve_tolerance": null,
+        "solve_context": "canonical"
+      },
+      {
+        "name": "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6",
+        "setup_kind": "linucb_v5",
+        "solve_kind": "recursive_lstdq_v3",
+        "setup_space": "recommended",
+        "setup_context": "default",
+        "candidate_sampling": "structured512",
+        "fixed_weight": null,
+        "seed_offset": 0,
+        "setup_warmup_cases": 0,
+        "solve_activation_case": 1000,
+        "solve_tolerance": 1e-06,
+        "solve_context": "canonical"
+      },
+      {
+        "name": "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6",
+        "setup_kind": "linucb",
+        "solve_kind": "recursive_lstdq_v3",
+        "setup_space": "recommended",
+        "setup_context": "physics_linear",
+        "candidate_sampling": "structured512",
+        "fixed_weight": null,
+        "seed_offset": 0,
+        "setup_warmup_cases": 0,
+        "solve_activation_case": 1000,
+        "solve_tolerance": 1e-06,
+        "solve_context": "physics_linear"
+      }
+    ],
+    "candidates": [],
+    "setup_bandit": {
+      "seed": 52760057,
+      "matrix_grid_n": 60,
+      "problem": "scalar_anisotropic_diffusion",
+      "grid_shape": [
+        60,
+        60,
+        60
+      ],
+      "setup_param_resolution": 20,
+      "warmup_instances": 0,
+      "method_warmup_instances": {
+        "linucb_v5_canonical8d_recommended_structured512_default_solve": 0,
+        "linucb_physics_linear7d_recommended_structured512_default_solve": 0,
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": 0,
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": 0
+      },
+      "solve_activation_case": {
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": 1000,
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": 1000
+      },
+      "setup_from_scratch": true,
+      "joint_from_scratch": false,
+      "common_snapshot_mutable_state_cloned": false,
+      "immutable_action_catalog_and_g_actions_shared": false,
+      "per_branch_parameter_space": true,
+      "candidate_mode": "aot",
+      "aot_schedule": {
+        "max_selections_per_case": 3,
+        "scheduled_rounds_per_branch": 15000,
+        "pairing": "fixed-width block per online instance",
+        "payload": "candidate_ids_only",
+        "action_features": "shared_factorized_ram_cache"
+      },
+      "configuration_spaces": {
+        "recommended": {
+          "coarsen_types": [
+            0,
+            2,
+            3,
+            6,
+            8,
+            10
+          ],
+          "interp_types": [
+            0,
+            2,
+            3,
+            6,
+            8,
+            17
+          ],
+          "agg_interp_types": [
+            4
+          ]
+        }
+      },
+      "method_configuration_spaces": {
+        "linucb_v5_canonical8d_recommended_structured512_default_solve": "recommended",
+        "linucb_physics_linear7d_recommended_structured512_default_solve": "recommended",
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": "recommended",
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": "recommended"
+      },
+      "frozen_after_warmup": false,
+      "independent_updates_per_method": true,
+      "fallback_runtime_included_in_feedback": true,
+      "linear_ts_v2": {
+        "posterior": "Gaussian linear posterior",
+        "precision_factor": "rank-one Cholesky updates",
+        "relative_sampling_scale": 0.15,
+        "loss_scale_prior_sec": 0.1,
+        "runtime_scale_reference": "first successful observation",
+        "posterior_rng_separate_from_candidate_rng": true
+      },
+      "failure_head": {
+        "representation": "shared_context_action_features",
+        "ridge": 1.0,
+        "beta": 2.0
+      },
+      "setup_construction_reselection": {
+        "max_learned_attempts_including_first": 3,
+        "temporary_exact_arm_exclusion": true,
+        "ranking": [
+          "failure_ucb",
+          "runtime_lcb"
+        ],
+        "runtime_target": "realized_suffix_cost"
+      },
+      "solve_failure_reselection": false,
+      "default_fallback_attempts": 1,
+      "online_branches": [
+        "linucb_v5_canonical8d_recommended_structured512_default_solve",
+        "linucb_physics_linear7d_recommended_structured512_default_solve",
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6",
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6"
+      ]
+    },
+    "randomized_method_order_per_instance": true,
+    "method_order_seed": 52772057,
+    "solve_controllers": {
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+        "kind": "recursive_lstdq_v3",
+        "family": "recursive_lstdq",
+        "state": "setup_full",
+        "state_encoder": {
+          "tol": 1e-06,
+          "max_cycles": 50,
+          "c_max": 1000.0,
+          "time_scale_sec": 0.002,
+          "feature_dim": 35,
+          "problem_context_mode": "canonical",
+          "problem_context_fields": [
+            "bias",
+            "c_x",
+            "c_y",
+            "c_z",
+            "c_mean",
+            "a_x",
+            "a_y",
+            "a_z"
+          ],
+          "problem_context_source": "shared per-instance canonical setup/solve PDE context"
+        },
+        "action_profile": "explicit",
+        "actions": [
+          1.0,
+          1.05,
+          1.1,
+          1.15,
+          1.2,
+          1.25,
+          1.3,
+          1.35,
+          1.4,
+          1.45,
+          1.5,
+          1.55,
+          1.6,
+          1.65,
+          1.7,
+          1.75,
+          1.8,
+          1.85,
+          1.9,
+          1.95,
+          2.0,
+          2.05,
+          2.1,
+          2.15,
+          2.2,
+          2.25,
+          2.3,
+          2.35,
+          2.4,
+          2.45,
+          2.5,
+          2.55,
+          2.6,
+          2.65,
+          2.7,
+          2.75,
+          2.8,
+          2.85,
+          2.9,
+          2.95,
+          3.0
+        ],
+        "action_basis": {
+          "mode": "compact_rbf",
+          "centers": [
+            1.0,
+            1.25,
+            1.5,
+            1.75,
+            2.0,
+            2.25,
+            2.5,
+            2.75,
+            3.0
+          ],
+          "sigma": 0.2
+        },
+        "epsilon": {
+          "start": 0.3,
+          "final": 0.03,
+          "decay_steps": 20000.0,
+          "kind": "uniform epsilon-greedy floor"
+        },
+        "trace_lambda": 0.8,
+        "prepared_solver_default_forced_once": true,
+        "frozen": false,
+        "algorithm": {
+          "ridge": 1.0,
+          "uncertainty_beta": 2.0,
+          "residual_floor_sec": 0.001,
+          "q_max_sec": 0.1,
+          "inverse_denominator_floor": 1e-10,
+          "lcb_lower_bound_sec": 0.0
+        },
+        "version": "v3",
+        "target": "same recursive LSTDQ mean as v1/v2",
+        "ridge": 1.0,
+        "uncertainty_beta": 2.0,
+        "uncertainty": "episode-cluster post-fit sandwich covariance",
+        "uncertainty_semantics": "parameter uncertainty",
+        "cluster_unit": "complete committed AMG solve episode",
+        "residual_floor_sec": 0.001,
+        "lcb_lower_bound_sec": 0.0
+      },
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+        "kind": "recursive_lstdq_v3",
+        "family": "recursive_lstdq",
+        "state": "setup_full",
+        "state_encoder": {
+          "tol": 1e-06,
+          "max_cycles": 50,
+          "c_max": 1000.0,
+          "time_scale_sec": 0.002,
+          "feature_dim": 34,
+          "problem_context_mode": "physics_linear",
+          "problem_context_fields": [
+            "bias",
+            "diffusion_log_mean",
+            "diffusion_log_contrast_xy",
+            "diffusion_log_contrast_xyz",
+            "cell_peclet_x",
+            "cell_peclet_y",
+            "cell_peclet_z"
+          ],
+          "problem_context_source": "shared per-instance canonical PDE context projected through the common physics-linear helper"
+        },
+        "action_profile": "explicit",
+        "actions": [
+          1.0,
+          1.05,
+          1.1,
+          1.15,
+          1.2,
+          1.25,
+          1.3,
+          1.35,
+          1.4,
+          1.45,
+          1.5,
+          1.55,
+          1.6,
+          1.65,
+          1.7,
+          1.75,
+          1.8,
+          1.85,
+          1.9,
+          1.95,
+          2.0,
+          2.05,
+          2.1,
+          2.15,
+          2.2,
+          2.25,
+          2.3,
+          2.35,
+          2.4,
+          2.45,
+          2.5,
+          2.55,
+          2.6,
+          2.65,
+          2.7,
+          2.75,
+          2.8,
+          2.85,
+          2.9,
+          2.95,
+          3.0
+        ],
+        "action_basis": {
+          "mode": "compact_rbf",
+          "centers": [
+            1.0,
+            1.25,
+            1.5,
+            1.75,
+            2.0,
+            2.25,
+            2.5,
+            2.75,
+            3.0
+          ],
+          "sigma": 0.2
+        },
+        "epsilon": {
+          "start": 0.3,
+          "final": 0.03,
+          "decay_steps": 20000.0,
+          "kind": "uniform epsilon-greedy floor"
+        },
+        "trace_lambda": 0.8,
+        "prepared_solver_default_forced_once": true,
+        "frozen": false,
+        "algorithm": {
+          "ridge": 1.0,
+          "uncertainty_beta": 2.0,
+          "residual_floor_sec": 0.001,
+          "q_max_sec": 0.1,
+          "inverse_denominator_floor": 1e-10,
+          "lcb_lower_bound_sec": 0.0
+        },
+        "version": "v3",
+        "target": "same recursive LSTDQ mean as v1/v2",
+        "ridge": 1.0,
+        "uncertainty_beta": 2.0,
+        "uncertainty": "episode-cluster post-fit sandwich covariance",
+        "uncertainty_semantics": "parameter uncertainty",
+        "cluster_unit": "complete committed AMG solve episode",
+        "residual_floor_sec": 0.001,
+        "lcb_lower_bound_sec": 0.0
+      }
+    },
+    "recursive_lstdq_v3_lcb": {
+      "kind": "recursive_lstdq_v3",
+      "family": "recursive_lstdq",
+      "state": "setup_full",
+      "state_encoder": {
+        "tol": 1e-06,
+        "max_cycles": 50,
+        "c_max": 1000.0,
+        "time_scale_sec": 0.002,
+        "feature_dim": 35,
+        "problem_context_mode": "canonical",
+        "problem_context_fields": [
+          "bias",
+          "c_x",
+          "c_y",
+          "c_z",
+          "c_mean",
+          "a_x",
+          "a_y",
+          "a_z"
+        ],
+        "problem_context_source": "shared per-instance canonical setup/solve PDE context"
+      },
+      "action_profile": "explicit",
+      "actions": [
+        1.0,
+        1.05,
+        1.1,
+        1.15,
+        1.2,
+        1.25,
+        1.3,
+        1.35,
+        1.4,
+        1.45,
+        1.5,
+        1.55,
+        1.6,
+        1.65,
+        1.7,
+        1.75,
+        1.8,
+        1.85,
+        1.9,
+        1.95,
+        2.0,
+        2.05,
+        2.1,
+        2.15,
+        2.2,
+        2.25,
+        2.3,
+        2.35,
+        2.4,
+        2.45,
+        2.5,
+        2.55,
+        2.6,
+        2.65,
+        2.7,
+        2.75,
+        2.8,
+        2.85,
+        2.9,
+        2.95,
+        3.0
+      ],
+      "action_basis": {
+        "mode": "compact_rbf",
+        "centers": [
+          1.0,
+          1.25,
+          1.5,
+          1.75,
+          2.0,
+          2.25,
+          2.5,
+          2.75,
+          3.0
+        ],
+        "sigma": 0.2
+      },
+      "epsilon": {
+        "start": 0.3,
+        "final": 0.03,
+        "decay_steps": 20000.0,
+        "kind": "uniform epsilon-greedy floor"
+      },
+      "trace_lambda": 0.8,
+      "prepared_solver_default_forced_once": true,
+      "frozen": false,
+      "algorithm": {
+        "ridge": 1.0,
+        "uncertainty_beta": 2.0,
+        "residual_floor_sec": 0.001,
+        "q_max_sec": 0.1,
+        "inverse_denominator_floor": 1e-10,
+        "lcb_lower_bound_sec": 0.0
+      },
+      "version": "v3",
+      "target": "same recursive LSTDQ mean as v1/v2",
+      "ridge": 1.0,
+      "uncertainty_beta": 2.0,
+      "uncertainty": "episode-cluster post-fit sandwich covariance",
+      "uncertainty_semantics": "parameter uncertainty",
+      "cluster_unit": "complete committed AMG solve episode",
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0.0
+    }
+  },
+  "warmup": {
+    "summary": {
+      "cases": 0,
+      "failed_count": 0,
+      "mean_runtime_sec": 0.0,
+      "mean_runtime_with_overhead_sec": 0.0,
+      "mean_setup_runtime_sec": 0.0,
+      "mean_solve_runtime_sec": 0.0,
+      "mean_solve_with_overhead_sec": 0.0,
+      "mean_policy_overhead_sec": 0.0,
+      "mean_feature_runtime_sec": 0.0,
+      "mean_decision_runtime_sec": 0.0,
+      "mean_update_runtime_sec": 0.0,
+      "mean_iterations": 0.0,
+      "totals_sec": {
+        "setup_runtime": 0.0,
+        "native_solve_runtime": 0.0,
+        "native_total_runtime": 0.0,
+        "controller_runtime": 0.0,
+        "setup_bandit_overhead": 0.0,
+        "setup_bandit_select": 0.0,
+        "setup_bandit_loss_eval": 0.0,
+        "setup_bandit_update": 0.0,
+        "end_to_end_runtime": 0.0
+      },
+      "means_sec": {
+        "setup_runtime": 0.0,
+        "native_solve_runtime": 0.0,
+        "native_total_runtime": 0.0,
+        "controller_runtime": 0.0,
+        "setup_bandit_overhead": 0.0,
+        "setup_bandit_select": 0.0,
+        "setup_bandit_loss_eval": 0.0,
+        "setup_bandit_update": 0.0,
+        "end_to_end_runtime": 0.0
+      },
+      "unique_setup_count": 0,
+      "primary_failure_count": 0,
+      "setup_fallback_count": 0,
+      "recovered_failure_count": 0,
+      "unrecovered_failure_count": 0,
+      "bandit_update_count": 0,
+      "controller_update_count": 0
+    },
+    "trajectory": {
+      "combined": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/warmup_trajectory.jsonl",
+      "by_method": {
+        "linucb_v5_canonical8d_recommended_structured512_default_solve": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_trajectories/group_0.jsonl",
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_trajectories/group_0.jsonl",
+        "linucb_physics_linear7d_recommended_structured512_default_solve": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_trajectories/group_1.jsonl",
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_trajectories/group_1.jsonl"
+      }
+    },
+    "state": {
+      "linucb_v5_canonical8d_recommended_structured512_default_solve": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_states/linucb_v5_canonical8d_recommended_structured512_default_solve.npz",
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_states/linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6.npz",
+      "linucb_physics_linear7d_recommended_structured512_default_solve": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_states/linucb_physics_linear7d_recommended_structured512_default_solve.npz",
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/bandit_warmup_states/linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6.npz"
+    },
+    "records": 0
+  },
+  "windows": {
+    "all_5000": {
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.37490862900000377,
+          "mean_runtime_with_overhead_sec": 0.37490862900000377,
+          "mean_setup_runtime_sec": 0.25985672819999783,
+          "mean_solve_runtime_sec": 0.11505190080000591,
+          "mean_solve_with_overhead_sec": 0.11505190080000591,
+          "mean_policy_overhead_sec": 0.0,
+          "mean_feature_runtime_sec": 0.0,
+          "mean_decision_runtime_sec": 0.0,
+          "mean_update_runtime_sec": 0.0,
+          "mean_iterations": 12.5758,
+          "totals_sec": {
+            "setup_runtime": 1299.283640999989,
+            "native_solve_runtime": 575.2595040000296,
+            "native_total_runtime": 1874.5431450000187,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.0,
+            "setup_bandit_select": 0.0,
+            "setup_bandit_loss_eval": 0.0,
+            "setup_bandit_update": 0.0,
+            "end_to_end_runtime": 1874.5431450000187
+          },
+          "means_sec": {
+            "setup_runtime": 0.25985672819999783,
+            "native_solve_runtime": 0.11505190080000591,
+            "native_total_runtime": 0.37490862900000377,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.0,
+            "setup_bandit_select": 0.0,
+            "setup_bandit_loss_eval": 0.0,
+            "setup_bandit_update": 0.0,
+            "end_to_end_runtime": 0.37490862900000377
+          },
+          "unique_setup_count": 1,
+          "primary_failure_count": 0,
+          "learned_setup_attempt_count": 5000,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 0,
+          "setup_fallback_count": 0,
+          "recovered_failure_count": 0,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 0,
+          "controller_update_count": 0
+        },
+        "linucb_v5_canonical8d_recommended_structured512_default_solve": {
+          "cases": 5000,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.2667747702000011,
+          "mean_runtime_with_overhead_sec": 0.2667747702000011,
+          "mean_setup_runtime_sec": 0.0966669454000003,
+          "mean_solve_runtime_sec": 0.17010782480000086,
+          "mean_solve_with_overhead_sec": 0.17010782480000086,
+          "mean_policy_overhead_sec": 0.0,
+          "mean_feature_runtime_sec": 0.0,
+          "mean_decision_runtime_sec": 0.0,
+          "mean_update_runtime_sec": 0.0,
+          "mean_iterations": 19.9156,
+          "totals_sec": {
+            "setup_runtime": 483.3347270000015,
+            "native_solve_runtime": 850.5391240000043,
+            "native_total_runtime": 1333.8738510000057,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 39.7316598749999,
+            "setup_bandit_select": 35.15116777000007,
+            "setup_bandit_loss_eval": 0.01241618799999995,
+            "setup_bandit_update": 4.568075917000019,
+            "end_to_end_runtime": 1373.605510875004
+          },
+          "means_sec": {
+            "setup_runtime": 0.0966669454000003,
+            "native_solve_runtime": 0.17010782480000086,
+            "native_total_runtime": 0.2667747702000011,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.007946331975,
+            "setup_bandit_select": 0.007030233554,
+            "setup_bandit_loss_eval": 2.4832376000000002e-06,
+            "setup_bandit_update": 0.0009136151833999999,
+            "end_to_end_runtime": 0.2747211021750012
+          },
+          "unique_setup_count": 315,
+          "primary_failure_count": 109,
+          "learned_setup_attempt_count": 5000,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 5000,
+          "setup_fallback_count": 109,
+          "recovered_failure_count": 109,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 5000,
+          "controller_update_count": 0
+        },
+        "linucb_physics_linear7d_recommended_structured512_default_solve": {
+          "cases": 5000,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.268040286000005,
+          "mean_runtime_with_overhead_sec": 0.268040286000005,
+          "mean_setup_runtime_sec": 0.09816710060000167,
+          "mean_solve_runtime_sec": 0.16987318540000337,
+          "mean_solve_with_overhead_sec": 0.16987318540000337,
+          "mean_policy_overhead_sec": 0.0,
+          "mean_feature_runtime_sec": 0.0,
+          "mean_decision_runtime_sec": 0.0,
+          "mean_update_runtime_sec": 0.0,
+          "mean_iterations": 19.931,
+          "totals_sec": {
+            "setup_runtime": 490.8355030000083,
+            "native_solve_runtime": 849.3659270000169,
+            "native_total_runtime": 1340.201430000025,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 38.31866282600005,
+            "setup_bandit_select": 34.64825069899991,
+            "setup_bandit_loss_eval": 0.004588990000000045,
+            "setup_bandit_update": 3.6658231369999945,
+            "end_to_end_runtime": 1378.5200928260258
+          },
+          "means_sec": {
+            "setup_runtime": 0.09816710060000167,
+            "native_solve_runtime": 0.16987318540000337,
+            "native_total_runtime": 0.268040286000005,
+            "controller_runtime": 0.0,
+            "setup_bandit_overhead": 0.0076637325652,
+            "setup_bandit_select": 0.0069296501398000004,
+            "setup_bandit_loss_eval": 9.177979999999999e-07,
+            "setup_bandit_update": 0.0007331646273999999,
+            "end_to_end_runtime": 0.27570401856520504
+          },
+          "unique_setup_count": 264,
+          "primary_failure_count": 118,
+          "learned_setup_attempt_count": 5000,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 5000,
+          "setup_fallback_count": 118,
+          "recovered_failure_count": 118,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 5000,
+          "controller_update_count": 0
+        },
+        "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+          "cases": 5000,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.22961923459998648,
+          "mean_runtime_with_overhead_sec": 0.23459221774759786,
+          "mean_setup_runtime_sec": 0.09695869959999918,
+          "mean_solve_runtime_sec": 0.13266053499998728,
+          "mean_solve_with_overhead_sec": 0.13763351814759867,
+          "mean_policy_overhead_sec": 0.004972983147611376,
+          "mean_feature_runtime_sec": 0.0007000421116827056,
+          "mean_decision_runtime_sec": 0.0025499264803132975,
+          "mean_update_runtime_sec": 0.0017230145556153729,
+          "mean_iterations": 16.7116,
+          "totals_sec": {
+            "setup_runtime": 484.7934979999959,
+            "native_solve_runtime": 663.3026749999365,
+            "native_total_runtime": 1148.0961729999324,
+            "controller_runtime": 24.86491573805688,
+            "setup_bandit_overhead": 39.413328282999935,
+            "setup_bandit_select": 35.14555688300005,
+            "setup_bandit_loss_eval": 0.005257680999999985,
+            "setup_bandit_update": 4.262513718999992,
+            "end_to_end_runtime": 1212.3744170209911
+          },
+          "means_sec": {
+            "setup_runtime": 0.09695869959999918,
+            "native_solve_runtime": 0.13266053499998728,
+            "native_total_runtime": 0.22961923459998648,
+            "controller_runtime": 0.004972983147611376,
+            "setup_bandit_overhead": 0.007882665656599999,
+            "setup_bandit_select": 0.0070291113766,
+            "setup_bandit_loss_eval": 1.0515362e-06,
+            "setup_bandit_update": 0.0008525027437999999,
+            "end_to_end_runtime": 0.24247488340419787
+          },
+          "unique_setup_count": 270,
+          "primary_failure_count": 143,
+          "learned_setup_attempt_count": 5000,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 5000,
+          "setup_fallback_count": 143,
+          "recovered_failure_count": 143,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 5000,
+          "controller_update_count": 4000
+        },
+        "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+          "cases": 5000,
+          "failed_count": 0,
+          "mean_runtime_sec": 0.21072362559998373,
+          "mean_runtime_with_overhead_sec": 0.21471452317402664,
+          "mean_setup_runtime_sec": 0.0985532116000031,
+          "mean_solve_runtime_sec": 0.11217041399998061,
+          "mean_solve_with_overhead_sec": 0.11616131157402351,
+          "mean_policy_overhead_sec": 0.003990897574042901,
+          "mean_feature_runtime_sec": 0.0009239763403544203,
+          "mean_decision_runtime_sec": 0.0018373458189307713,
+          "mean_update_runtime_sec": 0.0012295754147577098,
+          "mean_iterations": 14.0528,
+          "totals_sec": {
+            "setup_runtime": 492.7660580000155,
+            "native_solve_runtime": 560.852069999903,
+            "native_total_runtime": 1053.6181279999187,
+            "controller_runtime": 19.954487870214507,
+            "setup_bandit_overhead": 38.40104900799999,
+            "setup_bandit_select": 34.775796251999964,
+            "setup_bandit_loss_eval": 0.005289416999999986,
+            "setup_bandit_update": 3.619963338999992,
+            "end_to_end_runtime": 1111.973664878132
+          },
+          "means_sec": {
+            "setup_runtime": 0.0985532116000031,
+            "native_solve_runtime": 0.11217041399998061,
+            "native_total_runtime": 0.21072362559998373,
+            "controller_runtime": 0.003990897574042901,
+            "setup_bandit_overhead": 0.0076802098016,
+            "setup_bandit_select": 0.0069551592504,
+            "setup_bandit_loss_eval": 1.0578833999999998e-06,
+            "setup_bandit_update": 0.0007239926678,
+            "end_to_end_runtime": 0.22239473297562662
+          },
+          "unique_setup_count": 259,
+          "primary_failure_count": 121,
+          "learned_setup_attempt_count": 5000,
+          "learned_setup_reselection_count": 0,
+          "bandit_observation_count": 5000,
+          "setup_fallback_count": 121,
+          "recovered_failure_count": 121,
+          "unrecovered_failure_count": 0,
+          "bandit_update_count": 5000,
+          "controller_update_count": 4000
+        }
+      },
+      "comparisons": {}
+    }
+  },
+  "controllers": {
+    "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+      "steps": 59987,
+      "episodes": 4000,
+      "epsilon": 0.04345124893016711,
+      "joint_feature_dim": 315,
+      "sample_count": 59987,
+      "episode_moment_count": 4000,
+      "uncertainty_beta": 2.0,
+      "lcb_lower_bound_sec": 0.0,
+      "uncertainty": "episode-cluster post-fit sandwich covariance",
+      "inverse_rebuild_count": 0,
+      "stored_transition_count": 0
+    },
+    "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+      "steps": 46796,
+      "episodes": 4000,
+      "epsilon": 0.05601366453490149,
+      "joint_feature_dim": 306,
+      "sample_count": 46796,
+      "episode_moment_count": 4000,
+      "uncertainty_beta": 2.0,
+      "lcb_lower_bound_sec": 0.0,
+      "uncertainty": "episode-cluster post-fit sandwich covariance",
+      "inverse_rebuild_count": 0,
+      "stored_transition_count": 0
+    }
+  },
+  "bandit_online_steps": {
+    "linucb_v5_canonical8d_recommended_structured512_default_solve": 5000,
+    "linucb_physics_linear7d_recommended_structured512_default_solve": 5000,
+    "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": 5000,
+    "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": 5000
+  },
+  "recovery_audit": {
+    "default_setup_default_solve": {
+      "processed_instances": 5000,
+      "primary_selections": 5000,
+      "learned_reselections": 0,
+      "native_attempts": 5000,
+      "fallback_uses": 0,
+      "recovered_failures": 0,
+      "unrecovered_failures": 0,
+      "bandit_updates": 0,
+      "bandit_observations": 0,
+      "controller_updates": 0,
+      "valid": true
+    },
+    "linucb_v5_canonical8d_recommended_structured512_default_solve": {
+      "processed_instances": 5000,
+      "primary_selections": 5000,
+      "learned_reselections": 0,
+      "native_attempts": 5109,
+      "fallback_uses": 109,
+      "recovered_failures": 109,
+      "unrecovered_failures": 0,
+      "bandit_updates": 5000,
+      "bandit_observations": 5000,
+      "controller_updates": 0,
+      "valid": true
+    },
+    "linucb_physics_linear7d_recommended_structured512_default_solve": {
+      "processed_instances": 5000,
+      "primary_selections": 5000,
+      "learned_reselections": 0,
+      "native_attempts": 5118,
+      "fallback_uses": 118,
+      "recovered_failures": 118,
+      "unrecovered_failures": 0,
+      "bandit_updates": 5000,
+      "bandit_observations": 5000,
+      "controller_updates": 0,
+      "valid": true
+    },
+    "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+      "processed_instances": 5000,
+      "primary_selections": 5000,
+      "learned_reselections": 0,
+      "native_attempts": 5143,
+      "fallback_uses": 143,
+      "recovered_failures": 143,
+      "unrecovered_failures": 0,
+      "bandit_updates": 5000,
+      "bandit_observations": 5000,
+      "controller_updates": 4000,
+      "valid": true
+    },
+    "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+      "processed_instances": 5000,
+      "primary_selections": 5000,
+      "learned_reselections": 0,
+      "native_attempts": 5121,
+      "fallback_uses": 121,
+      "recovered_failures": 121,
+      "unrecovered_failures": 0,
+      "bandit_updates": 5000,
+      "bandit_observations": 5000,
+      "controller_updates": 4000,
+      "valid": true
+    }
+  },
+  "actions": {
+    "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+      "decisions": 59987,
+      "mean_weight": 1.7189224331938588,
+      "explored_rate": 0.11504159234500809,
+      "mean_selected_uncertainty_sec": 0.0034885219984953928,
+      "mean_selected_q_sec": 0.06585769086975041,
+      "lower_bound_saturation_count": 1460,
+      "lower_bound_saturation_rate": 0.024338606698117927,
+      "residual_to_parameter_width": {
+        "paired_updates": 59987,
+        "median_abs_residual_over_parameter_width": 1.482572314393087,
+        "p90_abs_residual_over_parameter_width": 5.0709816910312,
+        "fraction_within_1x_parameter_width": 0.36737959891309785,
+        "fraction_within_2x_parameter_width": 0.6097987897377766,
+        "fraction_within_4x_parameter_width": 0.8435994465467518,
+        "semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+      },
+      "confidence_calibration": {
+        "paired_updates": 59987,
+        "median_abs_error_over_uncertainty": 1.482572314393087,
+        "p90_abs_error_over_uncertainty": 5.0709816910312,
+        "coverage_at_1x": 0.36737959891309785,
+        "coverage_at_2x": 0.6097987897377766,
+        "coverage_at_4x": 0.8435994465467518,
+        "deprecated_semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+      }
+    },
+    "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+      "decisions": 46796,
+      "mean_weight": 1.79977241644585,
+      "explored_rate": 0.13407128814428584,
+      "mean_selected_uncertainty_sec": 0.0029824055946333877,
+      "mean_selected_q_sec": 0.05165229448629745,
+      "lower_bound_saturation_count": 976,
+      "lower_bound_saturation_rate": 0.020856483460124798,
+      "residual_to_parameter_width": {
+        "paired_updates": 46796,
+        "median_abs_residual_over_parameter_width": 1.7804479755658917,
+        "p90_abs_residual_over_parameter_width": 6.414156675156229,
+        "fraction_within_1x_parameter_width": 0.32058295580818874,
+        "fraction_within_2x_parameter_width": 0.5402812206171468,
+        "fraction_within_4x_parameter_width": 0.7766262073681511,
+        "semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+      },
+      "confidence_calibration": {
+        "paired_updates": 46796,
+        "median_abs_error_over_uncertainty": 1.7804479755658917,
+        "p90_abs_error_over_uncertainty": 6.414156675156229,
+        "coverage_at_1x": 0.32058295580818874,
+        "coverage_at_2x": 0.5402812206171468,
+        "coverage_at_4x": 0.7766262073681511,
+        "deprecated_semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+      }
+    }
+  },
+  "window_actions": {
+    "all_5000": {
+      "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6": {
+        "decisions": 59987,
+        "mean_weight": 1.7189224331938588,
+        "explored_rate": 0.11504159234500809,
+        "mean_selected_uncertainty_sec": 0.0034885219984953928,
+        "mean_selected_q_sec": 0.06585769086975041,
+        "lower_bound_saturation_count": 1460,
+        "lower_bound_saturation_rate": 0.024338606698117927,
+        "residual_to_parameter_width": {
+          "paired_updates": 59987,
+          "median_abs_residual_over_parameter_width": 1.482572314393087,
+          "p90_abs_residual_over_parameter_width": 5.0709816910312,
+          "fraction_within_1x_parameter_width": 0.36737959891309785,
+          "fraction_within_2x_parameter_width": 0.6097987897377766,
+          "fraction_within_4x_parameter_width": 0.8435994465467518,
+          "semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+        },
+        "confidence_calibration": {
+          "paired_updates": 59987,
+          "median_abs_error_over_uncertainty": 1.482572314393087,
+          "p90_abs_error_over_uncertainty": 5.0709816910312,
+          "coverage_at_1x": 0.36737959891309785,
+          "coverage_at_2x": 0.6097987897377766,
+          "coverage_at_4x": 0.8435994465467518,
+          "deprecated_semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+        }
+      },
+      "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6": {
+        "decisions": 46796,
+        "mean_weight": 1.79977241644585,
+        "explored_rate": 0.13407128814428584,
+        "mean_selected_uncertainty_sec": 0.0029824055946333877,
+        "mean_selected_q_sec": 0.05165229448629745,
+        "lower_bound_saturation_count": 976,
+        "lower_bound_saturation_rate": 0.020856483460124798,
+        "residual_to_parameter_width": {
+          "paired_updates": 46796,
+          "median_abs_residual_over_parameter_width": 1.7804479755658917,
+          "p90_abs_residual_over_parameter_width": 6.414156675156229,
+          "fraction_within_1x_parameter_width": 0.32058295580818874,
+          "fraction_within_2x_parameter_width": 0.5402812206171468,
+          "fraction_within_4x_parameter_width": 0.7766262073681511,
+          "semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+        },
+        "confidence_calibration": {
+          "paired_updates": 46796,
+          "median_abs_error_over_uncertainty": 1.7804479755658917,
+          "p90_abs_error_over_uncertainty": 6.414156675156229,
+          "coverage_at_1x": 0.32058295580818874,
+          "coverage_at_2x": 0.5402812206171468,
+          "coverage_at_4x": 0.7766262073681511,
+          "deprecated_semantics": "TD residual divided by selected parameter-uncertainty width; not nominal predictive-interval coverage"
+        }
+      }
+    }
+  },
+  "artifacts": {
+    "trajectories": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/trajectories",
+    "summary_csv": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/summary_5000.csv",
+    "checkpoints": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/checkpoints",
+    "final_bandit_states": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/final_bandit_states",
+    "screen_report": "results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/screen_report.md"
+  }
+}

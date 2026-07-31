@@ -8,11 +8,16 @@ from tempfile import TemporaryDirectory
 
 import numpy as np
 
+from problems.registry import context_for_setup_method
 from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
     OnlineFixedWeightIncumbent,
     SolveStateEncoder,
+)
+from solve.controllers.common import (
+    LEGACY_DIFFUSION_ONLY_CONTEXT,
+    PHYSICS_LINEAR_PROBLEM_CONTEXT,
 )
 from run_exp44_online_rl import _average_repeated_rows
 
@@ -47,7 +52,7 @@ class OnlineTDLambdaTests(unittest.TestCase):
             last_cycle_time=1.0e-3,
         )
 
-        self.assertEqual(encoder.feature_dim, 27)
+        self.assertEqual(encoder.feature_dim, 30)
         self.assertTrue(np.allclose(features[-2:], np.asarray([0.25, 1.5])))
 
     def test_action_rbf_shares_td_update_with_nearby_weights(self) -> None:
@@ -134,6 +139,118 @@ class OnlineTDLambdaTests(unittest.TestCase):
 
         self.assertEqual(features.shape, (encoder.feature_dim,))
         self.assertTrue(np.all(np.isfinite(features)))
+
+    def test_canonical_encoder_observes_advection_while_legacy_does_not(
+        self,
+    ) -> None:
+        mkw = {
+            "nx": 60,
+            "ny": 60,
+            "nz": 60,
+            "k": 1000.0,
+            "c": 10.0,
+            "a0": 1.0,
+            "a1": 3.0,
+            "a2": 4.0,
+            "a3": 5.0,
+        }
+        common = {
+            "mkw": mkw,
+            "initial_residual": 1.0,
+            "residual": 0.1,
+            "previous_residual": 1.0,
+            "cycle": 2,
+            "last_weight": 1.6,
+            "last_cycle_time": 1.0e-3,
+        }
+        first_context = np.asarray(
+            [1.0, 1.0, 0.5, 0.0, 0.5, 0.1, 0.2, 0.3],
+        )
+        second_context = first_context.copy()
+        second_context[5:] = [0.8, 0.7, 0.6]
+
+        canonical = SolveStateEncoder(
+            tol=1.0e-6,
+            max_cycles=50,
+            c_max=1000.0,
+        )
+        canonical_first = canonical.encode(
+            problem_context=first_context,
+            **common,
+        )
+        canonical_second = canonical.encode(
+            problem_context=second_context,
+            **common,
+        )
+        np.testing.assert_array_equal(
+            canonical_first[7:14],
+            first_context[1:],
+        )
+        self.assertFalse(
+            np.array_equal(canonical_first, canonical_second)
+        )
+
+        legacy = SolveStateEncoder(
+            tol=1.0e-6,
+            max_cycles=50,
+            c_max=1000.0,
+            problem_context_mode=LEGACY_DIFFUSION_ONLY_CONTEXT,
+        )
+        legacy_first = legacy.encode(
+            problem_context=first_context,
+            **common,
+        )
+        legacy_second = legacy.encode(
+            problem_context=second_context,
+            **common,
+        )
+        np.testing.assert_array_equal(legacy_first, legacy_second)
+        self.assertEqual(canonical.feature_dim, legacy.feature_dim + 3)
+
+    def test_physics_linear_encoder_reuses_setup_physics_projection(
+        self,
+    ) -> None:
+        mkw = {
+            "nx": 60,
+            "ny": 60,
+            "nz": 60,
+            "k": 1000.0,
+            "c": 10.0,
+            "a0": 1.0,
+            "a1": 300.0,
+            "a2": -20.0,
+            "a3": 5.0,
+        }
+        canonical_context = np.asarray(
+            [1.0, 1.0, 0.5, 0.0, 0.5, 0.8, -0.4, 0.2],
+        )
+        encoder = SolveStateEncoder(
+            tol=1.0e-6,
+            max_cycles=50,
+            c_max=1000.0,
+            problem_context_mode=PHYSICS_LINEAR_PROBLEM_CONTEXT,
+        )
+        features = encoder.encode(
+            mkw=mkw,
+            problem_context=canonical_context,
+            initial_residual=1.0,
+            residual=0.1,
+            previous_residual=1.0,
+            cycle=2,
+            last_weight=1.6,
+            last_cycle_time=1.0e-3,
+        )
+        setup_context = context_for_setup_method(
+            problem_kind="scalar_anisotropic_diffusion_advection",
+            setup_kind="linucb",
+            matrix_kwargs=mkw,
+            stream_context=canonical_context,
+            setup_context="physics_linear",
+        )
+
+        np.testing.assert_allclose(features[7:13], setup_context[1:])
+        self.assertEqual(encoder.problem_context_fields[0], "bias")
+        self.assertEqual(encoder.problem_feature_dim, 6)
 
     def test_terminal_cost_update_increases_selected_action_cost(self) -> None:
         config = ExpectedSarsaLambdaConfig(

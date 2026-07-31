@@ -8,7 +8,10 @@ from problems.amg import build_matrix_kwargs_difconv
 from problems.scalar_anisotropic_diffusion import (
     build_matrix_kwargs_scalar_anisotropic_diffusion,
 )
-from problems.streams import generate_difconv_instances
+from problems.streams import (
+    generate_difconv_instances,
+    generate_scalar_anisotropic_diffusion_instances,
+)
 
 
 class DifConvStreamTests(unittest.TestCase):
@@ -62,6 +65,26 @@ class DifConvStreamTests(unittest.TestCase):
             build_matrix_kwargs_scalar_anisotropic_diffusion(**kwargs),
             build_matrix_kwargs_difconv(**kwargs),
         )
+
+    def test_scalar_stream_uses_canonical_zero_advection_context(self) -> None:
+        instances = generate_scalar_anisotropic_diffusion_instances(
+            count=2,
+            seed=39393939,
+            grid_choices=[(40, 40, 40)],
+            c_min=1.0,
+            c_max=1000.0,
+        )
+
+        for matrix_kwargs, context in instances:
+            np.testing.assert_array_equal(context[5:], [0.0, 0.0, 0.0])
+            np.testing.assert_array_equal(
+                [
+                    matrix_kwargs["a1"],
+                    matrix_kwargs["a2"],
+                    matrix_kwargs["a3"],
+                ],
+                [0.0, 0.0, 0.0],
+            )
 
 
 if __name__ == "__main__":

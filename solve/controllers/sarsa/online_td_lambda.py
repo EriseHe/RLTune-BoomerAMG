@@ -742,6 +742,7 @@ def run_td_episode(
     params: Dict[str, Any],
     controller: ExpectedSarsaLambda,
     encoder: SolveStateEncoder,
+    problem_context: Sequence[float] | None = None,
     solve_tol: float,
     solve_max_cycles: int,
     learn: bool,
@@ -815,6 +816,7 @@ def run_td_episode(
             features = encoder.encode(
                 mkw=mkw,
                 setup_params=params,
+                problem_context=problem_context,
                 initial_residual=initial_residual,
                 residual=residual,
                 previous_residual=previous_residual,
@@ -956,6 +958,7 @@ def run_td_episode(
                     next_features = encoder.encode(
                         mkw=mkw,
                         setup_params=params,
+                        problem_context=problem_context,
                         initial_residual=initial_residual,
                         residual=float(residual_new),
                         previous_residual=float(residual),

@@ -228,7 +228,7 @@ def _generate_setup_trace(
                 run_bandit_step_test_final(
                     policy=branch.policy,
                     parameter_space=branch.parameter_space,
-                    context=np.asarray(context, dtype=float),
+                    problem_context=np.asarray(context, dtype=float),
                     solver_fn=solve_selected,
                     fallback_solver_fn=solve_fallback,
                     prev_update_est=float(previous_update),
@@ -433,7 +433,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     order_rng = np.random.default_rng(int(args.method_order_seed))
     names = tuple(controller_bundles)
     try:
-        for index, ((mkw, _context), setup_row) in enumerate(zip(stream, setup_rows)):
+        for index, ((mkw, context), setup_row) in enumerate(zip(stream, setup_rows)):
             case_rows: Dict[str, Dict[str, Any]] = {}
             for rank, method_index in enumerate(order_rng.permutation(len(names))):
                 name = names[int(method_index)]
@@ -445,6 +445,10 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                         solve_max_cycles=int(args.max_cycles),
                         learn=True,
                         explore=True,
+                        problem_context=np.asarray(
+                            context,
+                            dtype=float,
+                        ),
                         record_action_metadata=True,
                         fallback_attempt=lambda: solve_no_rl_case(
                             params=dict(DEFAULT_SETUP_PARAMS),

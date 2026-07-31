@@ -104,6 +104,14 @@ class SolveRegistryTests(unittest.TestCase):
                 metadata = bundle.protocol_metadata()
                 self.assertEqual(metadata["kind"], kind)
                 self.assertEqual(metadata["family"], registration.family)
+                self.assertEqual(
+                    metadata["state_encoder"]["problem_context_mode"],
+                    "canonical",
+                )
+                self.assertEqual(
+                    metadata["state_encoder"]["feature_dim"],
+                    bundle.encoder.feature_dim,
+                )
                 json.dumps(metadata)
 
     def test_online_registrations_delegate_to_family_factories(self) -> None:
@@ -288,6 +296,16 @@ class SolveRegistryTests(unittest.TestCase):
             solve_max_cycles=50,
             learn=True,
             explore=True,
+            problem_context=(
+                1.0,
+                0.1,
+                0.2,
+                0.3,
+                0.2,
+                0.4,
+                0.5,
+                0.6,
+            ),
             epsilon=0.2,
             defer_monte_carlo_update=True,
             record_action_metadata=True,
@@ -305,6 +323,7 @@ class SolveRegistryTests(unittest.TestCase):
             params={"strong_threshold": 0.5},
             controller=bundle.controller,
             encoder=bundle.encoder,
+            problem_context=case.problem_context,
             solve_tol=1.0e-6,
             solve_max_cycles=50,
             learn=True,

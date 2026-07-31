@@ -5,8 +5,10 @@ from __future__ import annotations
 import _project_paths  # noqa: F401
 
 import argparse
+import hashlib
 import json
-from typing import Any, Dict, Sequence
+from pathlib import Path
+from typing import Any, Dict, Mapping, Sequence
 
 import numpy as np
 
@@ -108,6 +110,7 @@ from joint_protocol import build_joint_protocol
 from run_online_methods_2k import (
     _as_feedback,
 )
+from problems.registry import context_for_setup_method
 from setup_aware_compare_common import (
     augment_setup_params,
     build_online_linucb_branch,
@@ -120,6 +123,101 @@ from setup_aware_compare_common import (
 
 _build_bandit = build_online_linucb_branch
 RunnerConfig = JointExperimentRuntimeConfig | argparse.Namespace
+
+
+def _load_setup_replay_trajectory(
+    path: Path,
+    *,
+    online_instances: Sequence[tuple[Mapping[str, Any], np.ndarray]],
+) -> tuple[tuple[Dict[str, Any], ...], Dict[str, Any]]:
+    """Load and strictly align a recorded setup choice with each instance."""
+
+    source = Path(path).resolve()
+    if not source.is_file():
+        raise FileNotFoundError(source)
+    payload = source.read_bytes()
+    source_rows = tuple(
+        json.loads(line)
+        for line in payload.decode("utf-8").splitlines()
+        if line.strip()
+    )
+    if len(source_rows) < len(online_instances):
+        raise ValueError(
+            "Setup replay trajectory is shorter than the online stream: "
+            f"{len(source_rows)} < {len(online_instances)}"
+        )
+    rows = source_rows[: len(online_instances)]
+    for index, (row, (mkw, context)) in enumerate(
+        zip(rows, online_instances)
+    ):
+        if int(row.get("online_index", -1)) != index:
+            raise ValueError(
+                f"Setup replay row {index} has a mismatched online_index"
+            )
+        if dict(row.get("mkw", {})) != dict(mkw):
+            raise ValueError(
+                f"Setup replay row {index} does not match the generated PDE instance"
+            )
+        params = row.get("params")
+        if not isinstance(params, Mapping) or not params:
+            raise ValueError(
+                f"Setup replay row {index} does not contain setup parameters"
+            )
+        source_context = row.get("context")
+        if source_context is not None and not np.array_equal(
+            np.asarray(source_context, dtype=float),
+            np.asarray(context, dtype=float),
+        ):
+            raise ValueError(
+                f"Setup replay row {index} does not match the generated context"
+            )
+    return rows, {
+        "mode": "frozen_per_instance_trajectory",
+        "source": str(source),
+        "sha256": hashlib.sha256(payload).hexdigest(),
+        "cases": len(rows),
+        "source_cases": len(source_rows),
+        "instance_alignment": "exact mkw and context equality",
+        "updates": False,
+    }
+
+
+def _annotate_setup_replay_protocol(
+    protocol: Dict[str, Any],
+    *,
+    replay_metadata: Mapping[str, Any],
+    specs: Sequence[ComposableMethodSpec],
+) -> None:
+    """Record that setup choices are replayed rather than learned online."""
+
+    protocol["purpose"] = (
+        f"{int(replay_metadata['cases'])}-instance frozen setup replay; "
+        "only the configured solve controllers learn online"
+    )
+    protocol["setup_replay"] = dict(replay_metadata)
+    setup_protocol = protocol["setup_bandit"]
+    setup_protocol.update(
+        {
+            "mode": "frozen_per_instance_trajectory",
+            "setup_from_scratch": False,
+            "joint_from_scratch": False,
+            "frozen_after_warmup": True,
+            "independent_updates_per_method": False,
+            "online_branches": [],
+            "candidate_mode": "replay",
+            "aot_schedule": None,
+        }
+    )
+    labels = dict(protocol.get("method_labels", {}))
+    for spec in specs:
+        if spec.name not in labels:
+            continue
+        labels[spec.name] = labels[spec.name].replace(
+            "Online LinUCB v5",
+            "Frozen LinUCB v5 setup replay",
+            1,
+        )
+    protocol["method_labels"] = labels
 
 
 def _warmup_bandit(
@@ -201,7 +299,7 @@ def _warmup_bandit(
                 run_bandit_step_test_final(
                     policy=branch.policy,
                     parameter_space=branch.parameter_space,
-                    context=np.asarray(context, dtype=float),
+                    problem_context=np.asarray(context, dtype=float),
                     solver_fn=solve_selected,
                     fallback_solver_fn=solve_fallback,
                     prev_update_est=float(previous_update),
@@ -258,6 +356,8 @@ def _method_solver(
     args: RunnerConfig,
     mkw: Dict[str, Any],
     case_progress: float,
+    case_index: int = 0,
+    problem_context: Sequence[float] | None = None,
     controller_bundles: Dict[str, ControllerBundle],
     ppo_runner: Any,
     composable_specs: Dict[str, ComposableMethodSpec] | None = None,
@@ -270,6 +370,8 @@ def _method_solver(
         ),
         mkw=mkw,
         case_progress=case_progress,
+        case_index=int(case_index),
+        problem_context=problem_context,
         controller_bundles=controller_bundles,
         ppo_runner=ppo_runner,
         composable_specs=composable_specs,
@@ -387,6 +489,20 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
             raise ValueError("The final solve screen does not match the canonical stream")
     warmup_instances = full_stream[: int(args.warmup_cases)]
     online_instances = full_stream[int(args.warmup_cases) :]
+    setup_replay_rows: tuple[Dict[str, Any], ...] | None = None
+    setup_replay_metadata: Dict[str, Any] | None = None
+    setup_replay_path = getattr(args, "setup_replay_trajectory", None)
+    if setup_replay_path is not None:
+        if args.study_mode != "composable":
+            raise ValueError(
+                "Setup trajectory replay is supported only by composable experiments"
+            )
+        setup_replay_rows, setup_replay_metadata = (
+            _load_setup_replay_trajectory(
+                Path(setup_replay_path),
+                online_instances=online_instances,
+            )
+        )
 
     composable_specs: Dict[str, ComposableMethodSpec] = {}
     if args.study_mode == "composable":
@@ -411,7 +527,11 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
         )
     if args.study_mode == "composable":
         assert composable_study is not None
-        bandit_methods = composable_study.bandit_methods
+        bandit_methods = (
+            ()
+            if setup_replay_rows is not None
+            else composable_study.bandit_methods
+        )
     else:
         assert legacy_study is not None
         bandit_methods = legacy_study.bandit_methods
@@ -443,7 +563,22 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
     warmup_trajectory_artifact: Any = str(
         args.output_dir / "warmup_trajectory.jsonl"
     )
-    if setup_configuration_spaces:
+    if setup_replay_rows is not None:
+        assert setup_replay_metadata is not None
+        branches = {}
+        warmup_rows = []
+        warmup_summary = _empty_stream_summary()
+        warmup_trajectory_artifact = {
+            "mode": "frozen_setup_replay",
+            "source": setup_replay_metadata["source"],
+        }
+        warmup_state_artifact = dict(setup_replay_metadata)
+        aot_enabled = False
+        (args.output_dir / "warmup_trajectory.jsonl").write_text(
+            "",
+            encoding="utf-8",
+        )
+    elif setup_configuration_spaces:
         assert composable_study is not None
         setup_artifacts = build_named_setup_branches(
             args,
@@ -516,6 +651,12 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
                 for method, bundle in controller_bundles.items()
             },
         )
+        if setup_replay_metadata is not None:
+            _annotate_setup_replay_protocol(
+                protocol,
+                replay_metadata=setup_replay_metadata,
+                specs=composable_specs_tuple,
+            )
         _write_json(args.output_dir / "config.json", protocol)
     assert protocol is not None
     # Preserve the legacy environment-derived validation at the same point in
@@ -538,6 +679,7 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
         online_instances=online_instances,
         composable_specs=composable_specs,
         branches=branches,
+        setup_replay_rows=setup_replay_rows,
         controller_bundles=controller_bundles,
         ppo_runner=ppo_runner,
         protocol=protocol,
@@ -575,6 +717,26 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
             _run_default_setup_method(args=args, **kwargs)
         ),
         report_online_outcome=_report_online_outcome,
+        setup_context=lambda method, mkw, context: context_for_setup_method(
+            problem_kind=getattr(
+                args,
+                "problem",
+                "scalar_anisotropic_diffusion",
+            ),
+            setup_kind=(
+                composable_specs[method].setup_kind
+                if method in composable_specs
+                else "linucb"
+            ),
+            matrix_kwargs=mkw,
+            stream_context=context,
+            grid_norm_div=float(args.grid_n),
+            setup_context=(
+                composable_specs[method].setup_context
+                if method in composable_specs
+                else "default"
+            ),
+        ),
     )
     return run_online_comparison(plan, hooks=hooks)
 

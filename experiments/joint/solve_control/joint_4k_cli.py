@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from legacy_joint_studies import SHARED_ACTION_PROFILES
+from problems.registry import SUPPORTED_PROBLEM_KINDS
 from setup_aware_compare_common import (
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,
@@ -86,11 +87,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--problem",
-        choices=(
-            "scalar_anisotropic_diffusion",
-            "diffusion_convection",
-            "difconv",
-        ),
+        choices=SUPPORTED_PROBLEM_KINDS,
         default="scalar_anisotropic_diffusion",
     )
     parser.add_argument(
@@ -108,7 +105,25 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--advection",
         default="0,0,0",
-        help="ax,ay,az for diffusion_convection problems.",
+        help="Fixed ax,ay,az for diffusion_convection problems.",
+    )
+    parser.add_argument(
+        "--advection-min",
+        type=float,
+        default=None,
+        help=(
+            "Per-component lower bound for "
+            "scalar_anisotropic_diffusion_advection."
+        ),
+    )
+    parser.add_argument(
+        "--advection-max",
+        type=float,
+        default=None,
+        help=(
+            "Per-component upper bound for "
+            "scalar_anisotropic_diffusion_advection."
+        ),
     )
     parser.add_argument(
         "--setup-param-resolution",
@@ -277,7 +292,8 @@ def build_parser() -> argparse.ArgumentParser:
         default=[],
         help=(
             "Composable branch as name:setup:solve; setup is "
-            "default/linucb/lints and a fixed solve uses fixed@weight. "
+            "default/linucb/linucb_v5/linucb_v5_rbf/linucb_v6/lints and a fixed solve uses "
+            "fixed@weight. "
             "Repeat for each branch."
         ),
     )

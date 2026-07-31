@@ -49,6 +49,7 @@ def build_shared_action_controller_bundle(
     )
     metadata = _shared_protocol_metadata(
         request=request,
+        encoder=encoder,
         kind=kind,
         family=family,
         epsilon_enabled=epsilon_enabled,
@@ -64,12 +65,21 @@ def build_shared_action_controller_bundle(
 def _shared_protocol_metadata(
     *,
     request: OnlineControllerFactoryRequest[Any],
+    encoder: Any,
     kind: str,
     family: str,
     epsilon_enabled: bool,
 ) -> dict[str, Any]:
     algorithm = asdict(request.algorithm)
     epsilon = request.actions.epsilon
+    context_sources = {
+        "canonical": "shared per-instance canonical setup/solve PDE context",
+        "physics_linear": (
+            "shared per-instance canonical PDE context projected through "
+            "the common physics-linear helper"
+        ),
+        "legacy": "legacy mkw diffusion-only projection",
+    }
     return {
         "kind": str(kind),
         "family": str(family),
@@ -79,6 +89,16 @@ def _shared_protocol_metadata(
             "max_cycles": int(request.state.max_cycles),
             "c_max": float(request.state.c_max),
             "time_scale_sec": float(request.state.time_scale_sec),
+            "feature_dim": int(encoder.feature_dim),
+            "problem_context_mode": str(
+                request.state.problem_context_mode
+            ),
+            "problem_context_fields": list(
+                encoder.problem_context_fields
+            ),
+            "problem_context_source": context_sources[
+                str(request.state.problem_context_mode)
+            ],
         },
         "action_profile": "explicit",
         "actions": [float(value) for value in request.actions.weights],

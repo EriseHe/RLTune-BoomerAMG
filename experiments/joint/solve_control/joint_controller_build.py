@@ -59,6 +59,13 @@ def make_solve_state_spec(args: argparse.Namespace) -> SolveStateSpec:
         max_cycles=int(args.max_cycles),
         c_max=float(args.c_max),
         mode="setup_full",
+        problem_context_mode=str(
+            getattr(
+                args,
+                "solve_problem_context_mode",
+                "canonical",
+            )
+        ),
     )
 
 

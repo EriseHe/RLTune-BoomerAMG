@@ -57,7 +57,7 @@ class TrueOnlineSarsaTuningTests(unittest.TestCase):
         self.assertTrue(config.force_default_first_action)
         self.assertEqual(config.adaptive_cycles, None)
         self.assertEqual(encoder.mode, "setup_full")
-        self.assertEqual(encoder.feature_dim, 32)
+        self.assertEqual(encoder.feature_dim, 35)
         self.assertEqual(controller.weights.size, 11)
 
     def test_seed_partitions_are_disjoint(self) -> None:

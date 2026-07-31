@@ -10,6 +10,8 @@ def classify_rl_failure(
     solve_tol: float,
     solve_max_cycles: int,
 ) -> str:
+    """Classify an RL solve using BoomerAMG's relative residual norm."""
+
     if not np.isfinite(float(residual_norm)):
         return "non_finite_residual_norm"
     if float(residual_norm) <= float(solve_tol):

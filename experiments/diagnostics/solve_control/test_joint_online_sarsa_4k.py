@@ -355,6 +355,15 @@ class JointOnlineSarsa4KTests(unittest.TestCase):
         self.assertEqual(windows["last_2000"], (2000, 4000))
         self.assertEqual(windows["last_1000"], (3000, 4000))
 
+    def test_paper_5k_windows_include_the_final_1000(self) -> None:
+        windows = _comparison_windows(5000)
+        self.assertEqual(windows["all_5000"], (0, 5000))
+        self.assertEqual(windows["first_2000"], (0, 2000))
+        self.assertEqual(windows["last_2000"], (3000, 5000))
+        self.assertEqual(windows["first_1000"], (0, 1000))
+        self.assertEqual(windows["last_1000"], (4000, 5000))
+        self.assertEqual(windows["last_500"], (4500, 5000))
+
     def test_solve_controller_screen_uses_canonical_60_cubed_stream(self) -> None:
         args = SimpleNamespace(
             train_seed_groups=(

@@ -84,6 +84,9 @@ class SharedLinUCB_AMG_v4:
         initial_guess_rounds: int = 0,
         candidate_schedule: Optional[AOTCandidateSchedule] = None,
         action_feature_cache: Optional[FactorizedActionFeatureCache] = None,
+        action_feature_encoder: Optional[
+            GenericActionFeatureEncoder
+        ] = None,
         seed: Optional[int] = None,
     ) -> None:
         if context_dim <= 0:
@@ -125,7 +128,18 @@ class SharedLinUCB_AMG_v4:
             else list(actions)
         )
         self.parameter_spec = parameter_spec
-        self._encoder = GenericActionFeatureEncoder(parameter_spec)
+        self._encoder = (
+            action_feature_encoder
+            or (
+                action_feature_cache.encoder
+                if action_feature_cache is not None
+                else GenericActionFeatureEncoder(parameter_spec)
+            )
+        )
+        if self._encoder.parameter_spec != parameter_spec:
+            raise ValueError(
+                "action-feature encoder must use the model parameter spec"
+            )
         self._candidate_schedule = candidate_schedule
         self._action_feature_cache = action_feature_cache
 
@@ -174,6 +188,15 @@ class SharedLinUCB_AMG_v4:
                 raise ValueError("AOT schedule must use the model action catalog")
             if action_feature_cache.catalog is not self.actions:
                 raise ValueError("factorized cache must use the model action catalog")
+            if (
+                type(action_feature_cache.encoder) is not type(self._encoder)
+                or action_feature_cache.encoder.feature_dim
+                != self._encoder.feature_dim
+            ):
+                raise ValueError(
+                    "factorized cache and model must use the same "
+                    "action-feature encoding"
+                )
             if candidate_schedule.pool_size < int(candidate_pool_size or self.K):
                 raise ValueError("AOT schedule pool is smaller than candidate_pool_size")
 
@@ -784,6 +807,13 @@ class SharedLinUCB_AMG_v4:
             self._candidate_schedule.finish_case(
                 max_selections=int(max_selections)
             )
+
+    def set_candidate_schedule_cursor(self, cursor: int) -> None:
+        """Align an AOT branch at a shared evaluation boundary."""
+
+        if self._candidate_schedule is None:
+            raise RuntimeError("AOT candidate schedule is not configured")
+        self._candidate_schedule.set_cursor(int(cursor))
 
     def _is_param_active(self, param, action: Dict[str, Any]) -> bool:
         for dep_name, allowed in param.active_if:

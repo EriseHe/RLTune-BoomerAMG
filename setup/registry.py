@@ -7,10 +7,21 @@ from .learners.common import (
     SetupLearnerFactoryRequest,
     SharedSetupLearnerSpec,
 )
-from .learners.linucb.config import LinUCBV4Spec
+from .learners.linucb.config import (
+    LinUCBV4Spec,
+    LinUCBV5RBFSpec,
+    LinUCBV5Spec,
+    LinUCBV6Spec,
+)
 from .learners.linucb.factory import (
     LINUCB_V4_LEARNER_TYPE,
+    LINUCB_V5_LEARNER_TYPE,
+    LINUCB_V5_RBF_LEARNER_TYPE,
+    LINUCB_V6_LEARNER_TYPE,
     build_linucb_v4_learner,
+    build_linucb_v5_learner,
+    build_linucb_v5_rbf_learner,
+    build_linucb_v6_learner,
 )
 from .learners.thompson.config import LinTSV2Spec
 from .learners.thompson.factory import (
@@ -19,8 +30,20 @@ from .learners.thompson.factory import (
 )
 
 
-OnlineSetupKind = Literal["linucb", "lints"]
-SetupAlgorithmSpec = LinUCBV4Spec | LinTSV2Spec
+OnlineSetupKind = Literal[
+    "linucb",
+    "linucb_v5",
+    "linucb_v5_rbf",
+    "linucb_v6",
+    "lints",
+]
+SetupAlgorithmSpec = (
+    LinUCBV4Spec
+    | LinUCBV5Spec
+    | LinUCBV5RBFSpec
+    | LinUCBV6Spec
+    | LinTSV2Spec
+)
 
 
 @dataclass(frozen=True)
@@ -58,6 +81,30 @@ SETUP_KIND_REGISTRY: dict[str, SetupKindRegistration] = {
         spec_type=LinUCBV4Spec,
         factory=build_linucb_v4_learner,
     ),
+    "linucb_v5": SetupKindRegistration(
+        kind="linucb_v5",
+        family="linucb",
+        backend="online_learner",
+        learner_type=LINUCB_V5_LEARNER_TYPE,
+        spec_type=LinUCBV5Spec,
+        factory=build_linucb_v5_learner,
+    ),
+    "linucb_v5_rbf": SetupKindRegistration(
+        kind="linucb_v5_rbf",
+        family="linucb",
+        backend="online_learner",
+        learner_type=LINUCB_V5_RBF_LEARNER_TYPE,
+        spec_type=LinUCBV5RBFSpec,
+        factory=build_linucb_v5_rbf_learner,
+    ),
+    "linucb_v6": SetupKindRegistration(
+        kind="linucb_v6",
+        family="linucb",
+        backend="online_learner",
+        learner_type=LINUCB_V6_LEARNER_TYPE,
+        spec_type=LinUCBV6Spec,
+        factory=build_linucb_v6_learner,
+    ),
     "lints": SetupKindRegistration(
         kind="lints",
         family="thompson",
@@ -78,6 +125,12 @@ COMPOSABLE_SETUP_KINDS = ("default", *ONLINE_SETUP_KINDS)
 _SETUP_KIND_ALIASES = {
     "linucbv4": "linucb",
     "sharedlinucbv4": "linucb",
+    "linucbv5": "linucb_v5",
+    "sharedlinucbv5": "linucb_v5",
+    "linucbv5rbf": "linucb_v5_rbf",
+    "sharedlinucbv5rbf": "linucb_v5_rbf",
+    "linucbv6": "linucb_v6",
+    "sharedlinucbv6": "linucb_v6",
     "lintsv2": "lints",
     "sharedlintsv2": "lints",
 }

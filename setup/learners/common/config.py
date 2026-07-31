@@ -87,12 +87,20 @@ class SharedSetupLearnerSpec:
 # Compatibility reexports. The active algorithm specs are family-owned; these
 # imports stay below the shared spec definition so family factories can safely
 # type their request during package initialization.
-from ..linucb.config import LinUCBV4Spec  # noqa: E402
+from ..linucb.config import (  # noqa: E402
+    LinUCBV4Spec,
+    LinUCBV5RBFSpec,
+    LinUCBV5Spec,
+    LinUCBV6Spec,
+)
 from ..thompson.config import LinTSV2Spec  # noqa: E402
 
 
 __all__ = [
     "LinTSV2Spec",
     "LinUCBV4Spec",
+    "LinUCBV5RBFSpec",
+    "LinUCBV5Spec",
+    "LinUCBV6Spec",
     "SharedSetupLearnerSpec",
 ]

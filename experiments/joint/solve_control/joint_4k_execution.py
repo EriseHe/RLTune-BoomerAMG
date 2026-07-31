@@ -32,6 +32,7 @@ from joint_reporting import (
     _write_summary_csv,
 )
 from online_td_experiment_common import _json_ready, _write_json
+from problems.amg import normalize_diffusion_advection_context
 from run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
 from setup_aware_compare_common import (
@@ -51,6 +52,7 @@ MethodSolver = Callable[[Dict[str, Any]], Dict[str, Any]]
 MethodSolverFactory = Callable[..., MethodSolver]
 DefaultSetupRunner = Callable[..., Dict[str, Any]]
 OutcomeReporter = Callable[..., Dict[str, Any]]
+SetupContextResolver = Callable[..., np.ndarray]
 
 
 @dataclass(frozen=True)
@@ -97,6 +99,7 @@ class OnlineComparisonPlan:
     aot_max_selections_per_case: int
     default_setup_method: str
     include_solve_screen_report: bool
+    setup_replay_rows: Sequence[Mapping[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -111,6 +114,32 @@ class OnlineComparisonHooks:
     method_solver: MethodSolverFactory
     run_default_setup_method: DefaultSetupRunner
     report_online_outcome: OutcomeReporter
+    setup_context: SetupContextResolver | None = None
+
+
+class _FrozenSetupReplayPolicy:
+    """One non-learning setup selection supplied by a recorded trajectory."""
+
+    def __init__(self, params: Mapping[str, Any]) -> None:
+        self._params = dict(params)
+
+    def select(
+        self,
+        *,
+        context: np.ndarray,
+        parameter_space: Mapping[str, Any],
+    ) -> Dict[str, Any]:
+        del context, parameter_space
+        return dict(self._params)
+
+
+def _method_solve_tolerance(
+    spec: ComposableMethodSpec | None,
+    solve: SolveExecutionConfig,
+) -> float:
+    if spec is None:
+        return float(solve.tolerance)
+    return spec.resolve_solve_tolerance(float(solve.tolerance))
 
 
 def make_method_solver(
@@ -119,6 +148,8 @@ def make_method_solver(
     solve: SolveExecutionConfig,
     mkw: Mapping[str, Any],
     case_progress: float,
+    case_index: int = 0,
+    problem_context: Sequence[float] | None = None,
     controller_bundles: Mapping[str, ControllerBundle],
     ppo_runner: Any,
     composable_specs: Mapping[str, ComposableMethodSpec] | None = None,
@@ -127,13 +158,22 @@ def make_method_solver(
 
     spec = None if composable_specs is None else composable_specs.get(method)
     solve_kind = None if spec is None else spec.solve_kind
-    if (spec is None and method == "bandit_default") or solve_kind == "default":
+    solve_tolerance = _method_solve_tolerance(spec, solve)
+    controller_is_delayed = bool(
+        spec is not None
+        and int(spec.solve_activation_case) > int(case_index)
+    )
+    if (
+        (spec is None and method == "bandit_default")
+        or solve_kind == "default"
+        or controller_is_delayed
+    ):
 
         def solve_default(params: Dict[str, Any]) -> Dict[str, Any]:
             native = solve_no_rl_case(
                 params=dict(params),
                 mkw=dict(mkw),
-                solver_tol=float(solve.tolerance),
+                solver_tol=solve_tolerance,
                 solver_max_iter=int(solve.max_cycles),
                 augment_params=augment_setup_params,
             )
@@ -150,7 +190,7 @@ def make_method_solver(
                 w=float(fixed_weight),
                 sweeps_down=1,
                 sweeps_up=1,
-                solve_tol=float(solve.tolerance),
+                solve_tol=solve_tolerance,
                 solve_max_cycles=int(solve.max_cycles),
             )
             return _as_feedback(native, include_controller=False)
@@ -168,7 +208,7 @@ def make_method_solver(
                     classify_rl_failure(
                         residual_norm=float(residual_norm),
                         iterations=int(iterations),
-                        solve_tol=float(solve.tolerance),
+                        solve_tol=solve_tolerance,
                         solve_max_cycles=int(solve.max_cycles),
                     )
                 ),
@@ -187,15 +227,16 @@ def make_method_solver(
                 OnlineSolveCase(
                     mkw=dict(mkw),
                     params=dict(params),
-                    solve_tol=float(solve.tolerance),
+                    solve_tol=solve_tolerance,
                     solve_max_cycles=int(solve.max_cycles),
                     learn=True,
                     explore=True,
+                    problem_context=problem_context,
                     record_action_metadata=True,
                     fallback_attempt=lambda: solve_no_rl_case(
                         params=dict(DEFAULT_SETUP_PARAMS),
                         mkw=dict(mkw),
-                        solver_tol=float(solve.tolerance),
+                        solver_tol=solve_tolerance,
                         solver_max_iter=int(solve.max_cycles),
                         augment_params=augment_setup_params,
                     ),
@@ -218,10 +259,11 @@ def run_default_setup_method(
 ) -> Dict[str, Any]:
     """Execute one default-setup branch under the active recovery protocol."""
 
+    solve_tolerance = _method_solve_tolerance(spec, solve)
     if spec.solve_kind == "default":
         native = solve_default_baseline_case(
             mkw=dict(mkw),
-            solver_tol=float(solve.tolerance),
+            solver_tol=solve_tolerance,
             solver_max_iter=int(solve.max_cycles),
             augment_params=augment_setup_params,
         )
@@ -236,7 +278,7 @@ def run_default_setup_method(
             lambda: solve_no_rl_case(
                 params=dict(DEFAULT_SETUP_PARAMS),
                 mkw=dict(mkw),
-                solver_tol=float(solve.tolerance),
+                solver_tol=solve_tolerance,
                 solver_max_iter=int(solve.max_cycles),
                 augment_params=augment_setup_params,
             ),
@@ -295,13 +337,19 @@ def _default_setup_row(
 def _default_fallback_solver(
     *,
     plan: OnlineComparisonPlan,
+    method: str,
     mkw: Mapping[str, Any],
 ) -> MethodSolver:
+    solve_tolerance = _method_solve_tolerance(
+        plan.composable_specs.get(method),
+        plan.solve,
+    )
+
     def fallback_solver(_params: Dict[str, Any]) -> Dict[str, Any]:
         fallback_native = solve_no_rl_case(
             params=dict(DEFAULT_SETUP_PARAMS),
             mkw=dict(mkw),
-            solver_tol=float(plan.solve.tolerance),
+            solver_tol=solve_tolerance,
             solver_max_iter=int(plan.solve.max_cycles),
             augment_params=augment_setup_params,
         )
@@ -337,10 +385,20 @@ def _run_one_method(
         )
 
     spec = plan.composable_specs.get(method)
+    problem_context = np.asarray(context, dtype=float)
+    if (
+        spec is not None
+        and spec.setup_kind in {"linucb_v5", "linucb_v5_rbf"}
+    ):
+        problem_context = normalize_diffusion_advection_context(
+            problem_context
+        )
     solver_fn = hooks.method_solver(
         method,
         mkw=dict(mkw),
         case_progress=float(online_index) / float(progress_denom),
+        case_index=int(plan.warmup_cases + online_index),
+        problem_context=problem_context,
     )
     if spec is not None and spec.setup_kind == "default":
         outcome = hooks.run_default_setup_method(
@@ -362,15 +420,73 @@ def _run_one_method(
             "outcome": outcome,
         }
 
+    learner_context = problem_context
+    if hooks.setup_context is not None:
+        learner_context = np.asarray(
+            hooks.setup_context(
+                method=method,
+                mkw=dict(mkw),
+                context=learner_context,
+            ),
+            dtype=float,
+        )
+    if (
+        spec is not None
+        and spec.setup_kind in {"linucb_v5", "linucb_v5_rbf"}
+        and not np.array_equal(
+            learner_context,
+            problem_context,
+        )
+    ):
+        raise ValueError(
+            "LinUCB v5 setup and solve must receive the same canonical "
+            "problem_context"
+        )
+    if plan.setup_replay_rows is not None:
+        replay_row = plan.setup_replay_rows[int(online_index)]
+        replay_params = dict(replay_row["params"])
+        params, native, timing, fallback_used, _update_sec = (
+            run_bandit_step_test_final(
+                policy=_FrozenSetupReplayPolicy(replay_params),
+                parameter_space={},
+                problem_context=learner_context,
+                solver_fn=solver_fn,
+                fallback_solver_fn=_default_fallback_solver(
+                    plan=plan,
+                    method=method,
+                    mkw=mkw,
+                ),
+                prev_update_est=0.0,
+            )
+        )
+        return {
+            "stream_index": int(plan.warmup_cases + online_index),
+            "online_index": int(online_index),
+            "execution_rank": int(execution_rank),
+            "mkw": dict(mkw),
+            "context": learner_context.tolist(),
+            "params": dict(params),
+            "arm_index": int(replay_row.get("arm_index", -1)),
+            "fallback_used": int(fallback_used),
+            "bandit_timing": dict(timing),
+            "setup_replay_source_online_index": int(
+                replay_row.get("online_index", online_index)
+            ),
+            "outcome": hooks.report_online_outcome(
+                native,
+                bandit_timing=timing,
+            ),
+        }
     branch = plan.branches[method]
     params, native, timing, fallback_used, update_sec = (
         run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
-            context=np.asarray(context, dtype=float),
+            problem_context=learner_context,
             solver_fn=solver_fn,
             fallback_solver_fn=_default_fallback_solver(
                 plan=plan,
+                method=method,
                 mkw=mkw,
             ),
             prev_update_est=float(previous_update[method]),
@@ -387,7 +503,7 @@ def _run_one_method(
         "online_index": int(online_index),
         "execution_rank": int(execution_rank),
         "mkw": dict(mkw),
-        "context": np.asarray(context, dtype=float).tolist(),
+        "context": learner_context.tolist(),
         "params": dict(params),
         "arm_index": _policy_last_arm(branch.policy),
         "fallback_used": int(fallback_used),

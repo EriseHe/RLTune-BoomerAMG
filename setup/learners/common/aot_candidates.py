@@ -448,9 +448,16 @@ class FactorizedActionFeatureCache:
         ):
             raise ValueError("catalog and action-feature encoder parameter order differs")
 
-        self.numeric_values, self.numeric_features = _shared_numeric_tables(
+        self.numeric_values, generic_numeric_features = _shared_numeric_tables(
             self.numeric_params
         )
+        if type(encoder) is GenericActionFeatureEncoder:
+            self.numeric_features = generic_numeric_features
+        else:
+            self.numeric_features = encoder.encode_numeric_table(
+                self.numeric_values
+            )
+            self.numeric_features.setflags(write=False)
         numeric_names = {param.name for param in self.numeric_params}
         dependency_names = tuple(
             param.name

@@ -198,6 +198,11 @@ control, and recalibrated LSVI. RBLSPI maintains fixed-size `A`, `C`, and `b`
 statistics for the BLSTD posterior, samples one coherent Q-function per solve,
 and stores no accumulated transition history. Each online learner is
 instantiated independently even when two branches use the same algorithm.
+Online solve branches can select `solve_context` as `canonical` (the default),
+`legacy`, or `physics_linear`. To align a physics-linear setup ablation with
+its solve controller, set both `setup_context` and `solve_context` explicitly;
+the two settings remain independent so mismatched-context ablations are still
+possible.
 
 Validate the resolved stream and method roster without launching HYPRE:
 
@@ -208,11 +213,26 @@ Validate the resolved stream and method roster without launching HYPRE:
   --validate-only
 ```
 
-Remove `--validate-only` to run and automatically generate the standard plots.
-Every result directory receives the resolved high-level config, low-level
-protocol, stream manifest, trajectories, checkpoints, reports, and a
-`reproduce.sh` script. `--output-dir` safely overrides the configured output
-path without editing the JSON.
+Remove `--validate-only` to run the numerical experiment. The numerical runner
+does not import or invoke plotting code. Every result directory receives the
+resolved high-level config, low-level protocol, stream manifest, trajectories,
+checkpoints, reports, and a `reproduce.sh` script. `--output-dir` safely
+overrides the configured output path without editing the JSON. When
+`reporting.generate_plots` is true, the high-level entry point invokes the
+separate plot-only module after the numerical runner has completed.
+
+Regenerate or explicitly create the standard plots with the plot-only entry
+point:
+
+```bash
+/opt/anaconda3/envs/rl/bin/python -u \
+  experiments/joint/solve_control/generate_joint_experiment_plots.py \
+  --result-dir results/diagnostics/solve_control/EXPERIMENT_DIRECTORY \
+  --rolling-window 100
+```
+
+A plotting failure therefore cannot turn a completed numerical run into a
+runner failure.
 
 ## Numbered workflow
 

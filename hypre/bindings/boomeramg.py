@@ -233,21 +233,48 @@ class SolveResult:
 @dataclass
 class PrepareResult:
     setup_runtime_sec: float
+    # Prepared and full-solve paths now expose the same residual convention:
+    # ||r|| / ||r0||, so the initial relative residual is one.
     initial_residual_norm: float
     initial_relax_weight: float
+    # Keep the raw norm available for diagnostics without leaking it into
+    # convergence checks or controller features.
+    absolute_initial_residual_norm: float = float("nan")
 
 
 @dataclass(frozen=True)
 class StepResult:
+    # Relative residual norm, matching HYPRE_BoomerAMGSolve.
     residual_norm: float
     runtime_sec: float
     status: SolveStatus
+    # Raw ||b - Ax|| retained only for diagnostics.
+    absolute_residual_norm: float = float("nan")
+
+
+def _relative_residual_norm(
+    absolute_residual_norm: float,
+    absolute_initial_residual_norm: float,
+) -> float:
+    residual = float(absolute_residual_norm)
+    initial = float(absolute_initial_residual_norm)
+    if initial > 0.0:
+        return residual / initial
+    if initial == 0.0 and residual == 0.0:
+        return 0.0
+    return float("inf")
 
 
 class PreparedAMGEnv:
     def __init__(self, env_ptr: int):
         self._env = env_ptr
-        self.last_step = StepResult(float("nan"), 0.0, SolveStatus.CONTINUE)
+        self._absolute_initial_residual_norm = float("nan")
+        self.last_step = StepResult(
+            float("nan"),
+            0.0,
+            SolveStatus.CONTINUE,
+            float("nan"),
+        )
 
     def prepare_rl(self, params: Optional[Dict[str, Any]] = None) -> PrepareResult:
         _, c_args = _encode_params(params)
@@ -278,10 +305,16 @@ class PreparedAMGEnv:
                 code=rc,
                 setup_runtime_sec=float(out_setup.value),
             )
+        absolute_initial_residual = float(out_r0.value)
+        self._absolute_initial_residual_norm = absolute_initial_residual
         return PrepareResult(
             setup_runtime_sec=float(out_setup.value),
-            initial_residual_norm=float(out_r0.value),
+            initial_residual_norm=_relative_residual_norm(
+                absolute_initial_residual,
+                absolute_initial_residual,
+            ),
             initial_relax_weight=float(out_relax_weight.value),
+            absolute_initial_residual_norm=absolute_initial_residual,
         )
 
     def step_rl(
@@ -306,6 +339,13 @@ class PreparedAMGEnv:
         tol: float = 0.0,
         max_cycles: int = 0,
     ) -> tuple[float, float]:
+        """Run one AMG cycle and return ``(relative_residual, runtime_sec)``.
+
+        ``tol`` has the same relative-residual meaning as the tolerance passed
+        to :func:`solve`, so native default and controlled solve paths stop at
+        the same accuracy target.
+        """
+
         out_r = _D()
         out_rt = _D()
         out_status = _I()
@@ -339,12 +379,18 @@ class PreparedAMGEnv:
                 code=rc,
                 solve_runtime_sec=float(out_rt.value),
             )
+        absolute_residual = float(out_r.value)
+        relative_residual = _relative_residual_norm(
+            absolute_residual,
+            self._absolute_initial_residual_norm,
+        )
         self.last_step = StepResult(
-            residual_norm=float(out_r.value),
+            residual_norm=relative_residual,
             runtime_sec=float(out_rt.value),
             status=SolveStatus(int(out_status.value)),
+            absolute_residual_norm=absolute_residual,
         )
-        return float(out_r.value), float(out_rt.value)
+        return relative_residual, float(out_rt.value)
 
     def solve(
         self,
@@ -394,10 +440,22 @@ class PreparedAMGEnv:
 
     @property
     def r0(self) -> float:
+        absolute = self.absolute_r0
+        return _relative_residual_norm(absolute, absolute)
+
+    @property
+    def absolute_r0(self) -> float:
         return float(_lib.amg_runtime_get_r0(self._env))
 
     @property
     def r(self) -> float:
+        return _relative_residual_norm(
+            self.absolute_r,
+            self._absolute_initial_residual_norm,
+        )
+
+    @property
+    def absolute_r(self) -> float:
         return float(_lib.amg_runtime_get_r(self._env))
 
     @property

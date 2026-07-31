@@ -4,7 +4,6 @@ import _project_paths  # noqa: F401
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any, Dict, Mapping
 
@@ -21,7 +20,6 @@ from joint_online_common import (
     _configure_paired_environment,
 )
 from online_td_experiment_common import _json_ready, _write_json
-from plot_joint_online_sarsa_4k import generate_plots
 from joint_4k_runner import (
     _validate_composable_protocol,
     run,
@@ -45,6 +43,23 @@ def run_typed_experiment(spec: JointExperimentSpec) -> Dict[str, Any]:
     """Execute a typed experiment through the canonical runner."""
 
     return run(runtime_config_from_spec(spec))
+
+
+def _generate_requested_plots(
+    *,
+    spec: JointExperimentSpec,
+    result_dir: Path,
+) -> Dict[str, Any] | None:
+    """Invoke the separate plot-only entry point when reporting requests it."""
+
+    if not spec.reporting.generate_plots:
+        return None
+    from generate_joint_experiment_plots import generate_experiment_plots
+
+    return generate_experiment_plots(
+        result_dir=Path(result_dir),
+        rolling_window=int(spec.reporting.rolling_window),
+    )
 
 
 def _validate_resolved(
@@ -75,15 +90,25 @@ def _validate_resolved(
                 "id": spec.name,
                 "setup": spec.setup_kind,
                 "setup_space": spec.setup_space,
+                "setup_context": spec.setup_context,
                 "candidate_sampling": spec.candidate_sampling,
                 "solve": spec.solve_kind,
                 "fixed_weight": spec.fixed_weight,
                 "seed_offset": int(spec.seed_offset),
+                "setup_warmup_cases": int(spec.setup_warmup_cases),
+                "solve_activation_case": int(spec.solve_activation_case),
+                "solve_tolerance": spec.solve_tolerance,
+                "solve_context": spec.solve_context,
             }
             for spec in specs
         ],
         "setup_configuration_spaces": resolved_spaces,
         "setup_candidate_mode": str(args.setup_candidate_mode),
+        "setup_replay_trajectory": (
+            None
+            if args.setup_replay_trajectory is None
+            else str(Path(args.setup_replay_trajectory).resolve())
+        ),
         "aot_max_selections_per_case": int(args.aot_max_selections_per_case),
         "lin_ts": {
             "relative_sampling_scale": float(
@@ -104,27 +129,25 @@ def _write_reproduction_artifacts(
     config_path: Path,
     args: JointExperimentRuntimeConfig,
     validation: Mapping[str, Any],
-    plot_summary: Mapping[str, Any] | None,
 ) -> None:
     output_dir = args.output_dir.resolve()
     resolved_config = dict(config)
     resolved_config["output_dir"] = str(output_dir)
     _write_json(output_dir / "experiment_config.json", resolved_config)
     _write_json(output_dir / "high_level_validation.json", dict(validation))
-    if plot_summary is not None:
-        _write_json(output_dir / "high_level_plot_summary.json", dict(plot_summary))
 
-    repo_root = Path(__file__).resolve().parents[3]
-    default_reproduction = output_dir.with_name(f"{output_dir.name}_reproduction")
     script = "\n".join(
         (
             "#!/usr/bin/env bash",
             "set -euo pipefail",
-            f'REPO_ROOT="${{REPO_ROOT:-{repo_root}}}"',
-            f'PYTHON_BIN="${{PYTHON_BIN:-{sys.executable}}}"',
-            f'OUTPUT_DIR="${{OUTPUT_DIR:-{default_reproduction}}}"',
+            "",
+            'SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"',
+            'REPO_ROOT="${REPO_ROOT:-$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)}"',
+            'PYTHON_BIN="${PYTHON_BIN:-python}"',
+            'OUTPUT_DIR="${OUTPUT_DIR:-${SCRIPT_DIR}_reproduction}"',
+            "",
             'cd "$REPO_ROOT"',
-            '"$PYTHON_BIN" -u experiments/joint/solve_control/run_joint_experiment.py \\\n  --config "' + str(output_dir / "experiment_config.json") + '" \\\n  --output-dir "$OUTPUT_DIR"',
+            '"$PYTHON_BIN" -u experiments/joint/solve_control/run_joint_experiment.py \\\n  --config "$SCRIPT_DIR/experiment_config.json" \\\n  --output-dir "$OUTPUT_DIR"',
             "",
         )
     )
@@ -150,6 +173,12 @@ def _write_reproduction_artifacts(
             "`config.json` and `stream_manifest.json` are the resolved low-level protocol;",
             "`experiment_config.json` is the reusable high-level configuration.",
             "Run `OUTPUT_DIR=/new/path ./reproduce.sh` to reproduce without overwriting this directory.",
+            (
+                "When `reporting.generate_plots` is true, the high-level "
+                "entry point invokes the separate plot-only generator after "
+                "the runner finishes."
+            ),
+            "Plots can also be regenerated with `generate_joint_experiment_plots.py`.",
             "",
         )
     )
@@ -162,7 +191,6 @@ def main() -> None:
     )
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=None)
-    parser.add_argument("--no-plots", action="store_true")
     parser.add_argument("--validate-only", action="store_true")
     cli = parser.parse_args()
 
@@ -179,21 +207,15 @@ def main() -> None:
         return
 
     run_typed_experiment(spec)
-    plots_enabled = spec.reporting.generate_plots and not cli.no_plots
-    plot_summary = (
-        generate_plots(
-            result_dir=runtime.output_dir,
-            rolling_window=spec.reporting.rolling_window,
-        )
-        if plots_enabled
-        else None
-    )
     _write_reproduction_artifacts(
         config=config,
         config_path=config_path,
         args=runtime,
         validation=validation,
-        plot_summary=plot_summary,
+    )
+    plots = _generate_requested_plots(
+        spec=spec,
+        result_dir=runtime.output_dir,
     )
     print(
         json.dumps(
@@ -201,7 +223,7 @@ def main() -> None:
                 {
                     "stage": "joint_experiment_complete",
                     "output_dir": runtime.output_dir,
-                    "plots": plot_summary,
+                    "plots_generated": plots is not None,
                 }
             ),
             indent=2,

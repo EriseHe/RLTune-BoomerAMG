@@ -295,7 +295,7 @@ def _warmup_bandit():
         _params, _out, _timing, _fallback_used, prev_update_est = run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
-            context=np.asarray(context, dtype=float),
+            problem_context=np.asarray(context, dtype=float),
             solver_fn=solver_fn,
             fallback_solver_fn=solver_fn,
             prev_update_est=float(prev_update_est),

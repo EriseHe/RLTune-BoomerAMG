@@ -6,7 +6,11 @@ from typing import Any
 
 from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
 
-from .state_encoder import SolveStateEncoder
+from .state_encoder import (
+    CANONICAL_PROBLEM_CONTEXT,
+    PROBLEM_CONTEXT_MODES,
+    SolveStateEncoder,
+)
 
 
 @dataclass(frozen=True)
@@ -97,6 +101,7 @@ class SolveStateSpec:
     c_max: float
     time_scale_sec: float = 2.0e-3
     mode: str = "setup_full"
+    problem_context_mode: str = CANONICAL_PROBLEM_CONTEXT
 
     def __post_init__(self) -> None:
         if not math.isfinite(float(self.tol)) or float(self.tol) <= 0.0:
@@ -112,6 +117,14 @@ class SolveStateSpec:
             raise ValueError("time_scale_sec must be finite and positive")
         if str(self.mode).strip().lower() != "setup_full":
             raise ValueError("online solve controllers require setup_full state")
+        if (
+            str(self.problem_context_mode).strip().lower()
+            not in PROBLEM_CONTEXT_MODES
+        ):
+            raise ValueError(
+                "problem_context_mode must be one of "
+                f"{PROBLEM_CONTEXT_MODES}"
+            )
 
     def build_encoder(self, *, setup_obs_encoder: Any) -> SolveStateEncoder:
         if setup_obs_encoder is None:
@@ -123,4 +136,5 @@ class SolveStateSpec:
             time_scale_sec=float(self.time_scale_sec),
             mode=str(self.mode),
             setup_obs_encoder=setup_obs_encoder,
+            problem_context_mode=str(self.problem_context_mode),
         )

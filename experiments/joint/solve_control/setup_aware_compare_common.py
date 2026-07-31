@@ -23,19 +23,25 @@ from setup.space import (
     build_setup_parameter_spec,
     build_setup_param_space,
 )
-from setup.learners.linucb import run_same_context_setup_reselection
+from setup.learners.linucb import (
+    run_same_context_setup_reselection,
+    validate_linucb_v5_paper_contract,
+    validate_linucb_v6_experimental_contract,
+)
 from setup.learners.common import (
     AOTCandidateSchedule,
     FactorizedActionFeatureCache,
     GenericActionFeatureEncoder,
     ParameterSpaceSpec,
     ParameterSpec,
+    RBFActionFeatureEncoder,
     SharedSetupLearnerSpec,
     resolve_tune7_candidate_strategy,
 )
 from setup.registry import (
     build_online_setup_learner,
     make_setup_learner_spec,
+    normalize_setup_kind,
 )
 from hypre.bindings import (
     AMGNativeError,
@@ -47,7 +53,16 @@ from hypre.bindings import (
 )
 from solve.core.outcomes import classify_rl_failure
 from problems.amg import DIFCONV_CONTEXT_DIM
-from problems.streams import generate_difconv_instances as _generate_difconv_instances
+from problems.registry import (
+    SCALAR_ANISOTROPIC_DIFFUSION,
+    SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+    normalize_problem_kind,
+)
+from problems.streams import (
+    generate_difconv_instances as _generate_difconv_instances,
+    generate_scalar_anisotropic_diffusion_instances,
+    generate_scalar_anisotropic_diffusion_advection_instances,
+)
 from setup.utils.setup_amg import (
     build_actions_from_spec,
     build_actions_th_mxrs_tr,
@@ -469,7 +484,12 @@ def ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, An
     return actions, int(default_arm_index)
 
 
-def build_action_space_bundle(*, final_tune_dims: Sequence[int], tune7_variant: str) -> ActionSpaceBundle:
+def build_action_space_bundle(
+    *,
+    final_tune_dims: Sequence[int],
+    tune7_variant: str,
+    context_dim: int = DIFCONV_CONTEXT_DIM,
+) -> ActionSpaceBundle:
     param_resolution, th_grid, mxrs_grid, tr_grid = build_grids_from_env()
     actions_tune3 = build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
     actions_tune3, default_arm_index_tune3 = ensure_default_arm(actions_tune3)
@@ -533,9 +553,20 @@ def build_action_space_bundle(*, final_tune_dims: Sequence[int], tune7_variant: 
         agg_pmx_values=agg_pmx_values,
         coarsen_type_values_tune7=coarsen_type_values_tune7,
         interp_values_tune7=interp_values_tune7,
-        parameter_space_tune3={"actions": actions_tune3, "context_dim": DIFCONV_CONTEXT_DIM},
-        parameter_space_tune5={"actions": actions_tune5, "context_dim": DIFCONV_CONTEXT_DIM} if actions_tune5 else None,
-        parameter_space_tune7={"actions": actions_tune7, "context_dim": DIFCONV_CONTEXT_DIM} if actions_tune7 else None,
+        parameter_space_tune3={
+            "actions": actions_tune3,
+            "context_dim": int(context_dim),
+        },
+        parameter_space_tune5=(
+            {"actions": actions_tune5, "context_dim": int(context_dim)}
+            if actions_tune5
+            else None
+        ),
+        parameter_space_tune7=(
+            {"actions": actions_tune7, "context_dim": int(context_dim)}
+            if actions_tune7
+            else None
+        ),
         parameter_spec_tune7=parameter_spec_tune7,
         default_arm_index_tune3=int(default_arm_index_tune3),
         default_arm_index_tune5=int(default_arm_index_tune5),
@@ -559,8 +590,13 @@ class RandomPolicy:
 def family_seed_map(*, seed: int) -> Dict[str, int]:
     return {
         "Shared LinUCB v4": int(seed + 13003),
-        # Candidate/tie RNGs are deliberately paired across the two learners.
-        # LinTS uses an independent posterior RNG internally.
+        # v5 keeps v4's candidate/tie RNG so context comparisons stay paired.
+        "Shared LinUCB v5": int(seed + 13003),
+        # RBF keeps the same RNG so only the action representation changes.
+        "Shared LinUCB v5 RBF": int(seed + 13003),
+        # v6 keeps the same RNG so only the PDE context representation changes.
+        "Shared LinUCB v6": int(seed + 13003),
+        # LinTS shares candidate/tie RNGs and uses an independent posterior RNG.
         "Shared LinTS v2": int(seed + 13003),
     }
 
@@ -570,6 +606,9 @@ def default_branch_label(*, method: str, tune_dim: int, tune7_variant: str) -> s
         return "default (fixed)"
     family = {
         "linucbv4": "Shared LinUCB v4",
+        "linucbv5": "Shared LinUCB v5",
+        "linucbv5rbf": "Shared LinUCB v5 RBF",
+        "linucbv6": "Shared LinUCB v6",
         "lints_v2": "Shared LinTS v2",
     }.get(str(method).strip().lower(), str(method))
     if int(tune_dim) == 7:
@@ -588,6 +627,7 @@ def build_single_branch(
     solver_max_iter: int,
     bandit_cfg: TestFinalBanditConfig,
     bundle: ActionSpaceBundle,
+    context_interaction_indices: Sequence[int] = (1, 2, 3, 4),
 ) -> BranchRun:
     method_key = str(method).strip().lower()
     label = default_branch_label(method=method_key, tune_dim=int(tune_dim), tune7_variant=str(tune7_variant))
@@ -611,6 +651,9 @@ def build_single_branch(
     seed_map = family_seed_map(seed=int(seed))
     family = {
         "linucbv4": "Shared LinUCB v4",
+        "linucbv5": "Shared LinUCB v5",
+        "linucbv5rbf": "Shared LinUCB v5 RBF",
+        "linucbv6": "Shared LinUCB v6",
         "lints_v2": "Shared LinTS v2",
     }.get(method_key)
     if family is None:
@@ -647,6 +690,7 @@ def build_single_branch(
         parameter_spec=parameter_spec,
         tune7_variant=tune7_variant,
         cfg=bandit_cfg,
+        context_interaction_indices=context_interaction_indices,
     )
     return BranchRun(
         label=label,
@@ -667,7 +711,48 @@ def generate_difconv_instances(
     c_min: float,
     c_max: float,
     difconv_a: Tuple[float, float, float] = (0.0, 0.0, 0.0),
+    problem: str | None = None,
+    advection_min: float | None = None,
+    advection_max: float | None = None,
 ) -> Sequence[Tuple[Dict[str, Any], np.ndarray]]:
+    if problem is None:
+        # Historical callers predate named problem contracts and retain the
+        # original DifConv context so locked stream hashes stay reproducible.
+        return _generate_difconv_instances(
+            count=int(T),
+            seed=int(seed),
+            grid_choices=grid_choices,
+            c_min=float(c_min),
+            c_max=float(c_max),
+            advection=difconv_a,
+        )
+    problem_kind = normalize_problem_kind(problem)
+    if problem_kind == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION:
+        return generate_scalar_anisotropic_diffusion_advection_instances(
+            count=int(T),
+            seed=int(seed),
+            grid_choices=grid_choices,
+            c_min=float(c_min),
+            c_max=float(c_max),
+            advection_min=float(
+                c_min if advection_min is None else advection_min
+            ),
+            advection_max=float(
+                c_max if advection_max is None else advection_max
+            ),
+        )
+    if problem_kind == SCALAR_ANISOTROPIC_DIFFUSION:
+        if any(float(value) != 0.0 for value in difconv_a):
+            raise ValueError(
+                "scalar_anisotropic_diffusion requires zero advection"
+            )
+        return generate_scalar_anisotropic_diffusion_instances(
+            count=int(T),
+            seed=int(seed),
+            grid_choices=grid_choices,
+            c_min=float(c_min),
+            c_max=float(c_max),
+        )
     return _generate_difconv_instances(
         count=int(T),
         seed=int(seed),
@@ -819,6 +904,7 @@ def build_test_final_bandit_policy(
     lin_ts_relative_sampling_scale: float = 0.15,
     lin_ts_loss_scale_prior: float = 0.1,
     candidate_sampling: str = "uniform512",
+    context_interaction_indices: Sequence[int] = (1, 2, 3, 4),
 ) -> GenericBanditPolicy:
     method_key = str(method).strip().lower()
     if int(tune_dim) == 7:
@@ -826,7 +912,9 @@ def build_test_final_bandit_policy(
             raise ValueError("parameter_spec is required for tune_dim=7")
         tune7_kwargs: Dict[str, Any] = {
             "parameter_spec": parameter_spec,
-            "context_interaction_indices": (1, 2, 3, 4),
+            "context_interaction_indices": tuple(
+                int(index) for index in context_interaction_indices
+            ),
             "always_include_arms": [int(default_arm_index)],
             "elite_cache_size": int(cfg.elite_cache_size),
             "initial_guess": [default_params[param.name] for param in parameter_spec.parameters],
@@ -962,27 +1050,80 @@ def build_online_linucb_branch(
     lin_ts_relative_sampling_scale: float = 0.15,
     lin_ts_loss_scale_prior: float = 0.1,
     candidate_sampling: str = "uniform512",
+    context_dim: int = DIFCONV_CONTEXT_DIM,
+    context_interaction_indices: Sequence[int] = (1, 2, 3, 4),
 ) -> tuple[BranchRun, TestFinalBanditConfig]:
     """Build a canonical online setup-bandit branch without a Gym dependency."""
 
-    learner_token = str(learner_kind).strip().lower()
+    learner_token = normalize_setup_kind(learner_kind)
     learner_method = {
         "linucb": "linucbv4",
+        "linucb_v5": "linucbv5",
+        "linucb_v5_rbf": "linucbv5rbf",
+        "linucb_v6": "linucbv6",
         "lints": "lints_v2",
     }.get(learner_token)
     if learner_method is None:
         raise ValueError(f"Unsupported setup learner kind: {learner_kind!r}")
     family = {
         "linucb": "Shared LinUCB v4",
+        "linucb_v5": "Shared LinUCB v5",
+        "linucb_v5_rbf": "Shared LinUCB v5 RBF",
+        "linucb_v6": "Shared LinUCB v6",
         "lints": "Shared LinTS v2",
     }[learner_token]
 
     cfg = default_test_final_bandit_config_from_env()
+    resolved_context_dim = int(context_dim)
+    resolved_interaction_indices = tuple(
+        int(index) for index in context_interaction_indices
+    )
+    if resolved_context_dim <= 0:
+        raise ValueError("context_dim must be positive")
+    if any(
+        index < 0 or index >= resolved_context_dim
+        for index in resolved_interaction_indices
+    ):
+        raise ValueError(
+            "context_interaction_indices must lie within context_dim"
+        )
     mode = str(
         os.environ.get("SETUP_ACTION_SPACE", "safe_one_at_a_time")
         if action_space_mode is None
         else action_space_mode
     ).strip().lower()
+    if learner_token in {"linucb_v5", "linucb_v5_rbf", "linucb_v6"}:
+        contract_kwargs = dict(
+            context_dim=resolved_context_dim,
+            context_interaction_indices=resolved_interaction_indices,
+            tune_dim=int(tune_dim),
+            tune7_variant=tune7_variant,
+            action_space_mode=mode,
+            setup_space_name=(
+                None
+                if configuration_space is None
+                else configuration_space.name
+            ),
+            coarsen_types=(
+                None
+                if configuration_space is None
+                else configuration_space.coarsen_types
+            ),
+            interp_types=(
+                None
+                if configuration_space is None
+                else configuration_space.interp_types
+            ),
+            agg_interp_types=(
+                None
+                if configuration_space is None
+                else configuration_space.agg_interp_types
+            ),
+        )
+        if learner_token == "linucb_v6":
+            validate_linucb_v6_experimental_contract(**contract_kwargs)
+        else:
+            validate_linucb_v5_paper_contract(**contract_kwargs)
     resolved_tol = float(
         os.environ.get("SOLVE_TOL", "1e-6")
         if solver_tol is None
@@ -1008,7 +1149,7 @@ def build_online_linucb_branch(
         )
         parameter_space = {
             "actions": setup_space.actions,
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
+            "context_dim": resolved_context_dim,
         }
         family_seed = int(family_seed_map(seed=int(seed))[family])
         candidate_schedule = None
@@ -1018,7 +1159,11 @@ def build_online_linucb_branch(
                 raise ValueError(
                     "candidate_schedule_rounds must be positive for AOT mode"
                 )
-            encoder = GenericActionFeatureEncoder(setup_space.parameter_spec)
+            encoder = (
+                RBFActionFeatureEncoder(setup_space.parameter_spec)
+                if learner_token == "linucb_v5_rbf"
+                else GenericActionFeatureEncoder(setup_space.parameter_spec)
+            )
             action_feature_cache = FactorizedActionFeatureCache(
                 setup_space.actions, encoder
             )
@@ -1040,7 +1185,7 @@ def build_online_linucb_branch(
             method=learner_method,
             tune_dim=int(tune_dim),
             actions=setup_space.actions,
-            context_dim=int(DIFCONV_CONTEXT_DIM),
+            context_dim=resolved_context_dim,
             seed=family_seed,
             default_params=dict(DEFAULT_SETUP_PARAMS),
             default_arm_index=int(setup_space.default_arm_index),
@@ -1054,6 +1199,7 @@ def build_online_linucb_branch(
             ),
             lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
             candidate_sampling=str(candidate_sampling),
+            context_interaction_indices=resolved_interaction_indices,
         )
         branch = BranchRun(
             label=(
@@ -1072,6 +1218,7 @@ def build_online_linucb_branch(
         bundle = build_action_space_bundle(
             final_tune_dims=[int(tune_dim)],
             tune7_variant=tune7_variant,
+            context_dim=resolved_context_dim,
         )
         branch = build_single_branch(
             method=learner_method,
@@ -1082,6 +1229,7 @@ def build_online_linucb_branch(
             solver_max_iter=resolved_max_iter,
             bandit_cfg=cfg,
             bundle=bundle,
+            context_interaction_indices=resolved_interaction_indices,
         )
     elif mode == "safe_one_at_a_time":
         parameter_spec, _fixed_params = build_setup_parameter_spec(
@@ -1091,14 +1239,14 @@ def build_online_linucb_branch(
         actions = _safe_one_at_a_time_actions(parameter_spec)
         parameter_space = {
             "actions": actions,
-            "context_dim": int(DIFCONV_CONTEXT_DIM),
+            "context_dim": resolved_context_dim,
         }
         family_seed = int(family_seed_map(seed=int(seed))[family])
         policy = build_test_final_bandit_policy(
             method=learner_method,
             tune_dim=int(tune_dim),
             actions=actions,
-            context_dim=int(DIFCONV_CONTEXT_DIM),
+            context_dim=resolved_context_dim,
             seed=family_seed,
             default_params=dict(DEFAULT_SETUP_PARAMS),
             default_arm_index=0,
@@ -1109,6 +1257,7 @@ def build_online_linucb_branch(
                 lin_ts_relative_sampling_scale
             ),
             lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
+            context_interaction_indices=resolved_interaction_indices,
         )
         branch = BranchRun(
             label=default_branch_label(
@@ -1137,16 +1286,33 @@ def run_bandit_step_test_final(
     *,
     policy: Any,
     parameter_space: Dict[str, Any],
-    context: np.ndarray,
+    problem_context: np.ndarray | None = None,
+    context: np.ndarray | None = None,
     solver_fn: Callable[[Dict[str, Any]], Dict[str, Any]],
     fallback_solver_fn: Callable[[Dict[str, Any]], Dict[str, Any]] | None,
     prev_update_est: float,
     primary_is_default: bool = False,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, float], int, float]:
+    """Run one setup decision through the shared PDE-context boundary.
+
+    ``context`` remains a compatibility alias for historical callers. New
+    setup/solve orchestration should use the same ``problem_context`` keyword
+    and values passed to the solve controller.
+    """
+
+    if problem_context is not None and context is not None:
+        raise ValueError(
+            "pass exactly one of problem_context or legacy context"
+        )
+    resolved_context = (
+        problem_context if problem_context is not None else context
+    )
+    if resolved_context is None:
+        raise ValueError("problem_context is required")
     result = run_same_context_setup_reselection(
         policy=policy,
         parameter_space=parameter_space,
-        context=np.asarray(context, dtype=float),
+        context=np.asarray(resolved_context, dtype=float),
         solver_fn=solver_fn,
         fallback_solver_fn=fallback_solver_fn,
         default_params=DEFAULT_SETUP_PARAMS,
@@ -1615,7 +1781,7 @@ def fixed_trace(
         params, out, timing, fallback_used, prev_update_est = run_bandit_step_test_final(
             policy=branch.policy,
             parameter_space=branch.parameter_space,
-            context=np.asarray(context, dtype=float),
+            problem_context=np.asarray(context, dtype=float),
             solver_fn=solver_fn,
             fallback_solver_fn=fallback_solver_fn,
             prev_update_est=float(prev_update_est),
@@ -1824,7 +1990,7 @@ def run_interleaved_branch_scenario(
             params, out, timing, _fallback_used, last_update_sec = run_bandit_step_test_final(
                 policy=branch.policy,
                 parameter_space=branch.parameter_space,
-                context=np.asarray(context, dtype=float),
+                problem_context=np.asarray(context, dtype=float),
                 solver_fn=solver_fn,
                 fallback_solver_fn=fallback_solver_fn,
                 prev_update_est=float(metrics["prev_update_est"][label]),

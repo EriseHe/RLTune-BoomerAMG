@@ -4,11 +4,11 @@ import copy
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 from hypre.bindings import AttemptOutcome
 
-from .state_encoder import SolveStateEncoder
+from .state_encoder import SolveStateEncoder, normalize_problem_context
 
 
 FallbackAttempt = Callable[[], Mapping[str, Any] | AttemptOutcome]
@@ -29,6 +29,7 @@ class OnlineSolveCase:
     solve_max_cycles: int
     learn: bool
     explore: bool
+    problem_context: Sequence[float] | None = None
     epsilon: float | None = None
     defer_monte_carlo_update: bool = False
     record_action_metadata: bool = False
@@ -42,6 +43,15 @@ class OnlineSolveCase:
             raise ValueError("solve_max_cycles must be positive")
         if self.epsilon is not None and not 0.0 <= float(self.epsilon) <= 1.0:
             raise ValueError("epsilon must lie in [0, 1]")
+        if self.problem_context is not None:
+            normalized_context = normalize_problem_context(
+                self.problem_context
+            )
+            object.__setattr__(
+                self,
+                "problem_context",
+                tuple(float(value) for value in normalized_context),
+            )
 
 
 @dataclass(frozen=True)
@@ -69,6 +79,7 @@ class ControllerBundle:
             params=dict(case.params),
             controller=self.controller,
             encoder=self.encoder,
+            problem_context=case.problem_context,
             solve_tol=float(case.solve_tol),
             solve_max_cycles=int(case.solve_max_cycles),
             learn=bool(case.learn),

@@ -253,27 +253,84 @@ class GenericActionFeatureEncoder:
         self.numeric_dim = len(self.numeric_params)
         self.categorical_dim = sum(len(levels) for levels in self.categorical_levels.values())
         self.mixed_dim = self.numeric_dim * self.categorical_dim
-        self.feature_dim = (
+        self.numeric_feature_dim = (
             self.numeric_dim
             + self.numeric_dim
             + (self.numeric_dim * (self.numeric_dim - 1)) // 2
-            + self.categorical_dim
-            + self.mixed_dim
+        )
+        self.feature_dim = (
+            self.numeric_feature_dim + self.categorical_dim + self.mixed_dim
+        )
+
+    def _normalized_numeric_table(
+        self,
+        values: np.ndarray,
+        *,
+        active: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        numeric_values = np.asarray(values, dtype=float)
+        if numeric_values.ndim == 1:
+            numeric_values = numeric_values.reshape(1, -1)
+        expected_shape = (numeric_values.shape[0], self.numeric_dim)
+        if numeric_values.shape != expected_shape:
+            raise ValueError(
+                "numeric values must have shape "
+                f"(rows, {self.numeric_dim}), got {numeric_values.shape}"
+            )
+        centers = np.asarray(
+            [float(param.center) for param in self.numeric_params],
+            dtype=float,
+        )
+        scales = np.asarray(
+            [float(param.scale) for param in self.numeric_params],
+            dtype=float,
+        )
+        normalized = (numeric_values - centers[None, :]) / scales[None, :]
+        if active is not None:
+            active_mask = np.asarray(active, dtype=bool)
+            if active_mask.shape != numeric_values.shape:
+                raise ValueError(
+                    "numeric active mask must match the numeric-value shape"
+                )
+            normalized = np.where(active_mask, normalized, 0.0)
+        return normalized
+
+    def encode_numeric_table(
+        self,
+        values: np.ndarray,
+        *,
+        active: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        """Encode a table containing only the numeric parameter prefix."""
+
+        normalized = self._normalized_numeric_table(values, active=active)
+        pairwise = (
+            np.column_stack(
+                [
+                    normalized[:, i] * normalized[:, j]
+                    for i in range(self.numeric_dim)
+                    for j in range(i + 1, self.numeric_dim)
+                ]
+            )
+            if self.numeric_dim > 1
+            else np.zeros((normalized.shape[0], 0), dtype=float)
+        )
+        return np.concatenate(
+            [normalized, normalized * normalized, pairwise],
+            axis=1,
         )
 
     def encode_action(self, params: Mapping[str, Any]) -> np.ndarray:
         action = canonicalize_action_from_spec(params, self.parameter_spec)
 
         numeric_vals = []
+        numeric_active = []
         categorical_blocks = []
         for param in self.parameter_spec.parameters:
             active = _is_parameter_active(param, action)
             if param.kind in _NUMERIC_KINDS:
-                if not active:
-                    numeric_vals.append(0.0)
-                else:
-                    value = float(action[param.name])
-                    numeric_vals.append((value - float(param.center)) / float(param.scale))
+                numeric_vals.append(float(action[param.name]))
+                numeric_active.append(bool(active))
             else:
                 levels = self.categorical_levels[param.name]
                 if not active:
@@ -284,9 +341,11 @@ class GenericActionFeatureEncoder:
                         np.asarray([1.0 if value == level else 0.0 for level in levels], dtype=float)
                     )
 
-        numeric = np.asarray(numeric_vals, dtype=float)
-        numeric_sq = numeric * numeric
-        numeric_pairwise = _pairwise_products(numeric)
+        numeric_features = self.encode_numeric_table(
+            np.asarray(numeric_vals, dtype=float).reshape(1, -1),
+            active=np.asarray(numeric_active, dtype=bool).reshape(1, -1),
+        )[0]
+        normalized_numeric = numeric_features[: self.numeric_dim]
         categorical = (
             np.concatenate(categorical_blocks, axis=0)
             if categorical_blocks
@@ -296,10 +355,13 @@ class GenericActionFeatureEncoder:
         mixed_blocks = []
         for cat_block in categorical_blocks:
             for indicator in cat_block:
-                mixed_blocks.append(float(indicator) * numeric)
+                mixed_blocks.append(float(indicator) * normalized_numeric)
         mixed = np.concatenate(mixed_blocks, axis=0) if mixed_blocks else np.zeros(0, dtype=float)
 
-        return np.concatenate([numeric, numeric_sq, numeric_pairwise, categorical, mixed], axis=0)
+        return np.concatenate(
+            [numeric_features, categorical, mixed],
+            axis=0,
+        )
 
     def encode_actions(self, actions: Sequence[Mapping[str, Any]]) -> np.ndarray:
         if not actions:
@@ -308,6 +370,184 @@ class GenericActionFeatureEncoder:
         for index, action in enumerate(actions):
             encoded[index] = self.encode_action(action)
         return encoded
+
+
+class RBFActionFeatureEncoder(GenericActionFeatureEncoder):
+    """Hybrid local RBF encoding for continuous setup parameters.
+
+    The original normalized linear coordinates, pairwise interactions, and
+    categorical interactions are retained. Gaussian basis blocks replace the
+    continuous squared terms, while integer squared terms remain explicit.
+    """
+
+    DEFAULT_RBF_PARAMETERS = (
+        "strong_threshold",
+        "max_row_sum",
+        "trunc_factor",
+    )
+
+    def __init__(
+        self,
+        parameter_spec: ParameterSpaceSpec,
+        *,
+        rbf_parameter_names: Sequence[str] = DEFAULT_RBF_PARAMETERS,
+        centers_per_parameter: int = 5,
+        sigma_spacing: float = 0.8,
+        cutoff_sigma: float = 2.5,
+    ) -> None:
+        super().__init__(parameter_spec)
+        if int(centers_per_parameter) < 2:
+            raise ValueError("centers_per_parameter must be at least 2")
+        if not np.isfinite(sigma_spacing) or float(sigma_spacing) <= 0.0:
+            raise ValueError("sigma_spacing must be finite and > 0")
+        if not np.isfinite(cutoff_sigma) or float(cutoff_sigma) <= 0.0:
+            raise ValueError("cutoff_sigma must be finite and > 0")
+
+        requested_names = tuple(str(name) for name in rbf_parameter_names)
+        if len(requested_names) != len(set(requested_names)):
+            raise ValueError("rbf_parameter_names must be unique")
+        numeric_by_name = {
+            param.name: (index, param)
+            for index, param in enumerate(self.numeric_params)
+        }
+        missing = tuple(
+            name for name in requested_names if name not in numeric_by_name
+        )
+        if missing:
+            raise ValueError(
+                f"RBF parameters are not present in the numeric space: {missing}"
+            )
+        noncontinuous = tuple(
+            name
+            for name in requested_names
+            if numeric_by_name[name][1].kind != "continuous"
+        )
+        if noncontinuous:
+            raise ValueError(
+                f"RBF parameters must be continuous: {noncontinuous}"
+            )
+
+        self.rbf_parameter_names = requested_names
+        self.rbf_parameter_indices = tuple(
+            numeric_by_name[name][0] for name in requested_names
+        )
+        self.integer_parameter_indices = tuple(
+            index
+            for index, param in enumerate(self.numeric_params)
+            if param.kind == "integer"
+        )
+        self.centers_per_parameter = int(centers_per_parameter)
+        self.sigma_spacing = float(sigma_spacing)
+        self.cutoff_sigma = float(cutoff_sigma)
+
+        centers = []
+        sigmas = []
+        for name in requested_names:
+            _index, param = numeric_by_name[name]
+            lower = float(min(param.values))
+            upper = float(max(param.values))
+            if not upper > lower:
+                raise ValueError(
+                    f"RBF parameter {name!r} must span at least two values"
+                )
+            parameter_centers = np.linspace(
+                lower,
+                upper,
+                self.centers_per_parameter,
+                dtype=float,
+            )
+            spacing = float(parameter_centers[1] - parameter_centers[0])
+            centers.append(parameter_centers)
+            sigmas.append(self.sigma_spacing * spacing)
+        self.rbf_centers = tuple(centers)
+        self.rbf_sigmas = tuple(sigmas)
+
+        pairwise_dim = (
+            self.numeric_dim * (self.numeric_dim - 1)
+        ) // 2
+        self.rbf_dim = (
+            len(self.rbf_parameter_indices) * self.centers_per_parameter
+        )
+        self.numeric_feature_dim = (
+            self.numeric_dim
+            + self.rbf_dim
+            + len(self.integer_parameter_indices)
+            + pairwise_dim
+        )
+        self.feature_dim = (
+            self.numeric_feature_dim + self.categorical_dim + self.mixed_dim
+        )
+
+    def encode_numeric_table(
+        self,
+        values: np.ndarray,
+        *,
+        active: Optional[np.ndarray] = None,
+    ) -> np.ndarray:
+        numeric_values = np.asarray(values, dtype=float)
+        if numeric_values.ndim == 1:
+            numeric_values = numeric_values.reshape(1, -1)
+        normalized = self._normalized_numeric_table(
+            numeric_values,
+            active=active,
+        )
+        active_mask = (
+            np.ones_like(numeric_values, dtype=bool)
+            if active is None
+            else np.asarray(active, dtype=bool)
+        )
+
+        rbf_blocks = []
+        for parameter_index, centers, sigma in zip(
+            self.rbf_parameter_indices,
+            self.rbf_centers,
+            self.rbf_sigmas,
+        ):
+            distance = (
+                numeric_values[:, parameter_index, None]
+                - centers[None, :]
+            ) / float(sigma)
+            weights = np.exp(-0.5 * distance * distance)
+            weights[np.abs(distance) > self.cutoff_sigma] = 0.0
+            row_sums = np.sum(weights, axis=1, keepdims=True)
+            empty_rows = row_sums[:, 0] <= 0.0
+            if np.any(empty_rows):
+                nearest = np.argmin(
+                    np.abs(distance[empty_rows]),
+                    axis=1,
+                )
+                weights[empty_rows] = 0.0
+                weights[np.flatnonzero(empty_rows), nearest] = 1.0
+                row_sums = np.sum(weights, axis=1, keepdims=True)
+            weights /= row_sums
+            weights[~active_mask[:, parameter_index]] = 0.0
+            rbf_blocks.append(weights)
+        rbf = (
+            np.concatenate(rbf_blocks, axis=1)
+            if rbf_blocks
+            else np.zeros((numeric_values.shape[0], 0), dtype=float)
+        )
+        integer_squared = (
+            normalized[:, self.integer_parameter_indices] ** 2
+            if self.integer_parameter_indices
+            else np.zeros((numeric_values.shape[0], 0), dtype=float)
+        )
+        pairwise = (
+            np.column_stack(
+                [
+                    normalized[:, i] * normalized[:, j]
+                    for i in range(self.numeric_dim)
+                    for j in range(i + 1, self.numeric_dim)
+                ]
+            )
+            if self.numeric_dim > 1
+            else np.zeros((numeric_values.shape[0], 0), dtype=float)
+        )
+        return np.concatenate(
+            [normalized, rbf, integer_squared, pairwise],
+            axis=1,
+        )
+
 
 def action_feature_dimension_from_spec(parameter_spec: ParameterSpaceSpec) -> int:
     return int(GenericActionFeatureEncoder(parameter_spec).feature_dim)

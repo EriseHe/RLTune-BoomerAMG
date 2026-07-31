@@ -6,8 +6,15 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, Iterable, Mapping, Sequence, cast
 
+import numpy as np
+
 from joint_method_spec import ComposableMethodSpec
+from problems.registry import (
+    SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+    normalize_problem_kind,
+)
 from setup.space import SetupConfigurationSpace
+from setup.registry import ONLINE_SETUP_KINDS
 from solve.controllers.common import (
     EpsilonScheduleSpec,
     SharedActionSpec,
@@ -54,6 +61,7 @@ SETUP_KEYS = {
     "candidate_schedule",
     "configuration_spaces",
     "lin_ts",
+    "replay_trajectory",
 }
 CANDIDATE_SCHEDULE_KEYS = {
     "mode",
@@ -64,7 +72,15 @@ LIN_TS_KEYS = {
     "relative_sampling_scale",
     "loss_scale_prior_sec",
 }
-PROBLEM_KEYS = {"kind", "grid", "c_min", "c_max", "advection"}
+PROBLEM_KEYS = {
+    "kind",
+    "grid",
+    "c_min",
+    "c_max",
+    "advection",
+    "advection_min",
+    "advection_max",
+}
 STREAM_KEYS = {
     "cases",
     "warmup_cases",
@@ -166,17 +182,14 @@ class ProblemSpec:
     c_min: float
     c_max: float
     advection: tuple[float, ...]
+    advection_min: float
+    advection_max: float
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ProblemSpec":
         reject_unknown_keys(raw, PROBLEM_KEYS, name="problem")
         kind = str(raw.get("kind", "scalar_anisotropic_diffusion"))
-        if kind not in {
-            "scalar_anisotropic_diffusion",
-            "diffusion_convection",
-            "difconv",
-        }:
-            raise ValueError(f"Unsupported problem kind: {kind}")
+        canonical_kind = normalize_problem_kind(kind)
         grid_raw = raw.get("grid")
         if isinstance(grid_raw, int):
             grid = (int(grid_raw),) * 3
@@ -196,12 +209,50 @@ class ProblemSpec:
                 name="problem.advection",
             )
         )
+        if len(advection) != 3 or not all(
+            np.isfinite(value) for value in advection
+        ):
+            raise ValueError(
+                "problem.advection must contain three finite values"
+            )
+        c_min = float(raw.get("c_min", 1.0))
+        c_max = float(raw.get("c_max", 1000.0))
+        if (
+            not np.isfinite(c_min)
+            or not np.isfinite(c_max)
+            or c_min <= 0.0
+            or c_max < c_min
+        ):
+            raise ValueError(
+                "problem c_min/c_max must be finite and satisfy "
+                "0 < c_min <= c_max"
+            )
+        sampled_advection = (
+            canonical_kind == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION
+        )
+        advection_min = float(
+            raw.get("advection_min", c_min if sampled_advection else 0.0)
+        )
+        advection_max = float(
+            raw.get("advection_max", c_max if sampled_advection else 0.0)
+        )
+        if (
+            not np.isfinite(advection_min)
+            or not np.isfinite(advection_max)
+            or advection_max < advection_min
+        ):
+            raise ValueError(
+                "problem advection_min/advection_max must be finite and "
+                "satisfy advection_min <= advection_max"
+            )
         return cls(
             kind=kind,
             grid=grid,
-            c_min=float(raw.get("c_min", 1.0)),
-            c_max=float(raw.get("c_max", 1000.0)),
+            c_min=c_min,
+            c_max=c_max,
             advection=advection,
+            advection_min=advection_min,
+            advection_max=advection_max,
         )
 
 
@@ -335,6 +386,7 @@ class SetupExperimentSpec:
     candidate_schedule: CandidateScheduleSpec
     configuration_spaces: Mapping[str, SetupConfigurationSpace]
     lin_ts: LinTsSpec
+    replay_trajectory: Path | None
 
     @classmethod
     def from_mapping(
@@ -363,6 +415,17 @@ class SetupExperimentSpec:
             raise ValueError(
                 "setup.action_space must equal full_cartesian"
             )
+        replay_raw = raw.get("replay_trajectory")
+        replay_token = (
+            None if replay_raw is None else str(replay_raw).strip()
+        )
+        if replay_token == "":
+            raise ValueError("setup.replay_trajectory cannot be empty")
+        replay_trajectory = (
+            None
+            if replay_token is None
+            else Path(replay_token)
+        )
         return cls(
             parameter_resolution=int(raw["parameter_resolution"]),
             action_space=action_space,
@@ -376,6 +439,7 @@ class SetupExperimentSpec:
             lin_ts=LinTsSpec.from_mapping(
                 mapping(raw.get("lin_ts", {}), name="setup.lin_ts")
             ),
+            replay_trajectory=replay_trajectory,
         )
 
 
@@ -608,6 +672,8 @@ class JointExperimentRuntimeConfig:
     grid_n: int
     grid_shape: str
     advection: str
+    advection_min: float
+    advection_max: float
     setup_param_resolution: int
     c_min: float
     c_max: float
@@ -615,6 +681,7 @@ class JointExperimentRuntimeConfig:
     max_cycles: int
     setup_action_space: str
     setup_candidate_mode: str
+    setup_replay_trajectory: Path | None
     aot_max_selections_per_case: int
     aot_schedule_chunk_rounds: int
     lin_ts_relative_sampling_scale: float
@@ -713,6 +780,23 @@ def parse_joint_experiment_config(
     names = tuple(method.name for method in methods)
     if len(set(names)) != len(names):
         raise ValueError("method ids must be unique")
+    if setup.replay_trajectory is not None:
+        invalid_setup_methods = [
+            method.name
+            for method in methods
+            if method.setup_kind not in ONLINE_SETUP_KINDS
+        ]
+        if invalid_setup_methods:
+            raise ValueError(
+                "setup.replay_trajectory requires online setup methods: "
+                f"{invalid_setup_methods}"
+            )
+        if stream.warmup_cases or any(
+            method.setup_warmup_cases for method in methods
+        ):
+            raise ValueError(
+                "setup.replay_trajectory requires zero setup warmup cases"
+            )
     solve = JointSolveSpec.from_mapping(
         mapping(config.get("solve"), name="solve"),
         problem=problem,
@@ -778,6 +862,8 @@ def runtime_config_from_spec(
         grid_n=max(spec.problem.grid),
         grid_shape=csv(spec.problem.grid),
         advection=csv(spec.problem.advection),
+        advection_min=spec.problem.advection_min,
+        advection_max=spec.problem.advection_max,
         setup_param_resolution=spec.setup.parameter_resolution,
         c_min=spec.problem.c_min,
         c_max=spec.problem.c_max,
@@ -785,6 +871,7 @@ def runtime_config_from_spec(
         max_cycles=solve.state.max_cycles,
         setup_action_space=spec.setup.action_space,
         setup_candidate_mode=spec.setup.candidate_schedule.mode,
+        setup_replay_trajectory=spec.setup.replay_trajectory,
         aot_max_selections_per_case=(
             spec.setup.candidate_schedule.max_selections_per_case
         ),

@@ -18,15 +18,25 @@ from .linear_lcb import (
     _rank_one_inverse_update,
     _sandwich_quadratic,
 )
-from .state_encoder import SolveStateEncoder
+from .state_encoder import (
+    CANONICAL_PROBLEM_CONTEXT,
+    LEGACY_DIFFUSION_ONLY_CONTEXT,
+    PHYSICS_LINEAR_PROBLEM_CONTEXT,
+    PROBLEM_CONTEXT_MODES,
+    SolveStateEncoder,
+)
 from .types import ControllerBundle, FallbackAttempt, OnlineSolveCase
 
 __all__ = [
     "ControllerBundle",
+    "CANONICAL_PROBLEM_CONTEXT",
     "EpsilonScheduleSpec",
     "FallbackAttempt",
+    "LEGACY_DIFFUSION_ONLY_CONTEXT",
     "OnlineControllerFactoryRequest",
     "OnlineSolveCase",
+    "PHYSICS_LINEAR_PROBLEM_CONTEXT",
+    "PROBLEM_CONTEXT_MODES",
     "SharedActionSpec",
     "SolveStateEncoder",
     "SolveStateSpec",

@@ -12,6 +12,11 @@ from typing import Any, Dict, Sequence
 import numpy as np
 
 from online_td_experiment_common import _summarize
+from problems.registry import (
+    SCALAR_ANISOTROPIC_DIFFUSION,
+    SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+    normalize_problem_kind,
+)
 from setup_aware_compare_common import (
     EXP44_SETUP_PARAM_RESOLUTION,
     EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
@@ -42,19 +47,7 @@ def _problem_stream_spec(
         getattr(args, "problem", "scalar_anisotropic_diffusion")
         or "scalar_anisotropic_diffusion"
     )
-    problem_key = raw_problem.strip().lower().replace("-", "_")
-    problem_aliases = {
-        "scalar_anisotropic_diffusion": "scalar_anisotropic_diffusion",
-        "diffusion_convection": "diffusion_convection",
-        "difconv": "diffusion_convection",
-    }
-    try:
-        problem = problem_aliases[problem_key]
-    except KeyError as exc:
-        supported = ", ".join(sorted(problem_aliases))
-        raise ValueError(
-            f"Unsupported problem {raw_problem!r}; expected one of: {supported}"
-        ) from exc
+    problem = normalize_problem_kind(raw_problem)
 
     raw_grid = getattr(args, "grid_shape", None)
     if raw_grid is None or (isinstance(raw_grid, str) and not raw_grid.strip()):
@@ -80,15 +73,46 @@ def _problem_stream_spec(
     if len(advection) != 3 or not all(np.isfinite(advection)):
         raise ValueError("advection must contain exactly three finite floats")
     resolved_advection = tuple(float(value) for value in advection)
-    if problem == "scalar_anisotropic_diffusion":
+    if problem in {
+        SCALAR_ANISOTROPIC_DIFFUSION,
+        SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+    }:
         if any(value != 0.0 for value in resolved_advection):
+            requested_kind = (
+                "sampled advection"
+                if problem == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION
+                else "zero advection"
+            )
             raise ValueError(
-                "scalar_anisotropic_diffusion requires zero advection; use "
-                "problem='diffusion_convection' for nonzero advection"
+                f"{problem} requires {requested_kind} through its own problem "
+                "definition; do not also set a fixed advection vector"
             )
         resolved_advection = (0.0, 0.0, 0.0)
 
     return problem, resolved_grid, resolved_advection
+
+
+def _sampled_advection_range(
+    args: argparse.Namespace,
+    *,
+    problem: str,
+) -> tuple[float, float] | None:
+    if problem != SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION:
+        return None
+    raw_min = getattr(args, "advection_min", None)
+    raw_max = getattr(args, "advection_max", None)
+    advection_min = float(args.c_min if raw_min is None else raw_min)
+    advection_max = float(args.c_max if raw_max is None else raw_max)
+    if (
+        not np.isfinite(advection_min)
+        or not np.isfinite(advection_max)
+        or advection_max < advection_min
+    ):
+        raise ValueError(
+            "advection_min/advection_max must be finite and satisfy "
+            "advection_min <= advection_max"
+        )
+    return advection_min, advection_max
 
 
 def _instance_stream_hash(
@@ -347,23 +371,63 @@ def build_paired_instance_stream(
     args: argparse.Namespace,
 ) -> tuple[list[tuple[Dict[str, Any], np.ndarray]], Dict[str, Any]]:
     problem, grid, advection = _problem_stream_spec(args)
+    sampled_advection_range = _sampled_advection_range(
+        args,
+        problem=problem,
+    )
     problem_manifest = {
         "problem": problem,
         "grid": [int(value) for value in grid],
-        "advection": [float(value) for value in advection],
+        "advection": (
+            [float(value) for value in advection]
+            if sampled_advection_range is None
+            else {
+                "mode": "independent_uniform_per_component",
+                "range": [
+                    float(sampled_advection_range[0]),
+                    float(sampled_advection_range[1]),
+                ],
+            }
+        ),
     }
+
+    def generate_segment(*, count: int, seed: int):
+        stream_problem = (
+            None
+            if (
+                problem == SCALAR_ANISOTROPIC_DIFFUSION
+                and getattr(args, "joint_experiment_spec", None) is None
+            )
+            else problem
+        )
+        return generate_difconv_instances(
+            T=int(count),
+            seed=int(seed),
+            grid_choices=[grid],
+            c_min=float(args.c_min),
+            c_max=float(args.c_max),
+            difconv_a=advection,
+            problem=stream_problem,
+            advection_min=(
+                None
+                if sampled_advection_range is None
+                else sampled_advection_range[0]
+            ),
+            advection_max=(
+                None
+                if sampled_advection_range is None
+                else sampled_advection_range[1]
+            ),
+        )
+
     raw_groups = str(args.train_seed_groups).strip()
     if not raw_groups:
         instance_offset = int(args.instance_offset)
         if instance_offset < 0:
             raise ValueError("instance_offset must be non-negative")
-        full_stream = generate_difconv_instances(
-            T=int(args.train_cases) + instance_offset,
+        full_stream = generate_segment(
+            count=int(args.train_cases) + instance_offset,
             seed=int(args.seed),
-            grid_choices=[grid],
-            c_min=float(args.c_min),
-            c_max=float(args.c_max),
-            difconv_a=advection,
         )
         selected_stream = full_stream[instance_offset:]
         return selected_stream, {
@@ -395,13 +459,9 @@ def build_paired_instance_stream(
     ):
         candidates: list[tuple[Dict[str, Any], np.ndarray]] = []
         for seed in seeds:
-            generated = generate_difconv_instances(
-                T=int(args.instance_offset + args.train_cases_per_seed),
+            generated = generate_segment(
+                count=int(args.instance_offset + args.train_cases_per_seed),
                 seed=int(seed),
-                grid_choices=[grid],
-                c_min=float(args.c_min),
-                c_max=float(args.c_max),
-                difconv_a=advection,
             )
             candidates.extend(generated[int(args.instance_offset) :])
         order = np.random.default_rng(int(shuffle_seed)).permutation(len(candidates))
