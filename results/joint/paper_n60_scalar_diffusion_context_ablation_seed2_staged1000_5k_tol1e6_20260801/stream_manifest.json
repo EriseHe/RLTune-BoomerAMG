@@ -1,0 +1,38 @@
+{
+  "problem": "scalar_anisotropic_diffusion",
+  "grid": [
+    60,
+    60,
+    60
+  ],
+  "advection": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "mode": "grouped_shuffled_segments",
+  "segments": [
+    {
+      "segment": 0,
+      "seeds": [
+        62800057,
+        62806057,
+        62812057,
+        62818057,
+        62824057,
+        62830057,
+        62836057,
+        62842057
+      ],
+      "cases_per_seed": 625,
+      "window": [
+        0,
+        625
+      ],
+      "candidate_cases": 5000,
+      "shuffle_seed": 62848057,
+      "selected_cases": 5000
+    }
+  ],
+  "sha256": "d924852d187f2890fb3b8a98e0bd5bf2790d701caa01110808de1d97b421927e"
+}

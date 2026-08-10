@@ -75,6 +75,241 @@ def _method_label(
     return FAMILY_LABELS.get(family, family.replace("_", " "))
 
 
+def _uniform_value(values: Sequence[Any]) -> Any | None:
+    unique = list(dict.fromkeys(values))
+    return unique[0] if len(unique) == 1 else None
+
+
+def _solver_setting(protocol: Dict[str, Any], name: str) -> Any | None:
+    solver = protocol.get("solve", {})
+    if name in solver:
+        return solver[name]
+    encoder_key = {"tolerance": "tol", "max_cycles": "max_cycles"}.get(
+        name,
+        name,
+    )
+    values = [
+        metadata.get("state_encoder", {}).get(encoder_key)
+        for metadata in protocol.get("solve_controllers", {}).values()
+        if metadata.get("state_encoder", {}).get(encoder_key) is not None
+    ]
+    return _uniform_value(values) if values else None
+
+
+def _compact_setup_label(spec: Dict[str, Any]) -> str:
+    setup_kind = str(spec.get("setup_kind", "default"))
+    setup_context = str(spec.get("setup_context", "default"))
+    if setup_kind == "default":
+        return "Default setup"
+    if setup_kind == "linucb_v5":
+        return "LinUCB v5 (canonical 8D)"
+    if setup_kind == "linucb_v5_rbf":
+        return "LinUCB v5 RBF (canonical 8D)"
+    if setup_kind == "linucb_v6":
+        return "LinUCB v6 (physics Q2)"
+    if setup_kind == "linucb":
+        context_labels = {
+            "default": "LinUCB (legacy 8D)",
+            "canonical_no_c_mean": "No-c_mean (7D)",
+            "canonical_means_only": "Means-only (3D)",
+            "canonical_with_a_mean": "Canonical + a_mean (9D)",
+            "canonical_with_means_and_peclet": (
+                "Canonical + means + Peclet (10D)"
+            ),
+            "canonical_peclet_only": "Canonical + Peclet (8D)",
+            "physics_linear": "Physics-linear (7D)",
+        }
+        return context_labels.get(
+            setup_context,
+            f"LinUCB ({setup_context.replace('_', '-')})",
+        )
+    if setup_kind == "lints":
+        return "LinTS"
+    return setup_kind.replace("_", " ")
+
+
+def _compact_solve_label(spec: Dict[str, Any]) -> str:
+    solve_kind = str(spec.get("solve_kind", "default"))
+    labels = {
+        "default": "default solve",
+        "recursive_lstdq_v1": "LSTDQ v1",
+        "recursive_lstdq_v2": "LSTDQ v2",
+        "recursive_lstdq_v3": "LSTDQ v3",
+        "recursive_mc": "recursive MC",
+        "rblspi": "RBLSTDQ",
+        "ppo": "PPO",
+    }
+    if solve_kind == "fixed":
+        return f"fixed w={float(spec['fixed_weight']):g}"
+    return labels.get(solve_kind, solve_kind.replace("_", " "))
+
+
+def _expected_solve_context(spec: Dict[str, Any]) -> str:
+    if str(spec.get("setup_context", "default")) == "physics_linear":
+        return "physics_linear"
+    return "canonical"
+
+
+def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
+    """Build short labels while retaining only per-method deviations."""
+
+    specs = {
+        str(spec["name"]): dict(spec)
+        for spec in protocol.get("method_specs", [])
+    }
+    family_by_method = dict(protocol.get("families", {}))
+    original_labels = dict(protocol.get("method_labels", {}))
+    learned_solve_specs = [
+        spec
+        for spec in specs.values()
+        if str(spec.get("solve_kind", "default")) != "default"
+    ]
+    common_activation = _uniform_value(
+        [int(spec.get("solve_activation_case", 0)) for spec in learned_solve_specs]
+    )
+    global_tolerance = _solver_setting(protocol, "tolerance")
+    labels: Dict[str, str] = {}
+    for method in protocol.get("methods", []):
+        method = str(method)
+        spec = specs.get(method)
+        if spec is None:
+            labels[method] = _method_label(
+                method,
+                family_by_method,
+                original_labels,
+            )
+            continue
+        label = (
+            f"{_compact_setup_label(spec)}\n"
+            f"+ {_compact_solve_label(spec)}"
+        )
+        deviations = []
+        if str(spec.get("solve_kind", "default")) != "default":
+            activation = int(spec.get("solve_activation_case", 0))
+            if common_activation is None:
+                deviations.append(f"activate={activation}")
+            tolerance = spec.get("solve_tolerance")
+            if (
+                tolerance is not None
+                and global_tolerance is not None
+                and not np.isclose(float(tolerance), float(global_tolerance))
+            ):
+                deviations.append(f"tol={float(tolerance):g}")
+            solve_context = str(spec.get("solve_context", "canonical"))
+            if solve_context != _expected_solve_context(spec):
+                deviations.append(
+                    f"solve_context={solve_context.replace('_', '-')}"
+                )
+        if deviations:
+            label = f"{label}\n" + "; ".join(deviations)
+        labels[method] = label
+    return labels
+
+
+def _shared_plot_settings(
+    protocol: Dict[str, Any],
+) -> tuple[tuple[str, str], ...]:
+    """Return compact code-name/value pairs for a shared-settings panel."""
+
+    stream = dict(protocol.get("stream", {}))
+    settings: list[tuple[str, str]] = []
+    problem = stream.get("problem")
+    if problem is not None:
+        settings.append(("problem", str(problem)))
+    grid = stream.get("grid")
+    if grid:
+        settings.append(("grid", " x ".join(str(int(value)) for value in grid)))
+    online = protocol.get("stream_partition", {}).get("online")
+    if online and len(online) == 2:
+        settings.append(("online_cases", f"{int(online[1]) - int(online[0]):,}"))
+    tolerance = _solver_setting(protocol, "tolerance")
+    if tolerance is not None:
+        settings.append(("solve_tolerance", f"{float(tolerance):g}"))
+    max_cycles = _solver_setting(protocol, "max_cycles")
+    if max_cycles is not None:
+        settings.append(("max_cycles", str(int(max_cycles))))
+
+    specs = [dict(spec) for spec in protocol.get("method_specs", [])]
+    solve_specs = [
+        spec
+        for spec in specs
+        if str(spec.get("solve_kind", "default")) != "default"
+    ]
+    if solve_specs:
+        activation = _uniform_value(
+            [int(spec.get("solve_activation_case", 0)) for spec in solve_specs]
+        )
+        settings.append(
+            (
+                "solve_activation_case",
+                f"{activation} (RL only)" if activation is not None else "varies",
+            )
+        )
+    setup_specs = [
+        spec
+        for spec in specs
+        if str(spec.get("setup_kind", "default")) != "default"
+    ]
+    setup_space = _uniform_value(
+        [spec.get("setup_space") for spec in setup_specs]
+    )
+    if setup_space is not None:
+        settings.append(("setup_space", str(setup_space)))
+    candidate_sampling = _uniform_value(
+        [spec.get("candidate_sampling") for spec in setup_specs]
+    )
+    if candidate_sampling is not None:
+        settings.append(("candidate_sampling", str(candidate_sampling)))
+    return tuple(settings)
+
+
+def _axes_with_settings_panel(
+    *,
+    protocol: Dict[str, Any],
+    plot_columns: int,
+    figsize: tuple[float, float],
+    sharey: bool = False,
+) -> tuple[Any, tuple[Any, ...]]:
+    figure = plt.figure(figsize=figsize, constrained_layout=True)
+    grid = figure.add_gridspec(
+        1,
+        plot_columns + 1,
+        width_ratios=(*([1.0] * plot_columns), 0.38),
+    )
+    axes = []
+    for index in range(plot_columns):
+        axes.append(
+            figure.add_subplot(
+                grid[0, index],
+                sharey=axes[0] if sharey and axes else None,
+            )
+        )
+    panel = figure.add_subplot(grid[0, -1])
+    panel.set_axis_off()
+    panel.set_title("Shared settings", loc="left", fontweight="bold")
+    text = "\n".join(
+        f"{name}:\n  {value}"
+        for name, value in _shared_plot_settings(protocol)
+    )
+    panel.text(
+        0.0,
+        0.97,
+        text,
+        transform=panel.transAxes,
+        ha="left",
+        va="top",
+        fontsize=9.2,
+        family="monospace",
+        linespacing=1.35,
+        bbox={
+            "boxstyle": "round,pad=0.55",
+            "facecolor": "#f7f7f7",
+            "edgecolor": "#cccccc",
+        },
+    )
+    return figure, tuple(axes)
+
+
 def _active_families(family_by_method: Dict[str, str]) -> tuple[str, ...]:
     present = set(family_by_method.values())
     ordered = [family for family in FAMILY_ORDER if family in present]
@@ -668,12 +903,11 @@ def _plot_first_last_components(
         for method in methods
     ]
     colors = plt.get_cmap("Set2")(np.linspace(0.05, 0.95, len(components)))
-    figure, axes = plt.subplots(
-        1,
-        2,
-        figsize=(16, 7),
+    figure, axes = _axes_with_settings_panel(
+        protocol=result["protocol"],
+        plot_columns=2,
+        figsize=(18.5, 7),
         sharey=True,
-        constrained_layout=True,
     )
     for axis, (window_key, title) in zip(axes, windows):
         bottoms = np.zeros(len(methods), dtype=float)
@@ -739,11 +973,10 @@ def _plot_all_runtime_breakdown(
         ("controller_runtime", "Controller", "#ffd92f"),
         ("setup_bandit_overhead", "Bandit overhead", "#b3b3b3"),
     )
-    figure, axes = plt.subplots(
-        1,
-        2,
-        figsize=(16, 7),
-        constrained_layout=True,
+    figure, axes = _axes_with_settings_panel(
+        protocol=result["protocol"],
+        plot_columns=2,
+        figsize=(18.5, 7),
     )
     for axis, included, title in (
         (axes[0], components[:2], "Native runtime"),
@@ -784,11 +1017,7 @@ def _plot_all_runtime_breakdown(
         if axis is axes[0]:
             axis.legend(frameon=False, loc="lower left")
         else:
-            axis.legend(
-                frameon=False,
-                loc="upper left",
-                bbox_to_anchor=(1.01, 1.0),
-            )
+            axis.legend(frameon=False, loc="upper left")
     figure.suptitle(
         figure_title or f"All {case_count:,} online comparison instances",
         fontweight="bold",
@@ -857,7 +1086,12 @@ def _plot_recovery_outcomes(
         (recovered * scale, "Recovered by default fallback", "#ffd92f"),
         (unrecovered * scale, "Unrecovered", "#d95f02"),
     )
-    figure, axis = plt.subplots(figsize=(13, 6), constrained_layout=True)
+    figure, axes = _axes_with_settings_panel(
+        protocol=result["protocol"],
+        plot_columns=1,
+        figsize=(15.5, 6),
+    )
+    axis = axes[0]
     bottoms = np.zeros(len(methods), dtype=float)
     for values, label, color in components:
         axis.bar(
@@ -887,7 +1121,7 @@ def _plot_recovery_outcomes(
         fontweight="bold",
     )
     axis.grid(axis="y", alpha=0.22, linewidth=0.7)
-    axis.legend(frameon=False, loc="upper left", bbox_to_anchor=(1.01, 1.0))
+    axis.legend(frameon=False, loc="upper left")
     figure.savefig(path, dpi=190, bbox_inches="tight")
     plt.close(figure)
 
@@ -920,12 +1154,10 @@ def _plot_first_last_improvement_ci(
         _method_label(method, family_by_method, method_labels)
         for method in methods
     ]
-    figure, axes = plt.subplots(
-        1,
-        2,
-        figsize=(15, 6),
-        sharey=False,
-        constrained_layout=True,
+    figure, axes = _axes_with_settings_panel(
+        protocol=result["protocol"],
+        plot_columns=2,
+        figsize=(17.5, 6),
     )
     offsets = np.linspace(-0.16, 0.16, len(windows))
     for axis, (metric, title) in zip(axes, metrics):
@@ -1075,6 +1307,7 @@ def generate_plots(
 ) -> Dict[str, Any]:
     result = json.loads((result_dir / "result.json").read_text(encoding="utf-8"))
     protocol = result["protocol"]
+    protocol["method_labels"] = _compact_method_labels(protocol)
     methods = tuple(protocol["methods"])
     family_by_method = dict(protocol["families"])
     method_labels = dict(protocol.get("method_labels", {}))

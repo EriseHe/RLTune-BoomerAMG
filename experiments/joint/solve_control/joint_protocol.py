@@ -176,6 +176,10 @@ def _base_protocol(
             "warmup": [0, int(args.warmup_cases)],
             "online": [int(args.warmup_cases), int(args.train_cases)],
         },
+        "solve": {
+            "tolerance": float(args.tol),
+            "max_cycles": int(args.max_cycles),
+        },
         "methods": list(methods),
         "families": family_by_method,
         "method_labels": {

@@ -152,6 +152,18 @@ class ComposableJointRunnerTests(unittest.TestCase):
             no_c_mean.label,
             "Online LinUCB [context=canonical-no-c-mean] + default solve",
         )
+        means_only = runner._parse_composable_method(
+            "means_only:linucb@recommended@structured512@"
+            "canonical_means_only:default"
+        )
+        self.assertEqual(
+            means_only.setup_context,
+            "canonical_means_only",
+        )
+        self.assertEqual(
+            runner._parse_composable_method(means_only.to_runner_token()),
+            means_only,
+        )
 
     def test_composable_method_parser_rejects_ambiguous_or_unsafe_specs(self) -> None:
         invalid_specs = (
@@ -377,6 +389,66 @@ class ComposableJointRunnerTests(unittest.TestCase):
             ),
             "Online LinUCB [original] + default solve",
         )
+
+    def test_plot_labels_are_compact_and_shared_settings_use_code_names(
+        self,
+    ) -> None:
+        protocol = {
+            "methods": ["default", "v5_rl", "means_default"],
+            "families": {
+                "default": "default_setup",
+                "v5_rl": "recursive_lstdq_v3_lcb",
+                "means_default": "default",
+            },
+            "method_labels": {},
+            "method_specs": [
+                {
+                    "name": "default",
+                    "setup_kind": "default",
+                    "solve_kind": "default",
+                },
+                {
+                    "name": "v5_rl",
+                    "setup_kind": "linucb_v5",
+                    "setup_context": "default",
+                    "setup_space": "recommended",
+                    "candidate_sampling": "structured512",
+                    "solve_kind": "recursive_lstdq_v3",
+                    "solve_context": "canonical",
+                    "solve_activation_case": 1000,
+                    "solve_tolerance": 1.0e-6,
+                },
+                {
+                    "name": "means_default",
+                    "setup_kind": "linucb",
+                    "setup_context": "canonical_means_only",
+                    "setup_space": "recommended",
+                    "candidate_sampling": "structured512",
+                    "solve_kind": "default",
+                },
+            ],
+            "stream": {
+                "problem": "scalar_anisotropic_diffusion",
+                "grid": [60, 60, 60],
+            },
+            "stream_partition": {"online": [0, 5000]},
+            "solve": {"tolerance": 1.0e-6, "max_cycles": 50},
+        }
+
+        labels = plotter._compact_method_labels(protocol)
+        self.assertEqual(labels["default"], "Default setup\n+ default solve")
+        self.assertEqual(
+            labels["v5_rl"],
+            "LinUCB v5 (canonical 8D)\n+ LSTDQ v3",
+        )
+        self.assertEqual(
+            labels["means_default"],
+            "Means-only (3D)\n+ default solve",
+        )
+        settings = dict(plotter._shared_plot_settings(protocol))
+        self.assertEqual(settings["solve_tolerance"], "1e-06")
+        self.assertEqual(settings["solve_activation_case"], "1000 (RL only)")
+        self.assertEqual(settings["grid"], "60 x 60 x 60")
 
     def test_weight_reporting_accepts_staged_default_solve_prefix(self) -> None:
         rows = [

@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "name": "n80_linucb_setup_warmup_depth_lstdq_v3_joint4k",
+  "description": "Paired 80^3 comparison of recommended-space structured-512 LinUCB after 0, 1000, or 2000 setup-only warmup cases. The 1000-case state is an exact prefix checkpoint of the shared 2000-case warmup trajectory; all branches then continue joint online learning with independent, identically initialized recursive LSTDQ-v3 controllers on the same 4000-case evaluation stream.",
+  "output_dir": "results/diagnostics/solve_control/n80_linucb_setup_warmup_depth_lstdq_v3_joint4k_20260727",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion",
+    "grid": [80, 80, 80],
+    "c_min": 1.0,
+    "c_max": 1000.0,
+    "advection": [0.0, 0.0, 0.0]
+  },
+  "stream": {
+    "cases": 6000,
+    "warmup_cases": 2000,
+    "online_cases": 4000,
+    "instance_offset": 0,
+    "seed_groups": [
+      41800039,
+      41806039,
+      41812039,
+      41818039,
+      41824039,
+      41830039,
+      41836039,
+      41842039
+    ],
+    "shuffle_seeds": [41848039],
+    "cases_per_seed": 750,
+    "group_take": 6000,
+    "expected_sha256": "f511cc98452b728010cac14c4845d2d2bd44f6fe1dd1c85736a1ef4199cfbfe7",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 41800039,
+    "bandit": 41860039,
+    "controller": 41866039,
+    "method_order": 41872039
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "lin_ts": {
+      "relative_sampling_scale": 0.15,
+      "loss_scale_prior_sec": 0.1
+    },
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [0, 3, 6, 8, 10],
+        "interp_types": [0, 2, 3, 6, 8, 17],
+        "agg_interp_types": [4]
+      }
+    }
+  },
+  "solve": {
+    "tolerance": 1e-6,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1.0,
+      "stop": 3.0,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1.0,
+        "stop": 3.0,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    },
+    "lstdq": {
+      "ridge": 1.0,
+      "beta": 2.0,
+      "trace_lambda": 0.8,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0.0
+    },
+    "lstdq_v2": {
+      "beta": 4.0,
+      "coverage_ridge": 1.0,
+      "residual_window": 2048,
+      "min_samples": 32
+    },
+    "lstdq_v3": {
+      "beta": 2.0
+    }
+  },
+  "methods": [
+    {
+      "id": "linucb_structured512_lstdq_v3_warmup2000",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "setup_warmup_cases": 2000,
+      "solve": "recursive_lstdq_v3",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_structured512_lstdq_v3_warmup1000",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "setup_warmup_cases": 1000,
+      "solve": "recursive_lstdq_v3",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_structured512_lstdq_v3_warmup0",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "setup_warmup_cases": 0,
+      "solve": "recursive_lstdq_v3",
+      "seed_offset": 0
+    }
+  ],
+  "reporting": {
+    "progress_every": 100,
+    "rolling_window": 100,
+    "generate_plots": true
+  }
+}

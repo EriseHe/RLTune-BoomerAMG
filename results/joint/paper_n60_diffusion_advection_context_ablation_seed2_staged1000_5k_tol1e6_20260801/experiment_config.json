@@ -1,0 +1,191 @@
+{
+  "schema_version": 1,
+  "name": "n60_diffusion_advection_context_ablation_seed2_staged1000_5k_tol1e6",
+  "description": "Matched new-seed 60^3/5K scalar anisotropic diffusion-advection context ablation. This changes only the PDE stream from the scalar-diffusion experiment: independently sampled a_x,a_y,a_z in [1,1000] are enabled. The same seven branches, recommended Tune-7 space, structured-512 candidate schedule, seeds, tolerances, cycle limit, and solve-controller activation are retained. The two new context branches remain setup-only with default solve; Recursive LSTDQ v3 remains present only for the original v5 and physics-linear branches and activates after case 1000.",
+  "output_dir": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/results/joint/paper_n60_diffusion_advection_context_ablation_seed2_staged1000_5k_tol1e6_20260801",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion_advection",
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "c_min": 1.0,
+    "c_max": 1000.0,
+    "advection_min": 1.0,
+    "advection_max": 1000.0
+  },
+  "stream": {
+    "cases": 5000,
+    "warmup_cases": 0,
+    "online_cases": 5000,
+    "instance_offset": 0,
+    "seed_groups": [
+      62800057,
+      62806057,
+      62812057,
+      62818057,
+      62824057,
+      62830057,
+      62836057,
+      62842057
+    ],
+    "shuffle_seeds": [
+      62848057
+    ],
+    "cases_per_seed": 625,
+    "group_take": 5000,
+    "expected_sha256": "99855ecccfe660366d651a5b6856230a68f77d4ae876e6e3b365c4cae407606f",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 62800057,
+    "bandit": 62860057,
+    "controller": 62866057,
+    "method_order": 62872057
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "lin_ts": {
+      "relative_sampling_scale": 0.15,
+      "loss_scale_prior_sec": 0.1
+    },
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          10
+        ],
+        "interp_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          17
+        ],
+        "agg_interp_types": [
+          4
+        ]
+      }
+    }
+  },
+  "solve": {
+    "tolerance": 1e-06,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1.0,
+      "stop": 3.0,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1.0,
+        "stop": 3.0,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    },
+    "lstdq": {
+      "ridge": 1.0,
+      "beta": 2.0,
+      "trace_lambda": 0.8,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0.0
+    },
+    "lstdq_v2": {
+      "beta": 4.0,
+      "coverage_ridge": 1.0,
+      "residual_window": 2048,
+      "min_samples": 32
+    },
+    "lstdq_v3": {
+      "beta": 2.0
+    }
+  },
+  "methods": [
+    {
+      "id": "default_setup_default_solve",
+      "setup": "default",
+      "solve": "default"
+    },
+    {
+      "id": "linucb_v5_canonical8d_recommended_structured512_default_solve",
+      "setup": "linucb_v5",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_physics_linear7d_recommended_structured512_default_solve",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "physics_linear",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_canonical_no_c_mean7d_recommended_structured512_default_solve",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_canonical_means_only3d_recommended_structured512_default_solve",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_means_only",
+      "candidate_sampling": "structured512",
+      "solve": "default",
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_v5_canonical8d_recommended_structured512_lstdq_v3_canonical_staged1000_tol1e6",
+      "setup": "linucb_v5",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "seed_offset": 0
+    },
+    {
+      "id": "linucb_physics_linear7d_recommended_structured512_lstdq_v3_physics_linear_staged1000_tol1e6",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "physics_linear",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "physics_linear",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "seed_offset": 0
+    }
+  ],
+  "reporting": {
+    "progress_every": 100,
+    "rolling_window": 100,
+    "generate_plots": true
+  }
+}

@@ -40,6 +40,7 @@ SUPPORTED_PROBLEM_KINDS = tuple(PROBLEM_KIND_ALIASES)
 
 DEFAULT_SETUP_CONTEXT = "default"
 CANONICAL_NO_C_MEAN_SETUP_CONTEXT = "canonical_no_c_mean"
+CANONICAL_MEANS_ONLY_SETUP_CONTEXT = "canonical_means_only"
 CANONICAL_WITH_A_MEAN_SETUP_CONTEXT = "canonical_with_a_mean"
 CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT = (
     "canonical_with_means_and_peclet"
@@ -49,6 +50,7 @@ PHYSICS_LINEAR_SETUP_CONTEXT = "physics_linear"
 SETUP_CONTEXT_MODES = (
     DEFAULT_SETUP_CONTEXT,
     CANONICAL_NO_C_MEAN_SETUP_CONTEXT,
+    CANONICAL_MEANS_ONLY_SETUP_CONTEXT,
     CANONICAL_WITH_A_MEAN_SETUP_CONTEXT,
     CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT,
     CANONICAL_PECLET_ONLY_SETUP_CONTEXT,
@@ -80,6 +82,10 @@ _LINUCB_NO_C_MEAN_CONTEXT = ProblemLearningContext(
     dimension=DIFCONV_CONTEXT_DIM - 1,
     interaction_indices=tuple(range(1, DIFCONV_CONTEXT_DIM - 1)),
 )
+_LINUCB_MEANS_ONLY_CONTEXT = ProblemLearningContext(
+    dimension=3,
+    interaction_indices=(1, 2),
+)
 _LINUCB_WITH_A_MEAN_CONTEXT = ProblemLearningContext(
     dimension=DIFCONV_CONTEXT_DIM + 1,
     interaction_indices=tuple(range(1, DIFCONV_CONTEXT_DIM + 1)),
@@ -98,6 +104,7 @@ _LINUCB_PHYSICS_LINEAR_CONTEXT = ProblemLearningContext(
 )
 _SCALAR_SETUP_CONTEXT_CONTRACTS = {
     CANONICAL_NO_C_MEAN_SETUP_CONTEXT: _LINUCB_NO_C_MEAN_CONTEXT,
+    CANONICAL_MEANS_ONLY_SETUP_CONTEXT: _LINUCB_MEANS_ONLY_CONTEXT,
     CANONICAL_WITH_A_MEAN_SETUP_CONTEXT: _LINUCB_WITH_A_MEAN_CONTEXT,
     CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT: (
         _LINUCB_WITH_MEANS_AND_PECLET_CONTEXT
@@ -220,6 +227,11 @@ def context_for_setup_method(
             return canonical[[0, 1, 2, 3, 5, 6, 7]]
 
         advection_mean = float(np.mean(canonical[5:8]))
+        if context_mode == CANONICAL_MEANS_ONLY_SETUP_CONTEXT:
+            return np.asarray(
+                [canonical[0], canonical[4], advection_mean],
+                dtype=float,
+            )
         if context_mode == CANONICAL_WITH_A_MEAN_SETUP_CONTEXT:
             return np.concatenate((canonical, [advection_mean]))
 
@@ -274,6 +286,7 @@ def context_for_setup_method(
 
 
 __all__ = [
+    "CANONICAL_MEANS_ONLY_SETUP_CONTEXT",
     "CANONICAL_NO_C_MEAN_SETUP_CONTEXT",
     "CANONICAL_PECLET_ONLY_SETUP_CONTEXT",
     "CANONICAL_WITH_A_MEAN_SETUP_CONTEXT",

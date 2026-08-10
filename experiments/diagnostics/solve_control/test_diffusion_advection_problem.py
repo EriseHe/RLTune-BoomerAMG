@@ -18,6 +18,7 @@ from joint_online_common import (
 from problems.amg import build_normalized_cell_peclet_from_matrix_kwargs
 from problems.registry import (
     CANONICAL_NO_C_MEAN_SETUP_CONTEXT,
+    CANONICAL_MEANS_ONLY_SETUP_CONTEXT,
     CANONICAL_PECLET_ONLY_SETUP_CONTEXT,
     CANONICAL_WITH_A_MEAN_SETUP_CONTEXT,
     CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT,
@@ -188,6 +189,42 @@ class DiffusionAdvectionProblemTests(unittest.TestCase):
                 "linucb_v5",
                 CANONICAL_NO_C_MEAN_SETUP_CONTEXT,
             )
+
+    def test_means_only_ablation_keeps_bias_and_coefficient_means(self) -> None:
+        matrix_kwargs = {
+            "nx": 3,
+            "ny": 4,
+            "nz": 9,
+            "k": 2.0,
+            "c": 4.0,
+            "a0": 5.0,
+            "a1": 4.0,
+            "a2": -10.0,
+            "a3": 0.0,
+        }
+        canonical = np.asarray(
+            [1.0, 0.1, 0.2, 0.3, 0.2, 0.4, -0.5, 0.6],
+            dtype=float,
+        )
+
+        context = context_for_setup_method(
+            problem_kind=SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+            setup_kind="linucb",
+            setup_context=CANONICAL_MEANS_ONLY_SETUP_CONTEXT,
+            matrix_kwargs=matrix_kwargs,
+            stream_context=canonical,
+        )
+        np.testing.assert_allclose(
+            context,
+            [1.0, canonical[4], np.mean(canonical[5:8])],
+        )
+        contract = learning_context_for_setup(
+            SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+            "linucb",
+            CANONICAL_MEANS_ONLY_SETUP_CONTEXT,
+        )
+        self.assertEqual(contract.dimension, 3)
+        self.assertEqual(contract.interaction_indices, (1, 2))
 
     def test_context_feature_ablation_layouts_and_cell_peclet(self) -> None:
         matrix_kwargs = {

@@ -22,10 +22,29 @@ results/**/run_logs/
 /results/invalid/
 /plots/
 /ppo_logs/
+/output/
 *.jsonl
 *.pkl
 *.zip
 *.log
+
+# Generated result policy: keep raw runs local and track only the compact,
+# reproducible evidence bundle for paper experiments. Existing historical files
+# already in Git are unaffected by these rules.
+/results/**
+!/results/README.md
+!/results/joint/
+!/results/joint/paper_*/
+!/results/joint/paper_*/README.md
+!/results/joint/paper_*/experiment_config.json
+!/results/joint/paper_*/stream_manifest.json
+!/results/joint/paper_*/summary_*.csv
+!/results/joint/paper_*/summary_*.md
+!/results/joint/paper_*/screen_report.md
+!/results/joint/paper_*/reproduce.sh
+!/results/joint/paper_*/figures/
+!/results/joint/paper_*/figures/last_1000_runtime_breakdown.png
+!/results/joint/paper_*/figures/learned_per_cycle_action_trajectories.png
 
 # Out-of-source HYPRE build and install trees
 /hypre/build/

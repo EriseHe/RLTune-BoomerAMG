@@ -1,0 +1,40 @@
+{
+  "problem": "scalar_anisotropic_diffusion_advection",
+  "grid": [
+    60,
+    60,
+    60
+  ],
+  "advection": {
+    "mode": "independent_uniform_per_component",
+    "range": [
+      1.0,
+      1000.0
+    ]
+  },
+  "mode": "grouped_shuffled_segments",
+  "segments": [
+    {
+      "segment": 0,
+      "seeds": [
+        62800057,
+        62806057,
+        62812057,
+        62818057,
+        62824057,
+        62830057,
+        62836057,
+        62842057
+      ],
+      "cases_per_seed": 625,
+      "window": [
+        0,
+        625
+      ],
+      "candidate_cases": 5000,
+      "shuffle_seed": 62848057,
+      "selected_cases": 5000
+    }
+  ],
+  "sha256": "99855ecccfe660366d651a5b6856230a68f77d4ae876e6e3b365c4cae407606f"
+}
