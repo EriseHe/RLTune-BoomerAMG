@@ -220,7 +220,17 @@ def augment_setup_params(params: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+def relative_residual(residual_norm: float, r0: float) -> float:
+    """||r|| / ||r0||; matches HYPRE relative residual when x0 = 0 (r0 = ||b||)."""
+    return float(residual_norm) / max(float(r0), 1e-300)
+
+
+def converged_relative(residual_norm: float, r0: float, tol: float) -> bool:
+    return bool(np.isfinite(float(residual_norm)) and relative_residual(residual_norm, r0) <= float(tol))
+
+
 def classify_rl_failure(*, residual_norm: float, iterations: int, solve_tol: float, solve_max_cycles: int) -> str:
+    # residual_norm here is expected to already be relative (||r||/||r0||).
     if not np.isfinite(float(residual_norm)):
         return "non_finite_residual_norm"
     if float(residual_norm) > float(solve_tol) and int(iterations) >= int(solve_max_cycles):
@@ -1338,6 +1348,7 @@ class SetupAwareSolvePolicyRunner:
         return float(w), int(sd), int(su), 1, -1, -1, -1.0, -1.0
 
     def run(self, env, *, mkw: Dict[str, Any], setup_params: Dict[str, Any], case_progress: float = 0.0) -> Dict[str, Any]:
+        r0 = float(env.r0)
         r_prev_obs = float(env.r0)
         r_curr = float(env.r0)
         last_w = float(self.w_init) if self.w_init is not None else float(self.cfg.w_center)
@@ -1426,7 +1437,7 @@ class SetupAwareSolvePolicyRunner:
             last_rt = int(rt)
             last_ow = float(ow)
             last_arw = float(arw)
-            if r_new <= float(self.cfg.solve_tol):
+            if converged_relative(r_new, r0, self.cfg.solve_tol):
                 r_curr = float(r_new)
                 break
             r_prev_obs = float(r_curr)
@@ -1435,14 +1446,15 @@ class SetupAwareSolvePolicyRunner:
         else:
             r_curr = float(r_new)
 
+        rel_res = relative_residual(r_curr, r0)
         return {
             "solve_runtime": float(solve_runtime),
             "infer_runtime": float(infer_runtime),
-            "residual_norm": float(r_curr),
+            "residual_norm": float(rel_res),
             "iterations": int(cycles),
             "failed": not (
-                np.isfinite(r_curr)
-                and r_curr <= float(self.cfg.solve_tol)
+                np.isfinite(rel_res)
+                and rel_res <= float(self.cfg.solve_tol)
                 and cycles < int(self.cfg.solve_max_cycles)
             ),
             "final_w": float(last_w),
@@ -1472,6 +1484,7 @@ def solve_fixed_w_case(
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
             solve_runtime = 0.0
+            r0 = float(env.r0)
             residual_norm = float(env.r0)
             iterations = 0
             for cycle in range(int(solve_max_cycles)):
@@ -1482,10 +1495,11 @@ def solve_fixed_w_case(
                 )
                 solve_runtime += float(dt)
                 iterations = cycle + 1
-                if float(residual_norm) <= float(solve_tol):
+                if converged_relative(residual_norm, r0, solve_tol):
                     break
+        rel_res = relative_residual(residual_norm, r0)
         failure_reason = classify_rl_failure(
-            residual_norm=float(residual_norm),
+            residual_norm=float(rel_res),
             iterations=int(iterations),
             solve_tol=float(solve_tol),
             solve_max_cycles=int(solve_max_cycles),
@@ -1497,7 +1511,7 @@ def solve_fixed_w_case(
             "infer_runtime": 0.0,
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
-            "residual_norm": float(residual_norm),
+            "residual_norm": float(rel_res),
             "iterations": int(iterations),
             "final_w": float(w),
             "final_sweeps_down": int(sweeps_down),
@@ -1533,6 +1547,7 @@ def solve_schedule_case(
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
             solve_runtime = 0.0
+            r0 = float(env.r0)
             residual_norm = float(env.r0)
             iterations = 0
             last_w = float("nan")
@@ -1555,10 +1570,11 @@ def solve_schedule_case(
                 last_w = float(w)
                 last_sd = int(sd)
                 last_su = int(su)
-                if float(residual_norm) <= float(solve_tol):
+                if converged_relative(residual_norm, r0, solve_tol):
                     break
+        rel_res = relative_residual(residual_norm, r0)
         failure_reason = classify_rl_failure(
-            residual_norm=float(residual_norm),
+            residual_norm=float(rel_res),
             iterations=int(iterations),
             solve_tol=float(solve_tol),
             solve_max_cycles=int(solve_max_cycles),
@@ -1569,7 +1585,7 @@ def solve_schedule_case(
             "solve_runtime": float(solve_runtime),
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
-            "residual_norm": float(residual_norm),
+            "residual_norm": float(rel_res),
             "iterations": int(iterations),
             "final_w": float(last_w),
             "final_sweeps_down": int(last_sd),

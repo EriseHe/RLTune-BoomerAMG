@@ -685,10 +685,11 @@ class BoomerAMGRelaxEnv(gym.Env):
         eps = 1e-30
         r_prev = max(float(self.r_prev), eps)
         r_cur = max(float(r_solver), eps)
+        r0 = max(float(getattr(self, "r0", r_prev)), 1e-300)
 
         log_prev = math.log(r_prev + eps)
         log_cur = math.log(r_cur + eps)
-        log_tol = math.log(self.tol + eps)
+        log_tol = math.log(float(self.tol) * r0 + eps)
 
         log_drop = max(0.0, log_prev - log_cur)
         rel_drop = (r_prev - r_cur) / r_prev  # can be negative if residual increases

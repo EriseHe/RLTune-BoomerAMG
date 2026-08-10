@@ -769,9 +769,10 @@ class BoomerAMGSetupRelaxEnv(gym.Env):
         eps = 1e-30
         r_prev = max(float(self.r_prev), eps)
         r_cur = max(float(r_solver), eps)
+        r0 = max(float(getattr(self, "r0", r_prev)), 1e-300)
         log_prev = math.log(r_prev + eps)
         log_cur = math.log(r_cur + eps)
-        log_tol = math.log(self.tol + eps)
+        log_tol = math.log(float(self.tol) * r0 + eps)
         log_drop = max(0.0, log_prev - log_cur)
         rel_drop = (r_prev - r_cur) / r_prev
         dt_eff = max(float(dt_solver), 1.0e-6)
@@ -789,7 +790,7 @@ class BoomerAMGSetupRelaxEnv(gym.Env):
             reward = self.reward_alpha * (log_drop / dt_eff)
 
         reward -= self.dt_penalty * dt_eff
-        terminated = bool(np.isfinite(r_cur) and r_cur <= float(self.tol))
+        terminated = bool(np.isfinite(r_cur) and (r_cur / r0) <= float(self.tol))
         truncated = bool((not terminated) and self.cycle >= int(self.max_cycles))
         if terminated:
             reward += self.term_bonus

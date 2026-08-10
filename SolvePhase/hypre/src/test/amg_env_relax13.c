@@ -323,8 +323,10 @@ int amg_env_step(AMGEnv* env,
     env->cycles_done += 1;
 
     // status: 0=continue, 1=converged, 2=truncated
+    // Relative residual ||r||/||r0|| (x0=0 => r0 = ||b||).
+    double r0 = (env->r0 > 0.0) ? env->r0 : ((env->b_norm > 0.0) ? env->b_norm : 1.0);
     int st = 0;
-    if (r <= env->tol) st = 1;
+    if ((r / r0) <= env->tol) st = 1;
     else if (env->cycles_done >= env->max_cycles) st = 2;
 
     if (r_out) *r_out = r;

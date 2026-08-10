@@ -328,6 +328,7 @@ class FrozenBanditStepEnv(gym.Env):
         prep = self._env.prepare_rl(params=self._params)
         self._setup_time = float(prep.setup_runtime_sec)
         self._solve_runtime = 0.0
+        self._r0 = float(prep.initial_residual_norm)
         self._r_prev = float(prep.initial_residual_norm)
         self._r_cur = float(prep.initial_residual_norm)
         self._cycle = 0
@@ -502,7 +503,9 @@ class FrozenBanditStepEnv(gym.Env):
             reward = rel_drop / dt_eff
         else:
             reward = -dt_eff
-        terminated = bool(np.isfinite(r_cur) and r_cur <= float(self.tol))
+        # Relative residual stop: ||r|| / ||r0|| <= tol (x0=0 => ||r0||=||b||).
+        r0 = max(float(getattr(self, "_r0", self._r_prev)), 1e-300)
+        terminated = bool(np.isfinite(r_cur) and (r_cur / r0) <= float(self.tol))
         truncated = bool((not terminated) and self._cycle >= int(self.max_cycles))
         if self.reward_mode == 4 and (terminated or truncated) and np.isfinite(float(self._baseline_runtime)):
             total_runtime = float(self._setup_time + self._solve_runtime)

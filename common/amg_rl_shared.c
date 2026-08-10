@@ -183,9 +183,12 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     double t1 = amg_rl_wall_time_sec();
 
     double residual = (double) amg_rl_compute_residual_norm(A, b, x, r);
+    /* Relative residual ||r||/||b|| (equiv. ||r||/||r0|| when x0=0). */
+    double b_norm = (double) amg_rl_parvec_norm2(b);
+    double rel_residual = (b_norm > 0.0) ? (residual / b_norm) : residual;
     int cycles_done = cycles_done_io ? (*cycles_done_io + 1) : 0;
     int status = 0;
-    if (tol > 0.0 && residual <= tol) status = 1;
+    if (tol > 0.0 && rel_residual <= tol) status = 1;
     else if (max_cycles > 0 && cycles_done_io && cycles_done >= max_cycles) status = 2;
 
     if (cycles_done_io) *cycles_done_io = cycles_done;
