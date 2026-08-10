@@ -1,3 +1,0 @@
-phase,solve_mode,t,t_phase,method,tune_set,setup_runtime_sec,solve_runtime_sec,runtime_sec,select_sec,loss_eval_sec,update_sec,overhead_sec,end_to_end_sec,failed,failure_reason,strong_threshold,max_row_sum,trunc_factor,P_max_elmts,agg_num_levels
-dual_permuted,no_rl,1,1,Shared LinUCB v3,tune5,0.006350000000004741,0.007247999999997035,14.689462000000042,0.000774334,1.3083e-05,0.000568167,1.058551,15.748013000000041,1,residual_above_solver_tol;max_iter_reached_without_convergence,0.95,1e-06,0.0,2.0,3.0
-dual_permuted,no_rl,2,2,Shared LinUCB v3,tune5,0.00546299999999178,0.006970000000009691,13.419916000000114,0.000703709,1.0625e-05,7.3625e-05,0.984390628,14.404306628000114,1,residual_above_solver_tol;max_iter_reached_without_convergence,0.95,1e-06,0.0,16.0,4.0

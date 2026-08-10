@@ -29,8 +29,7 @@ results/**/run_logs/
 *.log
 
 # Generated result policy: keep raw runs local and track only the compact,
-# reproducible evidence bundle for paper experiments. Existing historical files
-# already in Git are unaffected by these rules.
+# reproducible evidence bundle for paper experiments.
 /results/**
 !/results/README.md
 !/results/joint/

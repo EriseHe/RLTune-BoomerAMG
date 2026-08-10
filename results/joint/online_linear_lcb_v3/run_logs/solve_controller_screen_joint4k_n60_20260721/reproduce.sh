@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-OUTPUT_DIR="${OUTPUT_DIR:-results/joint/online_linear_lcb_v3/run_logs/solve_controller_screen_joint4k_n60_20260721_reproduction}"
-/opt/anaconda3/envs/rl/bin/python -u experiments/joint/solve_control/run_joint_online_sarsa_4k.py --output-dir "$OUTPUT_DIR" --study-mode solve_controller_screen --seed 40800039 --bandit-seed 40860039 --controller-seed 40866039 --method-order-seed 40872039 --train-cases 4000 --warmup-cases 0 --online-cases 4000 --train-seed-groups 40800039,40806039,40812039,40818039,40824039,40830039,40836039,40842039 --train-shuffle-seeds 40848039 --train-cases-per-seed 500 --train-group-take 4000 --matrix-grid-n 60 --setup-param-resolution 20 --max-cycles 50 --shared-action-profile 1to3_step0p05 --recursive-lstdq-v2-beta 4.0 --recalibrated-lsvi-beta 1.0 --progress-every 100
