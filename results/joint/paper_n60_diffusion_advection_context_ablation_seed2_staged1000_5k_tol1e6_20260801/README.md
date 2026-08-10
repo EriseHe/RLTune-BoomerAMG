@@ -2,7 +2,8 @@
 
 Matched new-seed 60^3/5K scalar anisotropic diffusion-advection context ablation. This changes only the PDE stream from the scalar-diffusion experiment: independently sampled a_x,a_y,a_z in [1,1000] are enabled. The same seven branches, recommended Tune-7 space, structured-512 candidate schedule, seeds, tolerances, cycle limit, and solve-controller activation are retained. The two new context branches remain setup-only with default solve; Recursive LSTDQ v3 remains present only for the original v5 and physics-linear branches and activates after case 1000.
 
-- source config: `/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/experiments/joint/solve_control/configs/n60_diffusion_advection_context_ablation_seed2_staged1000_5k_tol1e6.json`
+- frozen config: [`experiment_config.json`](experiment_config.json)
+- source config: [`n60_diffusion_advection_context_ablation_seed2_staged1000_5k_tol1e6.json`](../../../experiments/joint/solve_control/configs/n60_diffusion_advection_context_ablation_seed2_staged1000_5k_tol1e6.json)
 - stream SHA-256: `99855ecccfe660366d651a5b6856230a68f77d4ae876e6e3b365c4cae407606f`
 - instances: `5000` (`0` warmup + `5000` online)
 - problem/grid: `scalar_anisotropic_diffusion_advection` / `[60, 60, 60]`
@@ -10,8 +11,7 @@ Matched new-seed 60^3/5K scalar anisotropic diffusion-advection context ablation
 - execution: one shared stream, independent mutable learner state per branch, randomized per-instance method order
 - timing/recovery: active joint-online bounded-recovery protocol
 
-`config.json` and `stream_manifest.json` are the resolved low-level protocol;
-`experiment_config.json` is the reusable high-level configuration.
-Run `OUTPUT_DIR=/new/path ./reproduce.sh` to reproduce without overwriting this directory.
-When `reporting.generate_plots` is true, the high-level entry point invokes the separate plot-only generator after the runner finishes.
-Plots can also be regenerated with `generate_joint_experiment_plots.py`.
+Follow the repository [setup instructions](../../../README.md), then `cd` to
+this directory and run `OUTPUT_DIR=/new/path ./reproduce.sh`.
+`stream_manifest.json` records the exact input stream. Plot generation runs
+after the numerical runner and can be repeated separately.

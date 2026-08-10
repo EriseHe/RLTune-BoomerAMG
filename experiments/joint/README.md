@@ -1,9 +1,11 @@
 # Joint Experiments
 
-Entry points that combine setup and solve policies.
+Current setup-plus-solve experiments use the composable JSON runner in
+[`solve_control/`](solve_control/). Paper configurations live in
+[`solve_control/configs/`](solve_control/configs/), while generated artifacts
+are written under `results/joint/`.
 
-- `exp44/`: mature LinUCB setup with PPO solve-control reproduction.
-- `online_joint_v1/`: both setup and solve learners updated online.
-
-Scripts write artifacts to matching directories under `results/`; source code
-and runnable protocols stay here.
+Start with the repository [`README.md`](../../README.md), then use
+[`solve_control/README.md`](solve_control/README.md) for validation, execution,
+and plotting commands. Historical workflows remain under `experiments/archive/`
+and are not part of the current paper protocol.

@@ -57,9 +57,8 @@ online controller updates. No solve controller learns from zero.
 | Recovery | one measured default fallback; its cost is included in feedback and runtime |
 
 All seeds and the exact high-level specification are stored in
-[`experiment_config.json`](experiment_config.json). The resolved low-level
-runner configuration is in [`config.json`](config.json), and the reconstructed
-stream specification is in [`stream_manifest.json`](stream_manifest.json).
+[`experiment_config.json`](experiment_config.json). The exact deterministic
+stream is recorded in [`stream_manifest.json`](stream_manifest.json).
 
 ### Contexts
 
@@ -143,11 +142,12 @@ independent multi-seed or multi-machine replication.
 
 ## Reproduce the run
 
-Use the commit that contains this result directory. The command below finds
-that artifact-bearing commit after cloning:
+First follow the repository [build requirements](../../../README.md). The
+command below checks out the commit that added this frozen experiment bundle,
+creates the declared environment, builds HYPRE, and starts a fresh run:
 
 ```bash
-git checkout "$(git log -1 --format=%H -- \
+git checkout "$(git log --diff-filter=A -1 --format=%H -- \
   results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/README.md)"
 conda env create -f environment.yml
 conda activate rl
@@ -167,19 +167,14 @@ and macOS 26.5 on an 8-core Apple M2 MacBook Air with 8 GB RAM. It ran from
 with hardware, load, and thermal state; the stream hash and algorithmic
 trajectory are the stronger reproducibility checks.
 
-The original `result.json` records `12b6f3d` as its base revision because the
-formal run preceded the artifact commit. The commit that first contains this
-directory freezes the complete working-tree code used for the run and is the
-revision to use for reproduction.
-
 ## Regenerate analysis and figures
 
-Plotting is deliberately separate from execution. It reads the immutable JSONL
-trajectories and can be rerun without touching the experiment:
+Plotting is separate from numerical execution. After the reproduction finishes,
+regenerate its figures with:
 
 ```bash
 python experiments/joint/solve_control/generate_joint_experiment_plots.py \
-  --result-dir results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731 \
+  --result-dir results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731_reproduction \
   --rolling-window 100
 ```
 
@@ -187,33 +182,14 @@ Important analysis outputs are:
 
 - [`screen_report.md`](screen_report.md): readable all-5K and first/last-window
   statistics with paired intervals and controller diagnostics.
-- [`window_summary.json`](window_summary.json): machine-readable all, first,
-  and trailing window statistics reconstructed from raw trajectories.
 - [`summary_5000.csv`](summary_5000.csv): compact all-5K per-method summary.
-- [`figures/all_5000_runtime_breakdown.png`](figures/all_5000_runtime_breakdown.png)
-  and [`figures/last_1000_runtime_breakdown.png`](figures/last_1000_runtime_breakdown.png):
-  paper-facing runtime decompositions.
+- [`figures/last_1000_runtime_breakdown.png`](figures/last_1000_runtime_breakdown.png):
+  primary paper-facing runtime decomposition.
 - [`figures/learned_per_cycle_action_trajectories.png`](figures/learned_per_cycle_action_trajectories.png):
   learned relaxation-weight heatmaps.
 
-## Artifact layout
-
-- `trajectories/`: immutable per-case records for every branch plus randomized
-  method order (the primary source for reanalysis).
-- `checkpoints/`: Recursive LSTDQ v3 checkpoints at each 1K boundary and final
-  state.
-- `final_bandit_states/`: final mutable setup-policy states.
-- `bandit_warmup_states/`, `bandit_warmup_checkpoints/`, and
-  `bandit_warmup_trajectories/`: zero-warmup boundary records retained by the
-  common runner.
-- `aot_candidate_schedules/`: the exact structured candidate schedule used by
-  the four learned-setup branches.
-- `result.json`: original runner result and protocol metadata.
-- `window_summary.json`: post-run 5K-compatible reporting windows; it does not
-  modify the raw result.
-- `figures/`, `plot_summary.json`, and `same_setup_audit.json`: derived analysis
-  artifacts that can be regenerated from the trajectories.
-
-The bundle intentionally keeps trajectories, schedules, checkpoints, final
-states, configuration, and derived reports together so the paper numbers can
-be audited without rerunning the two-hour experiment.
+The repository keeps only the frozen config, stream manifest, compact reports,
+reproduction script, and two primary figures. A reproduced run writes the full
+trajectories, candidate schedules, checkpoints, mutable final states, and
+derived analysis locally; those large artifacts are intentionally ignored by
+Git.

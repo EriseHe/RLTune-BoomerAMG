@@ -982,7 +982,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
 
             high_level._write_reproduction_artifacts(
                 config={"schema_version": 1, "output_dir": str(output_dir)},
-                config_path=Path("config.json"),
+                config_path=Path("/private/user/source_config.json"),
                 args=args,
                 validation=validation,
             )
@@ -991,6 +991,13 @@ class ComposableJointRunnerTests(unittest.TestCase):
             self.assertIn('\n  --config "', script)
             self.assertIn('\n  --output-dir "$OUTPUT_DIR"', script)
             self.assertNotIn("\n+  --", script)
+
+            readme = (output_dir / "README.md").read_text(encoding="utf-8")
+            self.assertIn("`experiment_config.json`", readme)
+            self.assertIn("source filename: `source_config.json`", readme)
+            self.assertIn("repository README", readme)
+            self.assertNotIn("/private/user", readme)
+            self.assertNotIn("`config.json`", readme)
 
     def test_plot_entrypoint_only_processes_existing_results(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

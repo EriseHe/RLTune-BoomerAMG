@@ -1,81 +1,78 @@
 # RLTune-BoomerAMG
 
-Research code for online setup tuning and per-cycle solve control in HYPRE
-BoomerAMG.
+Research code for online BoomerAMG setup tuning and per-cycle solve control.
 
-## Repository layout
+## Build from a fresh checkout
 
-- `hypre/source/`: unmodified shared HYPRE fork.
-- `hypre/interfaces/`: the single project-owned native runtime.
-- `hypre/bindings/`: Python binding and shared failure recovery protocol.
-- `hypre/build/`, `hypre/install/`: ignored out-of-source build products.
-- `problems/`: PDE definitions and deterministic instance streams.
-- `setup/`: setup learners, their registry, and setup-only entry points.
-- `solve/`: solve controllers, their registry, and solve-only entry points.
-- `experiments/`: workflows that combine setup and solve learning.
-- `experiments/archive/`: historical protocols excluded from active runs.
-- `docs/`: design and implementation notes.
-- `results/`: generated experiment outputs and reproducibility records.
-
-Setup and solve code both use `hypre.bindings` and the same
-`hypre/interfaces/libamg_runtime` library. No project interface or experiment
-code is built inside the HYPRE source fork.
-
-## Build
-
-Create the Python environment:
+The Conda environment contains the Python dependencies. CMake, Make, a C/C++
+toolchain, and MPI compiler wrappers (`mpicc` and `mpicxx`) must already be
+available on the system.
 
 ```bash
 conda env create -f environment.yml
-```
-
-Build the unchanged HYPRE fork out of source, install it under `hypre/install/`,
-and build the shared runtime:
-
-```bash
+conda activate rl
 make -C hypre
 ```
 
-## Learning architecture
+The environment is named `rl` by `environment.yml`, but the experiment scripts
+only require that the intended Python environment is active. The HYPRE build is
+kept under `hypre/build/` and `hypre/install/`.
 
-- Setup phase: Shared LinUCB v4 selects one Tune7 setup action per instance.
-- Solve phase: PPO, SARSA, and shared-action linear LCB controllers may select
-  a relaxation action at each AMG cycle.
-- Joint experiments: each method owns an independently updating LinUCB branch
-  after any configured common warmup snapshot.
+## Reproduce a paper experiment
 
-The active Exp44 protocol and commands are documented in
-`experiments/joint/exp44/README.md`.
+The primary five-branch scalar-diffusion comparison is documented in
+[`results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/README.md`](results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/README.md).
+
+The latest diffusion-advection hybrid comparison is documented in
+[`results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/README.md`](results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/README.md).
+
+Validate the latest frozen configuration without running HYPRE:
+
+```bash
+python -u experiments/joint/solve_control/run_joint_experiment.py \
+  --config results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/experiment_config.json \
+  --validate-only
+```
+
+Run it into a new output directory:
+
+```bash
+OUTPUT_DIR=results/joint/hybrid_reproduction \
+  ./results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/reproduce.sh
+```
+
+The exact stream, seeds, setup/solve contexts, activation boundary, tolerance,
+and method roster come from the frozen JSON. Full trajectories and checkpoints
+are generated locally; Git tracks only the compact paper evidence bundle.
+
+## Current experiment path
+
+- `experiments/joint/solve_control/run_joint_experiment.py`: JSON experiment
+  entry point.
+- `experiments/joint/solve_control/configs/`: reusable experiment configs.
+- `experiments/joint/solve_control/generate_joint_experiment_plots.py`:
+  plot-only entry point.
+- `results/joint/paper_*/`: frozen configs, compact summaries, figures, and
+  reproduction scripts.
+
+See [`experiments/joint/solve_control/README.md`](experiments/joint/solve_control/README.md)
+for runner details.
 
 ## Failure protocol
 
-Every external instance starts with one learned setup attempt. A setup
-construction failure may trigger same-context reselection, up to three learned
-setup attempts in total. A solve failure, non-finite evaluation, max-cycle
-nonconvergence, or exhaustion of the learned setup attempts triggers one
-default setup + default solve fallback from a zero initial solution.
-
-- A recovered failure is charged its measured primary and fallback time.
-- LinUCB commits at most one transaction per external instance; a recovered
-  setup-reselection transaction may contain multiple measured observations.
-- A solve controller commits at most one episode per external instance.
-- If fallback also fails, pending learning updates are rolled back and the
-  instance is recorded as unrecovered.
-- No retry loops, artificial failure penalties, fake runtimes, or residual
-  potential shaping are used by active experiments.
-
-Historical retry, shaping, and old online-Gym workflows are retained only under
-`experiments/archive/`.
+Each learned branch permits up to three setup attempts, followed by one
+measured default setup/default solve fallback. Failed or nonconverged primary
+work and fallback work are included in runtime and learning feedback. If the
+fallback also fails, pending learner updates are rolled back.
 
 ## Tests
 
-The main active test groups are:
-
 ```bash
 python -m unittest discover -s setup/tests -p 'test_*.py' -v
+python -m unittest discover -s problems/tests -p 'test_*.py' -v
 python -m unittest discover -s solve/tests -p 'test_*.py' -v
 python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py' -v
 ```
 
-Repository ownership and dependency rules are documented in
-`docs/repository_layout.md`.
+Repository ownership and dependency rules are in
+[`docs/repository_layout.md`](docs/repository_layout.md).

@@ -162,7 +162,10 @@ def _write_reproduction_artifacts(
             "",
             str(config.get("description", "Composable joint-online experiment.")),
             "",
-            f"- source config: `{config_path}`",
+            (
+                "- frozen config: `experiment_config.json` "
+                f"(source filename: `{config_path.name}`)"
+            ),
             f"- stream SHA-256: `{validation['stream']['sha256']}`",
             f"- instances: `{args.train_cases}` (`{args.warmup_cases}` warmup + `{args.online_cases}` online)",
             f"- problem/grid: `{validation['stream'].get('problem')}` / `{validation['stream'].get('grid')}`",
@@ -170,15 +173,16 @@ def _write_reproduction_artifacts(
             "- execution: one shared stream, independent mutable learner state per branch, randomized per-instance method order",
             "- timing/recovery: active joint-online bounded-recovery protocol",
             "",
-            "`config.json` and `stream_manifest.json` are the resolved low-level protocol;",
-            "`experiment_config.json` is the reusable high-level configuration.",
-            "Run `OUTPUT_DIR=/new/path ./reproduce.sh` to reproduce without overwriting this directory.",
+            "`stream_manifest.json` records the exact deterministic input stream.",
+            "Follow the repository README once to create the environment and build HYPRE.",
+            "Then run `OUTPUT_DIR=/new/path ./reproduce.sh`; the script uses the active Python environment.",
             (
                 "When `reporting.generate_plots` is true, the high-level "
                 "entry point invokes the separate plot-only generator after "
                 "the runner finishes."
             ),
             "Plots can also be regenerated with `generate_joint_experiment_plots.py`.",
+            "Raw trajectories and checkpoints remain local; the paper bundle keeps compact evidence only.",
             "",
         )
     )
