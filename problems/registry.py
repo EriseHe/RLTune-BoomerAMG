@@ -8,11 +8,13 @@ from typing import Any, Mapping
 import numpy as np
 
 from .amg import (
+    COMPACT_DIFFUSION_CONTEXT_INDICES,
     DIFCONV_CONTEXT_DIM,
     DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_DIM,
     build_diffusion_advection_physics_context,
     build_diffusion_advection_quadratic_context,
     build_normalized_cell_peclet_from_matrix_kwargs,
+    compact_diffusion_context,
     normalize_diffusion_advection_context,
 )
 from .scalar_anisotropic_diffusion_advection import (
@@ -55,6 +57,7 @@ SETUP_CONTEXT_MODES = (
     CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT,
     CANONICAL_PECLET_ONLY_SETUP_CONTEXT,
     PHYSICS_LINEAR_SETUP_CONTEXT,
+    *COMPACT_DIFFUSION_CONTEXT_INDICES,
 )
 
 
@@ -103,6 +106,13 @@ _LINUCB_PHYSICS_LINEAR_CONTEXT = ProblemLearningContext(
     interaction_indices=tuple(range(1, 7)),
 )
 _SCALAR_SETUP_CONTEXT_CONTRACTS = {
+    **{
+        mode: ProblemLearningContext(
+            dimension=len(indices),
+            interaction_indices=tuple(range(1, len(indices))),
+        )
+        for mode, indices in COMPACT_DIFFUSION_CONTEXT_INDICES.items()
+    },
     CANONICAL_NO_C_MEAN_SETUP_CONTEXT: _LINUCB_NO_C_MEAN_CONTEXT,
     CANONICAL_MEANS_ONLY_SETUP_CONTEXT: _LINUCB_MEANS_ONLY_CONTEXT,
     CANONICAL_WITH_A_MEAN_SETUP_CONTEXT: _LINUCB_WITH_A_MEAN_CONTEXT,
@@ -157,6 +167,13 @@ def learning_context_for_setup(
     """Resolve the context contract owned by one problem/setup pairing."""
     problem = normalize_problem_kind(problem_kind)
     context_mode = normalize_setup_context_mode(setup_context)
+    if (
+        context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES
+        and problem != SCALAR_ANISOTROPIC_DIFFUSION
+    ):
+        raise ValueError(
+            "Compact diffusion contexts require scalar_anisotropic_diffusion"
+        )
     if context_mode in _SCALAR_SETUP_CONTEXT_CONTRACTS:
         if problem not in {
             SCALAR_ANISOTROPIC_DIFFUSION,
@@ -223,6 +240,8 @@ def context_for_setup_method(
             setup_context=context_mode,
         )
         canonical = normalize_diffusion_advection_context(context)
+        if context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
+            return compact_diffusion_context(canonical, mode=context_mode)
         if context_mode == CANONICAL_NO_C_MEAN_SETUP_CONTEXT:
             return canonical[[0, 1, 2, 3, 5, 6, 7]]
 

@@ -37,6 +37,7 @@ from joint_online_common import (
 )
 from joint_reporting import _empty_stream_summary
 from online_td_experiment_common import _write_json
+from problems.amg import COMPACT_DIFFUSION_CONTEXT_INDICES
 from problems.registry import (
     context_for_setup_method,
     learning_context_for_setup,
@@ -243,10 +244,27 @@ def _validate_specs(
         for spec in specs
         if int(spec.solve_activation_case) > 0
     }
-    if staged_methods and int(args.warmup_cases) != 0:
+    dynamic_methods = [spec for spec in specs if spec.solve_activation is not None]
+    if (staged_methods or dynamic_methods) and int(args.warmup_cases) != 0:
         raise ValueError(
             "solve_activation_case is an inclusive online-stream boundary "
             "and therefore requires stream.warmup_cases=0"
+        )
+    if dynamic_methods and getattr(args, "setup_replay_trajectory", None) is not None:
+        raise ValueError(
+            "Dynamic activation requires online setup learning, not setup replay"
+        )
+    compact_methods = any(
+        spec.setup_context in COMPACT_DIFFUSION_CONTEXT_INDICES
+        or spec.solve_context in COMPACT_DIFFUSION_CONTEXT_INDICES
+        for spec in specs
+    )
+    if compact_methods and (
+        getattr(args, "problem", "scalar_anisotropic_diffusion")
+        != "scalar_anisotropic_diffusion"
+    ):
+        raise ValueError(
+            "Compact diffusion contexts require scalar_anisotropic_diffusion"
         )
     invalid_activations = {
         name: activation
@@ -759,9 +777,19 @@ def build_composable_solve_runtime(
                         **state_overrides,
                     ),
                 )
+            if getattr(typed_state, "encoding_version", "legacy_v1") == "space_aware_v2":
+                spaces = setup_configuration_spaces_from_args(args)
+                space = spaces[method_spec.setup_space] if method_spec.setup_space else None
+                setup_encoder = make_setup_obs_encoder(
+                    configuration_space=space,
+                    parameter_resolution=getattr(args, "setup_param_resolution", None),
+                    strict_categories=True,
+                )
+            else:
+                setup_encoder = make_setup_obs_encoder()
             bundle = build_online_solve_controller(
                 resolved_controller_spec,
-                setup_obs_encoder=make_setup_obs_encoder(),
+                setup_obs_encoder=setup_encoder,
                 seed=controller_seed,
             )
         else:

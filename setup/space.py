@@ -153,11 +153,14 @@ class SetupObsEncoder:
         parameter_spec: ParameterSpaceSpec,
         defaults: Dict[str, Any],
         observed_keys: Sequence[str],
+        *,
+        strict_categories: bool = False,
     ) -> None:
         self.parameter_spec = parameter_spec
         self.defaults = dict(defaults)
         self.spec_by_name = {param.name: param for param in parameter_spec.parameters}
         self.observed_keys = tuple(str(key) for key in observed_keys)
+        self.strict_categories = bool(strict_categories)
 
     def encode(self, params: Dict[str, Any]) -> np.ndarray:
         encoded = []
@@ -174,6 +177,8 @@ class SetupObsEncoder:
                 scale = float(param.scale if param.scale is not None else 1.0)
                 return float((float(value) - center) / max(scale, 1e-12))
             levels = tuple(param.values)
+            if self.strict_categories and value not in levels:
+                raise ValueError(f"Unknown setup category {key}={value!r}; expected {levels}")
             return self._encode_categorical(value=value, default=param.default, levels=levels)
 
         kind, center, scale, levels = _MANUAL_SETUP_BOUNDS[key]

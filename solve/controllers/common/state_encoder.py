@@ -6,11 +6,13 @@ from typing import Any, Dict, Sequence
 import numpy as np
 
 from problems.amg import (
+    COMPACT_DIFFUSION_CONTEXT_INDICES,
     DIFFUSION_ADVECTION_CONTEXT_DIM,
     DIFFUSION_ADVECTION_CONTEXT_FIELDS,
     DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS,
     build_context_diffusion_advection_from_matrix_kwargs,
     build_diffusion_advection_physics_context,
+    compact_diffusion_context,
     normalize_diffusion_advection_context as normalize_problem_context,
 )
 
@@ -22,7 +24,9 @@ PROBLEM_CONTEXT_MODES = (
     CANONICAL_PROBLEM_CONTEXT,
     LEGACY_DIFFUSION_ONLY_CONTEXT,
     PHYSICS_LINEAR_PROBLEM_CONTEXT,
+    *COMPACT_DIFFUSION_CONTEXT_INDICES,
 )
+STATE_ENCODING_VERSIONS = ("legacy_v1", "space_aware_v2")
 
 
 class SolveStateEncoder:
@@ -40,6 +44,8 @@ class SolveStateEncoder:
         mode: str = "full",
         setup_obs_encoder: Any | None = None,
         problem_context_mode: str = CANONICAL_PROBLEM_CONTEXT,
+        encoding_version: str = "legacy_v1",
+        weight_bounds: tuple[float, float] | None = None,
     ) -> None:
         self.tol = float(tol)
         self.max_cycles = int(max_cycles)
@@ -47,6 +53,19 @@ class SolveStateEncoder:
         self.time_scale_sec = float(time_scale_sec)
         self.mode = str(mode).strip().lower()
         self.setup_obs_encoder = setup_obs_encoder
+        self.encoding_version = str(encoding_version)
+        if self.encoding_version not in STATE_ENCODING_VERSIONS:
+            raise ValueError(f"encoding_version must be one of {STATE_ENCODING_VERSIONS}")
+        self.weight_bounds = weight_bounds
+        if self.encoding_version == "space_aware_v2":
+            if weight_bounds is None or len(weight_bounds) != 2:
+                raise ValueError("space_aware_v2 requires actual action weight bounds")
+            low, high = map(float, weight_bounds)
+            if not all(math.isfinite(v) for v in (low, high)) or high < low:
+                raise ValueError("action weight bounds must be finite and ordered")
+            self.weight_bounds = (low, high)
+            self._weight_center = (low + high) / 2.0
+            self._weight_scale = (high - low) / 2.0 if high > low else 1.0
         self.problem_context_mode = (
             str(problem_context_mode).strip().lower()
         )
@@ -59,6 +78,12 @@ class SolveStateEncoder:
         if self.problem_context_mode == CANONICAL_PROBLEM_CONTEXT:
             self.problem_context_fields = DIFFUSION_ADVECTION_CONTEXT_FIELDS
             self.problem_feature_dim = DIFFUSION_ADVECTION_CONTEXT_DIM - 1
+        elif self.problem_context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
+            self.problem_context_fields = tuple(
+                DIFFUSION_ADVECTION_CONTEXT_FIELDS[index]
+                for index in COMPACT_DIFFUSION_CONTEXT_INDICES[self.problem_context_mode]
+            )
+            self.problem_feature_dim = len(self.problem_context_fields) - 1
         elif self.problem_context_mode == PHYSICS_LINEAR_PROBLEM_CONTEXT:
             self.problem_context_fields = (
                 "bias",
@@ -141,11 +166,18 @@ class SolveStateEncoder:
             max(float(last_cycle_time) / max(self.time_scale_sec, eps), 0.0),
             5.0,
         ) / 5.0
-        weight = min(max((float(last_weight) - 1.4) / 0.4, -1.0), 1.5)
+        if self.encoding_version == "legacy_v1":
+            weight = min(max((float(last_weight) - 1.4) / 0.4, -1.0), 1.5)
+        else:
+            weight = min(max(
+                (float(last_weight) - self._weight_center) / self._weight_scale,
+                -1.0,
+            ), 1.0)
 
         if self.problem_context_mode in {
             CANONICAL_PROBLEM_CONTEXT,
             PHYSICS_LINEAR_PROBLEM_CONTEXT,
+            *COMPACT_DIFFUSION_CONTEXT_INDICES,
         }:
             canonical_context = (
                 self._context_from_matrix_kwargs(mkw)
@@ -161,6 +193,10 @@ class SolveStateEncoder:
                 == PHYSICS_LINEAR_PROBLEM_CONTEXT
                 else canonical_context
             )
+            if self.problem_context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
+                resolved_context = compact_diffusion_context(
+                    canonical_context, mode=self.problem_context_mode
+                )
             problem_key = tuple(float(value) for value in resolved_context)
             if self._cached_problem_key != problem_key:
                 self._cached_problem_key = problem_key
@@ -214,12 +250,12 @@ class SolveStateEncoder:
                 for key in self.setup_obs_encoder.observed_keys
             )
             if self._cached_setup_key != setup_key:
-                self._cached_setup_key = setup_key
                 setup_features = np.asarray(
                     self.setup_obs_encoder.encode(params),
                     dtype=float,
                 )
                 self._cached_setup_features = np.clip(setup_features, -2.0, 2.0)
+                self._cached_setup_key = setup_key
             features[self._setup_offset :] = self._cached_setup_features
         if features.size != self.feature_dim:
             raise RuntimeError(f"Expected {self.feature_dim} state features, got {features.size}")

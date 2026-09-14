@@ -4,8 +4,9 @@ import _project_paths  # noqa: F401
 
 import argparse
 import json
+from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Sequence
 
 from joint_experiment_config import (
     JointExperimentSpec,
@@ -84,6 +85,7 @@ def _validate_resolved(
     }
     return {
         "output_dir": str(args.output_dir),
+        "smoother_profile": args.smoother_profile,
         "stream": manifest,
         "methods": [
             {
@@ -97,6 +99,10 @@ def _validate_resolved(
                 "seed_offset": int(spec.seed_offset),
                 "setup_warmup_cases": int(spec.setup_warmup_cases),
                 "solve_activation_case": int(spec.solve_activation_case),
+                **(
+                    {"solve_activation": asdict(spec.solve_activation)}
+                    if spec.solve_activation is not None else {}
+                ),
                 "solve_tolerance": spec.solve_tolerance,
                 "solve_context": spec.solve_context,
             }
@@ -189,14 +195,14 @@ def _write_reproduction_artifacts(
     (output_dir / "README.md").write_text(readme, encoding="utf-8")
 
 
-def main() -> None:
+def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         description="Run a composable setup x solve AMG experiment from JSON."
     )
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=None)
     parser.add_argument("--validate-only", action="store_true")
-    cli = parser.parse_args()
+    cli = parser.parse_args(argv)
 
     config_path = cli.config.resolve()
     config = json.loads(config_path.read_text(encoding="utf-8"))

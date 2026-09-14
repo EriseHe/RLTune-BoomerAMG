@@ -145,6 +145,8 @@ def _compact_solve_label(spec: Dict[str, Any]) -> str:
 
 
 def _expected_solve_context(spec: Dict[str, Any]) -> str:
+    if str(spec.get("setup_context", "default")) in {"diffusion3d", "diffusion4d"}:
+        return str(spec["setup_context"])
     if str(spec.get("setup_context", "default")) == "physics_linear":
         return "physics_linear"
     return "canonical"
@@ -157,6 +159,10 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
         str(spec["name"]): dict(spec)
         for spec in protocol.get("method_specs", [])
     }
+    compact_context_comparison = any(
+        spec.get("setup_context") in {"diffusion3d", "diffusion4d"}
+        for spec in specs.values()
+    )
     family_by_method = dict(protocol.get("families", {}))
     original_labels = dict(protocol.get("method_labels", {}))
     learned_solve_specs = [
@@ -168,6 +174,12 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
         [int(spec.get("solve_activation_case", 0)) for spec in learned_solve_specs]
     )
     global_tolerance = _solver_setting(protocol, "tolerance")
+    learner_seed_offsets = {
+        int(spec.get("seed_offset", 0))
+        for spec in specs.values()
+        if str(spec.get("setup_kind", "default")) != "default"
+        or str(spec.get("solve_kind", "default")) not in {"default", "fixed"}
+    }
     labels: Dict[str, str] = {}
     for method in protocol.get("methods", []):
         method = str(method)
@@ -179,14 +191,36 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
                 original_labels,
             )
             continue
+        if compact_context_comparison:
+            if spec["setup_kind"] == "default" and spec["solve_kind"] == "default":
+                labels[method] = "Default"
+                continue
+            dimension = {"diffusion3d": "3D", "diffusion4d": "4D"}.get(
+                spec.get("setup_context"),
+                "8D" if spec["setup_kind"] == "linucb_v5" else None,
+            )
+            if dimension is not None and spec["solve_kind"] == "recursive_lstdq_v3":
+                start = (
+                    "dynamic start" if spec.get("solve_activation")
+                    else f"start {int(spec.get('solve_activation_case', 0)) + 1}"
+                )
+                labels[method] = f"{dimension} / {start}"
+                continue
         label = (
             f"{_compact_setup_label(spec)}\n"
             f"+ {_compact_solve_label(spec)}"
         )
         deviations = []
+        if len(learner_seed_offsets) > 1 and (
+            str(spec.get("setup_kind", "default")) != "default"
+            or str(spec.get("solve_kind", "default")) not in {"default", "fixed"}
+        ):
+            deviations.append(f"seed offset={int(spec.get('seed_offset', 0))}")
         if str(spec.get("solve_kind", "default")) != "default":
             activation = int(spec.get("solve_activation_case", 0))
-            if common_activation is None:
+            if spec.get("solve_activation"):
+                deviations.append("dynamic start")
+            elif common_activation is None:
                 deviations.append(f"activate={activation}")
             tolerance = spec.get("solve_tolerance")
             if (
@@ -236,8 +270,11 @@ def _shared_plot_settings(
         if str(spec.get("solve_kind", "default")) != "default"
     ]
     if solve_specs:
-        activation = _uniform_value(
-            [int(spec.get("solve_activation_case", 0)) for spec in solve_specs]
+        activation = (
+            None if any(spec.get("solve_activation") for spec in solve_specs)
+            else _uniform_value(
+                [int(spec.get("solve_activation_case", 0)) for spec in solve_specs]
+            )
         )
         settings.append(
             (
@@ -1471,6 +1508,16 @@ def generate_plots(
         if family not in {"default_setup", "default", "fixed_w1.6", "ppo"}
     ]
     if learned_action_methods:
+        activation_cases = {
+            str(spec["name"]): int(spec.get("solve_activation_case", 0))
+            for spec in result["protocol"].get("method_specs", [])
+            if int(spec.get("solve_activation_case", 0)) > 0
+        }
+        for method in learned_action_methods:
+            if records[method] and "rl_activation" in records[method][-1]:
+                crossing = records[method][-1]["rl_activation"].get("crossing_case")
+                if crossing is not None and crossing < expected_cases:
+                    activation_cases[method] = int(crossing)
         max_cycles = max(
             len(row["outcome"].get("cycle_actions", []))
             for method in learned_action_methods
@@ -1511,11 +1558,7 @@ def generate_plots(
             panel_width=10.5,
             panel_height=3.2,
             native_default_weight=1.0,
-            activation_cases={
-                str(spec["name"]): int(spec.get("solve_activation_case", 0))
-                for spec in result["protocol"].get("method_specs", [])
-                if int(spec.get("solve_activation_case", 0)) > 0
-            },
+            activation_cases=activation_cases,
         )
     if "bandit_recursive_lstdq_lcb" in records:
         best_start, best_stop = _best_complete_native_solve_window(

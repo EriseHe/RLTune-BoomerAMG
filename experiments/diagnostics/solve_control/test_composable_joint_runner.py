@@ -450,6 +450,21 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(settings["solve_activation_case"], "1000 (RL only)")
         self.assertEqual(settings["grid"], "60 x 60 x 60")
 
+        seed_specs = [
+            dict(protocol["method_specs"][1], name=f"seed_{index}", seed_offset=offset)
+            for index, offset in enumerate((0, 1000003, 2000029))
+        ]
+        protocol["method_specs"] = [protocol["method_specs"][0], *seed_specs]
+        protocol["methods"] = [spec["name"] for spec in protocol["method_specs"]]
+        labels = plotter._compact_method_labels(protocol)
+        self.assertEqual(labels["default"], "Default setup\n+ default solve")
+        for spec in seed_specs:
+            self.assertEqual(
+                labels[spec["name"]],
+                "LinUCB v5 (canonical 8D)\n+ LSTDQ v3\n"
+                f"seed offset={spec['seed_offset']}",
+            )
+
     def test_weight_reporting_accepts_staged_default_solve_prefix(self) -> None:
         rows = [
             {

@@ -9,6 +9,7 @@ from typing import Any, Dict, Iterable, Mapping, Sequence, cast
 import numpy as np
 
 from joint_method_spec import ComposableMethodSpec
+from hypre.bindings.config import SMOOTHER_PROFILES
 from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
     normalize_problem_kind,
@@ -96,6 +97,8 @@ STREAM_KEYS = {
 SEED_KEYS = {"base", "bandit", "controller", "method_order"}
 REPORTING_KEYS = {"progress_every", "rolling_window", "generate_plots"}
 SOLVE_KEYS = {
+    "state_encoding",
+    "smoother_profile",
     "action_grid",
     "rbf",
     "epsilon",
@@ -472,6 +475,7 @@ class JointSolveSpec:
     structured_model: StructuredModelBasedSpec
     recalibrated_lsvi: HierarchicalLsviLcbSpec
     trace_lambda: float
+    smoother_profile: str = "legacy_l1_jacobi"
     controller_specs: Mapping[str, OnlineControllerBuildSpec] = field(
         default_factory=dict
     )
@@ -486,6 +490,9 @@ class JointSolveSpec:
         solve_kinds: Iterable[str],
     ) -> "JointSolveSpec":
         reject_unknown_keys(raw, SOLVE_KEYS, name="solve")
+        smoother_profile = str(raw.get("smoother_profile", "legacy_l1_jacobi"))
+        if smoother_profile not in SMOOTHER_PROFILES:
+            raise ValueError(f"solve.smoother_profile must be one of {SMOOTHER_PROFILES}")
         actions = expand_grid(
             raw.get("action_grid"),
             name="solve.action_grid",
@@ -522,6 +529,7 @@ class JointSolveSpec:
             max_cycles=max_cycles,
             c_max=float(problem.c_max),
             mode="setup_full",
+            encoding_version=str(raw.get("state_encoding", "legacy_v1")),
         )
 
         lstdq = mapping(raw.get("lstdq", {}), name="solve.lstdq")
@@ -618,6 +626,7 @@ class JointSolveSpec:
             structured_model=structured_spec,
             recalibrated_lsvi=recalibrated_spec,
             trace_lambda=trace_lambda,
+            smoother_profile=smoother_profile,
             controller_specs=controller_specs,
             ppo_model=(
                 DEFAULT_PPO_MODEL
@@ -679,6 +688,7 @@ class JointExperimentRuntimeConfig:
     c_max: float
     tol: float
     max_cycles: int
+    smoother_profile: str
     setup_action_space: str
     setup_candidate_mode: str
     setup_replay_trajectory: Path | None
@@ -869,6 +879,7 @@ def runtime_config_from_spec(
         c_max=spec.problem.c_max,
         tol=solve.state.tol,
         max_cycles=solve.state.max_cycles,
+        smoother_profile=solve.smoother_profile,
         setup_action_space=spec.setup.action_space,
         setup_candidate_mode=spec.setup.candidate_schedule.mode,
         setup_replay_trajectory=spec.setup.replay_trajectory,

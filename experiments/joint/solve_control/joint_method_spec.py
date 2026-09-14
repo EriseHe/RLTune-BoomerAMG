@@ -4,6 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from joint_rl_activation import ReliabilityActivationSpec
 from problems.registry import (
     DEFAULT_SETUP_CONTEXT,
     normalize_setup_context_mode,
@@ -27,6 +28,7 @@ METHOD_KEYS = {
     "seed_offset",
     "setup_warmup_cases",
     "solve_activation_case",
+    "solve_activation",
     "solve_tolerance",
     "solve_context",
 }
@@ -49,6 +51,7 @@ class ComposableMethodSpec:
     solve_activation_case: int = 0
     solve_tolerance: float | None = None
     solve_context: str = CANONICAL_PROBLEM_CONTEXT
+    solve_activation: ReliabilityActivationSpec | None = None
 
     @property
     def family(self) -> str:
@@ -131,6 +134,8 @@ class ComposableMethodSpec:
             }[self.solve_kind]
         if self.solve_activation_case:
             solve = f"{solve}; activate={self.solve_activation_case}"
+        if self.solve_activation is not None:
+            solve = f"{solve}; activate=reliability mixture"
         if self.solve_tolerance is not None:
             solve = f"{solve}; tol={float(self.solve_tolerance):g}"
         if self.solve_context != CANONICAL_PROBLEM_CONTEXT:
@@ -244,6 +249,24 @@ class ComposableMethodSpec:
             raise ValueError(
                 f"method {name!r} cannot delay a non-learning solve policy"
             )
+        activation_raw = raw.get("solve_activation")
+        solve_activation = (
+            None if activation_raw is None
+            else ReliabilityActivationSpec.from_mapping(activation_raw)
+        )
+        if solve_activation is not None:
+            if solve_kind not in ONLINE_SOLVE_KINDS:
+                raise ValueError(
+                    "Dynamic solve_activation requires an online solve controller"
+                )
+            if setup_kind not in ONLINE_SETUP_KINDS:
+                raise ValueError(
+                    "Dynamic solve_activation requires an online setup learner"
+                )
+            if solve_activation_case or setup_warmup_cases:
+                raise ValueError(
+                    "Dynamic solve_activation cannot also use a fixed activation or warmup"
+                )
         solve_tolerance_raw = raw.get("solve_tolerance")
         solve_tolerance = (
             None
@@ -286,6 +309,7 @@ class ComposableMethodSpec:
             solve_activation_case=solve_activation_case,
             solve_tolerance=solve_tolerance,
             solve_context=solve_context,
+            solve_activation=solve_activation,
         )
 
     def to_runner_token(self) -> str:
@@ -311,17 +335,27 @@ class ComposableMethodSpec:
             self.seed_offset
             or self.setup_warmup_cases
             or self.solve_activation_case
+            or self.solve_activation is not None
             or self.solve_tolerance is not None
         ):
             token = f"{token}:{self.seed_offset}"
         if (
             self.setup_warmup_cases
             or self.solve_activation_case
+            or self.solve_activation is not None
             or self.solve_tolerance is not None
         ):
             token = f"{token}:{self.setup_warmup_cases}"
-        if self.solve_activation_case or self.solve_tolerance is not None:
-            token = f"{token}:{self.solve_activation_case}"
+        if (
+            self.solve_activation_case
+            or self.solve_tolerance is not None
+            or self.solve_activation is not None
+        ):
+            activation = str(self.solve_activation_case)
+            if self.solve_activation is not None:
+                rule = self.solve_activation
+                activation = f"mixture@{rule.p_bad!r}@{rule.p_good!r}@{rule.delta!r}"
+            token = f"{token}:{activation}"
         if self.solve_tolerance is not None:
             token = f"{token}:{float(self.solve_tolerance):g}"
         return token
@@ -378,7 +412,19 @@ class ComposableMethodSpec:
         if len(parts) >= 5:
             method["setup_warmup_cases"] = int(parts[4])
         if len(parts) >= 6:
-            method["solve_activation_case"] = int(parts[5])
+            if parts[5].startswith("mixture@"):
+                activation = parts[5].split("@")
+                if len(activation) != 4:
+                    raise ValueError(
+                        "Dynamic activation token uses mixture@p_bad@p_good@delta"
+                    )
+                method["solve_activation"] = {
+                    "p_bad": float(activation[1]),
+                    "p_good": float(activation[2]),
+                    "delta": float(activation[3]),
+                }
+            else:
+                method["solve_activation_case"] = int(parts[5])
         if len(parts) == 7:
             method["solve_tolerance"] = float(parts[6])
         return cls.from_mapping(method)

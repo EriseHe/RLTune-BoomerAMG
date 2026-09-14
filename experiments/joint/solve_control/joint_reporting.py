@@ -85,6 +85,7 @@ def _window_result(
         "vs_bandit_default": "bandit_default",
         "vs_fixed_w1.6": "bandit_fixed_w1.6",
         "vs_ppo": "bandit_ppo",
+        "vs_context8d_fixed": "context8d_fixed",
     }
     references = {
         label: method

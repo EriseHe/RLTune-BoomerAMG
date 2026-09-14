@@ -150,8 +150,14 @@ def _base_protocol(
         if int(spec.solve_activation_case) > 0
     }
     setup_from_scratch = int(args.warmup_cases) == 0
-    joint_from_scratch = setup_from_scratch and not solve_activation_cases
-    if solve_activation_cases:
+    dynamic_activation_rules = {
+        spec.name: asdict(spec.solve_activation)
+        for spec in composable_specs if spec.solve_activation is not None
+    }
+    joint_from_scratch = setup_from_scratch and not (
+        solve_activation_cases or dynamic_activation_rules
+    )
+    if solve_activation_cases or dynamic_activation_rules:
         purpose = (
             f"{int(args.online_cases)} persistent joint-online instances; "
             "setup-bandit learning starts at instance 1 and solve controllers "
@@ -179,6 +185,9 @@ def _base_protocol(
         "solve": {
             "tolerance": float(args.tol),
             "max_cycles": int(args.max_cycles),
+            "smoother_profile": str(
+                getattr(args, "smoother_profile", "legacy_l1_jacobi")
+            ),
         },
         "methods": list(methods),
         "families": family_by_method,
@@ -207,6 +216,10 @@ def _base_protocol(
                 if spec.setup_kind in setup_bandit_kinds
             },
             "solve_activation_case": solve_activation_cases,
+            **(
+                {"dynamic_solve_activation": dynamic_activation_rules}
+                if dynamic_activation_rules else {}
+            ),
             "setup_from_scratch": setup_from_scratch,
             "joint_from_scratch": joint_from_scratch,
             "common_snapshot_mutable_state_cloned": not bool(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import math
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -116,6 +117,23 @@ class ControllerBundle:
         """Persist the native controller checkpoint without schema changes."""
 
         self.controller.save(path)
+        if self.encoder.encoding_version != "legacy_v1":
+            path.with_suffix(path.suffix + ".encoder.json").write_text(
+                json.dumps(self._protocol_metadata["state_encoder"], indent=2) + "\n",
+                encoding="utf-8",
+            )
+
+    def load(self, path: Path) -> None:
+        """Reject feature-incompatible checkpoints before changing learner state."""
+
+        sidecar = path.with_suffix(path.suffix + ".encoder.json")
+        if sidecar.exists():
+            expected = json.loads(json.dumps(self._protocol_metadata["state_encoder"]))
+            if json.loads(sidecar.read_text(encoding="utf-8")) != expected:
+                raise ValueError("Checkpoint state encoder does not match this bundle")
+        elif self.encoder.encoding_version != "legacy_v1":
+            raise ValueError("Versioned state encoder requires checkpoint encoder metadata")
+        self.controller.load(path)
 
     def protocol_metadata(self) -> dict[str, Any]:
         """Return an isolated, JSON-ready description of the built controller."""

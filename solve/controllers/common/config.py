@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Sequence
 
 from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
 
 from .state_encoder import (
     CANONICAL_PROBLEM_CONTEXT,
     PROBLEM_CONTEXT_MODES,
+    STATE_ENCODING_VERSIONS,
     SolveStateEncoder,
 )
 
@@ -102,8 +103,11 @@ class SolveStateSpec:
     time_scale_sec: float = 2.0e-3
     mode: str = "setup_full"
     problem_context_mode: str = CANONICAL_PROBLEM_CONTEXT
+    encoding_version: str = "legacy_v1"
 
     def __post_init__(self) -> None:
+        if self.encoding_version not in STATE_ENCODING_VERSIONS:
+            raise ValueError(f"encoding_version must be one of {STATE_ENCODING_VERSIONS}")
         if not math.isfinite(float(self.tol)) or float(self.tol) <= 0.0:
             raise ValueError("solve tolerance must be finite and positive")
         if int(self.max_cycles) <= 0:
@@ -126,7 +130,9 @@ class SolveStateSpec:
                 f"{PROBLEM_CONTEXT_MODES}"
             )
 
-    def build_encoder(self, *, setup_obs_encoder: Any) -> SolveStateEncoder:
+    def build_encoder(
+        self, *, setup_obs_encoder: Any, weights: Sequence[float] | None = None,
+    ) -> SolveStateEncoder:
         if setup_obs_encoder is None:
             raise ValueError("setup_full state requires a setup observation encoder")
         return SolveStateEncoder(
@@ -137,4 +143,10 @@ class SolveStateSpec:
             mode=str(self.mode),
             setup_obs_encoder=setup_obs_encoder,
             problem_context_mode=str(self.problem_context_mode),
+            encoding_version=self.encoding_version,
+            weight_bounds=(
+                (min(weights), max(weights))
+                if self.encoding_version == "space_aware_v2" and weights is not None
+                else None
+            ),
         )

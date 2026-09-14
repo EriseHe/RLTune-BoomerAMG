@@ -11,6 +11,7 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
+from hypre.bindings.config import configure_smoother_profile
 from online_td_experiment_common import _summarize
 from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION,
@@ -134,6 +135,9 @@ def _instance_stream_hash(
 
 
 def configure_paired_environment(args: argparse.Namespace) -> None:
+    configure_smoother_profile(
+        str(getattr(args, "smoother_profile", "legacy_l1_jacobi"))
+    )
     setup_param_resolution = int(args.setup_param_resolution)
     _problem, grid, _advection = _problem_stream_spec(args)
     values = {

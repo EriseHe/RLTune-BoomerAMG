@@ -36,6 +36,7 @@ def build_shared_action_controller_bundle(
 
     encoder = request.state.build_encoder(
         setup_obs_encoder=request.setup_obs_encoder,
+        weights=request.actions.weights,
     )
     config = request.actions.to_td_config(
         trace_lambda=float(request.trace_lambda),
@@ -79,12 +80,29 @@ def _shared_protocol_metadata(
             "the common physics-linear helper"
         ),
         "legacy": "legacy mkw diffusion-only projection",
+        "diffusion3d": (
+            "shared three log diffusion coefficients; intercept retained separately"
+        ),
+        "diffusion4d": (
+            "shared three log diffusion coefficients and their mean; "
+            "intercept retained separately"
+        ),
     }
     return {
         "kind": str(kind),
         "family": str(family),
         "state": str(request.state.mode),
         "state_encoder": {
+            "encoding_version": encoder.encoding_version,
+            "weight_bounds": encoder.weight_bounds,
+            "setup_observed_keys": list(request.setup_obs_encoder.observed_keys),
+            "setup_parameter_spec": (
+                asdict(request.setup_obs_encoder.parameter_spec)
+                if hasattr(request.setup_obs_encoder, "parameter_spec") else None
+            ),
+            "strict_setup_categories": bool(
+                getattr(request.setup_obs_encoder, "strict_categories", False)
+            ),
             "tol": float(request.state.tol),
             "max_cycles": int(request.state.max_cycles),
             "c_max": float(request.state.c_max),

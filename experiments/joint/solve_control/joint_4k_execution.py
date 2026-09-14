@@ -9,6 +9,7 @@ resolved.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Sequence
@@ -31,6 +32,7 @@ from joint_reporting import (
     _write_solve_screen_report,
     _write_summary_csv,
 )
+from joint_rl_activation import ReliabilityActivationGate
 from online_td_experiment_common import _json_ready, _write_json
 from problems.amg import normalize_diffusion_advection_context
 from run_online_methods_2k import _as_feedback
@@ -150,6 +152,7 @@ def make_method_solver(
     case_progress: float,
     case_index: int = 0,
     problem_context: Sequence[float] | None = None,
+    controller_enabled: bool | None = None,
     controller_bundles: Mapping[str, ControllerBundle],
     ppo_runner: Any,
     composable_specs: Mapping[str, ComposableMethodSpec] | None = None,
@@ -159,9 +162,15 @@ def make_method_solver(
     spec = None if composable_specs is None else composable_specs.get(method)
     solve_kind = None if spec is None else spec.solve_kind
     solve_tolerance = _method_solve_tolerance(spec, solve)
-    controller_is_delayed = bool(
+    if (
         spec is not None
-        and int(spec.solve_activation_case) > int(case_index)
+        and spec.solve_activation is not None
+        and controller_enabled is None
+    ):
+        raise ValueError("Dynamic activation requires the gate's pre-problem decision")
+    controller_is_delayed = bool(
+        controller_enabled is False
+        or (spec is not None and int(spec.solve_activation_case) > int(case_index))
     )
     if (
         (spec is None and method == "bandit_default")
@@ -370,6 +379,7 @@ def _run_one_method(
     progress_denom: int,
     previous_update: Dict[str, float],
     bandit_online_steps: Dict[str, int],
+    activation_gate: ReliabilityActivationGate | None = None,
 ) -> Dict[str, Any]:
     if (
         method == plan.default_setup_method
@@ -393,12 +403,17 @@ def _run_one_method(
         problem_context = normalize_diffusion_advection_context(
             problem_context
         )
+    activation_kwargs = (
+        {} if activation_gate is None
+        else {"controller_enabled": activation_gate.active}
+    )
     solver_fn = hooks.method_solver(
         method,
         mkw=dict(mkw),
         case_progress=float(online_index) / float(progress_denom),
         case_index=int(plan.warmup_cases + online_index),
         problem_context=problem_context,
+        **activation_kwargs,
     )
     if spec is not None and spec.setup_kind == "default":
         outcome = hooks.run_default_setup_method(
@@ -597,6 +612,11 @@ def _execute_online_instances(
     ).open("w", encoding="utf-8")
     order_rng = np.random.default_rng(int(plan.method_order_seed))
     progress_denom = max(1, len(plan.online_instances) - 1)
+    activation_gates = {
+        method: ReliabilityActivationGate(spec.solve_activation)
+        for method, spec in plan.composable_specs.items()
+        if spec.solve_activation is not None
+    }
     try:
         for online_index, (mkw, context) in enumerate(plan.online_instances):
             order = [
@@ -622,10 +642,49 @@ def _execute_online_instances(
                     progress_denom=progress_denom,
                     previous_update=previous_update,
                     bandit_online_steps=bandit_online_steps,
+                    activation_gate=activation_gates.get(method),
                 )
                 for execution_rank, method in enumerate(order)
             }
             for method in plan.methods:
+                if method in activation_gates:
+                    gate = activation_gates[method]
+                    outcome = case_rows[method]["outcome"]
+                    started_at = time.perf_counter()
+                    enabled_on_this_problem = gate.active
+                    if not enabled_on_this_problem:
+                        # primary_status can describe a later reselection; use
+                        # the first attempt, including recovered construction failures.
+                        if "first_primary_status" not in outcome:
+                            raise RuntimeError(
+                                "Dynamic activation requires first_primary_status"
+                            )
+                        failed = outcome["first_primary_status"] != "success"
+                        gate.observe(first_attempt_failed=failed)
+                    case_rows[method]["rl_activation"] = {
+                        **gate.summary(),
+                        "controller_enabled": enabled_on_this_problem,
+                        "observed_this_problem": not enabled_on_this_problem,
+                    }
+                    elapsed = time.perf_counter() - started_at
+                    outcome["activation_runtime"] = elapsed
+                    # The existing controller-overhead component also accounts
+                    # for the gate, preserving total = native + controller + bandit.
+                    outcome["infer_runtime"] = (
+                        float(outcome.get("infer_runtime", 0.0)) + elapsed
+                    )
+                    outcome["end_to_end_runtime"] = (
+                        float(outcome["end_to_end_runtime"]) + elapsed
+                    )
+                    if not enabled_on_this_problem and gate.active:
+                        print(json.dumps({
+                            "stage": "rl_activation",
+                            "method": method,
+                            "completed_problem": gate.crossing_case,
+                            "first_rl_problem": gate.crossing_case + 1,
+                            "log_evalue": gate.log_evalue,
+                            "log_threshold": gate.log_threshold,
+                        }), flush=True)
                 records[method].append(case_rows[method])
                 _write_json_line(handles[method], case_rows[method])
 
@@ -642,6 +701,14 @@ def _execute_online_instances(
                 handles=handles,
                 order_handle=order_handle,
             )
+            if activation_gates and (
+                done % max(1, plan.progress_every) == 0
+                or done == len(plan.online_instances)
+            ):
+                _write_json(
+                    plan.output_dir / "rl_activation.json",
+                    {method: gate.summary() for method, gate in activation_gates.items()},
+                )
     finally:
         for handle in handles.values():
             handle.close()
@@ -750,6 +817,21 @@ def _build_result(
             ),
         },
     }
+    activation_summary = {
+        method: {
+            **rows[-1]["rl_activation"],
+            "rl_problem_count": sum(
+                bool(row["rl_activation"]["controller_enabled"]) for row in rows
+            ),
+            "total_activation_runtime": sum(
+                float(row["outcome"].get("activation_runtime", 0.0)) for row in rows
+            ),
+        }
+        for method, rows in records.items()
+        if rows and "rl_activation" in rows[-1]
+    }
+    if activation_summary:
+        result["rl_activation"] = activation_summary
     if plan.ppo_runner is not None:
         result["ppo"] = {
             "forced_initial_action_count": int(

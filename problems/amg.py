@@ -105,6 +105,11 @@ DIFFUSION_ADVECTION_CONTEXT_FIELDS = (
 DIFFUSION_ADVECTION_CONTEXT_DIM = len(
     DIFFUSION_ADVECTION_CONTEXT_FIELDS
 )
+# The names count varying PDE descriptors; the intercept is retained separately.
+COMPACT_DIFFUSION_CONTEXT_INDICES = {
+    "diffusion3d": (0, 1, 2, 3),
+    "diffusion4d": (0, 1, 2, 3, 4),
+}
 DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS = (
     "diffusion_log_mean",
     "diffusion_log_contrast_xy",
@@ -155,6 +160,22 @@ def normalize_diffusion_advection_context(
     if not np.isclose(context[0], 1.0, atol=1.0e-12, rtol=0.0):
         raise ValueError("PDE context bias field must equal 1")
     return context
+
+
+def compact_diffusion_context(
+    values: Sequence[float] | np.ndarray,
+    *,
+    mode: str,
+) -> np.ndarray:
+    """Select diffusion coefficients, optionally their mean, plus the bias.
+
+    The stream keeps its historical eight-field representation. Both learners
+    use this same explicit view; nonzero advection must never be discarded.
+    """
+    context = normalize_diffusion_advection_context(values)
+    if np.any(context[5:8] != 0.0):
+        raise ValueError("Compact diffusion contexts require zero advection")
+    return context[list(COMPACT_DIFFUSION_CONTEXT_INDICES[mode])].copy()
 
 
 def build_matrix_kwargs_difconv(

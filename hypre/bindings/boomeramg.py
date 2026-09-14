@@ -123,6 +123,8 @@ _lib.amg_runtime_get_cycle_type.argtypes = [_VP]
 
 _lib.amg_runtime_get_relax_type.restype = _I
 _lib.amg_runtime_get_relax_type.argtypes = [_VP]
+_lib.amg_runtime_get_cycle_relax_type.restype = _I
+_lib.amg_runtime_get_cycle_relax_type.argtypes = [_VP, _I]
 
 _lib.amg_runtime_get_relax_weight.restype = _I
 _lib.amg_runtime_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
@@ -473,6 +475,14 @@ class PreparedAMGEnv:
     @property
     def relax_type(self) -> int:
         return int(_lib.amg_runtime_get_relax_type(self._env))
+
+    @property
+    def cycle_relax_types(self) -> tuple[int, int, int]:
+        """Effective down/up/coarse smoothers, including native defaults."""
+        return tuple(
+            int(_lib.amg_runtime_get_cycle_relax_type(self._env, stage))
+            for stage in (1, 2, 3)
+        )
 
     @property
     def n(self) -> int:

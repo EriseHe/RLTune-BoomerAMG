@@ -35,7 +35,8 @@ HYPRE_Real amg_rl_compute_residual_norm(HYPRE_ParCSRMatrix A,
 int amg_rl_default_relax_type(void)
 {
     const char *env = getenv("AMG_RELAX_TYPE");
-    if (!env || !env[0]) return 18;
+    /* An omitted smoother means HYPRE's own per-stage defaults, not Jacobi. */
+    if (!env || !env[0]) return -1;
 
     char *end = NULL;
     long v = strtol(env, &end, 10);
@@ -54,16 +55,36 @@ int amg_rl_default_cycle_type(void)
     return (int) v;
 }
 
+void amg_rl_set_relax_type(HYPRE_Solver solver, int relax_type)
+{
+    if (relax_type < 0) return;
+
+    int coarse_relax_type = relax_type;
+    const char *env = getenv("AMG_COARSE_RELAX_TYPE");
+    if (env && env[0])
+    {
+        char *end = NULL;
+        long value = strtol(env, &end, 10);
+        if (end == env || *end != '\0' || value < 0 || value > 199)
+        {
+            hypre_error_w_msg(HYPRE_ERROR_ARG, "Invalid AMG_COARSE_RELAX_TYPE");
+            return;
+        }
+        coarse_relax_type = (int) value;
+    }
+    HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, coarse_relax_type, 3);
+}
+
 static void amg_rl_configure_single_cycle_solver(HYPRE_Solver solver, int relax_type, int cycle_type)
 {
-    HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
+    amg_rl_set_relax_type(solver, relax_type);
     HYPRE_BoomerAMGSetCycleType(solver, cycle_type);
     HYPRE_BoomerAMGSetTol(solver, 0.0);
     HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetNumSweeps(solver, 1);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 3);
 }
 
 int amg_rl_prepare_solver(HYPRE_Solver solver,
@@ -140,13 +161,7 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     {
         HYPRE_BoomerAMGSetCycleType(solver, cycle_type);
     }
-    if (relax_type >= 0)
-    {
-        HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 3);
-    }
+    amg_rl_set_relax_type(solver, relax_type);
     if (pre_relax_type >= 0)
     {
         HYPRE_BoomerAMGSetCycleRelaxType(solver, pre_relax_type, 1);

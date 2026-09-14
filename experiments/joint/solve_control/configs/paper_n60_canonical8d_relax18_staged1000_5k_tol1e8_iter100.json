@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "name": "paper_n60_canonical8d_relax18_staged1000_5k_tol1e8_iter100",
+  "description": "60^3/5K scalar anisotropic diffusion, zero advection, canonical 8D LinUCB v5. Three paired branches: fixed default setup plus fixed-weight solve; online LinUCB plus fixed-weight solve; online LinUCB plus canonical LSTDQ-v3 activated at case 1001. All branches explicitly use the legacy l1-Jacobi smoother profile (18/18/18), relative tolerance 1e-8 and at most 100 cycles. Default solve uses w=1; RL changes only relaxation weight. The first 1000 cases count toward the 5000-case budget and train setup only. Identical stream, seeds and learning configuration to the native-smoother comparison, except smoother, stopping tolerance and cycle cap. This is not a claim of exact old-paper reproduction.",
+  "output_dir": "results/joint/paper_n60_canonical8d_relax18_staged1000_5k_tol1e8_iter100_20260906",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion",
+    "grid": [60, 60, 60],
+    "c_min": 1.0,
+    "c_max": 1000.0,
+    "advection": [0.0, 0.0, 0.0]
+  },
+  "stream": {
+    "cases": 5000,
+    "warmup_cases": 0,
+    "online_cases": 5000,
+    "instance_offset": 0,
+    "seed_groups": [52700057, 52706057, 52712057, 52718057, 52724057, 52730057, 52736057, 52742057],
+    "shuffle_seeds": [52748057],
+    "cases_per_seed": 625,
+    "group_take": 5000,
+    "expected_sha256": "07258e0e51e1b9ecc73cdac1344d25050496b6e150da5de1359f0234a2afc722",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 52700057,
+    "bandit": 52760057,
+    "controller": 52766057,
+    "method_order": 52772057
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {"mode": "aot", "max_selections_per_case": 3, "chunk_rounds": 256},
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [0, 2, 3, 6, 8, 10],
+        "interp_types": [0, 2, 3, 6, 8, 17],
+        "agg_interp_types": [4]
+      }
+    }
+  },
+  "solve": {
+    "smoother_profile": "legacy_l1_jacobi",
+    "tolerance": 1e-8,
+    "max_cycles": 100,
+    "action_grid": {"start": 1.0, "stop": 3.0, "step": 0.05},
+    "rbf": {"centers": {"start": 1.0, "stop": 3.0, "step": 0.25}, "sigma": 0.2},
+    "epsilon": {"start": 0.3, "final": 0.03, "decay_steps": 20000},
+    "lstdq": {"ridge": 1.0, "beta": 2.0, "trace_lambda": 0.8, "residual_floor_sec": 0.001, "lcb_lower_bound_sec": 0.0},
+    "lstdq_v3": {"beta": 2.0}
+  },
+  "methods": [
+    {"id": "default_setup_default_solve", "setup": "default", "solve": "default"},
+    {
+      "id": "linucb_default_solve", "setup": "linucb_v5",
+      "setup_space": "recommended", "candidate_sampling": "structured512",
+      "solve": "default", "seed_offset": 0
+    },
+    {
+      "id": "linucb_lstdq_v3_staged1000", "setup": "linucb_v5",
+      "setup_space": "recommended", "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3", "solve_context": "canonical",
+      "solve_activation_case": 1000, "solve_tolerance": 1e-8, "seed_offset": 0
+    }
+  ],
+  "reporting": {"progress_every": 100, "rolling_window": 100, "generate_plots": true}
+}

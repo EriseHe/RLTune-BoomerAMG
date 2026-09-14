@@ -95,6 +95,7 @@ AMG_API int amg_runtime_get_cycle(AMGRuntime *env);
 AMG_API double amg_runtime_get_setup_time(AMGRuntime *env);
 AMG_API int amg_runtime_get_cycle_type(AMGRuntime *env);
 AMG_API int amg_runtime_get_relax_type(AMGRuntime *env);
+AMG_API int amg_runtime_get_cycle_relax_type(AMGRuntime *env, int stage);
 AMG_API int amg_runtime_get_relax_weight(AMGRuntime *env, int level, double *out_weight);
 
 #ifdef __cplusplus

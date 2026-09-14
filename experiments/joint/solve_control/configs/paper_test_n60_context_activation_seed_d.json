@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "name": "paper_test_n60_context_activation_seed_d",
+  "description": "Prospectively selected algorithm-seed-D replication of paper_test_n60_context_activation. The original 5000 60^3 matrices, RHS stream, and randomized method-order seed are retained. All five learned branches use seed offset 3000047 instead of the previous seed-C offset 2000029 (setup seed 55760104; LSTDQ-v3 controller seed 55768122, including its existing 2018 offset). The six-branch roster, contexts, encoding, solver settings, candidate-generation protocol, and reliability-mixture activation thresholds remain unchanged. Candidate draws use the new setup seed; history-dependent candidate anchors and learned trajectories may differ by branch. This is one complete 5000-problem replication chosen before observing its results, with no performance-based seed selection or early stopping. Default is measured again in the same paired run. The primary comparison is total end-to-end time over all 5000 problems, including recovery and recurring learner/controller overhead; activation times and the last-1000 time breakdown are secondary. This checks algorithm-seed sensitivity on a fixed problem stream, not independent problem-stream generalization.",
+  "output_dir": "results/joint/paper_test_n60_context_activation_seed_d",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion",
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "c_min": 1,
+    "c_max": 1000,
+    "advection": [
+      0,
+      0,
+      0
+    ]
+  },
+  "stream": {
+    "cases": 5000,
+    "warmup_cases": 0,
+    "online_cases": 5000,
+    "instance_offset": 0,
+    "seed_groups": [
+      52700057,
+      52706057,
+      52712057,
+      52718057,
+      52724057,
+      52730057,
+      52736057,
+      52742057
+    ],
+    "shuffle_seeds": [
+      52748057
+    ],
+    "cases_per_seed": 625,
+    "group_take": 5000,
+    "expected_sha256": "07258e0e51e1b9ecc73cdac1344d25050496b6e150da5de1359f0234a2afc722",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 52700057,
+    "bandit": 52760057,
+    "controller": 52766057,
+    "method_order": 52772057
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "lin_ts": {
+      "relative_sampling_scale": 0.15,
+      "loss_scale_prior_sec": 0.1
+    },
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          10
+        ],
+        "interp_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          17
+        ],
+        "agg_interp_types": [
+          4
+        ]
+      }
+    }
+  },
+  "solve": {
+    "tolerance": 1e-06,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1,
+      "stop": 3,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1,
+        "stop": 3,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    },
+    "lstdq": {
+      "ridge": 1,
+      "beta": 2,
+      "trace_lambda": 0.8,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0
+    },
+    "lstdq_v2": {
+      "beta": 4,
+      "coverage_ridge": 1,
+      "residual_window": 2048,
+      "min_samples": 32
+    },
+    "lstdq_v3": {
+      "beta": 2
+    },
+    "smoother_profile": "l1_jacobi_direct_coarse",
+    "state_encoding": "space_aware_v2"
+  },
+  "methods": [
+    {
+      "id": "default_setup_default_solve",
+      "setup": "default",
+      "solve": "default"
+    },
+    {
+      "id": "context8d_fixed",
+      "setup": "linucb_v5",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "seed_offset": 3000047
+    },
+    {
+      "id": "context3d_fixed",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion3d",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "seed_offset": 3000047,
+      "setup_context": "diffusion3d"
+    },
+    {
+      "id": "context4d_fixed",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion4d",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06,
+      "seed_offset": 3000047,
+      "setup_context": "diffusion4d"
+    },
+    {
+      "id": "context3d_dynamic",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion3d",
+      "solve_tolerance": 1e-06,
+      "seed_offset": 3000047,
+      "setup_context": "diffusion3d",
+      "solve_activation": {
+        "kind": "reliability_mixture",
+        "p_bad": 0.05,
+        "p_good": 0.01,
+        "delta": 0.05
+      }
+    },
+    {
+      "id": "context4d_dynamic",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "candidate_sampling": "structured512",
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion4d",
+      "solve_tolerance": 1e-06,
+      "seed_offset": 3000047,
+      "setup_context": "diffusion4d",
+      "solve_activation": {
+        "kind": "reliability_mixture",
+        "p_bad": 0.05,
+        "p_good": 0.01,
+        "delta": 0.05
+      }
+    }
+  ],
+  "reporting": {
+    "progress_every": 100,
+    "rolling_window": 100,
+    "generate_plots": true
+  }
+}
