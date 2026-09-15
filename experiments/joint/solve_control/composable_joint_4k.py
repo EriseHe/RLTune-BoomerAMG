@@ -254,6 +254,20 @@ def _validate_specs(
         raise ValueError(
             "Dynamic activation requires online setup learning, not setup replay"
         )
+    for spec in dynamic_methods:
+        horizon = spec.solve_activation.horizon
+        if horizon is not None and horizon != int(args.online_cases) - 1:
+            raise ValueError("Composite activation horizon must equal online_cases - 1")
+    if getattr(args, "shared_online_prefix", False):
+        if len(specs) != 2 or len(staged_methods) != 1 or len(dynamic_methods) != 1:
+            raise ValueError("Shared online prefix requires exactly one fixed-start and one dynamic-start method")
+        fixed = next(spec for spec in specs if spec.solve_activation_case)
+        dynamic = dynamic_methods[0]
+        if fixed.setup_kind != "linucb" or replace(
+            fixed, name=dynamic.name, solve_activation_case=0,
+            solve_activation=dynamic.solve_activation,
+        ) != dynamic:
+            raise ValueError("Shared online prefix requires matching LinUCB methods and seeds apart from activation")
     compact_methods = any(
         spec.setup_context in COMPACT_DIFFUSION_CONTEXT_INDICES
         or spec.solve_context in COMPACT_DIFFUSION_CONTEXT_INDICES

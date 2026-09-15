@@ -661,6 +661,9 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
             )
         _write_json(args.output_dir / "config.json", protocol)
     assert protocol is not None
+    if getattr(args, "shared_online_prefix", False):
+        protocol["shared_online_prefix"] = True
+        _write_json(args.output_dir / "config.json", protocol)
     # Preserve the legacy environment-derived validation at the same point in
     # the run lifecycle; the resolved value was never consumed by the loop.
     default_test_final_bandit_config_from_env()
@@ -682,6 +685,7 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
         composable_specs=composable_specs,
         branches=branches,
         setup_replay_rows=setup_replay_rows,
+        shared_online_prefix=bool(getattr(args, "shared_online_prefix", False)),
         controller_bundles=controller_bundles,
         ppo_runner=ppo_runner,
         protocol=protocol,

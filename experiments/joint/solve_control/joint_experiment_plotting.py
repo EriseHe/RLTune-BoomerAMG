@@ -145,7 +145,9 @@ def _compact_solve_label(spec: Dict[str, Any]) -> str:
 
 
 def _expected_solve_context(spec: Dict[str, Any]) -> str:
-    if str(spec.get("setup_context", "default")) in {"diffusion3d", "diffusion4d"}:
+    if str(spec.get("setup_context", "default")) in {
+        "diffusion3d", "diffusion4d", "canonical_no_c_mean",
+    }:
         return str(spec["setup_context"])
     if str(spec.get("setup_context", "default")) == "physics_linear":
         return "physics_linear"
@@ -159,6 +161,27 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
         str(spec["name"]): dict(spec)
         for spec in protocol.get("method_specs", [])
     }
+    # A three-method framework comparison needs algorithm names, while the
+    # historical context/activation ablations keep their distinguishing labels.
+    learned = [s for s in specs.values() if s.get("setup_kind") == "linucb"]
+    if (
+        len(specs) == 3 and len(learned) == 2
+        and {s.get("solve_kind") for s in learned} == {"default", "recursive_lstdq_v3"}
+        and len({tuple(s.get(k) for k in (
+            "setup_context", "setup_space", "candidate_sampling", "seed_offset",
+            "setup_warmup_cases",
+        )) for s in learned}) == 1
+        and all(not s.get("solve_activation") for s in learned)
+        and all(s.get("solve_kind") == "default"
+                or s.get("solve_context") == s.get("setup_context") for s in learned)
+        and any(s.get("setup_kind") == s.get("solve_kind") == "default"
+                for s in specs.values())
+    ):
+        return {
+            name: ("Default" if s["setup_kind"] == "default" else
+                   "LinUCB" if s["solve_kind"] == "default" else "LinUCB–LSTDQ")
+            for name, s in specs.items()
+        }
     compact_context_comparison = any(
         spec.get("setup_context") in {"diffusion3d", "diffusion4d"}
         for spec in specs.values()

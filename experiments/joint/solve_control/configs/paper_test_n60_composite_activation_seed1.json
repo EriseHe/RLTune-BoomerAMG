@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "name": "paper_test_n60_composite_activation_seed1",
+  "description": "Single prespecified 60^3 diffusion replicate comparing start-1001 against continuous uniform-q and uniform-onset reliability activation (p0=.05, delta=.05, H=4999). One physical shared reference prefix, full-state fork at the earlier activation boundary, independent online updates thereafter. Both methods account for all 5000 problems; dynamic cost includes gate computation. Primary: cumulative online end-to-end cost relative to fixed_start. Exploratory, no seed selection.",
+  "output_dir": "results/joint/paper_test_n60_composite_activation_seed1",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion",
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "c_min": 1,
+    "c_max": 1000,
+    "advection": [
+      0,
+      0,
+      0
+    ]
+  },
+  "stream": {
+    "cases": 5000,
+    "warmup_cases": 0,
+    "online_cases": 5000,
+    "instance_offset": 0,
+    "seed_groups": [
+      56700120,
+      56706120,
+      56712120,
+      56718120,
+      56724120,
+      56730120,
+      56736120,
+      56742120
+    ],
+    "shuffle_seeds": [
+      56748120
+    ],
+    "cases_per_seed": 625,
+    "group_take": 5000,
+    "expected_sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823",
+    "smoke": false
+  },
+  "seeds": {
+    "base": 56700120,
+    "bandit": 56760120,
+    "controller": 56766120,
+    "method_order": 56772120
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "lin_ts": {
+      "relative_sampling_scale": 0.15,
+      "loss_scale_prior_sec": 0.1
+    },
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          10
+        ],
+        "interp_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          17
+        ],
+        "agg_interp_types": [
+          4
+        ]
+      }
+    },
+    "shared_online_prefix": true
+  },
+  "solve": {
+    "tolerance": 1e-06,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1,
+      "stop": 3,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1,
+        "stop": 3,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    },
+    "lstdq": {
+      "ridge": 1,
+      "beta": 2,
+      "trace_lambda": 0.8,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0
+    },
+    "lstdq_v2": {
+      "beta": 4,
+      "coverage_ridge": 1,
+      "residual_window": 2048,
+      "min_samples": 32
+    },
+    "lstdq_v3": {
+      "beta": 2
+    },
+    "smoother_profile": "l1_jacobi_direct_coarse",
+    "state_encoding": "space_aware_v2"
+  },
+  "methods": [
+    {
+      "id": "fixed_start",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "diffusion3d",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion3d",
+      "solve_activation_case": 1000,
+      "solve_tolerance": 1e-06
+    },
+    {
+      "id": "composite_start",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "diffusion3d",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "diffusion3d",
+      "solve_tolerance": 1e-06,
+      "solve_activation": {
+        "kind": "composite_reliability_mixture",
+        "p_bad": 0.05,
+        "delta": 0.05,
+        "horizon": 4999
+      }
+    }
+  ],
+  "reporting": {
+    "progress_every": 100,
+    "rolling_window": 100,
+    "generate_plots": true
+  }
+}

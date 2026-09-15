@@ -63,6 +63,7 @@ SETUP_KEYS = {
     "configuration_spaces",
     "lin_ts",
     "replay_trajectory",
+    "shared_online_prefix",
 }
 CANDIDATE_SCHEDULE_KEYS = {
     "mode",
@@ -390,6 +391,7 @@ class SetupExperimentSpec:
     configuration_spaces: Mapping[str, SetupConfigurationSpace]
     lin_ts: LinTsSpec
     replay_trajectory: Path | None
+    shared_online_prefix: bool = False
 
     @classmethod
     def from_mapping(
@@ -424,6 +426,9 @@ class SetupExperimentSpec:
         )
         if replay_token == "":
             raise ValueError("setup.replay_trajectory cannot be empty")
+        shared_online_prefix = raw.get("shared_online_prefix", False)
+        if type(shared_online_prefix) is not bool:
+            raise ValueError("setup.shared_online_prefix must be boolean")
         replay_trajectory = (
             None
             if replay_token is None
@@ -443,6 +448,7 @@ class SetupExperimentSpec:
                 mapping(raw.get("lin_ts", {}), name="setup.lin_ts")
             ),
             replay_trajectory=replay_trajectory,
+            shared_online_prefix=shared_online_prefix,
         )
 
 
@@ -744,6 +750,7 @@ class JointExperimentRuntimeConfig:
     setup_configuration_spaces: Dict[str, SetupConfigurationSpace]
     solve_controller_specs: Dict[str, OnlineControllerBuildSpec]
     joint_experiment_spec: JointExperimentSpec
+    shared_online_prefix: bool = False
 
 
 def parse_joint_experiment_config(
@@ -959,6 +966,7 @@ def runtime_config_from_spec(
         ),
         solve_controller_specs=dict(solve.controller_specs),
         joint_experiment_spec=spec,
+        shared_online_prefix=spec.setup.shared_online_prefix,
     )
 
 

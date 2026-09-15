@@ -9,10 +9,13 @@ from problems.amg import (
     COMPACT_DIFFUSION_CONTEXT_INDICES,
     DIFFUSION_ADVECTION_CONTEXT_DIM,
     DIFFUSION_ADVECTION_CONTEXT_FIELDS,
+    DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
+    DIFFUSION_ADVECTION_NO_MEAN_INDICES,
     DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS,
     build_context_diffusion_advection_from_matrix_kwargs,
     build_diffusion_advection_physics_context,
     compact_diffusion_context,
+    diffusion_advection_context_without_mean,
     normalize_diffusion_advection_context as normalize_problem_context,
 )
 
@@ -24,6 +27,7 @@ PROBLEM_CONTEXT_MODES = (
     CANONICAL_PROBLEM_CONTEXT,
     LEGACY_DIFFUSION_ONLY_CONTEXT,
     PHYSICS_LINEAR_PROBLEM_CONTEXT,
+    DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
     *COMPACT_DIFFUSION_CONTEXT_INDICES,
 )
 STATE_ENCODING_VERSIONS = ("legacy_v1", "space_aware_v2")
@@ -78,6 +82,12 @@ class SolveStateEncoder:
         if self.problem_context_mode == CANONICAL_PROBLEM_CONTEXT:
             self.problem_context_fields = DIFFUSION_ADVECTION_CONTEXT_FIELDS
             self.problem_feature_dim = DIFFUSION_ADVECTION_CONTEXT_DIM - 1
+        elif self.problem_context_mode == DIFFUSION_ADVECTION_NO_MEAN_CONTEXT:
+            self.problem_context_fields = tuple(
+                DIFFUSION_ADVECTION_CONTEXT_FIELDS[index]
+                for index in DIFFUSION_ADVECTION_NO_MEAN_INDICES
+            )
+            self.problem_feature_dim = len(self.problem_context_fields) - 1
         elif self.problem_context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
             self.problem_context_fields = tuple(
                 DIFFUSION_ADVECTION_CONTEXT_FIELDS[index]
@@ -177,6 +187,7 @@ class SolveStateEncoder:
         if self.problem_context_mode in {
             CANONICAL_PROBLEM_CONTEXT,
             PHYSICS_LINEAR_PROBLEM_CONTEXT,
+            DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
             *COMPACT_DIFFUSION_CONTEXT_INDICES,
         }:
             canonical_context = (
@@ -196,6 +207,10 @@ class SolveStateEncoder:
             if self.problem_context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
                 resolved_context = compact_diffusion_context(
                     canonical_context, mode=self.problem_context_mode
+                )
+            elif self.problem_context_mode == DIFFUSION_ADVECTION_NO_MEAN_CONTEXT:
+                resolved_context = diffusion_advection_context_without_mean(
+                    canonical_context
                 )
             problem_key = tuple(float(value) for value in resolved_context)
             if self._cached_problem_key != problem_key:

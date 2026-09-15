@@ -110,6 +110,8 @@ COMPACT_DIFFUSION_CONTEXT_INDICES = {
     "diffusion3d": (0, 1, 2, 3),
     "diffusion4d": (0, 1, 2, 3, 4),
 }
+DIFFUSION_ADVECTION_NO_MEAN_CONTEXT = "canonical_no_c_mean"
+DIFFUSION_ADVECTION_NO_MEAN_INDICES = (0, 1, 2, 3, 5, 6, 7)
 DIFFUSION_ADVECTION_PHYSICS_COORDINATE_FIELDS = (
     "diffusion_log_mean",
     "diffusion_log_contrast_xy",
@@ -176,6 +178,14 @@ def compact_diffusion_context(
     if np.any(context[5:8] != 0.0):
         raise ValueError("Compact diffusion contexts require zero advection")
     return context[list(COMPACT_DIFFUSION_CONTEXT_INDICES[mode])].copy()
+
+
+def diffusion_advection_context_without_mean(
+    values: Sequence[float] | np.ndarray,
+) -> np.ndarray:
+    """Shared learner view: intercept and all six normalized coefficients."""
+    context = normalize_diffusion_advection_context(values)
+    return context[list(DIFFUSION_ADVECTION_NO_MEAN_INDICES)].copy()
 
 
 def build_matrix_kwargs_difconv(

@@ -8,6 +8,8 @@ resolved.
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import time
 from dataclasses import dataclass
@@ -102,6 +104,7 @@ class OnlineComparisonPlan:
     default_setup_method: str
     include_solve_screen_report: bool
     setup_replay_rows: Sequence[Mapping[str, Any]] | None = None
+    shared_online_prefix: bool = False
 
 
 @dataclass(frozen=True)
@@ -590,6 +593,74 @@ def _write_progress(
     )
 
 
+def _fork_shared_online_prefix(
+    plan: OnlineComparisonPlan, *, source: str, target: str,
+    completed_instances: int, previous_update: Mapping[str, float],
+    bandit_online_steps: Mapping[str, int],
+) -> None:
+    """Restore the existing full checkpoint into an independent AOT branch."""
+    started_at = time.perf_counter()
+    source_model = plan.branches[source].policy.model
+    target_model = plan.branches[target].policy.model
+    if source_model is target_model:
+        raise RuntimeError("Shared-prefix branches must have independent models")
+    state_path = plan.checkpoints_dir / "shared_prefix_setup.npz"
+    metadata = {"source": source, "completed_instances": completed_instances}
+    source_model.save_mutable_state(state_path, metadata=metadata)
+    target_model.load_mutable_state(state_path)
+    # Structured candidates also anchor on history[-1].arm_index. The existing
+    # checkpoint resets history, so restore it as part of the decision state.
+    target_model.history = copy.deepcopy(source_model.history)
+    target_model.candidate_stats_history = copy.deepcopy(source_model.candidate_stats_history)
+    target_model._local_neighbor_cache = copy.deepcopy(source_model._local_neighbor_cache)
+    restored_path = plan.checkpoints_dir / "shared_prefix_restored_setup.npz"
+    target_model.save_mutable_state(restored_path, metadata=metadata)
+    with np.load(state_path, allow_pickle=False) as expected, np.load(
+        restored_path, allow_pickle=False,
+    ) as actual:
+        equal = expected.files == actual.files and all(
+            np.array_equal(expected[key], actual[key]) for key in expected.files
+        )
+    independent_arrays = all(
+        not np.shares_memory(getattr(source_model, key), getattr(target_model, key))
+        for key in ("A_inv", "b", "failure_A_inv", "failure_b")
+    )
+    source_schedule = source_model._candidate_schedule
+    target_schedule = target_model._candidate_schedule
+    independent_schedule = source_schedule is None or (
+        source_schedule is not target_schedule
+        and source_schedule.cursor == target_schedule.cursor
+    )
+    valid = (
+        equal and independent_arrays and independent_schedule
+        and source_model.rng is not target_model.rng
+        and source_model._cand is not target_model._cand
+        and previous_update[source] == previous_update[target]
+        and bandit_online_steps[source] == bandit_online_steps[target] == completed_instances
+    )
+    audit = {
+        "valid": valid,
+        "source": source, "target": target,
+        "completed_instances": completed_instances,
+        "equal_checkpoint_arrays": equal,
+        "independent_model_arrays": independent_arrays,
+        "independent_schedule_cursor": independent_schedule,
+        "candidate_schedule_cursor": None if source_schedule is None else source_schedule.cursor,
+        "previous_update_sec": dict(previous_update),
+        "bandit_online_steps": dict(bandit_online_steps),
+        "setup_checkpoint_sha256": hashlib.sha256(state_path.read_bytes()).hexdigest(),
+        "controller_summaries_at_fork": {
+            method: bundle.summary() for method, bundle in plan.controller_bundles.items()
+        },
+        "fork_preparation_runtime_sec": time.perf_counter() - started_at,
+        "fork_preparation_in_online_cost": False,
+    }
+    _write_json(plan.output_dir / "shared_prefix.json", audit)
+    if not valid:
+        raise RuntimeError("Shared-prefix fork state audit failed")
+    print(json.dumps({"stage": "shared_prefix_fork", **audit}), flush=True)
+
+
 def _execute_online_instances(
     plan: OnlineComparisonPlan,
     hooks: OnlineComparisonHooks,
@@ -617,17 +688,25 @@ def _execute_online_instances(
         for method, spec in plan.composable_specs.items()
         if spec.solve_activation is not None
     }
+    shared_prefix = plan.shared_online_prefix
+    if shared_prefix:
+        source = next(method for method, spec in plan.composable_specs.items() if spec.solve_activation_case)
+        target = next(iter(activation_gates))
+        fixed_boundary = plan.composable_specs[source].solve_activation_case
     try:
         for online_index, (mkw, context) in enumerate(plan.online_instances):
             order = [
                 plan.methods[int(index)]
                 for index in order_rng.permutation(len(plan.methods))
             ]
+            if shared_prefix:
+                order = [source]
             _write_json_line(
                 order_handle,
                 {
                     "online_index": int(online_index),
                     "method_order": order,
+                    **({"shared_prefix_source": source} if shared_prefix else {}),
                 },
             )
             case_rows = {
@@ -646,13 +725,22 @@ def _execute_online_instances(
                 )
                 for execution_rank, method in enumerate(order)
             }
+            if shared_prefix:
+                # One measured solve/update contributes once to each method's
+                # logical cost. Only the dynamic copy receives gate overhead.
+                case_rows[target] = copy.deepcopy(case_rows[source])
+                for row in case_rows.values():
+                    row["shared_prefix_source"] = source
+                previous_update[target] = previous_update[source]
+                bandit_online_steps[target] = bandit_online_steps[source]
             for method in plan.methods:
                 if method in activation_gates:
                     gate = activation_gates[method]
                     outcome = case_rows[method]["outcome"]
                     started_at = time.perf_counter()
                     enabled_on_this_problem = gate.active
-                    if not enabled_on_this_problem:
+                    observed_on_this_problem = gate.can_observe
+                    if observed_on_this_problem:
                         # primary_status can describe a later reselection; use
                         # the first attempt, including recovered construction failures.
                         if "first_primary_status" not in outcome:
@@ -664,7 +752,7 @@ def _execute_online_instances(
                     case_rows[method]["rl_activation"] = {
                         **gate.summary(),
                         "controller_enabled": enabled_on_this_problem,
-                        "observed_this_problem": not enabled_on_this_problem,
+                        "observed_this_problem": observed_on_this_problem,
                     }
                     elapsed = time.perf_counter() - started_at
                     outcome["activation_runtime"] = elapsed
@@ -689,6 +777,12 @@ def _execute_online_instances(
                 _write_json_line(handles[method], case_rows[method])
 
             done = online_index + 1
+            if shared_prefix and (done == fixed_boundary or activation_gates[target].active):
+                _fork_shared_online_prefix(
+                    plan, source=source, target=target, completed_instances=done,
+                    previous_update=previous_update, bandit_online_steps=bandit_online_steps,
+                )
+                shared_prefix = False
             _checkpoint_controllers(
                 plan,
                 completed_instances=done,

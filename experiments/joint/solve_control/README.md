@@ -8,6 +8,10 @@ engine.
 Complete the environment and HYPRE build in the repository
 [`README.md`](../../../README.md) before running an experiment.
 
+The final paper study is documented in [`PAPER_FINAL.md`](PAPER_FINAL.md).
+Its 18 frozen configurations cover Modules 1 and 2. The suite entry point
+`run_paper_final.py` defaults to validation; native runs require `--run`.
+
 ## Run from a JSON configuration
 
 Validate a configuration without launching HYPRE:

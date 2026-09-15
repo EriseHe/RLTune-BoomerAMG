@@ -10,11 +10,13 @@ import numpy as np
 from .amg import (
     COMPACT_DIFFUSION_CONTEXT_INDICES,
     DIFCONV_CONTEXT_DIM,
+    DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
     DIFFUSION_ADVECTION_QUADRATIC_CONTEXT_DIM,
     build_diffusion_advection_physics_context,
     build_diffusion_advection_quadratic_context,
     build_normalized_cell_peclet_from_matrix_kwargs,
     compact_diffusion_context,
+    diffusion_advection_context_without_mean,
     normalize_diffusion_advection_context,
 )
 from .scalar_anisotropic_diffusion_advection import (
@@ -41,7 +43,7 @@ PROBLEM_KIND_ALIASES = {
 SUPPORTED_PROBLEM_KINDS = tuple(PROBLEM_KIND_ALIASES)
 
 DEFAULT_SETUP_CONTEXT = "default"
-CANONICAL_NO_C_MEAN_SETUP_CONTEXT = "canonical_no_c_mean"
+CANONICAL_NO_C_MEAN_SETUP_CONTEXT = DIFFUSION_ADVECTION_NO_MEAN_CONTEXT
 CANONICAL_MEANS_ONLY_SETUP_CONTEXT = "canonical_means_only"
 CANONICAL_WITH_A_MEAN_SETUP_CONTEXT = "canonical_with_a_mean"
 CANONICAL_WITH_MEANS_AND_PECLET_SETUP_CONTEXT = (
@@ -243,7 +245,7 @@ def context_for_setup_method(
         if context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES:
             return compact_diffusion_context(canonical, mode=context_mode)
         if context_mode == CANONICAL_NO_C_MEAN_SETUP_CONTEXT:
-            return canonical[[0, 1, 2, 3, 5, 6, 7]]
+            return diffusion_advection_context_without_mean(canonical)
 
         advection_mean = float(np.mean(canonical[5:8]))
         if context_mode == CANONICAL_MEANS_ONLY_SETUP_CONTEXT:

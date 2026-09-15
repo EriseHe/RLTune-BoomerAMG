@@ -110,6 +110,7 @@ def _validate_resolved(
         ],
         "setup_configuration_spaces": resolved_spaces,
         "setup_candidate_mode": str(args.setup_candidate_mode),
+        "shared_online_prefix": args.shared_online_prefix,
         "setup_replay_trajectory": (
             None
             if args.setup_replay_trajectory is None
@@ -176,7 +177,11 @@ def _write_reproduction_artifacts(
             f"- instances: `{args.train_cases}` (`{args.warmup_cases}` warmup + `{args.online_cases}` online)",
             f"- problem/grid: `{validation['stream'].get('problem')}` / `{validation['stream'].get('grid')}`",
             f"- methods: `{', '.join(method['id'] for method in methods)}`",
-            "- execution: one shared stream, independent mutable learner state per branch, randomized per-instance method order",
+            (
+                "- execution: one measured reference prefix until the earlier activation, full-state fork, then independent updates and randomized per-instance order; see shared_prefix.json"
+                if args.shared_online_prefix else
+                "- execution: one shared stream, independent mutable learner state per branch, randomized per-instance method order"
+            ),
             "- timing/recovery: active joint-online bounded-recovery protocol",
             "",
             "`stream_manifest.json` records the exact deterministic input stream.",

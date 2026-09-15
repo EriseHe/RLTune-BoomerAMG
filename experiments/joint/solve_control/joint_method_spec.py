@@ -354,7 +354,10 @@ class ComposableMethodSpec:
             activation = str(self.solve_activation_case)
             if self.solve_activation is not None:
                 rule = self.solve_activation
-                activation = f"mixture@{rule.p_bad!r}@{rule.p_good!r}@{rule.delta!r}"
+                if rule.kind == "composite_reliability_mixture":
+                    activation = f"composite@{rule.p_bad!r}@{rule.delta!r}@{rule.horizon}"
+                else:
+                    activation = f"mixture@{rule.p_bad!r}@{rule.p_good!r}@{rule.delta!r}"
             token = f"{token}:{activation}"
         if self.solve_tolerance is not None:
             token = f"{token}:{float(self.solve_tolerance):g}"
@@ -412,7 +415,17 @@ class ComposableMethodSpec:
         if len(parts) >= 5:
             method["setup_warmup_cases"] = int(parts[4])
         if len(parts) >= 6:
-            if parts[5].startswith("mixture@"):
+            if parts[5].startswith("composite@"):
+                activation = parts[5].split("@")
+                if len(activation) != 4:
+                    raise ValueError("Composite activation token uses composite@p_bad@delta@horizon")
+                method["solve_activation"] = {
+                    "kind": "composite_reliability_mixture",
+                    "p_bad": float(activation[1]),
+                    "delta": float(activation[2]),
+                    "horizon": int(activation[3]),
+                }
+            elif parts[5].startswith("mixture@"):
                 activation = parts[5].split("@")
                 if len(activation) != 4:
                     raise ValueError(

@@ -75,6 +75,10 @@ def _shared_protocol_metadata(
     epsilon = request.actions.epsilon
     context_sources = {
         "canonical": "shared per-instance canonical setup/solve PDE context",
+        "canonical_no_c_mean": (
+            "shared three log diffusion and three signed-log advection "
+            "coefficients; mean omitted and intercept retained separately"
+        ),
         "physics_linear": (
             "shared per-instance canonical PDE context projected through "
             "the common physics-linear helper"

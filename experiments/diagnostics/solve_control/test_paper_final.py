@@ -1,0 +1,214 @@
+"""PAPER_FINAL contract and reporting tests; no native experiments."""
+from __future__ import annotations
+
+import _project_paths  # noqa: F401
+
+import copy
+from dataclasses import asdict, replace
+import io
+import json
+from pathlib import Path
+import tempfile
+from types import SimpleNamespace
+import unittest
+from unittest.mock import Mock, patch
+
+import numpy as np
+
+import run_paper_final as suite
+from analyze_paper_final import audit_run, aggregate_runs, WINDOWS
+from composable_joint_4k import build_composable_solve_runtime, build_named_setup_branches, resolve_composable_study
+from joint_4k_execution import make_method_solver, SolveExecutionConfig
+from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from joint_experiment_plotting import _compact_method_labels
+from joint_method_spec import ComposableMethodSpec
+from joint_online_common import method_stream_summary
+from problems.amg import build_context_diffusion_advection_from_matrix_kwargs
+from problems.registry import context_for_setup_method
+from setup.space import DEFAULT_SETUP_PARAMS
+
+
+class PaperFinalTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.manifest, cls.configs = suite.load_suite()
+
+    def runtime(self, family="diffusion_advection"):
+        raw = next(raw for entry, _path, raw in self.configs if entry["family"] == family)
+        return runtime_config_from_spec(parse_joint_experiment_config(raw))
+
+    def test_nonzero_advection_has_identical_shared_context_and_no_mean(self):
+        runtime = self.runtime()
+        bundle = build_composable_solve_runtime(runtime, specs=runtime.methods).controller_bundles["bandit_lstdq"]
+        full_spec = replace(runtime.methods[-1], solve_context="canonical")
+        full = build_composable_solve_runtime(runtime, specs=(full_spec,)).controller_bundles["bandit_lstdq"]
+        mkw = dict(nx=40, ny=40, nz=40, k=100., c=10., a0=1., a1=-99., a2=9., a3=999.)
+        context = build_context_diffusion_advection_from_matrix_kwargs(
+            mkw, grid_norm_div=40., c_norm_div=1000., a_norm_div=1000.)
+        expected = np.r_[1., [2/3, 1/3, 0.],
+                         np.sign([-99., 9., 999.]) * np.log1p([99., 9., 999.]) / np.log1p(1000.)]
+        setup = context_for_setup_method(
+            problem_kind=runtime.problem, setup_kind="linucb", setup_context="canonical_no_c_mean",
+            matrix_kwargs=mkw, stream_context=context)
+        np.testing.assert_allclose(setup, expected, atol=1e-15)
+        inputs = dict(mkw=mkw, problem_context=context, initial_residual=1., residual=.02,
+                      previous_residual=.1, cycle=4, last_weight=2.7, last_cycle_time=.004,
+                      setup_params={**DEFAULT_SETUP_PARAMS, "coarsen_type": 3, "interp_type": 17})
+        state = bundle.encoder.encode(**inputs)
+        np.testing.assert_array_equal(state, np.delete(full.encoder.encode(**inputs), 10))
+        np.testing.assert_array_equal(setup, np.r_[state[0], state[7:13]])
+        self.assertEqual((bundle.encoder.feature_dim, bundle.controller.joint_dim), (34, 306))
+        # Changing only the removed mean must leave every encoded coordinate fixed.
+        changed = context.copy(); changed[4] = .987
+        np.testing.assert_array_equal(bundle.encoder.encode(**{**inputs, "problem_context": changed}), state)
+        self.assertNotIn("c_mean", bundle.protocol_metadata()["state_encoder"]["problem_context_fields"])
+        for spec in runtime.methods:
+            self.assertEqual(ComposableMethodSpec.from_runner_token(spec.to_runner_token()), spec)
+
+    def test_new_bandits_share_rng_and_context_but_not_mutable_learning_state(self):
+        runtime = self.runtime()
+        study = resolve_composable_study(runtime)
+        with tempfile.TemporaryDirectory() as tmp:
+            shortened = replace(runtime, output_dir=Path(tmp), online_cases=2)
+            artifacts = build_named_setup_branches(shortened, study=study, warmup_instances=[], stream_hash="test-only")
+            a, b = [artifacts.branches[m].policy.model for m in ("bandit_default", "bandit_lstdq")]
+            self.assertEqual((a.d_x, b.d_x), (7, 7))
+            self.assertFalse(np.shares_memory(a.A_inv, b.A_inv))
+            self.assertEqual(a.rng.bit_generator.state, b.rng.bit_generator.state)
+
+    def test_formal_method_labels_and_actual_activation_boundary(self):
+        for family in suite.CONTEXTS:
+            runtime = self.runtime(family)
+            specs = {s.name: s for s in runtime.methods}
+            labels = _compact_method_labels({"methods": list(specs), "method_specs": [asdict(s) for s in runtime.methods]})
+            self.assertEqual(labels, suite.METHOD_LABELS)
+            bundle = Mock()
+            bundle.run_case.return_value = {"controlled": True}
+            with patch("joint_4k_execution.solve_no_rl_case", return_value={"controlled": False}), \
+                    patch("joint_4k_execution._as_feedback", side_effect=lambda native, **kw: native):
+                for index, expected in ((0, False), (999, False), (1000, True), (4999, True)):
+                    solver = make_method_solver(
+                        "bandit_lstdq", solve=SolveExecutionConfig(1e-6, 50), mkw={},
+                        case_progress=index/4999, case_index=index,
+                        controller_bundles={"bandit_lstdq": bundle}, ppo_runner=None,
+                        composable_specs=specs)
+                    self.assertEqual(solver(dict(DEFAULT_SETUP_PARAMS))["controlled"], expected)
+
+    def test_default_cli_never_runs_and_low_disk_blocks_run(self):
+        with patch.object(suite, "validate_suite", return_value={"valid": True}), \
+                patch.object(suite, "run_suite") as run, patch("sys.stdout", new_callable=io.StringIO):
+            suite.main([])
+            run.assert_not_called()
+        with patch.object(suite.shutil, "disk_usage", return_value=SimpleNamespace(free=2**29)):
+            with self.assertRaisesRegex(RuntimeError, "Insufficient disk"):
+                suite.require_disk_space(Path(tempfile.gettempdir()), 18)
+
+    def test_prespecified_configs_detect_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            (directory / "suite.json").write_text(json.dumps(self.manifest))
+            for _entry, path, _raw in self.configs:
+                (directory / path.name).write_bytes(path.read_bytes())
+            changed = directory / self.configs[0][1].name
+            changed.write_text(changed.read_text() + " ")
+            with self.assertRaisesRegex(ValueError, "config changed"):
+                suite.load_suite(directory / "suite.json")
+
+    def test_suite_dispatch_and_resume_are_sequential_and_source_checked(self):
+        real_run = suite.subprocess.run
+        commands = []
+        def dispatch(command, **kwargs):
+            if command[0] != suite.sys.executable:
+                return real_run(command, **kwargs)
+            commands.append(command)
+            self.assertEqual(kwargs["env"]["OMP_NUM_THREADS"], "1")
+            self.assertNotIn("SETUP_CYCLE_TYPE", kwargs["env"])
+            return suite.subprocess.CompletedProcess(command, 0)
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(suite, "source_state", return_value={"sha256": "test", "files": {}}) as source, \
+                patch.object(suite, "require_disk_space"), \
+                patch.object(suite.subprocess, "run", side_effect=dispatch), \
+                patch("analyze_paper_final.audit_run", return_value={"unrecovered_failures": 0}), \
+                patch("analyze_paper_final.write_reports"), patch("sys.stdout", new_callable=io.StringIO):
+            output = Path(tmp)
+            suite.run_suite(suite.SUITE, output)
+            self.assertEqual(len(commands), 18)
+            for command, (_entry, config_path, _raw) in zip(commands, self.configs):
+                self.assertIn(str(config_path), command)
+            self.assertEqual(len(list(output.glob("*.complete.json"))), 18)
+            suite.run_suite(suite.SUITE, output)
+            self.assertEqual(len(commands), 18)
+            source.return_value = {"sha256": "changed", "files": {}}
+            with self.assertRaisesRegex(RuntimeError, "changed since suite launch"):
+                suite.run_suite(suite.SUITE, output)
+
+    def write_fixture(self, path):
+        raw = self.configs[0][2]
+        (path / "trajectories").mkdir()
+        (path / "experiment_config.json").write_text(json.dumps(raw))
+        stream = {"sha256": raw["stream"]["expected_sha256"]}
+        (path / "stream_manifest.json").write_text(json.dumps(stream))
+        (path / "progress.json").write_text(json.dumps({"completed_online_instances": 5000}))
+        result = {"protocol": {"stream": stream}, "windows": {w: {"methods": {}} for w in WINDOWS}}
+        for method in suite.METHOD_LABELS:
+            rows = []
+            for i in range(5000):
+                bandit = method != "default_setup_default_solve"
+                controlled = method == "bandit_lstdq" and i >= 1000
+                setup = .002 if bandit else .003
+                solve = .003 if controlled else .006 if bandit else .007
+                infer = .0002 if controlled else 0.
+                overhead = .0001 if bandit else 0.
+                outcome = dict(runtime=setup+solve, setup_runtime=setup, solve_runtime=solve,
+                               infer_runtime=infer, bandit_overhead_runtime=overhead,
+                               end_to_end_runtime=setup+solve+infer+overhead, iterations=2,
+                               first_primary_status="nonconvergence" if i == 12 else "success",
+                               primary_status="nonconvergence" if i == 12 else "success",
+                               fallback_used=i == 12, fallback_status="success" if i == 12 else "not_run",
+                               fallback_setup_runtime=.0005 if i == 12 else 0.,
+                               fallback_solve_runtime=.0015 if i == 12 else 0., recovered=i == 12,
+                               bandit_update_committed=bandit, controller_update_committed=controlled,
+                               cycle_actions=[1., 2.5] if controlled else [])
+                rows.append({"online_index": i, "params": DEFAULT_SETUP_PARAMS,
+                             "mkw": {"rhs_seed": i}, "outcome": outcome})
+            (path / "trajectories" / f"{method}.jsonl").write_text("".join(json.dumps(r)+"\n" for r in rows))
+            for window, (start, stop) in WINDOWS.items():
+                result["windows"][window]["methods"][method] = method_stream_summary(rows[start:stop])
+        (path / "result.json").write_text(json.dumps(result))
+        return raw
+
+    def test_accounting_reports_include_prefix_and_recovery_without_double_counting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            raw = self.write_fixture(path)
+            audited = audit_run(path, raw)
+            joint = audited["windows"]["all_5000"]["bandit_lstdq"]
+            self.assertAlmostEqual(joint["totals_sec"]["end_to_end_runtime"], 29.3)
+            self.assertAlmostEqual(joint["time_reduction_vs_default_pct"], 41.4)
+            self.assertAlmostEqual(joint["fallback_native_sec"], .002)
+            self.assertEqual(joint["primary_failure_count"], 1)
+            self.assertAlmostEqual(audited["windows"]["last_1000"]["bandit_lstdq"]["time_reduction_vs_default_pct"], 47.)
+            trajectory = path / "trajectories/bandit_lstdq.jsonl"
+            rows = trajectory.read_text().splitlines()
+            row = json.loads(rows[0]); row["outcome"]["end_to_end_runtime"] = float("nan")
+            rows[0] = json.dumps(row)
+            trajectory.write_text("\n".join(rows)+"\n")
+            with self.assertRaises((ValueError, AssertionError)):
+                audit_run(path, raw)
+
+    def test_replicate_summary_uses_equal_seed_weights_and_sample_sd(self):
+        runs = []
+        for seed, reduction in enumerate((10., 20., 60.), 1):
+            methods = {m: {"time_reduction_vs_default_pct": reduction,
+                           "totals_sec": {"end_to_end_runtime": 100.-reduction}}
+                       for m in suite.METHOD_LABELS}
+            runs.append({"family": "diffusion", "grid": 60, "seed": seed,
+                         "windows": {w: copy.deepcopy(methods) for w in WINDOWS}})
+        row = aggregate_runs(runs)[0]
+        self.assertEqual(row["seeds"], [1, 2, 3])
+        self.assertAlmostEqual(row["mean_time_reduction_pct"], 30.)
+        self.assertAlmostEqual(row["sample_sd_time_reduction_pct"], np.std([10., 20., 60.], ddof=1))
+
+
+if __name__ == "__main__":
+    unittest.main()
