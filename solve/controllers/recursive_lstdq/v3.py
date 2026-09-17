@@ -18,7 +18,7 @@ from .common import _FactorizedLstdqScoring
 from .config import RecursiveLstdqV3LcbSpec
 from .v1 import RecursiveLstdqLcbController
 
-_RECURSIVE_LSTDQ_V3_CHECKPOINT_VERSION = 1
+_RECURSIVE_LSTDQ_V3_CHECKPOINT_VERSION = 2
 
 
 class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
@@ -156,7 +156,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
                 raise RuntimeError(
                     "LSTDQ v3 cannot commit an episode that was not started"
                 )
-            self._resync_theta()
+            self._resync_theta(require_inverse=True)
             # g_e = b_e - A_e theta, evaluated at the current post-fit
             # parameter.  The equivalent expanded expression avoids storing a
             # second joint_dim x joint_dim episode-delta matrix.
@@ -197,6 +197,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
                 "trace": self.trace.copy(),
                 "sample_count": int(self.sample_count),
                 "inverse_rebuild_count": int(self.inverse_rebuild_count),
+                "inverse_is_valid": bool(self.inverse_is_valid),
                 "last_postfit_td_error": float(self.last_postfit_td_error),
                 "episode_a_start": self._episode_a_start.copy(),
                 "episode_b_start": self._episode_b_start.copy(),
@@ -229,6 +230,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
             dtype=float,
         )
         self._episode_active = bool(state["episode_active"])
+        self._restore_inverse_validity(state)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -248,6 +250,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
                 self.inverse_rebuild_count,
                 dtype=np.int64,
             ),
+            inverse_is_valid=np.asarray(self.inverse_is_valid, dtype=bool),
             last_postfit_td_error=np.asarray(
                 self.last_postfit_td_error,
                 dtype=float,
@@ -263,7 +266,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
     def load(self, path: Path, *, restore_counters: bool = True) -> Dict[str, Any]:
         with np.load(path, allow_pickle=False) as payload:
             version = int(payload["checkpoint_version"].item())
-            if version != _RECURSIVE_LSTDQ_V3_CHECKPOINT_VERSION:
+            if version not in (1, _RECURSIVE_LSTDQ_V3_CHECKPOINT_VERSION):
                 raise ValueError("LSTDQ v3 checkpoint version does not match")
             if json.loads(str(payload["config"].item())) != _json_dataclass(
                 self.config
@@ -292,6 +295,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
                 payload["last_postfit_td_error"].item()
             )
             self._load_common(payload, restore_counters=restore_counters)
+            self._restore_inverse_validity(payload)
         self.trace.fill(0.0)
         self._episode_a_start[:] = self.a_matrix
         self._episode_b_start[:] = self.b
@@ -313,6 +317,7 @@ class RecursiveLstdqV3LcbController(RecursiveLstdqLcbController):
                 "episode-cluster post-fit sandwich covariance"
             ),
             "inverse_rebuild_count": int(self.inverse_rebuild_count),
+            "inverse_is_valid": bool(self.inverse_is_valid),
             "stored_transition_count": 0,
         }
 

@@ -1,0 +1,193 @@
+{
+  "schema_version": 1,
+  "name": "smoke",
+  "description": "Native integration check only: 8 cubed, 12 problems, activation after 2/4/6/8/10. Excluded from timing conclusions.",
+  "output_dir": "results/paper_final/03_activation/preflight/native",
+  "problem": {
+    "kind": "scalar_anisotropic_diffusion_advection",
+    "grid": [
+      8,
+      8,
+      8
+    ],
+    "c_min": 1,
+    "c_max": 1000,
+    "advection_min": 1,
+    "advection_max": 1000
+  },
+  "stream": {
+    "cases": 12,
+    "warmup_cases": 0,
+    "online_cases": 12,
+    "instance_offset": 0,
+    "seed_groups": [
+      91316901
+    ],
+    "shuffle_seeds": [
+      91316902
+    ],
+    "cases_per_seed": 12,
+    "group_take": 12,
+    "smoke": true,
+    "expected_sha256": "3cb54887a3797e24ce83e74efdbda1da095e5817274adea03bc54cf4b4af1976"
+  },
+  "seeds": {
+    "base": 91316903,
+    "bandit": 91316904,
+    "controller": 91316905,
+    "method_order": 91316906
+  },
+  "setup": {
+    "parameter_resolution": 20,
+    "action_space": "full_cartesian",
+    "candidate_schedule": {
+      "mode": "aot",
+      "max_selections_per_case": 3,
+      "chunk_rounds": 256
+    },
+    "lin_ts": {
+      "relative_sampling_scale": 0.15,
+      "loss_scale_prior_sec": 0.1
+    },
+    "configuration_spaces": {
+      "recommended": {
+        "coarsen_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          10
+        ],
+        "interp_types": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          17
+        ],
+        "agg_interp_types": [
+          4
+        ]
+      }
+    },
+    "shared_online_prefix": true
+  },
+  "solve": {
+    "tolerance": 1e-06,
+    "max_cycles": 50,
+    "action_grid": {
+      "start": 1,
+      "stop": 3,
+      "step": 0.05
+    },
+    "rbf": {
+      "centers": {
+        "start": 1,
+        "stop": 3,
+        "step": 0.25
+      },
+      "sigma": 0.2
+    },
+    "epsilon": {
+      "start": 0.3,
+      "final": 0.03,
+      "decay_steps": 20000
+    },
+    "lstdq": {
+      "ridge": 1,
+      "beta": 2,
+      "trace_lambda": 0.8,
+      "residual_floor_sec": 0.001,
+      "lcb_lower_bound_sec": 0
+    },
+    "lstdq_v2": {
+      "beta": 4,
+      "coverage_ridge": 1,
+      "residual_window": 2048,
+      "min_samples": 32
+    },
+    "lstdq_v3": {
+      "beta": 2
+    },
+    "smoother_profile": "l1_jacobi_direct_coarse",
+    "state_encoding": "space_aware_v2"
+  },
+  "methods": [
+    {
+      "id": "setup_only",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "default"
+    },
+    {
+      "id": "start_750",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical_no_c_mean",
+      "solve_activation_case": 2,
+      "solve_tolerance": 1e-06
+    },
+    {
+      "id": "start_1000",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical_no_c_mean",
+      "solve_activation_case": 4,
+      "solve_tolerance": 1e-06
+    },
+    {
+      "id": "start_1250",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical_no_c_mean",
+      "solve_activation_case": 6,
+      "solve_tolerance": 1e-06
+    },
+    {
+      "id": "start_1500",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical_no_c_mean",
+      "solve_activation_case": 8,
+      "solve_tolerance": 1e-06
+    },
+    {
+      "id": "start_2000",
+      "setup": "linucb",
+      "setup_space": "recommended",
+      "setup_context": "canonical_no_c_mean",
+      "candidate_sampling": "structured512",
+      "seed_offset": 0,
+      "solve": "recursive_lstdq_v3",
+      "solve_context": "canonical_no_c_mean",
+      "solve_activation_case": 10,
+      "solve_tolerance": 1e-06
+    }
+  ],
+  "reporting": {
+    "progress_every": 2,
+    "rolling_window": 100,
+    "generate_plots": false
+  }
+}

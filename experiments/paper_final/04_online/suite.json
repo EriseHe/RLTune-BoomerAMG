@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "name": "04_online",
+  "checkpoint": "ce609c1",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "seed_offsets": [
+    7000093,
+    5000077,
+    6000083
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "execution": "sequential in listed order; independent learner states; no oracle sweep",
+  "runs": [
+    {
+      "name": "diffusion_40_s1",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 1,
+      "config": "diffusion_40_s1.json",
+      "config_sha256": "16e989957b4491650e0b0a7e4da80bea3f27121c335560d3eabf7c8541ea389a",
+      "stream_sha256": "5571ae353ccc1905426b2abd8109234e0bd921ead93b47c4e7b75bd707204ac3"
+    },
+    {
+      "name": "advection_40_s1",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 1,
+      "config": "advection_40_s1.json",
+      "config_sha256": "061cc31ebe15b099eb5be164010af5691d159a78328d82dc6ae098df5335188f",
+      "stream_sha256": "e221571c267a4229027f965d5ae283f231352e109effcbc6b6031c9fa958de16"
+    },
+    {
+      "name": "diffusion_60_s1",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 1,
+      "config": "diffusion_60_s1.json",
+      "config_sha256": "4c87f7ca1b499ec6b3be4a756916976cc1f2d80939b4a4014e2b396247297c06",
+      "stream_sha256": "032d4e769b5a14f5e41b304b4403261e0ad79505aa73b8e589a47637bc0a0457"
+    },
+    {
+      "name": "advection_60_s1",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "config": "advection_60_s1.json",
+      "config_sha256": "8b7ec7e23a38bcc3b2063a4a423e85082cfc0bef6b774c8dfa05059e7ae5b213",
+      "stream_sha256": "4d9a8faeb159ee3c38b79f9d2b0ed3dee30a72f9deac1de90a25b567add74c3a"
+    },
+    {
+      "name": "diffusion_80_s1",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 1,
+      "config": "diffusion_80_s1.json",
+      "config_sha256": "3bb73b6fd8b2eae68403dae68abcf52b336862125fc578d87b82d4e2191f379f",
+      "stream_sha256": "7b48e3273360857d9bdfca49b28944c7257e78174337a6de5d6cb294a03656ed"
+    },
+    {
+      "name": "advection_80_s1",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 1,
+      "config": "advection_80_s1.json",
+      "config_sha256": "6f974fc7f484e155d41c57730e0346f74fd82642a7f9a7d9a8450fb086dec8fa",
+      "stream_sha256": "8bfe51a25aa6b60c1870497fbcfea6c263f2aa9f037396ec60348e73937d0251"
+    },
+    {
+      "name": "diffusion_40_s2",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 2,
+      "config": "diffusion_40_s2.json",
+      "config_sha256": "ac8c2909af9ba5641db682b3df043bf911a1e1903a168d73d518ca6cd962fa97",
+      "stream_sha256": "b2bbf0a42fa35bb4affb0fa3a97c626358ad5d54d01ed5957d63643ea238b417"
+    },
+    {
+      "name": "advection_40_s2",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 2,
+      "config": "advection_40_s2.json",
+      "config_sha256": "d7908b15e8962c0129bd26956aec4fb57a94fa0faf8796a972b71bbaf10b3e36",
+      "stream_sha256": "a00e242ae72a41081f99d4b93e778beda609055351afee93e959e27a9b2def5a"
+    },
+    {
+      "name": "diffusion_60_s2",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 2,
+      "config": "diffusion_60_s2.json",
+      "config_sha256": "aec292c5fb84c05659784239f6d6e0e688bc711a8d699dbc5fff91ec4b237fc7",
+      "stream_sha256": "46d051408a9eed875f116eb18aedd608ce7e159d87baa6492cfd65be4d0484c6"
+    },
+    {
+      "name": "advection_60_s2",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 2,
+      "config": "advection_60_s2.json",
+      "config_sha256": "fe237ada66031e93ec4462769f61c4ecc9fdeb5a1a98b3a507425b4fb538cc5f",
+      "stream_sha256": "059faa0d82da78837d08dab090a4d3053d83fe682b6eb34ebce1732f6f373b4c"
+    },
+    {
+      "name": "diffusion_80_s2",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 2,
+      "config": "diffusion_80_s2.json",
+      "config_sha256": "7aec670ec4d5f6925f4acc30490fa31ba0c500dd9ce7679d2c00a999668ba174",
+      "stream_sha256": "c11ad28a38534f330ef5ebb89ae9449f45926f4844ccec33cd95bd3cabde1248"
+    },
+    {
+      "name": "advection_80_s2",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 2,
+      "config": "advection_80_s2.json",
+      "config_sha256": "3fee497981f36e0396cdeb08f5c560962dda1c49a049df29bbe41ced2001ed96",
+      "stream_sha256": "9b9f647426dc608bda4aa917174c724e7e07528327df9b6595e697d18132c4f4"
+    },
+    {
+      "name": "diffusion_40_s3",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 3,
+      "config": "diffusion_40_s3.json",
+      "config_sha256": "fc8dcb792b49f730ee175989423065b77b37199f0d2390e956ebbd8d922133d5",
+      "stream_sha256": "b9f449fe476aed335ab59e13e1c6f84c314538088723485607c927d512fd75d6"
+    },
+    {
+      "name": "advection_40_s3",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 3,
+      "config": "advection_40_s3.json",
+      "config_sha256": "27664134cea634512c73998edd5e0cd928bf8483c22667cf89d3035cc8f319c0",
+      "stream_sha256": "9d77ea5eca4949ed95593eda57c305eeac8493d29bafe997571ba58dbf923110"
+    },
+    {
+      "name": "diffusion_60_s3",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 3,
+      "config": "diffusion_60_s3.json",
+      "config_sha256": "9225a20156b2322fa3c5b6c9e7f5ffae8188823b8083cc1d6896031b81011c00",
+      "stream_sha256": "1cb786c8d51bd323a247f28a85607facc94eb41155409db2dfab1705db360d0a"
+    },
+    {
+      "name": "advection_60_s3",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 3,
+      "config": "advection_60_s3.json",
+      "config_sha256": "8bce9e0196c5480bffb8c021606f63eeeb13685777da91364acf5897b7257754",
+      "stream_sha256": "3a861c1422bf7b5d3ee8453db6225f99659bea31c5d645ed1831f4bd539a81b2"
+    },
+    {
+      "name": "diffusion_80_s3",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 3,
+      "config": "diffusion_80_s3.json",
+      "config_sha256": "391b0b4fd74251eccfb88fec8c70b261e6d550a4c2c044eef3bb2605e401e641",
+      "stream_sha256": "3188158382dc9071acfdbe08b1b642f72e13fcdc72db64615f838fd2db40bdda"
+    },
+    {
+      "name": "advection_80_s3",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 3,
+      "config": "advection_80_s3.json",
+      "config_sha256": "75ed6e8039f617792838e4900c327b70a7923f8d2d0d19ea4da13d95289b517b",
+      "stream_sha256": "f6852a4763c525467ee52424c49ba0829f3909edbea609c6bb95620bb82c222f"
+    }
+  ],
+  "organization_note": "Moved under paper_final and shortened names; sampling, learner settings, and stream hashes unchanged.",
+  "seed_revision_note": "Before formal launch on 2026-09-17, replicate 1 was moved from offset 4000063 to 7000093 because its previous diffusion stream had already been used for development. All six replicate-1 family/grid configurations were updated together; no formal outcomes were consulted."
+}

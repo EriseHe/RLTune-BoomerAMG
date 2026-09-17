@@ -84,9 +84,17 @@ class CompositeEvidenceTests(unittest.TestCase):
 
     def test_configuration_contract_and_legacy_roundtrip(self):
         raw = json.loads(PILOT.read_text())
-        source = json.loads((CONFIGS / 'PAPER_FINAL/PAPER_FINAL_diffusion_n60_seed1.json').read_text())
-        for key in ('problem', 'stream', 'seeds', 'solve'):
+        source = json.loads((CONFIGS.parents[2] / 'paper_final/04_online/diffusion_60_s1.json').read_text())
+        for key in ('problem', 'solve'):
             self.assertEqual(raw[key], source[key])
+        # The retained pilot keeps its original seeds; the formal replicate
+        # uses a fresh stream to avoid reusing development inputs.
+        seeded_fields = {'seed_groups', 'shuffle_seeds', 'expected_sha256'}
+        self.assertEqual(
+            {k: v for k, v in raw['stream'].items() if k not in seeded_fields},
+            {k: v for k, v in source['stream'].items() if k not in seeded_fields},
+        )
+        self.assertTrue(set(raw['stream']['seed_groups']).isdisjoint(source['stream']['seed_groups']))
         self.assertEqual({k:v for k,v in raw['setup'].items() if k != 'shared_online_prefix'}, source['setup'])
         runtime = runtime_config_from_spec(parse_joint_experiment_config(raw))
         resolve_composable_study(runtime)

@@ -142,6 +142,27 @@ class PaperFinalTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "changed since suite launch"):
                 suite.run_suite(suite.SUITE, output)
 
+    def test_family_and_seed_filter_dispatches_only_three_grids(self):
+        real_run = suite.subprocess.run
+        def dispatch_selected(command, **kwargs):
+            if command[0] == suite.sys.executable:
+                return suite.subprocess.CompletedProcess(command, 0)
+            return real_run(command, **kwargs)
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(suite, "source_state", return_value={"sha256": "test", "files": {}}), \
+                patch.object(suite, "require_disk_space"), \
+                patch.object(suite.subprocess, "run", side_effect=dispatch_selected) as dispatch, \
+                patch("sys.stdout", new_callable=io.StringIO):
+            audit = Mock(return_value={"unrecovered_failures": 0})
+            report = Mock()
+            suite.run_suite(suite.SUITE, Path(tmp), family="diffusion", seed=1,
+                            run_audit=audit, report_writer=report)
+            selected = [Path(call.args[0][4]).stem for call in dispatch.call_args_list
+                        if call.args[0][0] == suite.sys.executable]
+            self.assertEqual(selected, [f"diffusion_{n}_s1" for n in (40, 60, 80)])
+            self.assertEqual(len(list((Path(tmp) / "logs").glob("*.log"))), 3)
+            report.assert_called_with(suite.SUITE, Path(tmp), allow_partial=True)
+
     def write_fixture(self, path):
         raw = self.configs[0][2]
         (path / "trajectories").mkdir()
@@ -164,7 +185,12 @@ class PaperFinalTests(unittest.TestCase):
                                end_to_end_runtime=setup+solve+infer+overhead, iterations=2,
                                first_primary_status="nonconvergence" if i == 12 else "success",
                                primary_status="nonconvergence" if i == 12 else "success",
+                               primary_residual_norm=.01 if i == 12 else 1e-8, primary_cycles=2,
                                fallback_used=i == 12, fallback_status="success" if i == 12 else "not_run",
+                               fallback_residual_norm=1e-8 if i == 12 else float("nan"),
+                               fallback_cycles=2 if i == 12 else 0,
+                               completed_residual_norm=1e-8, completed_cycles=2,
+                               completed_status="success", unrecovered_failure=False,
                                fallback_setup_runtime=.0005 if i == 12 else 0.,
                                fallback_solve_runtime=.0015 if i == 12 else 0., recovered=i == 12,
                                bandit_update_committed=bandit, controller_update_committed=controlled,
@@ -181,7 +207,7 @@ class PaperFinalTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
             raw = self.write_fixture(path)
-            audited = audit_run(path, raw)
+            audited = audit_run(path, raw, require_completed_residuals=True)
             joint = audited["windows"]["all_5000"]["bandit_lstdq"]
             self.assertAlmostEqual(joint["totals_sec"]["end_to_end_runtime"], 29.3)
             self.assertAlmostEqual(joint["time_reduction_vs_default_pct"], 41.4)
@@ -195,6 +221,27 @@ class PaperFinalTests(unittest.TestCase):
             trajectory.write_text("\n".join(rows)+"\n")
             with self.assertRaises((ValueError, AssertionError)):
                 audit_run(path, raw)
+
+    def test_formal_audit_rejects_missing_or_inconsistent_final_residual(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            raw = self.write_fixture(path)
+            trajectory = path / "trajectories/default_setup_default_solve.jsonl"
+            lines = trajectory.read_text().splitlines()
+            original = json.loads(lines[0])
+            for change in ("missing", "wrong_attempt", "unconverged"):
+                row = copy.deepcopy(original)
+                outcome = row["outcome"]
+                if change == "missing":
+                    del outcome["completed_residual_norm"]
+                elif change == "wrong_attempt":
+                    outcome["completed_residual_norm"] = 2e-8
+                else:
+                    outcome["completed_residual_norm"] = outcome["primary_residual_norm"] = 1e-6
+                lines[0] = json.dumps(row)
+                trajectory.write_text("\n".join(lines) + "\n")
+                with self.subTest(change=change), self.assertRaises(ValueError):
+                    audit_run(path, raw, require_completed_residuals=True)
 
     def test_replicate_summary_uses_equal_seed_weights_and_sample_sd(self):
         runs = []

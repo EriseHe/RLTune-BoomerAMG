@@ -78,7 +78,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(named_space.candidate_sampling, "uniform512")
         self.assertEqual(
             named_space.label,
-            "Online LinUCB [uniform-512] + default solve",
+            "LinUCB [uniform-512] + default solve",
         )
         structured = runner._parse_composable_method(
             "linucb_structured:linucb@recommended@structured512:default"
@@ -86,7 +86,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(structured.candidate_sampling, "structured512")
         self.assertEqual(
             structured.label,
-            "Online LinUCB + default solve",
+            "LinUCB + default solve",
         )
         lin_ts = runner._parse_composable_method(
             "lints_original:lints@original:default"
@@ -150,7 +150,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         )
         self.assertEqual(
             no_c_mean.label,
-            "Online LinUCB [context=canonical-no-c-mean] + default solve",
+            "LinUCB (7D) + default solve",
         )
         means_only = runner._parse_composable_method(
             "means_only:linucb@recommended@structured512@"
@@ -439,11 +439,11 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(labels["default"], "Default setup\n+ default solve")
         self.assertEqual(
             labels["v5_rl"],
-            "LinUCB v5 (canonical 8D)\n+ LSTDQ v3",
+            "LinUCB v5 (8D)\n+ LSTDQ v3",
         )
         self.assertEqual(
             labels["means_default"],
-            "Means-only (3D)\n+ default solve",
+            "LinUCB (3D)\n+ default solve",
         )
         settings = dict(plotter._shared_plot_settings(protocol))
         self.assertEqual(settings["solve_tolerance"], "1e-06")
@@ -461,9 +461,44 @@ class ComposableJointRunnerTests(unittest.TestCase):
         for spec in seed_specs:
             self.assertEqual(
                 labels[spec["name"]],
-                "LinUCB v5 (canonical 8D)\n+ LSTDQ v3\n"
+                "LinUCB v5 (8D)\n+ LSTDQ v3\n"
                 f"seed offset={spec['seed_offset']}",
             )
+
+    def test_trailing_weight_mean_recovers_after_missing_records(self) -> None:
+        np.testing.assert_allclose(
+            plotter._trailing_mean([1.0, np.nan, 3.0, 5.0], 2),
+            [1.0, 1.0, 3.0, 4.0],
+        )
+        np.testing.assert_allclose(
+            plotter._trailing_mean([np.nan, np.nan, 3.0, 5.0], 2),
+            [np.nan, np.nan, 3.0, 4.0], equal_nan=True,
+        )
+        np.testing.assert_allclose(
+            plotter._trailing_mean([1.0, 2.0, 3.0, 4.0], 3),
+            [1.0, 1.5, 2.0, 3.0],
+        )
+
+    def test_activation_plot_labels_keep_only_distinguishing_boundaries(self) -> None:
+        shared = {
+            "setup_kind": "linucb", "setup_context": "canonical_no_c_mean",
+            "setup_space": "recommended", "candidate_sampling": "structured512",
+            "solve_context": "canonical_no_c_mean", "seed_offset": 0,
+        }
+        specs = [dict(shared, name="setup_only", solve_kind="default")]
+        specs.extend(dict(shared, name=f"start_{n}", solve_kind="recursive_lstdq_v3",
+                          solve_activation_case=n) for n in (750, 1000))
+        protocol = {"methods": [s["name"] for s in specs], "method_specs": specs}
+        self.assertEqual(plotter._compact_method_labels(protocol), {
+            "setup_only": "Setup only", "start_750": "RL after 750",
+            "start_1000": "RL after 1,000",
+        })
+        rl_only = {"methods": [s["name"] for s in specs[1:]], "method_specs": specs[1:]}
+        self.assertEqual(plotter._compact_method_labels(rl_only), {
+            "start_750": "RL after 750", "start_1000": "RL after 1,000",
+        })
+        specs[-1]["solve_tolerance"] = 1e-8
+        self.assertIn("LSTDQ v3", plotter._compact_method_labels(protocol)["start_1000"])
 
     def test_weight_reporting_accepts_staged_default_solve_prefix(self) -> None:
         rows = [
@@ -641,7 +676,7 @@ class ComposableJointRunnerTests(unittest.TestCase):
         self.assertEqual(specs[0].family, "recursive_lstdq_v3_lcb")
         self.assertEqual(
             specs[0].label,
-            "Online LinUCB + Recursive LSTDQ v3-LCB",
+            "LinUCB + Recursive LSTDQ v3-LCB",
         )
 
     def test_canonical_run_uses_frozen_typed_runtime_config(self) -> None:

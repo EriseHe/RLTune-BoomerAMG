@@ -18,7 +18,7 @@ COMPONENTS = ("setup_runtime", "solve_runtime", "infer_runtime", "bandit_overhea
 WINDOWS = {"all_5000": (0, 5000), "last_1000": (4000, 5000)}
 
 
-def audit_run(path: Path, expected_config: dict) -> dict:
+def audit_run(path: Path, expected_config: dict, *, require_completed_residuals: bool = False) -> dict:
     config = json.loads((path / "experiment_config.json").read_text())
     if {k: v for k, v in config.items() if k != "output_dir"} != {
         k: v for k, v in expected_config.items() if k != "output_dir"
@@ -47,6 +47,28 @@ def audit_run(path: Path, expected_config: dict) -> dict:
         unrecovered += recovery["unrecovered_failures"]
         for i, row in enumerate(rows):
             outcome = row["outcome"]
+            if require_completed_residuals or "completed_status" in outcome:
+                required = ("completed_residual_norm", "completed_cycles", "completed_status")
+                if any(key not in outcome for key in required):
+                    raise ValueError(f"Missing completed residual/status: {path}/{method}, problem {i + 1}")
+                prefix = "fallback" if outcome.get("fallback_used", False) else "primary"
+                residual = float(outcome["completed_residual_norm"])
+                expected_residual = float(outcome[f"{prefix}_residual_norm"])
+                if not (residual == expected_residual or (
+                    math.isnan(residual) and math.isnan(expected_residual)
+                )):
+                    raise ValueError("Completed residual does not match the final attempt")
+                if (outcome["completed_status"] != outcome[f"{prefix}_status"]
+                        or outcome["completed_cycles"] != outcome[f"{prefix}_cycles"]):
+                    raise ValueError("Completed status/cycles do not match the final attempt")
+                succeeded = outcome["completed_status"] == "success"
+                if succeeded == bool(outcome.get("unrecovered_failure", False)):
+                    raise ValueError("Completed status contradicts unrecovered failure flag")
+                if succeeded and not (
+                    math.isfinite(residual) and 0.0 <= residual < float(expected_config["solve"]["tolerance"])
+                    and 0 <= outcome["completed_cycles"] < int(expected_config["solve"]["max_cycles"])
+                ):
+                    raise ValueError("Successful final attempt violates residual or cycle limit")
             values = [float(outcome[k]) for k in (*COMPONENTS, "end_to_end_runtime")]
             if not all(math.isfinite(v) and v >= 0 for v in values):
                 raise ValueError(f"Invalid time: {path}/{method}, problem {i + 1}")
@@ -115,7 +137,7 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
         if not (output_root / f"{entry['name']}.complete.json").exists():
             missing.append(entry["name"])
             continue
-        runs.append({**entry, **audit_run(output_root / entry["name"], raw)})
+        runs.append({**entry, **audit_run(output_root / entry["name"], raw, require_completed_residuals=True)})
     if missing and not allow_partial:
         raise ValueError(f"PAPER_FINAL incomplete: {len(missing)}/18 runs missing")
     summary = {"complete": not missing, "completed_runs": len(runs), "missing": missing,

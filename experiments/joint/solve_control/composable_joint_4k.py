@@ -259,15 +259,34 @@ def _validate_specs(
         if horizon is not None and horizon != int(args.online_cases) - 1:
             raise ValueError("Composite activation horizon must equal online_cases - 1")
     if getattr(args, "shared_online_prefix", False):
-        if len(specs) != 2 or len(staged_methods) != 1 or len(dynamic_methods) != 1:
-            raise ValueError("Shared online prefix requires exactly one fixed-start and one dynamic-start method")
-        fixed = next(spec for spec in specs if spec.solve_activation_case)
-        dynamic = dynamic_methods[0]
-        if fixed.setup_kind != "linucb" or replace(
-            fixed, name=dynamic.name, solve_activation_case=0,
-            solve_activation=dynamic.solve_activation,
-        ) != dynamic:
-            raise ValueError("Shared online prefix requires matching LinUCB methods and seeds apart from activation")
+        if dynamic_methods:
+            if len(specs) != 2 or len(staged_methods) != 1 or len(dynamic_methods) != 1:
+                raise ValueError("Dynamic shared prefix requires one fixed-start and one dynamic-start method")
+            fixed = next(spec for spec in specs if spec.solve_activation_case)
+            dynamic = dynamic_methods[0]
+            if fixed.setup_kind != "linucb" or replace(
+                fixed, name=dynamic.name, solve_activation_case=0,
+                solve_activation=dynamic.solve_activation,
+            ) != dynamic:
+                raise ValueError("Shared online prefix requires matching LinUCB methods and seeds apart from activation")
+        else:
+            references = [spec for spec in specs if spec.solve_kind == "default"]
+            if len(references) > 1 or len(staged_methods) != len(specs) - len(references) or not staged_methods:
+                raise ValueError("Nested shared prefix requires staged RL branches and at most one setup-only reference")
+            staged = [spec for spec in specs if spec.solve_kind != "default"]
+            reference = references[0] if references else staged[0]
+            if reference.setup_kind != "linucb" or any(
+                spec.solve_kind != "recursive_lstdq_v3" or replace(
+                    spec, name=reference.name, solve_kind=reference.solve_kind,
+                    solve_context=reference.solve_context, solve_activation_case=reference.solve_activation_case,
+                    solve_tolerance=reference.solve_tolerance,
+                ) != reference for spec in staged
+            ):
+                raise ValueError("Nested shared prefix requires matching LinUCB methods and seeds apart from solve activation")
+            if any(replace(spec, name=staged[0].name,
+                           solve_activation_case=staged[0].solve_activation_case) != staged[0]
+                   for spec in staged[1:]):
+                raise ValueError("Nested RL branches must differ only in name and activation boundary")
     compact_methods = any(
         spec.setup_context in COMPACT_DIFFUSION_CONTEXT_INDICES
         or spec.solve_context in COMPACT_DIFFUSION_CONTEXT_INDICES

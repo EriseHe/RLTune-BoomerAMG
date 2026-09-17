@@ -21,7 +21,7 @@ from .common import _FactorizedLstdqScoring
 from .config import RecursiveLstdqV2LcbSpec
 from .v1 import RecursiveLstdqLcbController
 
-_RECURSIVE_LSTDQ_V2_CHECKPOINT_VERSION = 1
+_RECURSIVE_LSTDQ_V2_CHECKPOINT_VERSION = 2
 
 
 class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
@@ -195,6 +195,7 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
                 "trace": self.trace.copy(),
                 "sample_count": int(self.sample_count),
                 "inverse_rebuild_count": int(self.inverse_rebuild_count),
+                "inverse_is_valid": bool(self.inverse_is_valid),
                 "last_postfit_td_error": float(self.last_postfit_td_error),
                 "coverage_matrix": self.coverage_matrix.copy(),
                 "coverage_inverse": self.coverage_inverse.copy(),
@@ -233,6 +234,8 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
         )
         self._scale_cache_sample_count = -1
 
+        self._restore_inverse_validity(state)
+
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(
@@ -251,6 +254,7 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
             inverse_rebuild_count=np.asarray(
                 self.inverse_rebuild_count, dtype=np.int64
             ),
+            inverse_is_valid=np.asarray(self.inverse_is_valid, dtype=bool),
             coverage_inverse_rebuild_count=np.asarray(
                 self.coverage_inverse_rebuild_count, dtype=np.int64
             ),
@@ -267,7 +271,7 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
     def load(self, path: Path, *, restore_counters: bool = True) -> Dict[str, Any]:
         with np.load(path, allow_pickle=False) as payload:
             version = int(payload["checkpoint_version"].item())
-            if version != _RECURSIVE_LSTDQ_V2_CHECKPOINT_VERSION:
+            if version not in (1, _RECURSIVE_LSTDQ_V2_CHECKPOINT_VERSION):
                 raise ValueError("LSTDQ v2 checkpoint version does not match")
             if json.loads(str(payload["config"].item())) != _json_dataclass(
                 self.config
@@ -302,6 +306,7 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
                 np.asarray(payload["postfit_td_residuals"], dtype=float).tolist()
             )
             self._load_common(payload, restore_counters=restore_counters)
+            self._restore_inverse_validity(payload)
         self.trace.fill(0.0)
         self._scale_cache_sample_count = -1
         return {
@@ -321,6 +326,7 @@ class RecursiveLstdqV2LcbController(RecursiveLstdqLcbController):
             "residual_scale_window": int(self.spec.residual_scale_window),
             "residual_scale_samples": int(len(self.postfit_td_residuals)),
             "inverse_rebuild_count": int(self.inverse_rebuild_count),
+            "inverse_is_valid": bool(self.inverse_is_valid),
             "coverage_inverse_rebuild_count": int(
                 self.coverage_inverse_rebuild_count
             ),

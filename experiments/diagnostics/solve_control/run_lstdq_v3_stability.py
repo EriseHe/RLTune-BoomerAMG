@@ -123,6 +123,17 @@ def _run_case(
     explore: bool,
 ) -> Dict[str, Any]:
     mkw = dict(setup_row["mkw"])
+    fallback_result: Dict[str, Any] = {}
+
+    def fallback_attempt():
+        result = solve_no_rl_case(
+            params=dict(DEFAULT_SETUP_PARAMS), mkw=mkw,
+            solver_tol=float(args.tol), solver_max_iter=int(args.max_cycles),
+            augment_params=augment_setup_params,
+        )
+        fallback_result.update(result)
+        return result
+
     native = bundle.run_case(
         OnlineSolveCase(
             mkw=mkw,
@@ -132,19 +143,18 @@ def _run_case(
             learn=bool(learn),
             explore=bool(explore),
             record_action_metadata=True,
-            fallback_attempt=lambda: solve_no_rl_case(
-                params=dict(DEFAULT_SETUP_PARAMS),
-                mkw=mkw,
-                solver_tol=float(args.tol),
-                solver_max_iter=int(args.max_cycles),
-                augment_params=augment_setup_params,
-            ),
+            fallback_attempt=fallback_attempt,
         )
     )
-    return _report_online_outcome(
+    outcome = _report_online_outcome(
         _as_feedback(native, include_controller=True),
         bandit_timing={},
     )
+    outcome["completed_residual_norm"] = (
+        fallback_result.get("residual_norm", float("nan"))
+        if outcome.get("fallback_used", False) else outcome["residual_norm"]
+    )
+    return outcome
 
 
 def _summarize_stability(

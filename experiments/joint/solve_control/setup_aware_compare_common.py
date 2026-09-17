@@ -1460,6 +1460,10 @@ def solve_schedule_case(
     started_at = time.perf_counter()
     prep = None
     solve_runtime = 0.0
+    decision_runtime = 0.0
+    cycle_actions: List[float] = []
+    cycle_residuals: List[float] = []
+    cycle_times: List[float] = []
     residual_norm = float("nan")
     iterations = 0
     native_status = SolveStatus.CONTINUE
@@ -1473,12 +1477,14 @@ def solve_schedule_case(
             last_sd = -1
             last_su = -1
             for cycle in range(int(solve_max_cycles)):
+                decision_started = time.perf_counter()
                 chosen = schedule_sorted[-1]
                 for end_cycle, w, sd, su in schedule_sorted:
                     if cycle < int(end_cycle):
                         chosen = (end_cycle, w, sd, su)
                         break
                 _end, w, sd, su = chosen
+                decision_runtime += time.perf_counter() - decision_started
                 residual_norm, dt = env.step_rl(
                     relax_weight=float(w),
                     sweeps_down=int(sd),
@@ -1487,6 +1493,9 @@ def solve_schedule_case(
                     max_cycles=int(solve_max_cycles),
                 )
                 solve_runtime += float(dt)
+                cycle_actions.append(float(w))
+                cycle_residuals.append(float(residual_norm))
+                cycle_times.append(float(dt))
                 iterations = cycle + 1
                 last_w = float(w)
                 last_sd = int(sd)
@@ -1499,9 +1508,15 @@ def solve_schedule_case(
             else "max_cycles_reached_without_convergence"
         )
         return {
-            "runtime": float(prep.setup_runtime_sec + solve_runtime),
+            "runtime": float(prep.setup_runtime_sec + solve_runtime + decision_runtime),
+            "native_runtime": float(prep.setup_runtime_sec + solve_runtime),
             "setup_runtime": float(prep.setup_runtime_sec),
-            "solve_runtime": float(solve_runtime),
+            "solve_runtime": float(solve_runtime + decision_runtime),
+            "native_solve_runtime": float(solve_runtime),
+            "infer_runtime": float(decision_runtime),
+            "cycle_actions": cycle_actions,
+            "cycle_residuals": cycle_residuals,
+            "cycle_times": cycle_times,
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
             "attempt_status": "success" if not failure_reason else "nonconvergence",
@@ -1525,7 +1540,14 @@ def solve_schedule_case(
             "final_w": float("nan"),
             "final_sweeps_down": -1,
             "final_sweeps_up": -1,
+            "cycle_actions": cycle_actions,
+            "cycle_residuals": cycle_residuals,
+            "cycle_times": cycle_times,
+            "infer_runtime": float(decision_runtime),
+            "native_solve_runtime": float(result["solve_runtime"]),
         })
+        result["runtime"] += decision_runtime
+        result["solve_runtime"] += decision_runtime
         return result
 
 

@@ -344,6 +344,7 @@ class RecoveryOutcome:
     def to_result(self) -> dict[str, Any]:
         result = dict(self.primary.result)
         fallback = self.fallback
+        completed = self.primary if fallback is None else fallback
         primary_setup_runtime = float(
             sum(attempt.setup_runtime_sec for attempt in self.primary_attempts)
         )
@@ -408,6 +409,11 @@ class RecoveryOutcome:
                 "fallback_setup_runtime": 0.0 if fallback is None else fallback.setup_runtime_sec,
                 "fallback_solve_runtime": 0.0 if fallback is None else fallback.solve_runtime_sec,
                 "fallback_controller_runtime": 0.0 if fallback is None else fallback.controller_runtime_sec,
+                "fallback_residual_norm": float("nan") if fallback is None else fallback.residual_norm,
+                "fallback_cycles": 0 if fallback is None else fallback.cycles,
+                "completed_residual_norm": completed.residual_norm,
+                "completed_cycles": completed.cycles,
+                "completed_status": completed.status.value,
                 "recovered": self.recovered,
                 "unrecovered_failure": self.unrecovered_failure,
             }

@@ -268,8 +268,9 @@ class PaperContextActivationTests(unittest.TestCase):
         protocol={'method_specs':[asdict(s) for s in self.runtime.methods],
                   'methods':[s.name for s in self.runtime.methods]}
         labels=_compact_method_labels(protocol)
-        self.assertEqual(labels['context8d_fixed'],'8D / start 1001')
-        self.assertEqual(labels['context3d_dynamic'],'3D / dynamic start')
+        self.assertEqual(labels['context8d_fixed'],'LinUCB v5 (8D) / start 1001')
+        self.assertEqual(labels['context3d_dynamic'],'LinUCB (4D) / dynamic start')
+        self.assertEqual(labels['context4d_dynamic'],'LinUCB (5D) / dynamic start')
         self.assertEqual(len(set(labels.values())),6)
 
 

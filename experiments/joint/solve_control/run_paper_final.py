@@ -9,6 +9,7 @@ import _project_paths  # noqa: F401
 
 import argparse
 from dataclasses import asdict
+from functools import partial
 import hashlib
 import json
 import os
@@ -32,8 +33,8 @@ from setup.space import DEFAULT_SETUP_PARAMS
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SUITE = Path(__file__).with_name("configs") / "PAPER_FINAL" / "suite.json"
-DEFAULT_OUTPUT = ROOT / "results/joint/PAPER_FINAL"
+SUITE = ROOT / "experiments/paper_final/04_online/suite.json"
+DEFAULT_OUTPUT = ROOT / "results/paper_final/04_online"
 METHOD_LABELS = {
     "default_setup_default_solve": "Default",
     "bandit_default": "LinUCB",
@@ -79,7 +80,7 @@ def validate_suite(path: Path = SUITE) -> dict:
     manifest, configs = load_suite(path)
     reports = []
     # Preserve the settings of the completed encoder-corrected study.
-    previous = json.loads((SUITE.parent.parent / "paper_test_n60_context_activation_seed_d.json").read_text())
+    previous = json.loads((Path(__file__).with_name("configs") / "paper_test_n60_context_activation_seed_d.json").read_text())
     for entry, _config_path, raw in configs:
         mode = CONTEXTS[entry["family"]]
         dimension = 4 if entry["family"] == "diffusion" else 7
@@ -183,17 +184,27 @@ def require_disk_space(output_root: Path, remaining: int) -> None:
                            f"allow at least {required / 2**30:.2f} GiB for {remaining} remaining runs")
 
 
-def run_suite(path: Path, output_root: Path) -> None:
+def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=None,
+              report_writer=None, family: str | None = None, seed: int | None = None) -> None:
     import fcntl
     from analyze_paper_final import audit_run, write_reports
 
-    manifest, configs = load_suite(path)
+    suite_loader = load_suite if suite_loader is None else suite_loader
+    run_audit = partial(audit_run, require_completed_residuals=True) if run_audit is None else run_audit
+    report_writer = write_reports if report_writer is None else report_writer
+    manifest, configs = suite_loader(path)
+    total_configs = len(configs)
+    configs = [(entry, config, raw) for entry, config, raw in configs
+               if (family is None or entry["family"] == family)
+               and (seed is None or entry["seed"] == seed)]
+    if not configs:
+        raise ValueError("No prescribed runs match the requested family and seed")
     output_root.mkdir(parents=True, exist_ok=True)
     with (output_root / ".suite.lock").open("a") as lock:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
-            raise RuntimeError("This PAPER_FINAL suite is already running") from exc
+            raise RuntimeError("This experiment suite is already running") from exc
         current = source_state()
         provenance_path = output_root / "source_manifest.json"
         if provenance_path.exists():
@@ -224,6 +235,11 @@ def run_suite(path: Path, output_root: Path) -> None:
         for name in ("SETUP_RELAX_TYPE", "SETUP_NUM_SWEEPS", "SETUP_CYCLE_TYPE", "SETUP_MAX_LEVELS",
                      "AMG_RELAX_TYPE", "AMG_COARSE_RELAX_TYPE", "AMG_CYCLE_TYPE"):
             environment.pop(name, None)
+        logs = output_root / "logs"
+        logs.mkdir(exist_ok=True)
+        _write_json(output_root / "selection.json", {
+            "family": family, "seed": seed, "runs": [entry["name"] for entry, _path, _raw in configs],
+        })
         for index, (entry, config_path, raw) in enumerate(configs):
             destination = output_root / entry["name"]
             marker = output_root / f"{entry['name']}.complete.json"
@@ -232,12 +248,12 @@ def run_suite(path: Path, output_root: Path) -> None:
                 if (completed["config_sha256"] != entry["config_sha256"]
                         or completed["stream_sha256"] != entry["stream_sha256"]):
                     raise RuntimeError(f"Completion marker mismatch: {marker}")
-                if audit_run(destination, raw)["unrecovered_failures"]:
+                if run_audit(destination, raw)["unrecovered_failures"]:
                     raise RuntimeError("Existing run has unrecovered failures; inspect before continuing")
-                print(f"Verified completed run {index + 1}/18: {entry['name']}", flush=True)
+                print(f"Verified completed run {index + 1}/{len(configs)}: {entry['name']}", flush=True)
                 continue
-            log_path = output_root / f"{entry['name']}.log"
-            if destination.exists() or log_path.exists():
+            log_path = logs / f"{entry['name']}.log"
+            if destination.exists() or log_path.exists() or (output_root / log_path.name).exists():
                 raise RuntimeError(f"Incomplete/existing run requires inspection; refusing overwrite: {destination}")
             require_disk_space(output_root, len(configs) - index)
             if source_state()["sha256"] != current["sha256"]:
@@ -245,19 +261,19 @@ def run_suite(path: Path, output_root: Path) -> None:
             command = [sys.executable, "-u", str(Path(__file__).with_name("run_joint_experiment.py")),
                        "--config", str(config_path), "--output-dir", str(destination)]
             started = time.perf_counter()
-            print(f"Starting {index + 1}/18: {entry['name']} (log: {log_path})", flush=True)
+            print(f"Starting {index + 1}/{len(configs)}: {entry['name']} (log: {log_path})", flush=True)
             with log_path.open("x") as handle:
                 subprocess.run(command, cwd=ROOT, env=environment,
                                stdout=handle, stderr=subprocess.STDOUT, check=True)
-            audited = audit_run(destination, raw)
+            audited = run_audit(destination, raw)
             _write_json(marker, {"config_sha256": entry["config_sha256"],
                                  "stream_sha256": entry["stream_sha256"],
                                  "subprocess_elapsed_sec": time.perf_counter() - started,
                                  "unrecovered_failures": audited["unrecovered_failures"]})
-            write_reports(path, output_root, allow_partial=True)
+            report_writer(path, output_root, allow_partial=True)
             if audited["unrecovered_failures"]:
                 raise RuntimeError("Run completed with unrecovered failures; inspect before continuing")
-        write_reports(path, output_root)
+        report_writer(path, output_root, allow_partial=len(configs) < total_configs)
 
 
 def main(argv=None) -> None:
@@ -265,16 +281,18 @@ def main(argv=None) -> None:
     parser.add_argument("--suite", type=Path, default=SUITE)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT)
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--run", action="store_true", help="Explicitly start the 18 native experiments")
+    mode.add_argument("--run", action="store_true", help="Start the selected native experiments sequentially")
     mode.add_argument("--validate-only", action="store_true", help="Default: validate without native solves")
     parser.add_argument("--validation-report", type=Path)
+    parser.add_argument("--family", choices=tuple(CONTEXTS), help="Run only this PDE family")
+    parser.add_argument("--seed", type=int, choices=(1, 2, 3), help="Run only this prescribed replicate")
     args = parser.parse_args(argv)
     report = validate_suite(args.suite.resolve())
     if args.validation_report:
         _write_json(args.validation_report, report)
     print(json.dumps(report, indent=2), flush=True)
     if args.run:
-        run_suite(args.suite.resolve(), args.output_root.resolve())
+        run_suite(args.suite.resolve(), args.output_root.resolve(), family=args.family, seed=args.seed)
 
 
 if __name__ == "__main__":

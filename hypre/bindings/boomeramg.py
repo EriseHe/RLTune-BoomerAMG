@@ -234,6 +234,7 @@ class SolveResult:
 
 @dataclass
 class PrepareResult:
+    # Prepared setup/configuration plus the initial residual computation.
     setup_runtime_sec: float
     # Prepared and full-solve paths now expose the same residual convention:
     # ||r|| / ||r0||, so the initial relative residual is one.
@@ -279,6 +280,7 @@ class PreparedAMGEnv:
         )
 
     def prepare_rl(self, params: Optional[Dict[str, Any]] = None) -> PrepareResult:
+        """Prepare AMG and its initial residual, charging both to setup time."""
         _, c_args = _encode_params(params)
 
         out_setup = _D()
@@ -345,7 +347,15 @@ class PreparedAMGEnv:
 
         ``tol`` has the same relative-residual meaning as the tolerance passed
         to :func:`solve`, so native default and controlled solve paths stop at
-        the same accuracy target.
+        the same accuracy target. With positive tolerance, success requires
+        a residual strictly below ``tol`` before ``max_cycles`` is reached.
+        At the limit the status is ``MAX_CYCLES``, even if that final cycle
+        reaches the target, matching the linked BoomerAMG full-solve status.
+
+        ``runtime_sec`` covers native parameter updates, the AMG cycle,
+        external residual monitoring and the stopping check. The initial
+        residual belongs to :meth:`prepare_rl` and is charged there once.
+        On native failure, the exception retains the completed step time.
         """
 
         out_r = _D()

@@ -42,6 +42,10 @@ def summarize(rows):
     actions, ratios, times = [flat(k) for k in ("cycle_actions", "cycle_residual_ratios", "cycle_times")]
     explored = flat("cycle_explored").astype(bool)
     greedy = 1.0 + .05 * flat("cycle_greedy_indices")
+    # A native error may record the attempted cycle without its post-step
+    # decision metadata. Match within episodes rather than shifting later rows.
+    matched_actions = [(a, 1.0 + .05*g) for o in controlled
+                       for a, g in zip(o["cycle_actions"], o.get("cycle_greedy_indices", []))]
     success = [o for o in controlled if o["first_primary_status"] == "success"]
     params = [r["params"] for r in rows]
     result = {
@@ -59,7 +63,7 @@ def summarize(rows):
         "weight_mean": float(actions.mean()) if len(actions) else None,
         "greedy_weight_mean": float(greedy.mean()) if len(greedy) else None,
         "greedy_low_weight_fraction": float(np.mean(greedy <= 1.5)) if len(greedy) else None,
-        "nongreedy_action_fraction": float(np.mean(np.abs(actions-greedy) > 1e-10)) if len(greedy) else None,
+        "nongreedy_action_fraction": float(np.mean([abs(a-g) > 1e-10 for a, g in matched_actions])) if matched_actions else None,
         "action_counts": counts(np.round(actions, 3).tolist(), 41),
         "greedy_counts": counts(np.round(greedy, 3).tolist(), 41),
         "mean_selected_q_ms": float(flat("cycle_selected_q_values").mean()*1000) if len(actions) else None,
@@ -76,8 +80,10 @@ def summarize(rows):
             result["actions_by_cycle"].append({
                 "cycle": cycle+1, "count": len(selected),
                 "weight_mean": float(np.mean([o["cycle_actions"][cycle] for o in selected])),
-                "greedy_mean": float(np.mean([1+.05*o["cycle_greedy_indices"][cycle] for o in selected])),
-                "ratio_geomean": float(np.exp(np.mean(np.log([o["cycle_residual_ratios"][cycle] for o in selected])))),
+                "greedy_mean": float(np.mean([1+.05*o["cycle_greedy_indices"][cycle] for o in selected
+                                               if len(o.get("cycle_greedy_indices", [])) > cycle])),
+                "ratio_geomean": float(np.exp(np.mean(np.log([o["cycle_residual_ratios"][cycle] for o in selected
+                                                               if len(o.get("cycle_residual_ratios", [])) > cycle])))),
                 "time_ms": float(np.mean([o["cycle_times"][cycle] for o in selected])*1000),
             })
     return result

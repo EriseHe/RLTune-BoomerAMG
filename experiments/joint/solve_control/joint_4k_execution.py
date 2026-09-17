@@ -597,6 +597,7 @@ def _fork_shared_online_prefix(
     plan: OnlineComparisonPlan, *, source: str, target: str,
     completed_instances: int, previous_update: Mapping[str, float],
     bandit_online_steps: Mapping[str, int],
+    artifact_suffix: str = "",
 ) -> None:
     """Restore the existing full checkpoint into an independent AOT branch."""
     started_at = time.perf_counter()
@@ -604,7 +605,7 @@ def _fork_shared_online_prefix(
     target_model = plan.branches[target].policy.model
     if source_model is target_model:
         raise RuntimeError("Shared-prefix branches must have independent models")
-    state_path = plan.checkpoints_dir / "shared_prefix_setup.npz"
+    state_path = plan.checkpoints_dir / f"shared_prefix{artifact_suffix}_setup.npz"
     metadata = {"source": source, "completed_instances": completed_instances}
     source_model.save_mutable_state(state_path, metadata=metadata)
     target_model.load_mutable_state(state_path)
@@ -613,7 +614,7 @@ def _fork_shared_online_prefix(
     target_model.history = copy.deepcopy(source_model.history)
     target_model.candidate_stats_history = copy.deepcopy(source_model.candidate_stats_history)
     target_model._local_neighbor_cache = copy.deepcopy(source_model._local_neighbor_cache)
-    restored_path = plan.checkpoints_dir / "shared_prefix_restored_setup.npz"
+    restored_path = plan.checkpoints_dir / f"shared_prefix{artifact_suffix}_restored_setup.npz"
     target_model.save_mutable_state(restored_path, metadata=metadata)
     with np.load(state_path, allow_pickle=False) as expected, np.load(
         restored_path, allow_pickle=False,
@@ -655,7 +656,7 @@ def _fork_shared_online_prefix(
         "fork_preparation_runtime_sec": time.perf_counter() - started_at,
         "fork_preparation_in_online_cost": False,
     }
-    _write_json(plan.output_dir / "shared_prefix.json", audit)
+    _write_json(plan.output_dir / f"shared_prefix{artifact_suffix}.json", audit)
     if not valid:
         raise RuntimeError("Shared-prefix fork state audit failed")
     print(json.dumps({"stage": "shared_prefix_fork", **audit}), flush=True)
@@ -689,7 +690,18 @@ def _execute_online_instances(
         if spec.solve_activation is not None
     }
     shared_prefix = plan.shared_online_prefix
-    if shared_prefix:
+    nested_prefix = shared_prefix and not activation_gates
+    waiting = set()
+    if nested_prefix:
+        # The latest-starting RL branch supplies the reference prefix when no
+        # setup-only baseline was requested. Every fork precedes its RL start.
+        references = [method for method, spec in plan.composable_specs.items() if spec.solve_kind == "default"]
+        source = references[0] if references else max(
+            plan.methods, key=lambda method: plan.composable_specs[method].solve_activation_case
+        )
+        waiting = set(plan.methods) - {source}
+        shared_prefix = False
+    elif shared_prefix:
         source = next(method for method, spec in plan.composable_specs.items() if spec.solve_activation_case)
         target = next(iter(activation_gates))
         fixed_boundary = plan.composable_specs[source].solve_activation_case
@@ -701,12 +713,14 @@ def _execute_online_instances(
             ]
             if shared_prefix:
                 order = [source]
+            elif nested_prefix:
+                order = [method for method in order if method not in waiting]
             _write_json_line(
                 order_handle,
                 {
                     "online_index": int(online_index),
                     "method_order": order,
-                    **({"shared_prefix_source": source} if shared_prefix else {}),
+                    **({"shared_prefix_source": source} if shared_prefix or waiting else {}),
                 },
             )
             case_rows = {
@@ -733,6 +747,13 @@ def _execute_online_instances(
                     row["shared_prefix_source"] = source
                 previous_update[target] = previous_update[source]
                 bandit_online_steps[target] = bandit_online_steps[source]
+            elif waiting:
+                for target in waiting:
+                    case_rows[target] = copy.deepcopy(case_rows[source])
+                    case_rows[target]["shared_prefix_source"] = source
+                    previous_update[target] = previous_update[source]
+                    bandit_online_steps[target] = bandit_online_steps[source]
+                case_rows[source]["shared_prefix_source"] = source
             for method in plan.methods:
                 if method in activation_gates:
                     gate = activation_gates[method]
@@ -783,6 +804,14 @@ def _execute_online_instances(
                     previous_update=previous_update, bandit_online_steps=bandit_online_steps,
                 )
                 shared_prefix = False
+            for target in plan.methods:
+                if target in waiting and done == plan.composable_specs[target].solve_activation_case:
+                    _fork_shared_online_prefix(
+                        plan, source=source, target=target, completed_instances=done,
+                        previous_update=previous_update, bandit_online_steps=bandit_online_steps,
+                        artifact_suffix=f"_{target}",
+                    )
+                    waiting.remove(target)
             _checkpoint_controllers(
                 plan,
                 completed_instances=done,

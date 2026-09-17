@@ -10,12 +10,18 @@ def classify_rl_failure(
     solve_tol: float,
     solve_max_cycles: int,
 ) -> str:
-    """Classify an RL solve using BoomerAMG's relative residual norm."""
+    """Match BoomerAMG's positive-tolerance convergence status.
+
+    Reaching the iteration limit is nonconvergence even when that cycle
+    reaches the residual target. Before the limit, convergence is strict.
+    """
 
     if not np.isfinite(float(residual_norm)):
         return "non_finite_residual_norm"
-    if float(residual_norm) <= float(solve_tol):
-        return ""
+    below_tolerance = float(residual_norm) < float(solve_tol)
     if int(iterations) >= int(solve_max_cycles):
-        return "residual_above_solve_tol;max_cycles_reached_without_convergence"
+        prefix = "" if below_tolerance else "residual_above_solve_tol;"
+        return prefix + "max_cycles_reached_without_convergence"
+    if below_tolerance:
+        return ""
     return "residual_above_solve_tol"

@@ -34,6 +34,21 @@ METHOD_KEYS = {
 }
 CANDIDATE_SAMPLING_METHODS = ("uniform512", "structured512")
 
+# Display dimensions include the intercept. Configuration tokens remain stable
+# for saved experiments; only historical equal-size feature ablations need a tag.
+CONTEXT_DISPLAY_LABELS = {
+    "default": "8D",
+    "canonical": "8D",
+    "canonical_no_c_mean": "7D",
+    "diffusion3d": "4D",
+    "diffusion4d": "5D",
+    "canonical_means_only": "3D",
+    "canonical_with_a_mean": "9D",
+    "canonical_with_means_and_peclet": "10D",
+    "canonical_peclet_only": "8D, Peclet",
+    "physics_linear": "7D, physics",
+}
+
 
 @dataclass(frozen=True)
 class ComposableMethodSpec:
@@ -93,12 +108,15 @@ class ComposableMethodSpec:
     def label(self) -> str:
         setup = {
             "default": "Default setup",
-            "linucb": "Online LinUCB",
+            "linucb": "LinUCB",
             "linucb_v5": "Online LinUCB v5",
             "linucb_v5_rbf": "Online LinUCB v5 RBF",
             "linucb_v6": "Online LinUCB v6",
             "lints": "Online LinTS v2",
         }[self.setup_kind]
+        if self.setup_context != DEFAULT_SETUP_CONTEXT:
+            context = CONTEXT_DISPLAY_LABELS.get(self.setup_context, self.setup_context)
+            setup = f"{setup} ({context})"
         if self.setup_space is not None:
             qualifiers = []
             if self.setup_space != "recommended":
@@ -106,10 +124,6 @@ class ComposableMethodSpec:
             if self.candidate_sampling != "structured512":
                 qualifiers.append(
                     self.candidate_sampling.replace("512", "-512")
-                )
-            if self.setup_context != DEFAULT_SETUP_CONTEXT:
-                qualifiers.append(
-                    f"context={self.setup_context.replace('_', '-')}"
                 )
             if qualifiers:
                 setup = f"{setup} [{'; '.join(qualifiers)}]"
@@ -138,8 +152,9 @@ class ComposableMethodSpec:
             solve = f"{solve}; activate=reliability mixture"
         if self.solve_tolerance is not None:
             solve = f"{solve}; tol={float(self.solve_tolerance):g}"
-        if self.solve_context != CANONICAL_PROBLEM_CONTEXT:
-            solve = f"{solve}; context={self.solve_context}"
+        if self.solve_context not in {CANONICAL_PROBLEM_CONTEXT, self.setup_context}:
+            context = CONTEXT_DISPLAY_LABELS.get(self.solve_context, self.solve_context)
+            solve = f"{solve}; context={context}"
         return f"{setup} + {solve}"
 
     def resolve_solve_tolerance(self, default: float) -> float:

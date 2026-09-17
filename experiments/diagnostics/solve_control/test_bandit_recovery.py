@@ -6,6 +6,7 @@ import unittest
 
 import numpy as np
 
+from joint_online_common import report_online_outcome
 from setup_aware_compare_common import (
     run_bandit_step_test_final,
 )
@@ -16,12 +17,14 @@ class _Policy:
         self.updates = 0
         self.cancelled = 0
         self.model = self
+        self.losses = []
 
     def select(self, *, context, parameter_space):
         return {"arm": 0}
 
-    def update(self, **_kwargs):
+    def update(self, **kwargs):
         self.updates += 1
+        self.losses.append(kwargs["loss"])
 
     def cancel_pending(self):
         self.cancelled += 1
@@ -57,14 +60,14 @@ class BanditRecoveryTimingTests(unittest.TestCase):
         )
         policy = _Policy()
 
-        _params, outcome, _timing, fallback_used, _update_sec = (
+        _params, outcome, timing, fallback_used, _update_sec = (
             run_bandit_step_test_final(
                 policy=policy,
                 parameter_space={"actions": [{"arm": 0}]},
                 problem_context=np.zeros(2, dtype=float),
                 solver_fn=lambda _params: next(outcomes),
                 fallback_solver_fn=lambda _params: next(outcomes),
-                prev_update_est=0.0,
+                prev_update_est=0.005,
             )
         )
 
@@ -80,6 +83,16 @@ class BanditRecoveryTimingTests(unittest.TestCase):
         self.assertTrue(outcome["recovered"])
         self.assertTrue(outcome["bandit_update_committed"])
         self.assertEqual(policy.updates, 1)
+        self.assertAlmostEqual(
+            policy.losses[0],
+            1.0 + timing["select_sec"] + timing["loss_eval_sec"] + 0.005,
+        )
+        reported = report_online_outcome(outcome, bandit_timing=timing)
+        self.assertAlmostEqual(reported["runtime"], 0.97)
+        self.assertAlmostEqual(reported["solve_runtime"], 0.57)
+        self.assertAlmostEqual(
+            reported["end_to_end_runtime"], 0.97 + 0.03 + timing["overhead_sec"]
+        )
 
     def test_double_failure_cancels_pending_update(self):
         policy = _Policy()

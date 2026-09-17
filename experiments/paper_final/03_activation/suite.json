@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "name": "03_activation",
+  "cases": 5000,
+  "grid": 80,
+  "family": "diffusion_advection",
+  "replicates": 3,
+  "boundaries": [
+    750,
+    1000,
+    1250,
+    1500,
+    2000
+  ],
+  "baseline": "setup_only",
+  "shared_online_prefix": true,
+  "execution": "three prespecified replicates sequentially; nested prefix within each replicate",
+  "primary_metric": "all-5000 recorded online completion cost relative to setup_only",
+  "physical_primary_executions_per_replicate": 23500,
+  "runs": [
+    {
+      "name": "advection_80_s1",
+      "config": "advection_80_s1.json",
+      "replicate": 1,
+      "config_sha256": "ad0203831923bf5b664425530a338823f6b5134bb1a282a502be3a1ec699263b",
+      "stream_sha256": "868c917050be862e5e43640f66cef515afde4c48c1a870b36ba6bf02428589ce"
+    },
+    {
+      "name": "advection_80_s2",
+      "config": "advection_80_s2.json",
+      "replicate": 2,
+      "config_sha256": "e10dcd833ed20e75163dfcd188131b6f57cf1bda04ab1c8c5291d216fce66881",
+      "stream_sha256": "e613d87b3a006ccf4e41d7de54d16de23ed8a4944eb14df2ebcf11264531826d"
+    },
+    {
+      "name": "advection_80_s3",
+      "config": "advection_80_s3.json",
+      "replicate": 3,
+      "config_sha256": "e097a007ccebb8f824fc67d43fefc5a9774fbcbc0a5d19be4344ad8a1fcd3199",
+      "stream_sha256": "87ad2e6e4baaab1190bf06a9346998fa0d5f0490ace18a36ac2491b1d57894e1"
+    }
+  ]
+}

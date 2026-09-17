@@ -14,6 +14,7 @@ from hypre.bindings import (
     SolveStatus,
     run_with_default_fallback,
 )
+from hypre.bindings.recovery import AttemptOutcome, RecoveryOutcome
 from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
     ExpectedSarsaLambdaConfig,
@@ -35,6 +36,7 @@ class _Encoder:
 class _FakeEnv:
     def __init__(self, residuals):
         self._residuals = iter(residuals)
+        self._cycles = 0
         self.last_step = SimpleNamespace(status=SolveStatus.CONTINUE)
 
     def __enter__(self):
@@ -83,9 +85,12 @@ class _SolveFailureEnv(_FakeEnv):
 class _SequentialEnv(_FakeEnv):
     def step_rl(self, **kwargs):
         residual = float(next(self._residuals))
+        self._cycles += 1
         self.last_step.status = (
-            SolveStatus.CONVERGED
-            if residual <= float(kwargs["tol"])
+            SolveStatus.MAX_CYCLES
+            if self._cycles >= int(kwargs["max_cycles"])
+            else SolveStatus.CONVERGED
+            if residual < float(kwargs["tol"])
             else SolveStatus.CONTINUE
         )
         return residual, 0.001
@@ -146,8 +151,10 @@ class _RecordingController(ExpectedSarsaLambda):
             seed=seed,
         )
         self.physical_targets = []
+        self.learning_costs = []
 
     def update(self, **kwargs):
+        self.learning_costs.append(kwargs["cost"])
         self.physical_targets.append(
             (
                 kwargs.get("native_cycle_cost"),
@@ -158,6 +165,29 @@ class _RecordingController(ExpectedSarsaLambda):
 
 
 class RecoveryProtocolTests(unittest.TestCase):
+    def test_completed_attempt_survives_recovery_serialization(self):
+        success = AttemptOutcome.from_mapping(_result(failed=False))
+        failure = AttemptOutcome.from_mapping(_result(failed=True))
+        cases = (
+            RecoveryOutcome(primary_attempts=(success,)),
+            RecoveryOutcome(primary_attempts=(failure, success)),
+            RecoveryOutcome(primary_attempts=(failure,), fallback=success),
+            RecoveryOutcome(primary_attempts=(failure,), fallback=failure),
+        )
+        for recovery in cases:
+            with self.subTest(attempts=recovery.primary_attempt_count, fallback=recovery.fallback_used,
+                              failed=recovery.unrecovered_failure):
+                completed = recovery.fallback or recovery.primary
+                payload = recovery.to_result()
+                restored = RecoveryOutcome.from_mapping(payload).to_result()
+                for result in (payload, restored):
+                    self.assertEqual(result["completed_residual_norm"], completed.residual_norm)
+                    self.assertEqual(result["completed_cycles"], completed.cycles)
+                    self.assertEqual(result["completed_status"], completed.status.value)
+                    if recovery.fallback_used:
+                        self.assertEqual(result["fallback_residual_norm"], completed.residual_norm)
+                        self.assertEqual(result["fallback_cycles"], completed.cycles)
+
     def test_episode_passes_native_cycle_targets_separately_from_learning_cost(self):
         controller = _RecordingController()
         with patch(
@@ -170,7 +200,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                 controller=controller,
                 encoder=_Encoder(),
                 solve_tol=1.0e-6,
-                solve_max_cycles=2,
+                solve_max_cycles=3,
                 learn=True,
                 explore=False,
             )
@@ -179,6 +209,13 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertEqual(len(controller.physical_targets), 2)
         self.assertEqual(controller.physical_targets[0], (0.001, 0.5))
         self.assertEqual(controller.physical_targets[1], (0.001, 2.0e-8))
+        self.assertEqual(controller.learning_costs, [0.001, 0.001])
+        self.assertEqual(outcome["cycle_times"], controller.learning_costs)
+        self.assertAlmostEqual(outcome["setup_runtime"], 0.002)
+        self.assertAlmostEqual(outcome["runtime"], 0.004)
+        self.assertAlmostEqual(
+            outcome["runtime"], outcome["setup_runtime"] + outcome["native_solve_runtime"]
+        )
 
     def test_native_exception_does_not_fabricate_physical_cycle_target(self):
         controller = _RecordingController()
@@ -200,6 +237,12 @@ class RecoveryProtocolTests(unittest.TestCase):
 
         self.assertTrue(outcome["recovered"])
         self.assertEqual(controller.physical_targets, [(None, None)])
+        self.assertEqual(controller.learning_costs, [0.004 + 0.02])
+        self.assertAlmostEqual(outcome["primary_solve_runtime"], 0.004)
+        self.assertAlmostEqual(outcome["native_runtime"], 0.002 + 0.004 + 0.02)
+        self.assertAlmostEqual(
+            outcome["runtime"], outcome["native_runtime"] + outcome["infer_runtime"]
+        )
 
     def test_primary_success_does_not_call_fallback(self):
         calls = []
@@ -431,6 +474,45 @@ class RecoveryProtocolTests(unittest.TestCase):
             self.assertEqual(state_after[key], state_before[key])
         self.assertTrue(outcome["unrecovered_failure"])
         self.assertFalse(outcome["controller_update_committed"])
+
+    def test_v3_target_on_cycle_50_uses_recovery_and_transaction_rules(self):
+        for fallback_failed in (False, True):
+            with self.subTest(fallback_failed=fallback_failed):
+                controller = _v3_controller()
+                state_before = controller.snapshot_learning_state()
+                calls = []
+
+                def fallback():
+                    calls.append(True)
+                    return _result(failed=fallback_failed, runtime=0.02)
+
+                with patch(
+                    "solve.controllers.sarsa.online_td_lambda.create_env",
+                    return_value=_SequentialEnv([0.5]*49 + [8e-7]),
+                ):
+                    outcome = run_td_episode(
+                        mkw={}, params={}, controller=controller, encoder=_Encoder(),
+                        solve_tol=1e-6, solve_max_cycles=50, learn=True, explore=False,
+                        fallback_attempt=fallback,
+                    )
+                self.assertEqual(calls, [True])
+                self.assertEqual(outcome["primary_status"], "nonconvergence")
+                self.assertEqual(outcome["primary_cycles"], 50)
+                self.assertLess(outcome["primary_residual_norm"], 1e-6)
+                self.assertAlmostEqual(outcome["primary_solve_runtime"], 0.05)
+                self.assertAlmostEqual(outcome["native_runtime"], 0.052 + 0.02)
+                self.assertAlmostEqual(outcome["runtime"], outcome["native_runtime"] + outcome["infer_runtime"])
+                self.assertEqual(outcome["controller_update_committed"], not fallback_failed)
+                self.assertEqual(outcome["unrecovered_failure"], fallback_failed)
+                if fallback_failed:
+                    after = controller.snapshot_learning_state()
+                    for key in ("a_matrix", "a_inverse", "b", "theta", "episode_moment_covariance"):
+                        np.testing.assert_array_equal(after[key], state_before[key])
+                    self.assertEqual(controller.episodes, 0)
+                else:
+                    self.assertEqual(controller.episodes, 1)
+                    self.assertEqual(controller.steps, 50)
+                    self.assertEqual(controller.episode_moment_count, 1)
 
 
 if __name__ == "__main__":

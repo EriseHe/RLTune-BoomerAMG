@@ -16,6 +16,7 @@ import numpy as np
 from plot_shared_action_rl_study import plot_action_trajectory_grid
 from online_td_experiment_common import _write_json
 from run_online_methods_2k import _method_comparison
+from joint_method_spec import CONTEXT_DISPLAY_LABELS
 from joint_reporting import (
     _action_summary,
     _comparison_windows,
@@ -46,7 +47,7 @@ FAMILY_LABELS = {
     "default_setup_recursive_lstdq_v2_lcb": (
         "Default setup + Recursive LSTDQ v2-LCB"
     ),
-    "default": "Online LinUCB + default solve",
+    "default": "LinUCB + default solve",
     "fixed_w1.6": "Online LinUCB + fixed w=1.6",
     "ppo": "Online LinUCB + 2000-instance absolute PPO",
     "sarsa_uniform": "Online LinUCB + SARSA, uniform epsilon",
@@ -55,6 +56,7 @@ FAMILY_LABELS = {
     "recursive_mc_lcb": "Online LinUCB + Recursive MC-LCB",
     "recursive_lstdq_lcb": "Online LinUCB + Recursive LSTDQ-LCB",
     "recursive_lstdq_v2_lcb": "Online LinUCB + Recursive LSTDQ v2-LCB",
+    "recursive_lstdq_v3_lcb": "LinUCB + LSTDQ v3-LCB",
     "structured_model_based": "Online LinUCB + Structured model-based",
     "recalibrated_lsvi_lcb": "Online LinUCB + Recalibrated LSVI-LCB",
     "batched_lsvi_lcb": "Online LinUCB + Batched LSVI-LCB",
@@ -102,27 +104,14 @@ def _compact_setup_label(spec: Dict[str, Any]) -> str:
     if setup_kind == "default":
         return "Default setup"
     if setup_kind == "linucb_v5":
-        return "LinUCB v5 (canonical 8D)"
+        return "LinUCB v5 (8D)"
     if setup_kind == "linucb_v5_rbf":
-        return "LinUCB v5 RBF (canonical 8D)"
+        return "LinUCB v5 RBF (8D)"
     if setup_kind == "linucb_v6":
         return "LinUCB v6 (physics Q2)"
     if setup_kind == "linucb":
-        context_labels = {
-            "default": "LinUCB (legacy 8D)",
-            "canonical_no_c_mean": "No-c_mean (7D)",
-            "canonical_means_only": "Means-only (3D)",
-            "canonical_with_a_mean": "Canonical + a_mean (9D)",
-            "canonical_with_means_and_peclet": (
-                "Canonical + means + Peclet (10D)"
-            ),
-            "canonical_peclet_only": "Canonical + Peclet (8D)",
-            "physics_linear": "Physics-linear (7D)",
-        }
-        return context_labels.get(
-            setup_context,
-            f"LinUCB ({setup_context.replace('_', '-')})",
-        )
+        context = CONTEXT_DISPLAY_LABELS.get(setup_context, setup_context.replace("_", "-"))
+        return f"LinUCB ({context})"
     if setup_kind == "lints":
         return "LinTS"
     return setup_kind.replace("_", " ")
@@ -182,6 +171,28 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
                    "LinUCB" if s["solve_kind"] == "default" else "LinUCB–LSTDQ")
             for name, s in specs.items()
         }
+    rl_specs = [s for s in learned if s.get("solve_kind") == "recursive_lstdq_v3"]
+    # In a pure activation study, shared setup/solver settings belong in the
+    # settings panel; only the activation boundary distinguishes the RL paths.
+    if (
+        len(specs) == len(learned) and len(rl_specs) >= 2
+        and len(learned) - len(rl_specs) in {0, 1}
+        and all(s.get("solve_kind") in {"default", "recursive_lstdq_v3"} for s in learned)
+        and len({tuple(s.get(k) for k in (
+            "setup_context", "setup_space", "candidate_sampling", "seed_offset",
+            "setup_warmup_cases",
+        )) for s in learned}) == 1
+        and all(not s.get("solve_activation") for s in learned)
+        and all(int(s.get("solve_activation_case", 0)) > 0 for s in rl_specs)
+        and len({json.dumps({k: v for k, v in s.items()
+                            if k not in {"name", "label", "solve_activation_case"}},
+                           sort_keys=True) for s in rl_specs}) == 1
+    ):
+        return {
+            name: ("Setup only" if s["solve_kind"] == "default" else
+                   f"RL after {int(s['solve_activation_case']):,}")
+            for name, s in specs.items()
+        }
     compact_context_comparison = any(
         spec.get("setup_context") in {"diffusion3d", "diffusion4d"}
         for spec in specs.values()
@@ -218,16 +229,13 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
             if spec["setup_kind"] == "default" and spec["solve_kind"] == "default":
                 labels[method] = "Default"
                 continue
-            dimension = {"diffusion3d": "3D", "diffusion4d": "4D"}.get(
-                spec.get("setup_context"),
-                "8D" if spec["setup_kind"] == "linucb_v5" else None,
-            )
-            if dimension is not None and spec["solve_kind"] == "recursive_lstdq_v3":
+            if (spec.get("setup_context") in {"diffusion3d", "diffusion4d"}
+                    or spec["setup_kind"] == "linucb_v5") and spec["solve_kind"] == "recursive_lstdq_v3":
                 start = (
                     "dynamic start" if spec.get("solve_activation")
                     else f"start {int(spec.get('solve_activation_case', 0)) + 1}"
                 )
-                labels[method] = f"{dimension} / {start}"
+                labels[method] = f"{_compact_setup_label(spec)} / {start}"
                 continue
         label = (
             f"{_compact_setup_label(spec)}\n"
@@ -255,7 +263,7 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
             solve_context = str(spec.get("solve_context", "canonical"))
             if solve_context != _expected_solve_context(spec):
                 deviations.append(
-                    f"solve_context={solve_context.replace('_', '-')}"
+                    f"solve context={CONTEXT_DISPLAY_LABELS.get(solve_context, solve_context)}"
                 )
         if deviations:
             label = f"{label}\n" + "; ".join(deviations)
@@ -310,6 +318,9 @@ def _shared_plot_settings(
         for spec in specs
         if str(spec.get("setup_kind", "default")) != "default"
     ]
+    setup_label = _uniform_value([_compact_setup_label(spec) for spec in setup_specs])
+    if setup_label is not None:
+        settings.append(("setup_bandit", str(setup_label)))
     setup_space = _uniform_value(
         [spec.get("setup_space") for spec in setup_specs]
     )
@@ -394,14 +405,19 @@ def _rolling(values: Sequence[float], window: int) -> np.ndarray:
 
 
 def _trailing_mean(values: Sequence[float], window: int) -> np.ndarray:
+    """Average recorded values in each window, preserving all-missing windows."""
     array = np.asarray(values, dtype=float)
     if window <= 0:
         raise ValueError("rolling window must be positive")
-    cumulative = np.cumsum(np.insert(array, 0, 0.0))
+    finite = np.isfinite(array)
+    cumulative = np.cumsum(np.insert(np.where(finite, array, 0.0), 0, 0.0))
+    counts = np.cumsum(np.insert(finite.astype(int), 0, 0))
     indices = np.arange(array.size)
     starts = np.maximum(indices + 1 - window, 0)
     totals = cumulative[indices + 1] - cumulative[starts]
-    return totals / (indices + 1 - starts)
+    available = counts[indices + 1] - counts[starts]
+    return np.divide(totals, available, out=np.full(array.shape, np.nan),
+                     where=available > 0)
 
 
 def _candidate_label(candidate: Dict[str, Any]) -> str:
@@ -643,12 +659,13 @@ def _plot_five_family_weight_trajectory(
         )
     figure.suptitle(
         f"Online weight selection: {statistic_label}\n"
-        f"Trailing mean up to {window} instances; dots show the exact first instance",
+        f"Trailing mean over recorded values in up to {window} instances; "
+        "dots show the exact first instance",
         fontweight="bold",
     )
     axes[-1].set_xlabel(
         "Persistent online comparison instance "
-        "(vertical line: audit checkpoint only, no reset)"
+        "(vertical line: stream midpoint, no reset)"
     )
     figure.savefig(path, dpi=190, bbox_inches="tight")
     plt.close(figure)
@@ -936,7 +953,7 @@ def _plot_cumulative_components(
     axes[0].legend(ncol=2, frameon=False)
     axes[-1].set_xlabel(
         "Persistent online comparison instance "
-        "(vertical line: audit checkpoint only, no reset)"
+        "(vertical line: stream midpoint, no reset)"
     )
     figure.suptitle("Cumulative runtime by measured component", fontweight="bold")
     figure.savefig(path, dpi=190, bbox_inches="tight")
@@ -1069,15 +1086,12 @@ def _plot_all_runtime_breakdown(
                 fontsize=9,
             )
         if bottoms.size and float(np.max(bottoms)) > 0.0:
-            axis.set_ylim(0.0, 1.08 * float(np.max(bottoms)))
+            axis.set_ylim(0.0, 1.22 * float(np.max(bottoms)))
         axis.set_title(title, fontweight="bold")
         axis.set_xticks(np.arange(len(methods)), labels, rotation=24, ha="right")
         axis.set_ylabel("Mean runtime (ms/case)")
         axis.grid(axis="y", alpha=0.22, linewidth=0.7)
-        if axis is axes[0]:
-            axis.legend(frameon=False, loc="lower left")
-        else:
-            axis.legend(frameon=False, loc="upper left")
+        axis.legend(frameon=False, loc="upper center", ncol=2)
     figure.suptitle(
         figure_title or f"All {case_count:,} online comparison instances",
         fontweight="bold",
@@ -1168,12 +1182,13 @@ def _plot_recovery_outcomes(
         axis.text(
             index,
             101.0,
-            f"fallback {int(fallback_count):,}\nunrecovered {int(failure_count):,}",
+            f"recovered {int(fallback_count):,}\nunrecovered {int(failure_count):,}",
             ha="center",
             va="bottom",
             fontsize=8.5,
         )
-    axis.set_ylim(0.0, 113.0)
+    axis.set_ylim(0.0, 120.0)
+    axis.set_yticks(np.arange(0.0, 101.0, 20.0))
     axis.set_ylabel("Share of external instances (%)")
     axis.set_xticks(np.arange(len(methods)), labels, rotation=24, ha="right")
     axis.set_title(
@@ -1181,7 +1196,7 @@ def _plot_recovery_outcomes(
         fontweight="bold",
     )
     axis.grid(axis="y", alpha=0.22, linewidth=0.7)
-    axis.legend(frameon=False, loc="upper left")
+    axis.legend(frameon=False, loc="upper center", ncol=3)
     figure.savefig(path, dpi=190, bbox_inches="tight")
     plt.close(figure)
 
@@ -1306,7 +1321,7 @@ def _plot_five_family_trajectory(
         axis.grid(alpha=0.22, linewidth=0.7)
         axis.legend(loc="upper right", ncol=3 if len(family_methods) > 3 else 1, frameon=False)
     finite = np.concatenate([values[np.isfinite(values)] for values in all_rolling])
-    lower, upper = np.percentile(finite, [1.0, 99.0])
+    lower, upper = float(np.min(finite)), float(np.max(finite))
     margin = max(0.05 * (upper - lower), 0.1)
     for axis in axes:
         axis.set_ylim(lower - margin, upper + margin)
@@ -1575,8 +1590,8 @@ def generate_plots(
             column_labels={0: f"Persistent {expected_cases:,}-instance online comparison"},
             x_label="Online comparison instance",
             title=(
-                "Per-instance, per-cycle learned action trajectories "
-                "(white: solve already terminated)"
+                "Per-instance, per-cycle relaxation weights "
+                "(white: no recorded cycle / terminated)"
             ),
             panel_width=10.5,
             panel_height=3.2,
