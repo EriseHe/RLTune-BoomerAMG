@@ -743,6 +743,21 @@ def _execute_online_instances(
                 # target. Includes matrix construction and binding/wrapper work;
                 # excludes outer trajectory I/O, checkpointing and plotting.
                 row["outcome"]["method_wall_runtime"] = time.perf_counter() - method_started
+                if (plan.protocol.get("timing", {}).get("abort_on_clock_mismatch", False)
+                        and row["outcome"]["end_to_end_runtime"]
+                        > row["outcome"]["method_wall_runtime"] + 1e-6):
+                    # Native/Python clocks can disagree across machine sleep.
+                    # The observation may already have updated a learner: retain
+                    # it for diagnosis and stop, rather than resume that state.
+                    _write_json(plan.output_dir / "timing_anomaly.json", {
+                        "reason": "Component runtime exceeds enclosing method wall timer",
+                        "method": method, "problem": online_index + 1, "row": row,
+                        "requires_fresh_run": True,
+                    })
+                    raise RuntimeError(
+                        f"Timing mismatch at problem {online_index + 1}, method {method}; "
+                        "possible sleep/clock mismatch. See timing_anomaly.json; restart from scratch."
+                    )
                 case_rows[method] = row
             if shared_prefix:
                 # One measured solve/update contributes once to each method's

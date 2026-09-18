@@ -15,6 +15,7 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
+import joint_4k_execution as execution
 import run_paper_final as suite
 from analyze_paper_final import audit_run, aggregate_runs, WINDOWS
 from composable_joint_4k import build_composable_solve_runtime, build_named_setup_branches, resolve_composable_study
@@ -126,6 +127,45 @@ class PaperFinalTests(unittest.TestCase):
             self.assertEqual(raw["solve"]["max_cycles"], 50 if entry["family"] == "diffusion" else 100)
         self.assertTrue(suite.validate_suite(path)["valid"])
 
+    def test_advection50_rerun_preserves_inputs_and_only_changes_cycle_budget(self):
+        path = suite.SUITE.parent / "20260918_advection50/suite.json"
+        manifest, configs = suite.load_suite(path)
+        self.assertEqual(manifest["families"], ["diffusion_advection"])
+        self.assertTrue(manifest["abort_on_clock_mismatch"])
+        self.assertEqual([entry["grid"] for entry, _, _ in configs], [40, 60, 80])
+        for entry, _, raw in configs:
+            old_path = suite.SUITE.parent / "20260918" / entry["config"]
+            expected = json.loads(old_path.read_text())
+            expected["solve"]["max_cycles"] = 50
+            for key in ("description", "output_dir"):
+                expected[key] = raw[key]
+            self.assertEqual(raw, expected)
+            self.assertIn("20260918_advection50", raw["output_dir"])
+        self.assertTrue(suite.validate_suite(path)["valid"])
+
+    def test_clock_mismatch_stops_before_another_method_and_preserves_observation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            trajectories = output / "trajectories"
+            trajectories.mkdir()
+            plan = SimpleNamespace(
+                output_dir=output, trajectories_dir=trajectories,
+                bandit_methods=(), methods=("a", "b"), method_order_seed=19,
+                online_instances=[({}, np.ones(1))], composable_specs={}, shared_online_prefix=False,
+                protocol={"timing": {"abort_on_clock_mismatch": True}},
+            )
+            row = {"outcome": {"end_to_end_runtime": 300., "bandit_update_committed": True}}
+            with patch.object(execution, "_run_one_method", return_value=row) as run, \
+                    patch.object(execution.time, "perf_counter", side_effect=[0., 1.]):
+                with self.assertRaisesRegex(RuntimeError, "Timing mismatch at problem 1"):
+                    execution._execute_online_instances(plan, Mock())
+            self.assertEqual(run.call_count, 1)
+            anomaly = json.loads((output / "timing_anomaly.json").read_text())
+            self.assertTrue(anomaly["requires_fresh_run"])
+            self.assertEqual(anomaly["row"]["outcome"]["method_wall_runtime"], 1.)
+            self.assertEqual(anomaly["row"]["outcome"]["end_to_end_runtime"], 300.)
+            self.assertTrue(anomaly["row"]["outcome"]["bandit_update_committed"])
+
     def test_suite_dispatch_and_resume_are_sequential_and_source_checked(self):
         real_run = suite.subprocess.run
         commands = []
@@ -177,13 +217,15 @@ class PaperFinalTests(unittest.TestCase):
 
     def test_prescribed_advection_failures_are_retained_and_allow_resume(self):
         configs = [c for c in self.configs if c[0]["family"] == "diffusion_advection"][:2]
-        manifest = {"allow_unrecovered_families": ["diffusion_advection"]}
+        manifest = {"allow_unrecovered_families": ["diffusion_advection"],
+                    "abort_on_clock_mismatch": True}
         real_run = suite.subprocess.run
         commands = []
 
         def dispatch(command, **kwargs):
             if command[0] != suite.sys.executable:
                 return real_run(command, **kwargs)
+            self.assertEqual(kwargs["env"]["RLTUNE_ABORT_ON_CLOCK_MISMATCH"], "1")
             commands.append(command)
             return suite.subprocess.CompletedProcess(command, 0)
 

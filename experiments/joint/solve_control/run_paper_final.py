@@ -63,10 +63,13 @@ def load_suite(path: Path = SUITE):
     seeds = manifest["seeds"]
     if not seeds or len(set(seeds)) != len(seeds) or any(seed not in (1, 2, 3) for seed in seeds):
         raise ValueError("PAPER_FINAL requires distinct prescribed replicate labels in 1..3")
-    expected = {(family, n, seed) for family in CONTEXTS
+    families = manifest.get("families", list(CONTEXTS))
+    if not families or len(set(families)) != len(families) or not set(families).issubset(CONTEXTS):
+        raise ValueError("PAPER_FINAL requires distinct known PDE families")
+    expected = {(family, n, seed) for family in families
                 for n in (40, 60, 80) for seed in seeds}
     if len(entries) != len(expected) or {(e["family"], e["grid"], e["seed"]) for e in entries} != expected:
-        raise ValueError("PAPER_FINAL requires two families × three grids × the prescribed seeds")
+        raise ValueError("PAPER_FINAL requires the prescribed families × three grids × seeds")
     if len({e["name"] for e in entries}) != len(expected):
         raise ValueError("PAPER_FINAL run names must be unique")
     configs = []
@@ -241,6 +244,9 @@ def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=Non
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(ROOT / relative, target)
         environment = dict(os.environ, **THREAD_ENV, PYTHONUNBUFFERED="1", MPLBACKEND="Agg")
+        environment["RLTUNE_ABORT_ON_CLOCK_MISMATCH"] = (
+            "1" if manifest.get("abort_on_clock_mismatch", False) else "0"
+        )
         for name in ("SETUP_RELAX_TYPE", "SETUP_NUM_SWEEPS", "SETUP_CYCLE_TYPE", "SETUP_MAX_LEVELS",
                      "AMG_RELAX_TYPE", "AMG_COARSE_RELAX_TYPE", "AMG_CYCLE_TYPE"):
             environment.pop(name, None)

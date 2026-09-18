@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260918_advection50",
+  "checkpoint": "6576ed54764de0106526ddadf08a94609c5a2efb",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1
+  ],
+  "seed_offsets": [
+    4000063
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion_advection": 50
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "Sequential grids 40, 60, 80; three paired methods in randomized per-problem order; fresh learners.",
+  "seed_provenance": "User-requested reuse of the pre-run diagnosis tuple, previously used for development; not an untouched holdout or a replicate of September 17 at the same seed.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "advection_40_s1",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 1,
+      "config": "advection_40_s1.json",
+      "config_sha256": "4828be972e965f871f0d129cb905156657e7f5f950aab13ae3f81a9dac7a2dc5",
+      "stream_sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f"
+    },
+    {
+      "name": "advection_60_s1",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "config": "advection_60_s1.json",
+      "config_sha256": "e6933b448d0c65150b1ac1e2005ef1f2aa91d8dea71164dcaa2dbb6a0871a6b9",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "advection_80_s1",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 1,
+      "config": "advection_80_s1.json",
+      "config_sha256": "21da134d9deb06e103ea99f5b7202810b41be6ebe5f61af3423cb5fd9cbe0578",
+      "stream_sha256": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b"
+    }
+  ],
+  "families": [
+    "diffusion_advection"
+  ],
+  "abort_on_clock_mismatch": true
+}
