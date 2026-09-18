@@ -52,8 +52,10 @@ def audit_run(path: Path, expected_config: dict, *, require_completed_residuals:
                 if any(key not in outcome for key in required):
                     raise ValueError(f"Missing completed residual/status: {path}/{method}, problem {i + 1}")
                 prefix = "fallback" if outcome.get("fallback_used", False) else "primary"
-                residual = float(outcome["completed_residual_norm"])
-                expected_residual = float(outcome[f"{prefix}_residual_norm"])
+                residual_value = outcome["completed_residual_norm"]
+                expected_value = outcome[f"{prefix}_residual_norm"]
+                residual = float("nan") if residual_value is None else float(residual_value)
+                expected_residual = float("nan") if expected_value is None else float(expected_value)
                 if not (residual == expected_residual or (
                     math.isnan(residual) and math.isnan(expected_residual)
                 )):
@@ -74,6 +76,18 @@ def audit_run(path: Path, expected_config: dict, *, require_completed_residuals:
                 raise ValueError(f"Invalid time: {path}/{method}, problem {i + 1}")
             if not math.isclose(sum(values[:-1]), values[-1], rel_tol=1e-8, abs_tol=1e-10):
                 raise ValueError(f"Runtime components do not sum to online E2E: {path}/{method}")
+            if result["protocol"].get("timing", {}).get("schema_version", 1) >= 2:
+                wall = float(outcome.get("method_wall_runtime", float("nan")))
+                if not math.isfinite(wall) or wall < values[-1] - 1e-6:
+                    raise ValueError(f"Invalid method-call wall time: {path}/{method}, problem {i + 1}")
+                if "lifecycle_runtime" in outcome:
+                    phases = [float(outcome.get(key, float("nan"))) for key in (
+                        "feature_runtime", "decision_runtime", "update_runtime", "lifecycle_runtime"
+                    )]
+                    if not all(math.isfinite(v) and v >= 0 for v in phases) or not math.isclose(
+                        sum(phases), float(outcome["infer_runtime"]), rel_tol=1e-8, abs_tol=1e-10
+                    ):
+                        raise ValueError(f"Controller timing phases do not sum: {path}/{method}, problem {i + 1}")
             if (method != "bandit_lstdq" or i < 1000) and (
                 outcome.get("cycle_actions") or outcome.get("controller_update_committed", False)
             ):
@@ -139,21 +153,24 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
             continue
         runs.append({**entry, **audit_run(output_root / entry["name"], raw, require_completed_residuals=True)})
     if missing and not allow_partial:
-        raise ValueError(f"PAPER_FINAL incomplete: {len(missing)}/18 runs missing")
+        raise ValueError(f"PAPER_FINAL incomplete: {len(missing)}/{len(configs)} runs missing")
     summary = {"complete": not missing, "completed_runs": len(runs), "missing": missing,
                "runs": runs, "aggregate": aggregate_runs(runs)}
     report_dir = output_root / "analysis"
     report_dir.mkdir(parents=True, exist_ok=True)
     _write_json(report_dir / "modules_1_2.json", summary)
     lines = ["# PAPER_FINAL — Modules 1 and 2", "",
-             f"Completed: {len(runs)}/18 runs. Status: {'complete' if not missing else 'PARTIAL — not final paper results'}.", "",
+             f"Completed: {len(runs)}/{len(configs)} runs. Status: {'complete' if not missing else 'PARTIAL — not final paper results'}.", "",
              "Primary: summed online E2E seconds across all 5000 problems, including the first 1000, "
              "bounded recovery and recurring controller/bandit overhead. One-time model initialization, "
              "AOT schedule generation, matrix/RHS assembly, logging, and plotting are outside this metric. "
              "Subprocess elapsed time is stored separately and covers all three methods together.", "",
+             "When a group has unrecovered failures, its cost is a budgeted attempted-solve cost, "
+             "not the time to successfully solve every problem. Interpret time reductions together "
+             "with the unrecovered counts; all failed attempts and recovery costs are retained.", "",
              "Time reduction = 100(1 − method/default); speedup factor = default/method. "
              "Each reduction uses the paired Default from the same run. Replicate SD describes variability "
-             "across three training streams; it is not a confidence interval from 5000 independent observations.", "",
+             "across the completed training streams; it is not a confidence interval from 5000 independent observations.", "",
              "## Module 1: every prespecified replicate", "",
              "| PDE | Grid | Seed | Window | Method | Online E2E (s) | Reduction vs Default (%) | Reduction vs LinUCB (%) | Unrecovered |",
              "|---|---:|---:|---|---|---:|---:|---:|---:|"]
@@ -189,6 +206,22 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
                     "setup_runtime", "native_solve_runtime", "controller_runtime", "setup_bandit_overhead", "end_to_end_runtime"))
                 lines.append(f"| {run['family']} | {run['seed']} | {window} | {label} | {values} | "
                              f"{m['primary_failure_count']} | {m['fallback_native_sec']:.3f} |")
+    if any("method_wall_runtime" in m["totals_sec"]
+           for r in runs for methods in r["windows"].values() for m in methods.values()):
+        lines += ["", "## Additional timing audit", "",
+                  "Controller lifecycle is already included in Controller/Online E2E, not an extra charge. "
+                  "Method-call wall time is an independent stopwatch including matrix construction and wrapper work; "
+                  "it excludes outer trajectory I/O, checkpoints and plotting, and is not fed to either learner.", "",
+                  "| PDE | Grid | Seed | Window | Method | Controller lifecycle (s) | Method-call wall (s) |",
+                  "|---|---:|---:|---|---|---:|---:|"]
+        for run in runs:
+            for window, methods in run["windows"].items():
+                for method, m in methods.items():
+                    t = m["totals_sec"]
+                    if "method_wall_runtime" in t:
+                        lines.append(f"| {run['family']} | {run['grid']}³ | {run['seed']} | {window} | "
+                                     f"{METHOD_LABELS[method]} | {t.get('controller_lifecycle_runtime', 0.0):.6f} | "
+                                     f"{t['method_wall_runtime']:.6f} |")
     lines += ["", "LinUCB and LinUCB–LSTDQ learn independent setup paths with their own realized costs. "
               "Their difference measures the complete adaptive frameworks, not an isolated causal effect "
               "of changing relaxation on a matched hierarchy. The fixed-weight oracle / matched-hierarchy "

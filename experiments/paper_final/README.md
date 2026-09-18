@@ -2,7 +2,7 @@
 
 ## Start here — updated September 17
 
-Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04 diffusion replicate 1 was launched September 17 at 04:53 EDT: 40³ → 60³ → 80³, three methods per grid. Other replicates and advection remain unstarted. Stopping status and RL timing coverage have now been corrected and verified; historical development results retain their original measurements. The most useful reading order is:
+Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04's September 17 diffusion replicate is complete at 40³, 60³ and 80³. The user-authorized [September 18 suite](04_online/20260918/README.md) uses the earlier diagnosis seed across both families, adds controller lifecycle timing and per-method wall timing, and sets the advection cap to 100. Its source, protocol and outputs are kept separate from the September 17 results. The most useful reading order is:
 
 | Order | Read | What it answers |
 |---|---|---|
@@ -129,8 +129,8 @@ python -m experiments.paper_final.analyze_04_online
 ```
 
 Use the project's `rl` Python environment. Stage 03 and the remaining stage 02
-advection diagnostic completed on September 16. Stage 04 has not been authorized
-to execute. Existing 02 outputs are retained; its original entry point refuses
+advection diagnostic completed on September 16. The latest authorized stage 04
+protocol is linked above. Existing 02 outputs are retained; its original entry point refuses
 to overwrite them. Both completed stages remain development diagnostics.
 
 See also [the paper completion plan](../../docs/theory/paper_completion_plan_20260915.md).

@@ -233,6 +233,12 @@ def method_stream_summary(
         "setup_bandit_update": "bandit_update_runtime",
         "end_to_end_runtime": "end_to_end_runtime",
     }
+    for label, field in (
+        ("controller_lifecycle_runtime", "lifecycle_runtime"),
+        ("method_wall_runtime", "method_wall_runtime"),
+    ):
+        if any(field in outcome for outcome in outcomes):
+            fields[label] = field
     summary["totals_sec"] = {
         label: float(sum(float(outcome.get(field, 0.0)) for outcome in outcomes))
         for label, field in fields.items()

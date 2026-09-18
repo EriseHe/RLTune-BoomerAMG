@@ -114,6 +114,18 @@ class PaperFinalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "config changed"):
                 suite.load_suite(directory / "suite.json")
 
+    def test_september18_suite_has_requested_seed_and_family_budgets(self):
+        path = suite.SUITE.parent / "20260918/suite.json"
+        manifest, configs = suite.load_suite(path)
+        self.assertEqual(len(configs), 6)
+        self.assertEqual(manifest["allow_unrecovered_families"], ["diffusion_advection"])
+        for entry, _path, raw in configs:
+            self.assertEqual(raw["seeds"], dict(
+                base=56700120, bandit=56760120, controller=56766120, method_order=56772120
+            ))
+            self.assertEqual(raw["solve"]["max_cycles"], 50 if entry["family"] == "diffusion" else 100)
+        self.assertTrue(suite.validate_suite(path)["valid"])
+
     def test_suite_dispatch_and_resume_are_sequential_and_source_checked(self):
         real_run = suite.subprocess.run
         commands = []
@@ -163,7 +175,34 @@ class PaperFinalTests(unittest.TestCase):
             self.assertEqual(len(list((Path(tmp) / "logs").glob("*.log"))), 3)
             report.assert_called_with(suite.SUITE, Path(tmp), allow_partial=True)
 
-    def write_fixture(self, path):
+    def test_prescribed_advection_failures_are_retained_and_allow_resume(self):
+        configs = [c for c in self.configs if c[0]["family"] == "diffusion_advection"][:2]
+        manifest = {"allow_unrecovered_families": ["diffusion_advection"]}
+        real_run = suite.subprocess.run
+        commands = []
+
+        def dispatch(command, **kwargs):
+            if command[0] != suite.sys.executable:
+                return real_run(command, **kwargs)
+            commands.append(command)
+            return suite.subprocess.CompletedProcess(command, 0)
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(suite, "source_state", return_value={"sha256": "test", "files": {}}), \
+                patch.object(suite, "require_disk_space"), \
+                patch.object(suite.subprocess, "run", side_effect=dispatch), \
+                patch("sys.stdout", new_callable=io.StringIO):
+            output = Path(tmp)
+            kwargs = dict(suite_loader=lambda _: (manifest, configs),
+                          run_audit=Mock(return_value={"unrecovered_failures": 2}), report_writer=Mock())
+            suite.run_suite(suite.SUITE, output, **kwargs)
+            suite.run_suite(suite.SUITE, output, **kwargs)
+            self.assertEqual(len(commands), 2)
+            markers = list(output.glob("*.complete.json"))
+            self.assertEqual(len(markers), 2)
+            self.assertTrue(all(json.loads(p.read_text())["unrecovered_failures"] == 2 for p in markers))
+
+    def write_fixture(self, path, *, timing_version=1):
         raw = self.configs[0][2]
         (path / "trajectories").mkdir()
         (path / "experiment_config.json").write_text(json.dumps(raw))
@@ -171,6 +210,8 @@ class PaperFinalTests(unittest.TestCase):
         (path / "stream_manifest.json").write_text(json.dumps(stream))
         (path / "progress.json").write_text(json.dumps({"completed_online_instances": 5000}))
         result = {"protocol": {"stream": stream}, "windows": {w: {"methods": {}} for w in WINDOWS}}
+        if timing_version >= 2:
+            result["protocol"]["timing"] = {"schema_version": timing_version}
         for method in suite.METHOD_LABELS:
             rows = []
             for i in range(5000):
@@ -195,6 +236,11 @@ class PaperFinalTests(unittest.TestCase):
                                fallback_solve_runtime=.0015 if i == 12 else 0., recovered=i == 12,
                                bandit_update_committed=bandit, controller_update_committed=controlled,
                                cycle_actions=[1., 2.5] if controlled else [])
+                if timing_version >= 2:
+                    outcome["method_wall_runtime"] = outcome["end_to_end_runtime"] + .001
+                    if controlled:
+                        outcome.update(feature_runtime=.00005, decision_runtime=.00005,
+                                       update_runtime=.00008, lifecycle_runtime=.00002)
                 rows.append({"online_index": i, "params": DEFAULT_SETUP_PARAMS,
                              "mkw": {"rhs_seed": i}, "outcome": outcome})
             (path / "trajectories" / f"{method}.jsonl").write_text("".join(json.dumps(r)+"\n" for r in rows))
@@ -242,6 +288,44 @@ class PaperFinalTests(unittest.TestCase):
                 trajectory.write_text("\n".join(lines) + "\n")
                 with self.subTest(change=change), self.assertRaises(ValueError):
                     audit_run(path, raw, require_completed_residuals=True)
+
+    def test_new_timing_schema_audits_wall_and_controller_phase_totals(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            raw = self.write_fixture(path, timing_version=2)
+            audited = audit_run(path, raw, require_completed_residuals=True)
+            joint = audited["windows"]["all_5000"]["bandit_lstdq"]["totals_sec"]
+            self.assertAlmostEqual(joint["controller_lifecycle_runtime"], .08)
+            self.assertAlmostEqual(joint["method_wall_runtime"], joint["end_to_end_runtime"] + 5.)
+            trajectory = path / "trajectories/bandit_lstdq.jsonl"
+            lines = trajectory.read_text().splitlines()
+            original = json.loads(lines[1000])
+            for field, value in (("method_wall_runtime", 0.), ("lifecycle_runtime", .1)):
+                row = copy.deepcopy(original)
+                row["outcome"][field] = value
+                lines[1000] = json.dumps(row)
+                trajectory.write_text("\n".join(lines) + "\n")
+                with self.subTest(field=field), self.assertRaises(ValueError):
+                    audit_run(path, raw, require_completed_residuals=True)
+
+    def test_failed_final_attempt_can_retain_a_null_residual(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            raw = self.write_fixture(path)
+            method = "default_setup_default_solve"
+            trajectory = path / "trajectories" / f"{method}.jsonl"
+            rows = [json.loads(line) for line in trajectory.read_text().splitlines()]
+            rows[0]["outcome"].update(
+                failed=True, primary_status="solve_failure", first_primary_status="solve_failure",
+                completed_status="solve_failure", primary_residual_norm=None,
+                completed_residual_norm=None, unrecovered_failure=True,
+            )
+            trajectory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+            result = json.loads((path / "result.json").read_text())
+            for window, (start, stop) in WINDOWS.items():
+                result["windows"][window]["methods"][method] = method_stream_summary(rows[start:stop])
+            (path / "result.json").write_text(json.dumps(result))
+            self.assertEqual(audit_run(path, raw, require_completed_residuals=True)["unrecovered_failures"], 1)
 
     def test_replicate_summary_uses_equal_seed_weights_and_sample_sd(self):
         runs = []

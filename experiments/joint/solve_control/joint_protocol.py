@@ -190,6 +190,18 @@ def _base_protocol(
             ),
         },
         "methods": list(methods),
+        "timing": {
+            "schema_version": 2,
+            "controller_components": ["feature", "decision", "update", "lifecycle"],
+            "lifecycle": "rollback snapshot, episode initialization and rollback",
+            "setup_feedback_includes_controller_lifecycle": True,
+            "solve_td_target": "native cycle cost plus applicable terminal recovery",
+            "method_wall_scope": (
+                "one complete method call, including matrix construction and wrapper work; "
+                "excluding outer trajectory I/O, checkpointing and plotting"
+            ),
+            "method_wall_in_learning_feedback": False,
+        },
         "families": family_by_method,
         "method_labels": {
             spec.name: spec.label for spec in composable_specs

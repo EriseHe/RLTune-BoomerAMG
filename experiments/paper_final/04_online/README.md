@@ -1,5 +1,11 @@
 # PAPER_FINAL: Modules 1 and 2
 
+The September 17 diffusion runs are complete. The separately versioned
+[September 18 suite](20260918/README.md) charges controller lifecycle work,
+records per-method wall time, reuses the user-requested diagnosis seed, and
+runs both families with a 100-cycle advection budget. The protocol below
+documents the original September 17 suite.
+
 Prepared after local code checkpoint `ce609c1`, with subsequent recovery,
 stopping, timing and final-residual recording fixes. Source and native-library
 hashes are captured at launch. The manuscript is outside this code change.

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260918",
+  "checkpoint": "b2d37c99b9d6c5499e2dd6ecfbdddd59b2cbe259",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1
+  ],
+  "seed_offsets": [
+    4000063
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion": 50,
+    "diffusion_advection": 100
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "sequential by grid, diffusion then diffusion-advection; three paired methods in randomized per-problem order",
+  "seed_provenance": "User-requested reuse of the pre-run diagnosis tuple, previously used for development; not an untouched holdout or a replicate of September 17 at the same seed.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "diffusion_40_s1",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 1,
+      "config": "diffusion_40_s1.json",
+      "config_sha256": "77bc445c18085bd7163b2e956f2e02300f75f6b3580330c6965a29021707d19f",
+      "stream_sha256": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882"
+    },
+    {
+      "name": "advection_40_s1",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 1,
+      "config": "advection_40_s1.json",
+      "config_sha256": "ad8a7a0e3e29b5ab8a644c3be8fbf267359a5f62dde40ab49a12bd6660bcd4f2",
+      "stream_sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f"
+    },
+    {
+      "name": "diffusion_60_s1",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 1,
+      "config": "diffusion_60_s1.json",
+      "config_sha256": "2e77a0114d0269babf1ca35d8b8b86fcc51736b5b2f155a4e791ee9bf1c40dfd",
+      "stream_sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823"
+    },
+    {
+      "name": "advection_60_s1",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "config": "advection_60_s1.json",
+      "config_sha256": "2bb3ab701495ca3c84dc06a640837d4890f688e789131093377eda632133b37e",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "diffusion_80_s1",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 1,
+      "config": "diffusion_80_s1.json",
+      "config_sha256": "6b75670ba5a07b31b3abfb60b06db57cead545277a7aeaf84593859413e870fd",
+      "stream_sha256": "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e"
+    },
+    {
+      "name": "advection_80_s1",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 1,
+      "config": "advection_80_s1.json",
+      "config_sha256": "cc78ff0eb559d237d665c0b6e57da341f41aad802a9b53bf2a47f82fd48ceca8",
+      "stream_sha256": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b"
+    }
+  ]
+}

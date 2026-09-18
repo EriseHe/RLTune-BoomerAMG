@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import time
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Sequence
 
@@ -757,6 +757,7 @@ def run_td_episode(
     decision_runtime = 0.0
     feature_runtime = 0.0
     update_runtime = 0.0
+    lifecycle_runtime = 0.0
     solve_runtime = 0.0
     action_counts: Dict[str, int] = {}
     cycle_actions: list[float] = []
@@ -783,11 +784,7 @@ def run_td_episode(
     pending_action: tuple[int, float, Dict[str, Any]] | None = None
     recovery: RecoveryOutcome | None = None
     episode_started = False
-    learning_snapshot = (
-        controller.snapshot_learning_state()
-        if learn and hasattr(controller, "snapshot_learning_state")
-        else None
-    )
+    learning_snapshot = None
     prep = None
     fast_anchor_tail = bool(
         controller.config.adaptive_cycles is not None
@@ -796,6 +793,12 @@ def run_td_episode(
         and controller.config.monte_carlo_alpha > 0.0
     )
     try:
+        if learn and hasattr(controller, "snapshot_learning_state"):
+            lifecycle_started = time.perf_counter()
+            try:
+                learning_snapshot = controller.snapshot_learning_state()
+            finally:
+                lifecycle_runtime += time.perf_counter() - lifecycle_started
         with create_env(**dict(mkw)) as env:
             prep = env.prepare_rl(params=augment_setup_params(dict(params)))
             initial_residual = float(prep.initial_residual_norm)
@@ -808,9 +811,13 @@ def run_td_episode(
             previous_residual = initial_residual
             last_weight = initial_environment_weight
             last_cycle_time = 0.0
-            controller.start_episode(
-                initial_environment_weight=initial_environment_weight,
-            )
+            lifecycle_started = time.perf_counter()
+            try:
+                controller.start_episode(
+                    initial_environment_weight=initial_environment_weight,
+                )
+            finally:
+                lifecycle_runtime += time.perf_counter() - lifecycle_started
             episode_started = True
             feature_started = time.perf_counter()
             features = encoder.encode(
@@ -880,7 +887,7 @@ def run_td_episode(
                         "native_solve_runtime": float(solve_runtime),
                         "solve_runtime": float(solve_runtime),
                         "infer_runtime": float(
-                            feature_runtime + decision_runtime + update_runtime
+                            feature_runtime + decision_runtime + update_runtime + lifecycle_runtime
                         ),
                         "failed": True,
                         "attempt_status": failed_step.status.value,
@@ -983,7 +990,7 @@ def run_td_episode(
                             "setup_runtime": float(prep.setup_runtime_sec),
                             "solve_runtime": float(solve_runtime),
                             "infer_runtime": float(
-                                feature_runtime + decision_runtime + update_runtime
+                                feature_runtime + decision_runtime + update_runtime + lifecycle_runtime
                             ),
                             "failed": True,
                             "failure_reason": "max_cycles_reached_without_convergence",
@@ -1113,11 +1120,17 @@ def run_td_episode(
                 update_runtime += float(time.perf_counter() - update_started)
             if recovery is not None and recovery.unrecovered_failure:
                 if learning_snapshot is not None:
-                    controller.restore_learning_state(learning_snapshot)
+                    lifecycle_started = time.perf_counter()
+                    try:
+                        controller.restore_learning_state(learning_snapshot)
+                    finally:
+                        lifecycle_runtime += time.perf_counter() - lifecycle_started
             else:
                 update_started = time.perf_counter()
-                controller.finish_episode(learned=learn)
-                update_runtime += float(time.perf_counter() - update_started)
+                try:
+                    controller.finish_episode(learned=learn)
+                finally:
+                    update_runtime += float(time.perf_counter() - update_started)
 
         failure_reason = classify_rl_failure(
             residual_norm=float(residual),
@@ -1130,10 +1143,11 @@ def run_td_episode(
             "setup_runtime": float(prep.setup_runtime_sec),
             "native_solve_runtime": float(solve_runtime),
             "solve_runtime": float(solve_runtime),
-            "infer_runtime": float(feature_runtime + decision_runtime + update_runtime),
+            "infer_runtime": float(feature_runtime + decision_runtime + update_runtime + lifecycle_runtime),
             "feature_runtime": float(feature_runtime),
             "decision_runtime": float(decision_runtime),
             "update_runtime": float(update_runtime),
+            "lifecycle_runtime": float(lifecycle_runtime),
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
             "residual_norm": float(residual),
@@ -1205,7 +1219,7 @@ def run_td_episode(
             outcome["_monte_carlo_transitions"] = episode_transitions
         return outcome
     except Exception as exc:
-        controller_runtime = float(feature_runtime + decision_runtime + update_runtime)
+        controller_runtime = float(feature_runtime + decision_runtime + update_runtime + lifecycle_runtime)
         native_failure = AttemptOutcome.from_exception(
             exc,
             elapsed_sec=float(time.perf_counter() - function_started),
@@ -1252,14 +1266,34 @@ def run_td_episode(
             ),
         )
         if learning_snapshot is not None:
-            controller.restore_learning_state(learning_snapshot)
+            lifecycle_started = time.perf_counter()
+            try:
+                controller.restore_learning_state(learning_snapshot)
+            finally:
+                lifecycle_runtime += time.perf_counter() - lifecycle_started
         elif episode_started:
-            controller.finish_episode(learned=False)
+            update_started = time.perf_counter()
+            try:
+                controller.finish_episode(learned=False)
+            finally:
+                update_runtime += time.perf_counter() - update_started
+        # Rollback/finalization is completed after the failed attempt and must
+        # be charged once, without contaminating the native cycle targets.
+        recovery = RecoveryOutcome(
+            primary=replace(
+                recovery.primary,
+                controller_runtime_sec=float(
+                    feature_runtime + decision_runtime + update_runtime + lifecycle_runtime
+                ),
+            ),
+            fallback=recovery.fallback,
+        )
         outcome = recovery.to_result()
         outcome.update({
             "feature_runtime": float(feature_runtime),
             "decision_runtime": float(decision_runtime),
             "update_runtime": float(update_runtime),
+            "lifecycle_runtime": float(lifecycle_runtime),
             "residual_norm": float(residual),
             "iterations": int(iterations),
             "initial_environment_weight": initial_environment_weight,

@@ -58,11 +58,16 @@ def file_hash(path: Path) -> str:
 def load_suite(path: Path = SUITE):
     manifest = json.loads(path.read_text())
     entries = manifest["runs"]
+    if not set(manifest.get("allow_unrecovered_families", [])).issubset(CONTEXTS):
+        raise ValueError("Unknown family in the unrecovered-failure policy")
+    seeds = manifest["seeds"]
+    if not seeds or len(set(seeds)) != len(seeds) or any(seed not in (1, 2, 3) for seed in seeds):
+        raise ValueError("PAPER_FINAL requires distinct prescribed replicate labels in 1..3")
     expected = {(family, n, seed) for family in CONTEXTS
-                for n in (40, 60, 80) for seed in (1, 2, 3)}
-    if len(entries) != 18 or {(e["family"], e["grid"], e["seed"]) for e in entries} != expected:
-        raise ValueError("PAPER_FINAL requires exactly two families × three grids × three seeds")
-    if len({e["name"] for e in entries}) != 18:
+                for n in (40, 60, 80) for seed in seeds}
+    if len(entries) != len(expected) or {(e["family"], e["grid"], e["seed"]) for e in entries} != expected:
+        raise ValueError("PAPER_FINAL requires two families × three grids × the prescribed seeds")
+    if len({e["name"] for e in entries}) != len(expected):
         raise ValueError("PAPER_FINAL run names must be unique")
     configs = []
     for entry in entries:
@@ -87,7 +92,11 @@ def validate_suite(path: Path = SUITE) -> dict:
         spec = parse_joint_experiment_config(raw)
         runtime = runtime_config_from_spec(spec)
         validation = _validate_resolved(runtime)
-        if raw["setup"] != previous["setup"] or raw["solve"] != previous["solve"]:
+        expected_solve = dict(previous["solve"])
+        expected_solve["max_cycles"] = manifest.get("cycle_caps", {}).get(
+            entry["family"], previous["solve"]["max_cycles"]
+        )
+        if raw["setup"] != previous["setup"] or raw["solve"] != expected_solve:
             raise ValueError("PAPER_FINAL must retain the agreed setup and solve settings")
         expected_problem = {
             "kind": "scalar_anisotropic_" + entry["family"],
@@ -150,8 +159,8 @@ def validate_suite(path: Path = SUITE) -> dict:
                         "problem_context_fields": list(bundle.encoder.problem_context_fields),
                         "problem_context_dim": dimension, "solve_state_dim": bundle.encoder.feature_dim,
                         "solve_joint_dim": bundle.controller.joint_dim, "rl_first_problem": 1001})
-    if len({r["stream_sha256"] for r in reports}) != 18:
-        raise ValueError("The 18 prescribed streams must have distinct hashes")
+    if len({r["stream_sha256"] for r in reports}) != len(configs):
+        raise ValueError("The prescribed streams must have distinct hashes")
     return {"suite": manifest["name"], "valid": True, "native_experiments_executed": 0,
             "runs": reports, "free_disk_gib": shutil.disk_usage(ROOT).free / 2**30}
 
@@ -162,7 +171,7 @@ def source_state() -> dict:
          "experiments", "hypre", "problems", "setup", "solve"], cwd=ROOT,
     ).decode().split("\0")
     files = {p: file_hash(ROOT / p) for p in sorted(set(paths))
-             if p and (ROOT / p).is_file() and Path(p).suffix in {".py", ".c", ".h", ".json", ".sh"}}
+             if p and (ROOT / p).is_file() and Path(p).suffix in {".py", ".c", ".h", ".json", ".sh", ".command"}}
     for path in (ROOT / "hypre/interfaces/libamg_runtime.dylib",
                  ROOT / "hypre/install/lib/libHYPRE.3.0.0.dylib"):
         if path.exists():
@@ -248,7 +257,8 @@ def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=Non
                 if (completed["config_sha256"] != entry["config_sha256"]
                         or completed["stream_sha256"] != entry["stream_sha256"]):
                     raise RuntimeError(f"Completion marker mismatch: {marker}")
-                if run_audit(destination, raw)["unrecovered_failures"]:
+                if (run_audit(destination, raw)["unrecovered_failures"]
+                        and entry["family"] not in manifest.get("allow_unrecovered_families", [])):
                     raise RuntimeError("Existing run has unrecovered failures; inspect before continuing")
                 print(f"Verified completed run {index + 1}/{len(configs)}: {entry['name']}", flush=True)
                 continue
@@ -271,8 +281,12 @@ def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=Non
                                  "subprocess_elapsed_sec": time.perf_counter() - started,
                                  "unrecovered_failures": audited["unrecovered_failures"]})
             report_writer(path, output_root, allow_partial=True)
-            if audited["unrecovered_failures"]:
+            if (audited["unrecovered_failures"]
+                    and entry["family"] not in manifest.get("allow_unrecovered_families", [])):
                 raise RuntimeError("Run completed with unrecovered failures; inspect before continuing")
+            if audited["unrecovered_failures"]:
+                print(f"Retained {audited['unrecovered_failures']} unrecovered outcomes in {entry['name']}; "
+                      "continuing under the prescribed failure-reporting policy.", flush=True)
         report_writer(path, output_root, allow_partial=len(configs) < total_configs)
 
 

@@ -723,8 +723,10 @@ def _execute_online_instances(
                     **({"shared_prefix_source": source} if shared_prefix or waiting else {}),
                 },
             )
-            case_rows = {
-                method: _run_one_method(
+            case_rows = {}
+            for execution_rank, method in enumerate(order):
+                method_started = time.perf_counter()
+                row = _run_one_method(
                     plan=plan,
                     hooks=hooks,
                     method=method,
@@ -737,8 +739,11 @@ def _execute_online_instances(
                     bandit_online_steps=bandit_online_steps,
                     activation_gate=activation_gates.get(method),
                 )
-                for execution_rank, method in enumerate(order)
-            }
+                # Independent reporting stopwatch, not a replacement learning
+                # target. Includes matrix construction and binding/wrapper work;
+                # excludes outer trajectory I/O, checkpointing and plotting.
+                row["outcome"]["method_wall_runtime"] = time.perf_counter() - method_started
+                case_rows[method] = row
             if shared_prefix:
                 # One measured solve/update contributes once to each method's
                 # logical cost. Only the dynamic copy receives gate overhead.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from contextlib import ExitStack
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
@@ -216,6 +217,60 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertAlmostEqual(
             outcome["runtime"], outcome["setup_runtime"] + outcome["native_solve_runtime"]
         )
+
+    def test_controller_lifecycle_is_charged_on_success_recovery_and_rollback(self):
+        cases = (
+            ("success", _SequentialEnv([1e-8]), None, 0.03, 0.003),
+            ("recovered", _FakeEnv([0.5]), False, 0.03, 0.023),
+            ("unrecovered", _FakeEnv([0.5]), True, 0.07, 0.023),
+            ("setup_failure", _SetupFailureEnv([]), None, 0.05, 0.003),
+        )
+        for label, env, fallback_failed, expected_lifecycle, expected_native in cases:
+            with self.subTest(case=label), ExitStack() as patches:
+                controller = _RecordingController()
+                clock = [0.0]
+
+                def timed(operation, duration):
+                    def call(*args, **kwargs):
+                        try:
+                            return operation(*args, **kwargs)
+                        finally:
+                            clock[0] += duration
+                    return call
+
+                for name, duration in (
+                    ("snapshot_learning_state", 0.01),
+                    ("start_episode", 0.02),
+                    ("restore_learning_state", 0.04),
+                    ("finish_episode", 0.08),
+                ):
+                    operation = getattr(controller, name)
+                    patches.enter_context(patch.object(controller, name, side_effect=timed(operation, duration)))
+                patches.enter_context(patch(
+                    "solve.controllers.sarsa.online_td_lambda.time.perf_counter",
+                    side_effect=lambda: clock[0],
+                ))
+                patches.enter_context(patch(
+                    "solve.controllers.sarsa.online_td_lambda.create_env", return_value=env,
+                ))
+                fallback = (None if fallback_failed is None else
+                            lambda: _result(failed=fallback_failed, runtime=0.02))
+                outcome = run_td_episode(
+                    mkw={}, params={}, controller=controller, encoder=_Encoder(),
+                    solve_tol=1e-6, solve_max_cycles=2, learn=True, explore=False,
+                    fallback_attempt=fallback,
+                )
+                self.assertAlmostEqual(outcome["lifecycle_runtime"], expected_lifecycle)
+                self.assertAlmostEqual(outcome["infer_runtime"], sum(
+                    outcome[key] for key in (
+                        "feature_runtime", "decision_runtime", "update_runtime", "lifecycle_runtime"
+                    )
+                ))
+                self.assertAlmostEqual(outcome.get("native_runtime", outcome["runtime"]), expected_native)
+                if label in {"success", "recovered"}:
+                    self.assertAlmostEqual(outcome["update_runtime"], 0.08)
+                if label == "success":
+                    self.assertEqual(controller.learning_costs, [0.001])
 
     def test_native_exception_does_not_fabricate_physical_cycle_target(self):
         controller = _RecordingController()
