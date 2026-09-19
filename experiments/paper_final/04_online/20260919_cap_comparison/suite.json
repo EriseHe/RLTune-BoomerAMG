@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1
+  ],
+  "seed_offsets": [
+    4000063
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "timing_schema_version": 2,
+  "seed_provenance": "User-requested reuse of the pre-run diagnosis tuple, previously used for development; not an untouched holdout or a replicate of September 17 at the same seed.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "name": "04_online_20260919_cap_comparison",
+  "checkpoint": "d22753b7dbed533b6af4fa7f346d6d081fcc57e8",
+  "families": [
+    "diffusion_advection"
+  ],
+  "grids": [
+    60
+  ],
+  "caps": [
+    100,
+    200,
+    500
+  ],
+  "reference_cap": 100,
+  "cap_roles": {
+    "100": "reference",
+    "200": "main untested alternative",
+    "500": "high-budget experiment; no presumed superiority"
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "abort_on_clock_mismatch": true,
+  "execution": "Sequential cap 100, 200, 500. Fresh learners per cap; three paired methods in seeded randomized per-problem order.",
+  "purpose": "One post-fix development comparison before selecting a cap for the final multi-grid suite; 5000 problems per setting and method.",
+  "failure_feedback": {
+    "mode": "budgeted_penalty",
+    "penalty_sec": 2.378,
+    "reference_cap": 100,
+    "rule": "Common Lambda frozen at the independent Default cap-100 budget estimate; do not rescale with cap.",
+    "source_commit": "d22753b7dbed533b6af4fa7f346d6d081fcc57e8",
+    "source_config": "experiments/paper_final/04_online/20260919_failure_feedback/advection_60_s1.json",
+    "source_results_deleted_at_user_request": true,
+    "cost_definition": "Measured finite expenditure C_H plus Lambda if the complete primary/recovery procedure finally fails. Penalty is not physical runtime."
+  },
+  "runs": [
+    {
+      "name": "cap_100",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 100,
+      "config": "cap_100.json",
+      "config_sha256": "38cbfc01e480de48d0a8354e9c474a3eb551ce1804171b6e077798b0a0a34bf2",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "cap_200",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 200,
+      "config": "cap_200.json",
+      "config_sha256": "655d186e39d9d9fdf2928c45489f7078cbbdd1610b091f21d4baa7f53ad93bf7",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "cap_500",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 500,
+      "config": "cap_500.json",
+      "config_sha256": "10c44f914564079aef144b2e0f994f762d9658ab5cbb2642959818f5edabec25",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    }
+  ]
+}

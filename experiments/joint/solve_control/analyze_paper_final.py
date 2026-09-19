@@ -139,20 +139,21 @@ def aggregate_runs(runs: list[dict]) -> list[dict]:
     groups = []
     for family in ("diffusion", "diffusion_advection"):
         for grid in (40, 60, 80):
-            selected = [r for r in runs if r["family"] == family and r["grid"] == grid]
-            if not selected:
-                continue
-            for window in WINDOWS:
-                for method in METHOD_LABELS:
-                    metrics = [r["windows"][window][method] for r in selected]
-                    reductions = [m["time_reduction_vs_default_pct"] for m in metrics]
-                    groups.append({
-                        "family": family, "grid": grid, "window": window, "method": method,
-                        "replicates": len(selected), "seeds": [r["seed"] for r in selected],
-                        "mean_time_reduction_pct": statistics.mean(reductions),
-                        "sample_sd_time_reduction_pct": statistics.stdev(reductions) if len(reductions) > 1 else None,
-                        "mean_e2e_sec": statistics.mean(m["totals_sec"]["end_to_end_runtime"] for m in metrics),
-                    })
+            matching = [r for r in runs if r["family"] == family and r["grid"] == grid]
+            for cap in sorted({r.get("cap", 0) for r in matching}):
+                selected = [r for r in matching if r.get("cap", 0) == cap]
+                for window in WINDOWS:
+                    for method in METHOD_LABELS:
+                        metrics = [r["windows"][window][method] for r in selected]
+                        reductions = [m["time_reduction_vs_default_pct"] for m in metrics]
+                        groups.append({
+                            "family": family, "grid": grid, "cap": cap or None,
+                            "window": window, "method": method,
+                            "replicates": len(selected), "seeds": [r["seed"] for r in selected],
+                            "mean_time_reduction_pct": statistics.mean(reductions),
+                            "sample_sd_time_reduction_pct": statistics.stdev(reductions) if len(reductions) > 1 else None,
+                            "mean_e2e_sec": statistics.mean(m["totals_sec"]["end_to_end_runtime"] for m in metrics),
+                        })
     return groups
 
 
@@ -163,7 +164,8 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
         if not (output_root / f"{entry['name']}.complete.json").exists():
             missing.append(entry["name"])
             continue
-        runs.append({**entry, **audit_run(output_root / entry["name"], raw, require_completed_residuals=True)})
+        runs.append({**entry, "cap": int(raw["solve"]["max_cycles"]),
+                     **audit_run(output_root / entry["name"], raw, require_completed_residuals=True)})
     if missing and not allow_partial:
         raise ValueError(f"PAPER_FINAL incomplete: {len(missing)}/{len(configs)} runs missing")
     summary = {"complete": not missing, "completed_runs": len(runs), "missing": missing,
@@ -171,7 +173,7 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
     report_dir = output_root / "analysis"
     report_dir.mkdir(parents=True, exist_ok=True)
     _write_json(report_dir / "modules_1_2.json", summary)
-    lines = ["# PAPER_FINAL — Modules 1 and 2", "",
+    lines = ["# Module 04 — cycle-cap comparison" if _manifest.get("caps") else "# PAPER_FINAL — Modules 1 and 2", "",
              f"Completed: {len(runs)}/{len(configs)} runs. Status: {'complete' if not missing else 'PARTIAL — not final paper results'}.", "",
              "Primary: summed online E2E seconds across all 5000 problems, including the first 1000, "
              "bounded recovery and recurring controller/bandit overhead. One-time model initialization, "
@@ -184,29 +186,30 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
              "Each reduction uses the paired Default from the same run. Replicate SD describes variability "
              "across the completed training streams; it is not a confidence interval from 5000 independent observations.", "",
              "## Module 1: every prespecified replicate", "",
-             "| PDE | Grid | Seed | Window | Method | Online E2E (s) | Reduction vs Default (%) | Reduction vs LinUCB (%) | Unrecovered |",
-             "|---|---:|---:|---|---|---:|---:|---:|---:|"]
+             "| PDE | Grid | Cap | Seed | Window | Method | Online E2E (s) | Reduction vs Default (%) | Reduction vs LinUCB (%) | Unrecovered |",
+             "|---|---:|---:|---:|---|---|---:|---:|---:|---:|"]
     for run in runs:
         for window, methods in run["windows"].items():
             for method, label in METHOD_LABELS.items():
                 m = methods[method]
-                lines.append(f"| {run['family']} | {run['grid']}³ | {run['seed']} | {window} | {label} | "
+                lines.append(f"| {run['family']} | {run['grid']}³ | {run['cap']} | {run['seed']} | {window} | {label} | "
                              f"{m['totals_sec']['end_to_end_runtime']:.3f} | {m['time_reduction_vs_default_pct']:.2f} | "
                              f"{m['time_reduction_vs_linucb_pct']:.2f} | {m['unrecovered_failure_count']} |")
     lines += ["", "## Module 1: replicate summary", "",
               "Mean ± sample SD of the per-replicate time reductions; all prescribed seeds are retained.", "",
-              "| PDE | Grid | Window | Method | Replicates | Reduction mean ± SD (percentage points) |",
-              "|---|---:|---|---|---:|---:|"]
+              "Caps are distinct experimental settings and are never pooled as independent replicates.", "",
+              "| PDE | Grid | Cap | Window | Method | Replicates | Reduction mean ± SD (percentage points) |",
+              "|---|---:|---:|---|---|---:|---:|"]
     for row in summary["aggregate"]:
         sd = row["sample_sd_time_reduction_pct"]
         sd_text = "NA" if sd is None else f"{sd:.2f}"
-        lines.append(f"| {row['family']} | {row['grid']}³ | {row['window']} | {METHOD_LABELS[row['method']]} | "
+        lines.append(f"| {row['family']} | {row['grid']}³ | {row['cap']} | {row['window']} | {METHOD_LABELS[row['method']]} | "
                      f"{row['replicates']} | {row['mean_time_reduction_pct']:.2f} ± {sd_text} |")
     lines += ["", "## Module 2: 60³ runtime components", "",
               "Components are totals in seconds. Fallback native time is a subset of setup + solve; "
               "it must not be added again. Unrecovered cases remain visible in all summaries.", "",
-              "| PDE | Seed | Window | Method | Setup | Solve | Controller | Bandit | Online E2E | First-attempt failures | Fallback native |",
-              "|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|"]
+              "| PDE | Cap | Seed | Window | Method | Setup | Solve | Controller | Bandit | Online E2E | First-attempt failures | Fallback native |",
+              "|---|---:|---:|---|---|---:|---:|---:|---:|---:|---:|---:|"]
     for run in runs:
         if run["grid"] != 60:
             continue
@@ -216,7 +219,7 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
                 t = m["totals_sec"]
                 values = " | ".join(f"{t[k]:.3f}" for k in (
                     "setup_runtime", "native_solve_runtime", "controller_runtime", "setup_bandit_overhead", "end_to_end_runtime"))
-                lines.append(f"| {run['family']} | {run['seed']} | {window} | {label} | {values} | "
+                lines.append(f"| {run['family']} | {run['cap']} | {run['seed']} | {window} | {label} | {values} | "
                              f"{m['primary_failure_count']} | {m['fallback_native_sec']:.3f} |")
     if any("method_wall_runtime" in m["totals_sec"]
            for r in runs for methods in r["windows"].values() for m in methods.values()):
@@ -224,14 +227,14 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
                   "Controller lifecycle is already included in Controller/Online E2E, not an extra charge. "
                   "Method-call wall time is an independent stopwatch including matrix construction and wrapper work; "
                   "it excludes outer trajectory I/O, checkpoints and plotting, and is not fed to either learner.", "",
-                  "| PDE | Grid | Seed | Window | Method | Controller lifecycle (s) | Method-call wall (s) |",
-                  "|---|---:|---:|---|---|---:|---:|"]
+                  "| PDE | Grid | Cap | Seed | Window | Method | Controller lifecycle (s) | Method-call wall (s) |",
+                  "|---|---:|---:|---:|---|---|---:|---:|"]
         for run in runs:
             for window, methods in run["windows"].items():
                 for method, m in methods.items():
                     t = m["totals_sec"]
                     if "method_wall_runtime" in t:
-                        lines.append(f"| {run['family']} | {run['grid']}³ | {run['seed']} | {window} | "
+                        lines.append(f"| {run['family']} | {run['grid']}³ | {run['cap']} | {run['seed']} | {window} | "
                                      f"{METHOD_LABELS[method]} | {t.get('controller_lifecycle_runtime', 0.0):.6f} | "
                                      f"{t['method_wall_runtime']:.6f} |")
     if any("penalized_cost" in m["totals_sec"]
@@ -239,14 +242,14 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
         lines += ["", "## Failure-aware objective", "",
                   "Penalized cost = measured online E2E + the prescribed penalty for final failures. "
                   "The penalty is not elapsed time and is excluded from every runtime reduction above.", "",
-                  "| PDE | Grid | Window | Method | Measured E2E (s) | Failure penalty (s) | Penalized cost (s) |",
-                  "|---|---:|---|---|---:|---:|---:|"]
+                  "| PDE | Grid | Cap | Window | Method | Measured E2E (s) | Failure penalty (s) | Penalized cost (s) |",
+                  "|---|---:|---:|---|---|---:|---:|---:|"]
         for run in runs:
             for window, methods in run["windows"].items():
                 for method, m in methods.items():
                     t = m["totals_sec"]
                     if "penalized_cost" in t:
-                        lines.append(f"| {run['family']} | {run['grid']}³ | {window} | {METHOD_LABELS[method]} | "
+                        lines.append(f"| {run['family']} | {run['grid']}³ | {run['cap']} | {window} | {METHOD_LABELS[method]} | "
                                      f"{t['end_to_end_runtime']:.3f} | {t['failure_penalty']:.3f} | {t['penalized_cost']:.3f} |")
     lines += ["", "LinUCB and LinUCB–LSTDQ learn independent setup paths with their own realized costs. "
               "Their difference measures the complete adaptive frameworks, not an isolated causal effect "

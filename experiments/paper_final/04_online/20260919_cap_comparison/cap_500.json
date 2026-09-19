@@ -1,22 +1,19 @@
 {
   "schema_version": 1,
-  "name": "diffusion_40_s1",
-  "description": "September 19 retained-failure comparison: 5000 paired problems, independent LinUCB v4 setup states, LSTDQ v3 from problem 1001, same development seed and family-specific caps as September 18. Valid final failures train on measured cost plus a prespecified Default-budget penalty. Penalties are separate from physical timing. Invalid measurements and execution errors abort. All learners start fresh.",
-  "output_dir": "results/paper_final/04_online/20260919_failure_feedback/diffusion_40_s1",
+  "name": "cap_500",
+  "description": "Post-fix 60-cubed diffusion-advection development comparison, cap 500: 5000 paired problems for Default, LinUCB v4 and LinUCB-LSTDQ v3; fresh learners and identical seeds/inputs. Valid final failures retain updates under C_H + 2.378*F. Cap 100 is reference, 200 the main untested alternative, 500 a high-budget experiment. No cap is presumed best.",
+  "output_dir": "results/paper_final/04_online/20260919_cap_comparison/cap_500",
   "problem": {
-    "kind": "scalar_anisotropic_diffusion",
+    "kind": "scalar_anisotropic_diffusion_advection",
     "grid": [
-      40,
-      40,
-      40
+      60,
+      60,
+      60
     ],
     "c_min": 1,
     "c_max": 1000,
-    "advection": [
-      0,
-      0,
-      0
-    ]
+    "advection_min": 1,
+    "advection_max": 1000
   },
   "stream": {
     "cases": 5000,
@@ -38,7 +35,7 @@
     ],
     "cases_per_seed": 625,
     "group_take": 5000,
-    "expected_sha256": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882",
+    "expected_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f",
     "smoke": false
   },
   "seeds": {
@@ -85,7 +82,7 @@
   },
   "solve": {
     "tolerance": 1e-06,
-    "max_cycles": 50,
+    "max_cycles": 500,
     "action_grid": {
       "start": 1,
       "stop": 3,
@@ -133,7 +130,7 @@
       "id": "bandit_default",
       "setup": "linucb",
       "setup_space": "recommended",
-      "setup_context": "diffusion3d",
+      "setup_context": "canonical_no_c_mean",
       "candidate_sampling": "structured512",
       "seed_offset": 0,
       "solve": "default"
@@ -142,11 +139,11 @@
       "id": "bandit_lstdq",
       "setup": "linucb",
       "setup_space": "recommended",
-      "setup_context": "diffusion3d",
+      "setup_context": "canonical_no_c_mean",
       "candidate_sampling": "structured512",
       "seed_offset": 0,
       "solve": "recursive_lstdq_v3",
-      "solve_context": "diffusion3d",
+      "solve_context": "canonical_no_c_mean",
       "solve_activation_case": 1000,
       "solve_tolerance": 1e-06
     }
@@ -158,6 +155,6 @@
   },
   "failure_feedback": {
     "mode": "budgeted_penalty",
-    "penalty_sec": 0.436
+    "penalty_sec": 2.378
   }
 }

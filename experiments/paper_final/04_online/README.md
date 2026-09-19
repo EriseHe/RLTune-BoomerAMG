@@ -1,9 +1,9 @@
 # PAPER_FINAL: Modules 1 and 2
 
-The [September 19 failure-feedback comparison](20260919_failure_feedback/README.md)
-runs both families at 40³ and 60³ with retained valid failures and independently
-calibrated, fixed penalties. Its family-specific caps and input seed match
-September 18; it is a development comparison.
+The [September 19 cap comparison](20260919_cap_comparison/README.md) runs 60³
+diffusion–advection at caps 100, 200 and 500 with retained valid failures and a
+common fixed penalty. It replaces the canceled four-group 40/60 suite, whose
+new results were deleted at the user's request. Earlier results remain separate.
 
 The September 17 diffusion runs are complete. The separately versioned
 [September 18 suite](20260918/README.md) charges controller lifecycle work,

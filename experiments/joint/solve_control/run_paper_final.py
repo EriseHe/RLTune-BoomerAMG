@@ -69,9 +69,13 @@ def load_suite(path: Path = SUITE):
     grids = manifest.get("grids", [40, 60, 80])
     if not grids or len(set(grids)) != len(grids) or not set(grids).issubset({40, 60, 80}):
         raise ValueError("PAPER_FINAL requires distinct prescribed grids in 40/60/80")
-    expected = {(family, n, seed) for family in families
-                for n in grids for seed in seeds}
-    if len(entries) != len(expected) or {(e["family"], e["grid"], e["seed"]) for e in entries} != expected:
+    caps = manifest.get("caps")
+    if caps is not None and (not caps or any(type(cap) is not int or cap <= 0 for cap in caps)
+                             or len(set(caps)) != len(caps)):
+        raise ValueError("PAPER_FINAL requires distinct positive integer cycle caps")
+    expected = {(family, n, seed, cap) for family in families
+                for n in grids for seed in seeds for cap in (caps or [None])}
+    if len(entries) != len(expected) or {(e["family"], e["grid"], e["seed"], e.get("cap")) for e in entries} != expected:
         raise ValueError("PAPER_FINAL requires the prescribed families × grids × seeds")
     if len({e["name"] for e in entries}) != len(expected):
         raise ValueError("PAPER_FINAL run names must be unique")
@@ -99,11 +103,15 @@ def validate_suite(path: Path = SUITE) -> dict:
         runtime = runtime_config_from_spec(spec)
         validation = _validate_resolved(runtime)
         expected_solve = dict(previous["solve"])
-        expected_solve["max_cycles"] = manifest.get("cycle_caps", {}).get(
+        expected_solve["max_cycles"] = entry.get("cap", manifest.get("cycle_caps", {}).get(
             entry["family"], previous["solve"]["max_cycles"]
-        )
+        ))
         if raw["setup"] != previous["setup"] or raw["solve"] != expected_solve:
             raise ValueError("PAPER_FINAL must retain the agreed setup and solve settings")
+        if manifest.get("caps"):
+            feedback = manifest["failure_feedback"]
+            if raw.get("failure_feedback") != {key: feedback[key] for key in ("mode", "penalty_sec")}:
+                raise ValueError("Cap comparisons must keep the failure objective fixed")
         expected_problem = {
             "kind": "scalar_anisotropic_" + entry["family"],
             "grid": [entry["grid"]] * 3, "c_min": 1, "c_max": 1000,
@@ -162,11 +170,18 @@ def validate_suite(path: Path = SUITE) -> dict:
         if labels != METHOD_LABELS:
             raise ValueError("Paper figure labels do not match the method roster")
         reports.append({"name": entry["name"], "stream_sha256": validation["stream"]["sha256"],
+                        "max_cycles": runtime.max_cycles, "failure_feedback": validation["failure_feedback"],
                         "problem_context_fields": list(bundle.encoder.problem_context_fields),
                         "problem_context_dim": dimension, "solve_state_dim": bundle.encoder.feature_dim,
                         "solve_joint_dim": bundle.controller.joint_dim, "rl_first_problem": 1001})
-    if len({r["stream_sha256"] for r in reports}) != len(configs):
-        raise ValueError("The prescribed streams must have distinct hashes")
+    streams = {}
+    for (entry, _path, _raw), report in zip(configs, reports):
+        key = (entry["family"], entry["grid"], entry["seed"])
+        streams.setdefault(key, set()).add(report["stream_sha256"])
+    if any(len(hashes) != 1 for hashes in streams.values()):
+        raise ValueError("All caps must use the same paired input stream")
+    if len({r["stream_sha256"] for r in reports}) != len(streams):
+        raise ValueError("Different family/grid/seed groups must have distinct stream hashes")
     return {"suite": manifest["name"], "valid": True, "native_experiments_executed": 0,
             "runs": reports, "free_disk_gib": shutil.disk_usage(ROOT).free / 2**30}
 

@@ -245,6 +245,28 @@ class PaperFinalTests(unittest.TestCase):
             self.assertIn("20260918_advection50", raw["output_dir"])
         self.assertTrue(suite.validate_suite(path)["valid"])
 
+    def test_cap_comparison_prescribes_identical_inputs_and_common_penalty(self):
+        path = suite.SUITE.parent / "20260919_cap_comparison/suite.json"
+        manifest, configs = suite.load_suite(path)
+        self.assertEqual([entry["cap"] for entry, _, _ in configs], [100, 200, 500])
+        self.assertEqual(manifest["reference_cap"], 100)
+        reference = copy.deepcopy(configs[0][2])
+        for entry, _, raw in configs:
+            comparable = copy.deepcopy(raw)
+            self.assertEqual(raw["solve"]["max_cycles"], entry["cap"])
+            self.assertEqual(raw["failure_feedback"], {"mode":"budgeted_penalty", "penalty_sec":2.378})
+            for key in ("name", "description", "output_dir"):
+                comparable[key] = reference[key]
+            comparable["solve"]["max_cycles"] = 100
+            self.assertEqual(comparable, reference)
+        report = suite.validate_suite(path)
+        self.assertEqual(len({run["stream_sha256"] for run in report["runs"]}), 1)
+        changed = copy.deepcopy(configs)
+        changed[0][2]["failure_feedback"]["penalty_sec"] = 3.0
+        with patch.object(suite, "load_suite", return_value=(manifest, changed)):
+            with self.assertRaisesRegex(ValueError, "failure objective fixed"):
+                suite.validate_suite(path)
+
     def test_clock_mismatch_stops_before_another_method_and_preserves_observation(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)
@@ -518,6 +540,20 @@ class PaperFinalTests(unittest.TestCase):
         self.assertEqual(row["seeds"], [1, 2, 3])
         self.assertAlmostEqual(row["mean_time_reduction_pct"], 30.)
         self.assertAlmostEqual(row["sample_sd_time_reduction_pct"], np.std([10., 20., 60.], ddof=1))
+
+    def test_cap_settings_are_never_pooled_as_independent_seeds(self):
+        runs = []
+        for cap in (100, 200, 500):
+            methods = {m: {"time_reduction_vs_default_pct": 10.,
+                           "totals_sec": {"end_to_end_runtime": float(cap)}}
+                       for m in suite.METHOD_LABELS}
+            runs.append({"family":"diffusion_advection", "grid":60, "seed":1, "cap":cap,
+                         "windows":{w:copy.deepcopy(methods) for w in WINDOWS}})
+        rows = aggregate_runs(runs)
+        self.assertEqual({row["cap"] for row in rows}, {100, 200, 500})
+        self.assertEqual(len(rows), 3 * len(WINDOWS) * len(suite.METHOD_LABELS))
+        self.assertTrue(all(row["replicates"] == 1 and row["seeds"] == [1]
+                            and row["sample_sd_time_reduction_pct"] is None for row in rows))
 
 
 if __name__ == "__main__":

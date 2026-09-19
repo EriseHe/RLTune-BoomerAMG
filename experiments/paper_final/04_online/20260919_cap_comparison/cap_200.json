@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "name": "advection_40_s1",
-  "description": "September 19 retained-failure comparison: 5000 paired problems, independent LinUCB v4 setup states, LSTDQ v3 from problem 1001, same development seed and family-specific caps as September 18. Valid final failures train on measured cost plus a prespecified Default-budget penalty. Penalties are separate from physical timing. Invalid measurements and execution errors abort. All learners start fresh.",
-  "output_dir": "results/paper_final/04_online/20260919_failure_feedback/advection_40_s1",
+  "name": "cap_200",
+  "description": "Post-fix 60-cubed diffusion-advection development comparison, cap 200: 5000 paired problems for Default, LinUCB v4 and LinUCB-LSTDQ v3; fresh learners and identical seeds/inputs. Valid final failures retain updates under C_H + 2.378*F. Cap 100 is reference, 200 the main untested alternative, 500 a high-budget experiment. No cap is presumed best.",
+  "output_dir": "results/paper_final/04_online/20260919_cap_comparison/cap_200",
   "problem": {
     "kind": "scalar_anisotropic_diffusion_advection",
     "grid": [
-      40,
-      40,
-      40
+      60,
+      60,
+      60
     ],
     "c_min": 1,
     "c_max": 1000,
@@ -35,7 +35,7 @@
     ],
     "cases_per_seed": 625,
     "group_take": 5000,
-    "expected_sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f",
+    "expected_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f",
     "smoke": false
   },
   "seeds": {
@@ -82,7 +82,7 @@
   },
   "solve": {
     "tolerance": 1e-06,
-    "max_cycles": 100,
+    "max_cycles": 200,
     "action_grid": {
       "start": 1,
       "stop": 3,
@@ -155,6 +155,6 @@
   },
   "failure_feedback": {
     "mode": "budgeted_penalty",
-    "penalty_sec": 0.684
+    "penalty_sec": 2.378
   }
 }
