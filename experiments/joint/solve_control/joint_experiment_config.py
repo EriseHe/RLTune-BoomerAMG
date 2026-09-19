@@ -10,6 +10,7 @@ import numpy as np
 
 from joint_method_spec import ComposableMethodSpec
 from hypre.bindings.config import SMOOTHER_PROFILES
+from hypre.bindings.recovery import validate_failure_penalty
 from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
     normalize_problem_kind,
@@ -55,6 +56,7 @@ TOP_LEVEL_KEYS = {
     "solve",
     "methods",
     "reporting",
+    "failure_feedback",
 }
 SETUP_KEYS = {
     "parameter_resolution",
@@ -655,6 +657,7 @@ class JointExperimentSpec:
     solve: JointSolveSpec
     methods: tuple[ComposableMethodSpec, ...]
     reporting: ReportingSpec
+    failure_penalty_sec: float | None = None
 
 
 @dataclass(frozen=True)
@@ -751,6 +754,7 @@ class JointExperimentRuntimeConfig:
     solve_controller_specs: Dict[str, OnlineControllerBuildSpec]
     joint_experiment_spec: JointExperimentSpec
     shared_online_prefix: bool = False
+    failure_penalty_sec: float | None = None
 
 
 def parse_joint_experiment_config(
@@ -822,6 +826,19 @@ def parse_joint_experiment_config(
     reporting = ReportingSpec.from_mapping(
         mapping(config.get("reporting", {}), name="reporting")
     )
+    feedback = mapping(config.get("failure_feedback", {}), name="failure_feedback")
+    reject_unknown_keys(feedback, {"mode", "penalty_sec"}, name="failure_feedback")
+    mode = feedback.get("mode", "rollback_unrecovered")
+    if mode not in {"rollback_unrecovered", "budgeted_penalty"}:
+        raise ValueError("Unknown failure_feedback.mode")
+    penalty = validate_failure_penalty(feedback.get("penalty_sec"))
+    if (mode == "budgeted_penalty") != (penalty is not None):
+        raise ValueError("budgeted_penalty requires explicit penalty_sec; rollback_unrecovered must omit it")
+    if penalty is not None:
+        if stream.warmup_cases or any(m.setup_warmup_cases for m in methods):
+            raise ValueError("budgeted_penalty requires online setup learning from problem 1")
+        if setup.replay_trajectory is not None or any(m.solve_kind == "ppo" for m in methods):
+            raise ValueError("budgeted_penalty is not supported for frozen setup replay or PPO")
     return JointExperimentSpec(
         schema_version=schema_version,
         name=str(config.get("name", "")),
@@ -834,6 +851,7 @@ def parse_joint_experiment_config(
         solve=solve,
         methods=methods,
         reporting=reporting,
+        failure_penalty_sec=penalty,
     )
 
 
@@ -967,6 +985,7 @@ def runtime_config_from_spec(
         solve_controller_specs=dict(solve.controller_specs),
         joint_experiment_spec=spec,
         shared_online_prefix=spec.setup.shared_online_prefix,
+        failure_penalty_sec=spec.failure_penalty_sec,
     )
 
 

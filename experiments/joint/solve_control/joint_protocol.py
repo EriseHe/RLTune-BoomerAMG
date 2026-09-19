@@ -191,6 +191,14 @@ def _base_protocol(
             ),
         },
         "methods": list(methods),
+        "failure_feedback": {
+            "mode": "rollback_unrecovered" if getattr(args, "failure_penalty_sec", None) is None else "budgeted_penalty",
+            "penalty_sec": getattr(args, "failure_penalty_sec", None),
+            "setup_target": "measured protocol cost plus selection and previous-update estimate, plus final-failure penalty",
+            "solve_target": "native cycle costs, terminal recovery cost and final-failure penalty",
+            "penalty_is_measured_runtime": False,
+            "failure_head_label": "primary attempt failure; used only for setup-construction reselection",
+        },
         "timing": {
             "schema_version": 2,
             "controller_components": ["feature", "decision", "update", "lifecycle"],
@@ -202,7 +210,10 @@ def _base_protocol(
                 "excluding outer trajectory I/O, checkpointing and plotting"
             ),
             "method_wall_in_learning_feedback": False,
-            "abort_on_clock_mismatch": os.environ.get("RLTUNE_ABORT_ON_CLOCK_MISMATCH") == "1",
+            "abort_on_clock_mismatch": (
+                os.environ.get("RLTUNE_ABORT_ON_CLOCK_MISMATCH") == "1"
+                or getattr(args, "failure_penalty_sec", None) is not None
+            ),
         },
         "families": family_by_method,
         "method_labels": {

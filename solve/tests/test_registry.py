@@ -311,6 +311,7 @@ class SolveRegistryTests(unittest.TestCase):
             record_action_metadata=True,
             initial_environment_weight_override=1.25,
             fallback_attempt=fallback,
+            failure_penalty_sec=0.5,
         )
         expected = {"runtime": 0.25, "failed": False}
         with patch(
@@ -333,6 +334,7 @@ class SolveRegistryTests(unittest.TestCase):
             record_action_metadata=True,
             initial_environment_weight_override=1.25,
             fallback_attempt=fallback,
+            failure_penalty_sec=0.5,
         )
 
     def test_specs_remain_available_from_legacy_implementation_modules(self) -> None:

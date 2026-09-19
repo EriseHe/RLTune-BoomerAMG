@@ -23,7 +23,7 @@ from joint_4k_execution import make_method_solver, SolveExecutionConfig
 from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
 from joint_experiment_plotting import _compact_method_labels
 from joint_method_spec import ComposableMethodSpec
-from joint_online_common import method_stream_summary
+from joint_online_common import method_stream_summary, report_online_outcome, validate_recovery_stream
 from problems.amg import build_context_diffusion_advection_from_matrix_kwargs
 from problems.registry import context_for_setup_method
 from setup.space import DEFAULT_SETUP_PARAMS
@@ -37,6 +37,85 @@ class PaperFinalTests(unittest.TestCase):
     def runtime(self, family="diffusion_advection"):
         raw = next(raw for entry, _path, raw in self.configs if entry["family"] == family)
         return runtime_config_from_spec(parse_joint_experiment_config(raw))
+
+    def test_failure_feedback_requires_an_explicit_valid_penalty(self):
+        raw = copy.deepcopy(self.configs[0][2])
+        self.assertIsNone(parse_joint_experiment_config(raw).failure_penalty_sec)
+        for bad in ({"mode": "budgeted_penalty"}, {"mode": "budgeted_penalty", "penalty_sec": -1},
+                    {"mode": "budgeted_penalty", "penalty_sec": float("nan")},
+                    {"mode": "budgeted_penalty", "penalty_sec": True},
+                    {"mode": "rollback_unrecovered", "penalty_sec": 1}, {"mode": "typo"}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                parse_joint_experiment_config({**raw, "failure_feedback": bad})
+        raw["failure_feedback"] = {"mode": "budgeted_penalty", "penalty_sec": 0.5}
+        runtime = runtime_config_from_spec(parse_joint_experiment_config(raw))
+        self.assertEqual(runtime.failure_penalty_sec, 0.5)
+        bundle = Mock()
+        bundle.run_case.return_value = dict(runtime=.1, setup_runtime=.02, solve_runtime=.08)
+        specs = {s.name: s for s in runtime.methods}
+        solver = make_method_solver(
+            "bandit_lstdq", solve=SolveExecutionConfig(1e-6, 50, 0.5), mkw={},
+            case_progress=0.2, case_index=1000, controller_bundles={"bandit_lstdq": bundle},
+            ppo_runner=None, composable_specs=specs,
+        )
+        solver(dict(DEFAULT_SETUP_PARAMS))
+        self.assertEqual(bundle.run_case.call_args.args[0].failure_penalty_sec, 0.5)
+
+    def test_top_level_arm_uses_attempt_identity_after_history_rollback(self):
+        method = "bandit_default"
+        specs = {s.name: s for s in self.runtime().methods}
+        policy = SimpleNamespace(model=SimpleNamespace(history=[SimpleNamespace(arm_index=11)]))
+        plan = SimpleNamespace(
+            default_setup_method="unused", composable_specs=specs, setup_replay_rows=None,
+            branches={method: SimpleNamespace(policy=policy, parameter_space={})},
+            solve=SolveExecutionConfig(1e-6, 50), aot_enabled=False, warmup_cases=0,
+        )
+        native = dict(runtime=.1, native_runtime=.1, native_solve_runtime=.08,
+                      setup_runtime=.02, solve_runtime=.08, selected_arm_index=22,
+                      unrecovered_failure=True, bandit_update_committed=False)
+        hooks = execution.OnlineComparisonHooks(
+            method_solver=Mock(), run_default_setup_method=Mock(), report_online_outcome=report_online_outcome,
+        )
+        with patch.object(execution, "run_bandit_step_test_final", return_value=(DEFAULT_SETUP_PARAMS, native, {}, 1, 0.)):
+            row = execution._run_one_method(
+                plan=plan, hooks=hooks, method=method, online_index=1, execution_rank=0,
+                mkw={}, context=np.ones(7), progress_denom=1,
+                previous_update={method:0.}, bandit_online_steps={method:1},
+            )
+        self.assertEqual(row["arm_index"], 22)
+        self.assertEqual(policy.model.history[-1].arm_index, 11)
+        self.assertAlmostEqual(row["outcome"]["end_to_end_runtime"], .1)
+        replay = {"params":DEFAULT_SETUP_PARAMS, "arm_index":11,
+                  "outcome":{"primary_attempts":[{"params":DEFAULT_SETUP_PARAMS, "arm_index":22}]}}
+        plan.setup_replay_rows = [replay, replay]
+        with patch.object(execution, "run_bandit_step_test_final", return_value=(DEFAULT_SETUP_PARAMS, native, {}, 1, 0.)):
+            row = execution._run_one_method(
+                plan=plan, hooks=hooks, method=method, online_index=1, execution_rank=0,
+                mkw={}, context=np.ones(7), progress_denom=1,
+                previous_update={method:0.}, bandit_online_steps={method:1},
+            )
+        self.assertEqual(row["arm_index"], 22)
+
+    def test_failure_penalty_is_separate_from_measured_cost_and_audited(self):
+        native = dict(runtime=.1, native_runtime=.1, native_solve_runtime=.08,
+                      setup_runtime=.02, solve_runtime=.08, infer_runtime=0.,
+                      failure_feedback_mode="budgeted_penalty", failure_penalty_sec=.5,
+                      unrecovered_failure=True, primary_status="nonconvergence",
+                      bandit_update_committed=True, bandit_observation_count=1,
+                      failed=True, iterations=50)
+        outcome = report_online_outcome(native, bandit_timing={"overhead_sec":.01})
+        self.assertAlmostEqual(outcome["runtime"], .1)
+        self.assertAlmostEqual(outcome["end_to_end_runtime"], .11)
+        self.assertAlmostEqual(outcome["penalized_cost"], .61)
+        rows = [{"outcome":outcome, "params":DEFAULT_SETUP_PARAMS}]
+        self.assertTrue(validate_recovery_stream(rows, expect_bandit_transaction=True)["valid"])
+        totals = method_stream_summary(rows)["totals_sec"]
+        self.assertAlmostEqual(totals["failure_penalty"], .5)
+        self.assertAlmostEqual(totals["end_to_end_runtime"], .11)
+        self.assertAlmostEqual(totals["penalized_cost"], .61)
+        outcome["penalized_cost"] += .5
+        with self.assertRaisesRegex(AssertionError, "objective cost"):
+            validate_recovery_stream(rows, expect_bandit_transaction=True)
 
     def test_nonzero_advection_has_identical_shared_context_and_no_mean(self):
         runtime = self.runtime()
@@ -114,6 +193,29 @@ class PaperFinalTests(unittest.TestCase):
             changed.write_text(changed.read_text() + " ")
             with self.assertRaisesRegex(ValueError, "config changed"):
                 suite.load_suite(directory / "suite.json")
+
+    def test_suite_can_prescribe_only_40_and_60_without_dispatching_80(self):
+        manifest = copy.deepcopy(self.manifest)
+        manifest["grids"] = [40, 60]
+        manifest["runs"] = [entry for entry in manifest["runs"] if entry["grid"] in (40, 60)]
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            for entry, path, _raw in self.configs:
+                if entry["grid"] in (40, 60):
+                    (directory / path.name).write_bytes(path.read_bytes())
+            suite_path = directory / "suite.json"
+            suite_path.write_text(json.dumps(manifest))
+            _, configs = suite.load_suite(suite_path)
+            self.assertEqual(len(configs), 12)
+            self.assertEqual({entry["grid"] for entry, _, _ in configs}, {40, 60})
+            manifest["runs"].pop()
+            suite_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "families × grids × seeds"):
+                suite.load_suite(suite_path)
+            manifest["grids"] = [40, 40]
+            suite_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(ValueError, "distinct prescribed grids"):
+                suite.load_suite(suite_path)
 
     def test_september18_suite_has_requested_seed_and_family_budgets(self):
         path = suite.SUITE.parent / "20260918/suite.json"
@@ -300,6 +402,41 @@ class PaperFinalTests(unittest.TestCase):
             self.assertAlmostEqual(joint["totals_sec"]["end_to_end_runtime"], 29.3)
             self.assertAlmostEqual(joint["time_reduction_vs_default_pct"], 41.4)
             self.assertAlmostEqual(joint["fallback_native_sec"], .002)
+
+    def test_formal_audit_accepts_retained_failures_without_changing_runtime_metric(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp)
+            raw = copy.deepcopy(self.write_fixture(path, timing_version=2))
+            raw["failure_feedback"] = {"mode":"budgeted_penalty", "penalty_sec":.5}
+            (path / "experiment_config.json").write_text(json.dumps(raw))
+            result = json.loads((path / "result.json").read_text())
+            result["protocol"]["failure_feedback"] = dict(raw["failure_feedback"])
+            for method in suite.METHOD_LABELS:
+                trajectory = path / "trajectories" / f"{method}.jsonl"
+                rows = [json.loads(line) for line in trajectory.read_text().splitlines()]
+                for i, row in enumerate(rows):
+                    o = row["outcome"]
+                    row["arm_index"] = -1 if method == "default_setup_default_solve" else 7
+                    o["selected_arm_index"] = row["arm_index"]
+                    if i == 12:
+                        o.update(fallback_status="nonconvergence", fallback_residual_norm=.01,
+                                 completed_status="nonconvergence", completed_residual_norm=.01,
+                                 fallback_cycles=50, completed_cycles=50, recovered=False,
+                                 unrecovered_failure=True)
+                    penalty = .5 if i == 12 else 0.
+                    o.update(failure_feedback_mode="budgeted_penalty", failure_penalty_sec=penalty,
+                             penalized_cost=o["end_to_end_runtime"] + penalty)
+                trajectory.write_text("".join(json.dumps(row) + "\n" for row in rows))
+                for window, (start, stop) in WINDOWS.items():
+                    result["windows"][window]["methods"][method] = method_stream_summary(rows[start:stop])
+            (path / "result.json").write_text(json.dumps(result))
+            audited = audit_run(path, raw, require_completed_residuals=True)
+            joint = audited["windows"]["all_5000"]["bandit_lstdq"]
+            self.assertEqual(joint["unrecovered_failure_count"], 1)
+            self.assertEqual(joint["bandit_update_count"], 5000)
+            self.assertAlmostEqual(joint["totals_sec"]["end_to_end_runtime"], 29.3)
+            self.assertAlmostEqual(joint["totals_sec"]["penalized_cost"], 29.8)
+            self.assertAlmostEqual(joint["time_reduction_vs_default_pct"], 41.4)
             self.assertEqual(joint["primary_failure_count"], 1)
             self.assertAlmostEqual(audited["windows"]["last_1000"]["bandit_lstdq"]["time_reduction_vs_default_pct"], 47.)
             trajectory = path / "trajectories/bandit_lstdq.jsonl"

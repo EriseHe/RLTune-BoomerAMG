@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, Mapping, Sequence
 import numpy as np
 
 from hypre.bindings import (
+    AMGNativeError,
     AttemptOutcome,
     AttemptStatus,
     RecoveryOutcome,
@@ -19,6 +20,9 @@ from hypre.bindings import (
     augment_setup_params,
     create_env,
     execute_attempt,
+)
+from hypre.bindings.recovery import (
+    InvalidObservationError, validate_failure_penalty, validate_measured_runtime,
 )
 from solve.controllers.common.action_space import (
     build_action_basis,
@@ -752,7 +756,10 @@ def run_td_episode(
     record_action_metadata: bool = False,
     initial_environment_weight_override: float | None = None,
     fallback_attempt: Callable[[], Mapping[str, Any] | AttemptOutcome] | None = None,
+    failure_penalty_sec: float | None = None,
 ) -> Dict[str, Any]:
+    failure_penalty_sec = validate_failure_penalty(failure_penalty_sec)
+    retain_failed_episodes = failure_penalty_sec is not None
     function_started = time.perf_counter()
     decision_runtime = 0.0
     feature_runtime = 0.0
@@ -800,7 +807,10 @@ def run_td_episode(
             finally:
                 lifecycle_runtime += time.perf_counter() - lifecycle_started
         with create_env(**dict(mkw)) as env:
+            prepare_started = time.perf_counter() if retain_failed_episodes else 0.0
             prep = env.prepare_rl(params=augment_setup_params(dict(params)))
+            if retain_failed_episodes:
+                validate_measured_runtime(prep.setup_runtime_sec, time.perf_counter() - prepare_started)
             initial_residual = float(prep.initial_residual_norm)
             initial_environment_weight = (
                 float(prep.initial_relax_weight)
@@ -832,6 +842,8 @@ def run_td_episode(
                 last_cycle_time=last_cycle_time,
             )
             feature_runtime += float(time.perf_counter() - feature_started)
+            if retain_failed_episodes and not np.all(np.isfinite(features)):
+                raise InvalidObservationError("Nonfinite initial controller features")
 
             for cycle in range(int(solve_max_cycles)):
                 adaptive_decision = bool(
@@ -865,6 +877,7 @@ def run_td_episode(
                         int(action_index),
                         float(last_weight),
                     )
+                step_started = time.perf_counter() if retain_failed_episodes else 0.0
                 try:
                     residual_new, cycle_time = env.step_rl(
                         relax_weight=float(weight),
@@ -873,12 +886,20 @@ def run_td_episode(
                         tol=float(solve_tol),
                         max_cycles=int(solve_max_cycles),
                     )
+                    if retain_failed_episodes:
+                        validate_measured_runtime(cycle_time, time.perf_counter() - step_started)
+                except InvalidObservationError:
+                    raise
                 except Exception as step_exc:
+                    if retain_failed_episodes and not isinstance(step_exc, AMGNativeError):
+                        raise
                     failed_step = AttemptOutcome.from_exception(
                         step_exc,
                         elapsed_sec=0.0,
                     )
                     failed_step_runtime = float(failed_step.solve_runtime_sec)
+                    if retain_failed_episodes:
+                        validate_measured_runtime(failed_step_runtime, time.perf_counter() - step_started)
                     solve_runtime += failed_step_runtime
                     iterations = cycle + 1
                     primary_payload = {
@@ -901,15 +922,17 @@ def run_td_episode(
                         fallback=(
                             None
                             if fallback_attempt is None
-                            else execute_attempt(fallback_attempt)
+                            else execute_attempt(fallback_attempt, require_valid_observation=retain_failed_episodes)
                         ),
                     )
-                    learning_allowed = bool(not recovery.unrecovered_failure)
+                    learning_allowed = bool(retain_failed_episodes or not recovery.unrecovered_failure)
                     transition_cost = float(failed_step_runtime)
-                    if recovery.recovered:
+                    if recovery.fallback is not None and learning_allowed:
                         transition_cost += float(
                             recovery.fallback.end_to_end_runtime_sec
                         )
+                    if retain_failed_episodes and recovery.unrecovered_failure:
+                        transition_cost += float(failure_penalty_sec)
                     if learning_allowed:
                         episode_transitions.append(
                             (features.copy(), int(action_index), float(transition_cost))
@@ -947,9 +970,10 @@ def run_td_episode(
                 solve_runtime += cycle_time
                 iterations = cycle + 1
                 native_status = env.last_step.status
-                terminated = native_status is SolveStatus.CONVERGED
+                nonfinite_result = not math.isfinite(float(residual_new))
+                terminated = native_status is SolveStatus.CONVERGED and not nonfinite_result
                 truncated = bool(
-                    native_status is SolveStatus.MAX_CYCLES
+                    nonfinite_result or native_status is SolveStatus.MAX_CYCLES
                     or ((not terminated) and iterations >= int(solve_max_cycles))
                 )
                 need_next_features = bool(
@@ -974,6 +998,8 @@ def run_td_episode(
                         last_cycle_time=cycle_time,
                     )
                     feature_runtime += float(time.perf_counter() - feature_started)
+                    if retain_failed_episodes and not np.all(np.isfinite(next_features)):
+                        raise InvalidObservationError("Nonfinite successor controller features")
 
                 transition_cost = float(cycle_time)
                 residual_ratio = (
@@ -993,7 +1019,10 @@ def run_td_episode(
                                 feature_runtime + decision_runtime + update_runtime + lifecycle_runtime
                             ),
                             "failed": True,
-                            "failure_reason": "max_cycles_reached_without_convergence",
+                            "failure_reason": (
+                                "nonfinite_residual" if nonfinite_result
+                                else "max_cycles_reached_without_convergence"
+                            ),
                             "failure_stage": "solve",
                             "residual_norm": float(residual_new),
                             "iterations": int(iterations),
@@ -1004,13 +1033,15 @@ def run_td_episode(
                         fallback=(
                             None
                             if fallback_attempt is None
-                            else execute_attempt(fallback_attempt)
+                            else execute_attempt(fallback_attempt, require_valid_observation=retain_failed_episodes)
                         ),
                     )
-                    if recovery.recovered:
+                    if recovery.fallback is not None and (retain_failed_episodes or recovery.recovered):
                         transition_cost += float(
                             recovery.fallback.end_to_end_runtime_sec
                         )
+                    if retain_failed_episodes and recovery.unrecovered_failure:
+                        transition_cost += float(failure_penalty_sec)
                 next_action_index = None
                 if (
                     learn
@@ -1031,7 +1062,7 @@ def run_td_episode(
                     )
                     next_action_index = int(pending_action[0])
                 learning_allowed = bool(
-                    recovery is None or not recovery.unrecovered_failure
+                    retain_failed_episodes or recovery is None or not recovery.unrecovered_failure
                 )
                 if learning_allowed:
                     if adaptive_decision or not episode_transitions:
@@ -1111,14 +1142,14 @@ def run_td_episode(
                     break
             if (
                 learn
-                and (recovery is None or not recovery.unrecovered_failure)
+                and (retain_failed_episodes or recovery is None or not recovery.unrecovered_failure)
                 and controller.config.monte_carlo_alpha > 0.0
                 and not defer_monte_carlo_update
             ):
                 update_started = time.perf_counter()
                 td_errors.extend(controller.monte_carlo_update(episode_transitions))
                 update_runtime += float(time.perf_counter() - update_started)
-            if recovery is not None and recovery.unrecovered_failure:
+            if recovery is not None and recovery.unrecovered_failure and not retain_failed_episodes:
                 if learning_snapshot is not None:
                     lifecycle_started = time.perf_counter()
                     try:
@@ -1174,7 +1205,7 @@ def run_td_episode(
             "epsilon": float(controller.epsilon),
             "selection": selection,
             "controller_update_committed": bool(
-                learn and (recovery is None or not recovery.unrecovered_failure)
+                learn and (retain_failed_episodes or recovery is None or not recovery.unrecovered_failure)
             ),
         }
         if recovery is not None:
@@ -1202,7 +1233,7 @@ def run_td_episode(
             )
             recovered_outcome["recovery_protocol_applied"] = True
             recovered_outcome["controller_update_committed"] = bool(
-                learn and not recovery.unrecovered_failure
+                learn and (retain_failed_episodes or not recovery.unrecovered_failure)
             )
             outcome = recovered_outcome
         else:
@@ -1217,8 +1248,19 @@ def run_td_episode(
             )
         if defer_monte_carlo_update:
             outcome["_monte_carlo_transitions"] = episode_transitions
+        outcome["failure_feedback_mode"] = "budgeted_penalty" if retain_failed_episodes else "rollback_unrecovered"
+        outcome["failure_penalty_sec"] = (
+            float(failure_penalty_sec or 0.0) if outcome.get("unrecovered_failure", False) else 0.0
+        )
         return outcome
     except Exception as exc:
+        if isinstance(exc, InvalidObservationError) or (retain_failed_episodes and not isinstance(exc, AMGNativeError)):
+            # Broken measurements and estimator/programming errors are not
+            # numerical solver failures. Roll back any partial updates and
+            # propagate so the experiment cannot keep training on them.
+            if learning_snapshot is not None:
+                controller.restore_learning_state(learning_snapshot)
+            raise
         controller_runtime = float(feature_runtime + decision_runtime + update_runtime + lifecycle_runtime)
         native_failure = AttemptOutcome.from_exception(
             exc,
@@ -1262,7 +1304,7 @@ def run_td_episode(
             fallback=(
                 None
                 if setup_construction_failure or fallback_attempt is None
-                else execute_attempt(fallback_attempt)
+                else execute_attempt(fallback_attempt, require_valid_observation=retain_failed_episodes)
             ),
         )
         if learning_snapshot is not None:

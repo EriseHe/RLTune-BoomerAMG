@@ -25,6 +25,12 @@ def audit_run(path: Path, expected_config: dict, *, require_completed_residuals:
     }:
         raise ValueError(f"Recorded experiment config differs from the prescribed config: {path}")
     result = json.loads((path / "result.json").read_text())
+    feedback = expected_config.get("failure_feedback", {})
+    feedback_mode = feedback.get("mode", "rollback_unrecovered")
+    if feedback_mode == "budgeted_penalty":
+        recorded = result["protocol"].get("failure_feedback", {})
+        if recorded.get("mode") != feedback_mode or recorded.get("penalty_sec") != feedback["penalty_sec"]:
+            raise ValueError("Failure-feedback objective differs from the prescribed config")
     stream = json.loads((path / "stream_manifest.json").read_text())
     progress = json.loads((path / "progress.json").read_text())
     if (stream["sha256"] != config["stream"]["expected_sha256"]
@@ -47,6 +53,12 @@ def audit_run(path: Path, expected_config: dict, *, require_completed_residuals:
         unrecovered += recovery["unrecovered_failures"]
         for i, row in enumerate(rows):
             outcome = row["outcome"]
+            if feedback_mode == "budgeted_penalty":
+                penalty = float(feedback["penalty_sec"]) if outcome.get("unrecovered_failure", False) else 0.0
+                if outcome.get("failure_feedback_mode") != feedback_mode or outcome.get("failure_penalty_sec") != penalty:
+                    raise ValueError("Per-problem failure penalty differs from the prescribed objective")
+                if method != "default_setup_default_solve" and row["arm_index"] != outcome.get("selected_arm_index"):
+                    raise ValueError("Logged arm does not match the immutable attempted arm")
             if require_completed_residuals or "completed_status" in outcome:
                 required = ("completed_residual_norm", "completed_cycles", "completed_status")
                 if any(key not in outcome for key in required):
@@ -222,6 +234,20 @@ def write_reports(suite: Path, output_root: Path, *, allow_partial: bool = False
                         lines.append(f"| {run['family']} | {run['grid']}³ | {run['seed']} | {window} | "
                                      f"{METHOD_LABELS[method]} | {t.get('controller_lifecycle_runtime', 0.0):.6f} | "
                                      f"{t['method_wall_runtime']:.6f} |")
+    if any("penalized_cost" in m["totals_sec"]
+           for r in runs for methods in r["windows"].values() for m in methods.values()):
+        lines += ["", "## Failure-aware objective", "",
+                  "Penalized cost = measured online E2E + the prescribed penalty for final failures. "
+                  "The penalty is not elapsed time and is excluded from every runtime reduction above.", "",
+                  "| PDE | Grid | Window | Method | Measured E2E (s) | Failure penalty (s) | Penalized cost (s) |",
+                  "|---|---:|---|---|---:|---:|---:|"]
+        for run in runs:
+            for window, methods in run["windows"].items():
+                for method, m in methods.items():
+                    t = m["totals_sec"]
+                    if "penalized_cost" in t:
+                        lines.append(f"| {run['family']} | {run['grid']}³ | {window} | {METHOD_LABELS[method]} | "
+                                     f"{t['end_to_end_runtime']:.3f} | {t['failure_penalty']:.3f} | {t['penalized_cost']:.3f} |")
     lines += ["", "LinUCB and LinUCB–LSTDQ learn independent setup paths with their own realized costs. "
               "Their difference measures the complete adaptive frameworks, not an isolated causal effect "
               "of changing relaxation on a matched hierarchy. The fixed-weight oracle / matched-hierarchy "

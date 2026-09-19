@@ -86,6 +86,10 @@ def _validate_resolved(
     return {
         "output_dir": str(args.output_dir),
         "smoother_profile": args.smoother_profile,
+        "failure_feedback": {
+            "mode": "rollback_unrecovered" if args.failure_penalty_sec is None else "budgeted_penalty",
+            "penalty_sec": args.failure_penalty_sec,
+        },
         "stream": manifest,
         "methods": [
             {

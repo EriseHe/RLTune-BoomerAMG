@@ -1,5 +1,10 @@
 # PAPER_FINAL: Modules 1 and 2
 
+The [September 19 failure-feedback comparison](20260919_failure_feedback/README.md)
+runs both families at 40³ and 60³ with retained valid failures and independently
+calibrated, fixed penalties. Its family-specific caps and input seed match
+September 18; it is a development comparison.
+
 The September 17 diffusion runs are complete. The separately versioned
 [September 18 suite](20260918/README.md) charges controller lifecycle work,
 records per-method wall time, reuses the user-requested diagnosis seed, and
@@ -236,3 +241,73 @@ Rebuild the completed Module 1/2 report without PDE solves:
 interim reports automatically after each completed group. Completing the three
 selected groups still produces a partial report relative to the full 18-group
 plan. There is no score-based seed selection or early stopping.
+
+## Failure feedback after the September 19 review
+
+The joint runner now supports an explicit finite-budget objective
+`L_H = C_H + Lambda * final_failure`. `C_H` is measured online E2E under the
+existing component scope, including failed attempts, recovery and recurring
+controller/bandit overhead. The penalty has units of seconds but is not a
+measurement or an estimate of uncapped completion time.
+
+Enable this protocol with a top-level `failure_feedback` object whose `mode`
+is `budgeted_penalty` and whose `penalty_sec` is an explicit finite,
+nonnegative number. Omitting the object, or selecting `rollback_unrecovered`
+without a penalty, reproduces the historical failure-learning rule. No penalty
+value has been prescribed for a new formal suite. Zero is allowed as an
+explicit bounded-expenditure objective; it does not prioritize reliability.
+Choose and record Lambda before the controlled comparison, and keep the cap
+fixed. The new protocol currently supports composable online setup learning
+from problem 1, including the delayed-RL prefix. Frozen setup replay, separate
+setup warmup and PPO are rejected rather than silently using mixed protocols.
+
+Valid final failures now update both setup targets: the cost model receives
+the observed suffix cost plus Lambda, and the auxiliary failure head retains
+the primary-attempt failure label. Both models therefore use the same accepted
+observations and can continue sharing their precision matrix. Ordinary setup
+selection uses the penalty-adjusted cost LCB. The auxiliary primary-failure
+head still only controls reselection after construction failure; it does not
+estimate the final failure probability of the complete recovery procedure.
+
+Setup training retains the existing estimate of update overhead from the
+previous problem. `bandit_learning_cost` records that actual training label;
+it need not equal the retrospectively measured `penalized_cost`. The solve TD
+target remains native cycle cost, plus uncharged recovery cost and Lambda on
+a final failure. Controller overhead remains outside that TD target and is
+included in the reported component cost and setup feedback. Earlier cycles
+are not charged again at the terminal transition.
+
+Finite failed solve episodes terminate with a zero successor feature and
+retain their updates and episode covariance contribution. The complete-episode
+LSTDQ coercivity identity requires the executed feature/trace sequence and
+zero terminal feature, not successful numerical convergence. This statement
+does not supply a confidence-coverage, Q-accuracy or learning-convergence
+guarantee. Native breakdown can use the preceding finite decision features;
+NaN residuals are not encoded into a successor state.
+
+The new protocol rejects invalid costs and component-versus-wall clock
+mismatches before the affected learning update. Non-solver execution errors
+are propagated rather than turned into failed solver observations. Controller
+arithmetic/feature errors restore the episode snapshot and stop the run.
+Validation and wrapper work are covered by `method_wall_runtime`; the declared
+component timing scope is otherwise unchanged. An interrupted or corrupted run
+must not be resumed as an uncontaminated training trajectory.
+
+Per-problem `failure_penalty_sec` is the applied penalty (zero on success).
+`penalized_cost` is measured E2E plus that penalty. Both appear separately in
+summaries; every runtime reduction continues to use measured time only.
+The resolved protocol records the coefficient, target scopes and mode.
+
+The selected setup arm is now captured before any update or rollback and
+carried as `selected_arm_index`. Online and warmup logs use this immutable ID.
+Historical raw files remain unchanged: where their top-level ID is stale,
+use `outcome.primary_attempts[-1].arm_index` after checking the attempt's
+parameters. The review's supplied stale-arm table already identifies the
+affected historical records.
+
+Tests cover retained final failures, recovered failures without a penalty,
+penalty-free success, invalid measurements, estimator errors, batch/recursive
+LSTDQ agreement, and correct arm IDs after rollback. Functional 8-cubed native
+checks are stored under
+`results/paper_final/04_online/preflight/20260919_failure_feedback/`.
+Their 0.5-second penalty and short caps are test fixtures, not formal choices.

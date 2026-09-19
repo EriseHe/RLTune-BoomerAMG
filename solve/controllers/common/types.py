@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from hypre.bindings import AttemptOutcome
+from hypre.bindings.recovery import validate_failure_penalty
 
 from .state_encoder import SolveStateEncoder, normalize_problem_context
 
@@ -36,8 +37,10 @@ class OnlineSolveCase:
     record_action_metadata: bool = False
     initial_environment_weight_override: float | None = None
     fallback_attempt: FallbackAttempt | None = None
+    failure_penalty_sec: float | None = None
 
     def __post_init__(self) -> None:
+        validate_failure_penalty(self.failure_penalty_sec)
         if not math.isfinite(float(self.solve_tol)) or float(self.solve_tol) <= 0.0:
             raise ValueError("solve_tol must be finite and positive")
         if int(self.solve_max_cycles) <= 0:
@@ -92,6 +95,7 @@ class ControllerBundle:
                 case.initial_environment_weight_override
             ),
             fallback_attempt=case.fallback_attempt,
+            failure_penalty_sec=case.failure_penalty_sec,
         )
 
     def summary(self) -> dict[str, Any]:

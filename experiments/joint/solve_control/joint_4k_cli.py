@@ -24,6 +24,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument(
+        "--failure-penalty-sec", type=float, default=None,
+        help="Opt into finite-budget failure feedback with this explicit final-failure penalty (seconds).",
+    )
+    parser.add_argument(
         "--study-mode",
         choices=(
             "sarsa",

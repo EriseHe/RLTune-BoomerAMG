@@ -575,7 +575,7 @@ def build_named_setup_branches(
                     "mkw": dict(mkw),
                     "context": learner_context.tolist(),
                     "params": dict(params),
-                    "arm_index": _policy_last_arm(source_branch.policy),
+                    "arm_index": int(native.get("selected_arm_index", -1)),
                     "fallback_used": int(fallback_used),
                     "bandit_timing": dict(timing),
                     "outcome": _report_online_outcome(

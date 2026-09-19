@@ -214,6 +214,8 @@ def report_online_outcome(
             ),
         }
     )
+    if reported.get("failure_feedback_mode") == "budgeted_penalty":
+        reported["penalized_cost"] = reported["end_to_end_runtime"] + float(reported["failure_penalty_sec"])
     return reported
 
 
@@ -236,6 +238,8 @@ def method_stream_summary(
     for label, field in (
         ("controller_lifecycle_runtime", "lifecycle_runtime"),
         ("method_wall_runtime", "method_wall_runtime"),
+        ("failure_penalty", "failure_penalty_sec"),
+        ("penalized_cost", "penalized_cost"),
     ):
         if any(field in outcome for outcome in outcomes):
             fields[label] = field
@@ -308,6 +312,8 @@ def validate_recovery_stream(
     bandit_observation_count = 0
     for index, record in enumerate(records):
         outcome = record["outcome"]
+        if outcome.get("failure_feedback_mode") not in {None, "rollback_unrecovered", "budgeted_penalty"}:
+            raise AssertionError(f"record {index}: unknown failure-feedback protocol")
         fallback_used = bool(outcome.get("fallback_used", False))
         fallback_status = str(outcome.get("fallback_status", "not_run"))
         primary_status = str(outcome.get("primary_status", "success"))
@@ -357,11 +363,24 @@ def validate_recovery_stream(
         bandit_observation_count += int(
             outcome.get("bandit_observation_count", 0)
         )
-
-    if expect_bandit_transaction and bandit_update_count + unrecovered_count != len(records):
-        raise AssertionError(
-            "bandit_updates + unrecovered_failures must equal processed instances"
-        )
+        if expect_bandit_transaction:
+            expected_update = (
+                not outcome.get("unrecovered_failure", False)
+                or outcome.get("failure_feedback_mode") == "budgeted_penalty"
+            )
+            if bool(outcome.get("bandit_update_committed", False)) != expected_update:
+                raise AssertionError(f"record {index}: bandit update contradicts failure-feedback protocol")
+        if outcome.get("failure_feedback_mode") == "budgeted_penalty":
+            penalty = float(outcome.get("failure_penalty_sec", float("nan")))
+            if not np.isfinite(penalty) or penalty < 0.0 or (
+                not outcome.get("unrecovered_failure", False) and penalty != 0.0
+            ):
+                raise AssertionError(f"record {index}: invalid objective penalty")
+            if not np.isclose(
+                outcome.get("penalized_cost", float("nan")),
+                expected_end_to_end + penalty, rtol=1e-8, atol=1e-10,
+            ):
+                raise AssertionError(f"record {index}: objective cost must equal measured cost plus penalty")
     return {
         "processed_instances": int(len(records)),
         "primary_selections": int(learned_attempt_count),

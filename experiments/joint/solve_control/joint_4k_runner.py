@@ -58,6 +58,7 @@ from joint_controller_build import (
     parse_csv_values as _parse_values,
 )
 from joint_experiment_config import JointExperimentRuntimeConfig
+from hypre.bindings.recovery import validate_failure_penalty
 from legacy_joint_studies import (
     BATCHED_LSVI_METHOD,
     BEHAVIOR_MODES,
@@ -311,7 +312,7 @@ def _warmup_bandit(
                 "mkw": dict(mkw),
                 "context": np.asarray(context, dtype=float).tolist(),
                 "params": dict(params),
-                "arm_index": _policy_last_arm(branch.policy),
+                "arm_index": int(native.get("selected_arm_index", -1)),
                 "fallback_used": int(fallback_used),
                 "bandit_timing": dict(timing),
                 "outcome": _report_online_outcome(native, bandit_timing=timing),
@@ -368,6 +369,7 @@ def _method_solver(
         solve=SolveExecutionConfig(
             tolerance=float(args.tol),
             max_cycles=int(args.max_cycles),
+            failure_penalty_sec=getattr(args, "failure_penalty_sec", None),
         ),
         mkw=mkw,
         case_progress=case_progress,
@@ -396,6 +398,7 @@ def _run_default_setup_method(
         solve=SolveExecutionConfig(
             tolerance=float(args.tol),
             max_cycles=int(args.max_cycles),
+            failure_penalty_sec=getattr(args, "failure_penalty_sec", None),
         ),
         mkw=mkw,
         controller_methods=controller_methods,
@@ -417,6 +420,16 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
         setup_configuration_spaces = dict(
             composable_study.setup_configuration_spaces
         )
+    penalty = validate_failure_penalty(getattr(args, "failure_penalty_sec", None))
+    if penalty is not None:
+        if args.study_mode != "composable" or int(args.warmup_cases) or any(
+            spec.setup_warmup_cases for spec in composable_specs_tuple
+        ):
+            raise ValueError("budgeted_penalty requires composable online setup learning from problem 1")
+        if getattr(args, "setup_replay_trajectory", None) is not None or any(
+            spec.solve_kind == "ppo" for spec in composable_specs_tuple
+        ):
+            raise ValueError("budgeted_penalty is not supported for frozen setup replay or PPO")
     if args.study_mode in {
         "lsvi_lcb",
         "recursive_lcb_suite",
@@ -698,6 +711,7 @@ def run(args: RunnerConfig) -> Dict[str, Any]:
         solve=SolveExecutionConfig(
             tolerance=float(args.tol),
             max_cycles=int(args.max_cycles),
+            failure_penalty_sec=getattr(args, "failure_penalty_sec", None),
         ),
         warmup_cases=int(args.warmup_cases),
         online_cases=int(args.online_cases),

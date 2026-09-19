@@ -476,7 +476,7 @@ def run(args: argparse.Namespace) -> None:
                 "mkw": dict(mkw),
                 "context": np.asarray(context, dtype=float).tolist(),
                 "params": dict(params),
-                "arm_index": _policy_last_arm(branch.policy),
+                "arm_index": int(native.get("selected_arm_index", -1)),
                 "fallback_used": int(fallback_used),
                 "bandit_timing": dict(timing),
                 "outcome": _report_online_outcome(native, bandit_timing=timing),

@@ -66,10 +66,13 @@ def load_suite(path: Path = SUITE):
     families = manifest.get("families", list(CONTEXTS))
     if not families or len(set(families)) != len(families) or not set(families).issubset(CONTEXTS):
         raise ValueError("PAPER_FINAL requires distinct known PDE families")
+    grids = manifest.get("grids", [40, 60, 80])
+    if not grids or len(set(grids)) != len(grids) or not set(grids).issubset({40, 60, 80}):
+        raise ValueError("PAPER_FINAL requires distinct prescribed grids in 40/60/80")
     expected = {(family, n, seed) for family in families
-                for n in (40, 60, 80) for seed in seeds}
+                for n in grids for seed in seeds}
     if len(entries) != len(expected) or {(e["family"], e["grid"], e["seed"]) for e in entries} != expected:
-        raise ValueError("PAPER_FINAL requires the prescribed families × three grids × seeds")
+        raise ValueError("PAPER_FINAL requires the prescribed families × grids × seeds")
     if len({e["name"] for e in entries}) != len(expected):
         raise ValueError("PAPER_FINAL run names must be unique")
     configs = []

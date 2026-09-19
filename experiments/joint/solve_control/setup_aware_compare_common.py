@@ -1292,6 +1292,7 @@ def run_bandit_step_test_final(
     fallback_solver_fn: Callable[[Dict[str, Any]], Dict[str, Any]] | None,
     prev_update_est: float,
     primary_is_default: bool = False,
+    failure_penalty_sec: float | None = None,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, float], int, float]:
     """Run one setup decision through the shared PDE-context boundary.
 
@@ -1319,6 +1320,7 @@ def run_bandit_step_test_final(
         prev_update_est=float(prev_update_est),
         primary_is_default=bool(primary_is_default),
         max_learned_attempts=3,
+        failure_penalty_sec=failure_penalty_sec,
     )
     return (
         dict(result.params),
@@ -1356,6 +1358,7 @@ def _actual_failure_result(
             controller_sec += unaccounted
     reason = f"exception:{type(exc).__name__}:{exc}"
     return {
+        "failure_origin": "solver" if isinstance(exc, AMGNativeError) else "execution",
         "runtime": float(setup_sec + solve_sec),
         "setup_runtime": setup_sec,
         "solve_runtime": solve_sec,

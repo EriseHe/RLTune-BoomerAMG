@@ -18,12 +18,12 @@ from typing import Any, Callable, Dict, Mapping, Sequence
 
 import numpy as np
 
-from hypre.bindings import run_with_default_fallback
+from hypre.bindings import execute_attempt, run_with_default_fallback
+from hypre.bindings.recovery import InvalidObservationError, validate_failure_penalty
 from joint_artifacts import _write_json_line
 from joint_method_spec import ComposableMethodSpec
 from joint_online_common import (
     _method_stream_summary,
-    _policy_last_arm,
     _report_online_outcome,
     _validate_recovery_stream,
 )
@@ -65,6 +65,10 @@ class SolveExecutionConfig:
 
     tolerance: float
     max_cycles: int
+    failure_penalty_sec: float | None = None
+
+    def __post_init__(self) -> None:
+        validate_failure_penalty(self.failure_penalty_sec)
 
 
 @dataclass(frozen=True)
@@ -245,6 +249,7 @@ def make_method_solver(
                     explore=True,
                     problem_context=problem_context,
                     record_action_metadata=True,
+                    failure_penalty_sec=solve.failure_penalty_sec,
                     fallback_attempt=lambda: solve_no_rl_case(
                         params=dict(DEFAULT_SETUP_PARAMS),
                         mkw=dict(mkw),
@@ -419,11 +424,16 @@ def _run_one_method(
         **activation_kwargs,
     )
     if spec is not None and spec.setup_kind == "default":
-        outcome = hooks.run_default_setup_method(
-            spec=spec,
-            solver_fn=solver_fn,
-            mkw=dict(mkw),
-            controller_methods=tuple(plan.controller_bundles),
+        def default_attempt():
+            return hooks.run_default_setup_method(
+                spec=spec,
+                solver_fn=solver_fn,
+                mkw=dict(mkw),
+                controller_methods=tuple(plan.controller_bundles),
+            )
+        outcome = (
+            execute_attempt(default_attempt, require_valid_observation=True).result
+            if plan.solve.failure_penalty_sec is not None else default_attempt()
         )
         return {
             "stream_index": int(plan.warmup_cases + online_index),
@@ -463,6 +473,12 @@ def _run_one_method(
     if plan.setup_replay_rows is not None:
         replay_row = plan.setup_replay_rows[int(online_index)]
         replay_params = dict(replay_row["params"])
+        replay_arm = replay_row.get("arm_index", -1)
+        replay_attempts = replay_row.get("outcome", {}).get("primary_attempts", [])
+        if replay_attempts and "arm_index" in replay_attempts[-1]:
+            if replay_attempts[-1].get("params") != replay_params:
+                raise ValueError("Replay parameters do not match the recorded attempted arm")
+            replay_arm = replay_attempts[-1]["arm_index"]
         params, native, timing, fallback_used, _update_sec = (
             run_bandit_step_test_final(
                 policy=_FrozenSetupReplayPolicy(replay_params),
@@ -484,7 +500,7 @@ def _run_one_method(
             "mkw": dict(mkw),
             "context": learner_context.tolist(),
             "params": dict(params),
-            "arm_index": int(replay_row.get("arm_index", -1)),
+            "arm_index": int(replay_arm),
             "fallback_used": int(fallback_used),
             "bandit_timing": dict(timing),
             "setup_replay_source_online_index": int(
@@ -508,6 +524,7 @@ def _run_one_method(
                 mkw=mkw,
             ),
             prev_update_est=float(previous_update[method]),
+            failure_penalty_sec=plan.solve.failure_penalty_sec,
         )
     )
     previous_update[method] = float(update_sec)
@@ -523,7 +540,9 @@ def _run_one_method(
         "mkw": dict(mkw),
         "context": learner_context.tolist(),
         "params": dict(params),
-        "arm_index": _policy_last_arm(branch.policy),
+        # Execution may roll back the mutable learner history. The attempt's
+        # selected arm is immutable and remains valid after that rollback.
+        "arm_index": int(native.get("selected_arm_index", -1)),
         "fallback_used": int(fallback_used),
         "bandit_timing": dict(timing),
         "outcome": hooks.report_online_outcome(
@@ -726,24 +745,32 @@ def _execute_online_instances(
             case_rows = {}
             for execution_rank, method in enumerate(order):
                 method_started = time.perf_counter()
-                row = _run_one_method(
-                    plan=plan,
-                    hooks=hooks,
-                    method=method,
-                    online_index=online_index,
-                    execution_rank=execution_rank,
-                    mkw=mkw,
-                    context=context,
-                    progress_denom=progress_denom,
-                    previous_update=previous_update,
-                    bandit_online_steps=bandit_online_steps,
-                    activation_gate=activation_gates.get(method),
-                )
+                try:
+                    row = _run_one_method(
+                        plan=plan,
+                        hooks=hooks,
+                        method=method,
+                        online_index=online_index,
+                        execution_rank=execution_rank,
+                        mkw=mkw,
+                        context=context,
+                        progress_denom=progress_denom,
+                        previous_update=previous_update,
+                        bandit_online_steps=bandit_online_steps,
+                        activation_gate=activation_gates.get(method),
+                    )
+                except InvalidObservationError as exc:
+                    _write_json(plan.output_dir / "invalid_observation.json", {
+                        "reason": str(exc), "method": method, "problem": online_index + 1,
+                        "matrix": dict(mkw), "requires_fresh_run": True,
+                    })
+                    raise
                 # Independent reporting stopwatch, not a replacement learning
                 # target. Includes matrix construction and binding/wrapper work;
                 # excludes outer trajectory I/O, checkpointing and plotting.
                 row["outcome"]["method_wall_runtime"] = time.perf_counter() - method_started
-                if (plan.protocol.get("timing", {}).get("abort_on_clock_mismatch", False)
+                new_feedback = plan.protocol.get("failure_feedback", {}).get("mode") == "budgeted_penalty"
+                if ((new_feedback or plan.protocol.get("timing", {}).get("abort_on_clock_mismatch", False))
                         and row["outcome"]["end_to_end_runtime"]
                         > row["outcome"]["method_wall_runtime"] + 1e-6):
                     # Native/Python clocks can disagree across machine sleep.
@@ -757,6 +784,14 @@ def _execute_online_instances(
                     raise RuntimeError(
                         f"Timing mismatch at problem {online_index + 1}, method {method}; "
                         "possible sleep/clock mismatch. See timing_anomaly.json; restart from scratch."
+                    )
+                if new_feedback:
+                    coefficient = float(plan.solve.failure_penalty_sec)
+                    row["outcome"].update(
+                        failure_feedback_mode="budgeted_penalty",
+                        failure_penalty_sec=(
+                            coefficient if row["outcome"].get("unrecovered_failure", False) else 0.0
+                        ),
                     )
                 case_rows[method] = row
             if shared_prefix:
@@ -814,6 +849,13 @@ def _execute_online_instances(
                             "log_evalue": gate.log_evalue,
                             "log_threshold": gate.log_threshold,
                         }), flush=True)
+                # Activation overhead is included above. The penalty is an
+                # objective term and must never enter measured runtime.
+                outcome = case_rows[method]["outcome"]
+                if outcome.get("failure_feedback_mode") == "budgeted_penalty":
+                    outcome["penalized_cost"] = (
+                        outcome["end_to_end_runtime"] + outcome["failure_penalty_sec"]
+                    )
                 records[method].append(case_rows[method])
                 _write_json_line(handles[method], case_rows[method])
 
