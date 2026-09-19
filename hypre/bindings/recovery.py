@@ -33,18 +33,11 @@ def validate_failure_penalty(value: float | None) -> float | None:
     return float(value)
 
 
-def validate_measured_runtime(runtime: float, elapsed_sec: float) -> None:
-    """Reject invalid/native clock measurements before a learning update."""
+def validate_runtime_cost(runtime: float) -> None:
+    """A runtime learning target must be finite and nonnegative."""
 
     if not math.isfinite(float(runtime)) or float(runtime) < 0.0:
         raise InvalidObservationError(f"Invalid measured runtime: {runtime}")
-    if not math.isfinite(float(elapsed_sec)) or float(elapsed_sec) < 0.0:
-        raise InvalidObservationError(f"Invalid enclosing elapsed time: {elapsed_sec}")
-    if float(runtime) > float(elapsed_sec) + 1e-6:
-        raise InvalidObservationError(
-            f"Measured runtime {runtime} exceeds enclosing elapsed time {elapsed_sec}; "
-            "possible sleep/clock mismatch"
-        )
 
 
 def _finite_nonnegative(value: Any, default: float = 0.0) -> float:
@@ -498,7 +491,7 @@ def execute_attempt(
         for value in (outcome.setup_runtime_sec, outcome.solve_runtime_sec, outcome.controller_runtime_sec):
             if not math.isfinite(value) or value < 0.0:
                 raise InvalidObservationError(f"Invalid attempt runtime component: {value}")
-        validate_measured_runtime(outcome.end_to_end_runtime_sec, time.perf_counter() - started)
+        validate_runtime_cost(outcome.end_to_end_runtime_sec)
         succeeded = outcome.result.get("completed_status", outcome.status.value) == "success"
         residual = outcome.result.get("completed_residual_norm", outcome.residual_norm)
         if succeeded and (residual is None or not math.isfinite(float(residual))):

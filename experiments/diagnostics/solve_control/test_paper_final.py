@@ -267,7 +267,7 @@ class PaperFinalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "failure objective fixed"):
                 suite.validate_suite(path)
 
-    def test_clock_mismatch_stops_before_another_method_and_preserves_observation(self):
+    def test_method_wall_report_does_not_abort_on_cross_clock_difference(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)
             trajectories = output / "trajectories"
@@ -276,19 +276,17 @@ class PaperFinalTests(unittest.TestCase):
                 output_dir=output, trajectories_dir=trajectories,
                 bandit_methods=(), methods=("a", "b"), method_order_seed=19,
                 online_instances=[({}, np.ones(1))], composable_specs={}, shared_online_prefix=False,
-                protocol={"timing": {"abort_on_clock_mismatch": True}},
+                protocol={},
             )
-            row = {"outcome": {"end_to_end_runtime": 300., "bandit_update_committed": True}}
-            with patch.object(execution, "_run_one_method", return_value=row) as run, \
-                    patch.object(execution.time, "perf_counter", side_effect=[0., 1.]):
-                with self.assertRaisesRegex(RuntimeError, "Timing mismatch at problem 1"):
+            row = {"outcome": {"end_to_end_runtime": .977915, "bandit_update_committed": True}}
+            with patch.object(execution, "_run_one_method", side_effect=[row, StopIteration]) as run, \
+                    patch.object(execution.time, "perf_counter", side_effect=[0., .977663, 1.]):
+                with self.assertRaises(StopIteration):
                     execution._execute_online_instances(plan, Mock())
-            self.assertEqual(run.call_count, 1)
-            anomaly = json.loads((output / "timing_anomaly.json").read_text())
-            self.assertTrue(anomaly["requires_fresh_run"])
-            self.assertEqual(anomaly["row"]["outcome"]["method_wall_runtime"], 1.)
-            self.assertEqual(anomaly["row"]["outcome"]["end_to_end_runtime"], 300.)
-            self.assertTrue(anomaly["row"]["outcome"]["bandit_update_committed"])
+            self.assertEqual(run.call_count, 2)
+            self.assertFalse((output / "timing_anomaly.json").exists())
+            self.assertEqual(row["outcome"]["method_wall_runtime"], .977663)
+            self.assertEqual(row["outcome"]["end_to_end_runtime"], .977915)
 
     def test_suite_dispatch_and_resume_are_sequential_and_source_checked(self):
         real_run = suite.subprocess.run
@@ -341,15 +339,13 @@ class PaperFinalTests(unittest.TestCase):
 
     def test_prescribed_advection_failures_are_retained_and_allow_resume(self):
         configs = [c for c in self.configs if c[0]["family"] == "diffusion_advection"][:2]
-        manifest = {"allow_unrecovered_families": ["diffusion_advection"],
-                    "abort_on_clock_mismatch": True}
+        manifest = {"allow_unrecovered_families": ["diffusion_advection"]}
         real_run = suite.subprocess.run
         commands = []
 
         def dispatch(command, **kwargs):
             if command[0] != suite.sys.executable:
                 return real_run(command, **kwargs)
-            self.assertEqual(kwargs["env"]["RLTUNE_ABORT_ON_CLOCK_MISMATCH"], "1")
             commands.append(command)
             return suite.subprocess.CompletedProcess(command, 0)
 
@@ -501,7 +497,7 @@ class PaperFinalTests(unittest.TestCase):
             trajectory = path / "trajectories/bandit_lstdq.jsonl"
             lines = trajectory.read_text().splitlines()
             original = json.loads(lines[1000])
-            for field, value in (("method_wall_runtime", 0.), ("lifecycle_runtime", .1)):
+            for field, value in (("method_wall_runtime", -1.), ("lifecycle_runtime", .1)):
                 row = copy.deepcopy(original)
                 row["outcome"][field] = value
                 lines[1000] = json.dumps(row)

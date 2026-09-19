@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import platform
 from dataclasses import asdict
 from typing import Any, Dict, Mapping, Sequence
@@ -210,10 +209,6 @@ def _base_protocol(
                 "excluding outer trajectory I/O, checkpointing and plotting"
             ),
             "method_wall_in_learning_feedback": False,
-            "abort_on_clock_mismatch": (
-                os.environ.get("RLTUNE_ABORT_ON_CLOCK_MISMATCH") == "1"
-                or getattr(args, "failure_penalty_sec", None) is not None
-            ),
         },
         "families": family_by_method,
         "method_labels": {

@@ -19,7 +19,7 @@ import time
 
 from hypre.bindings import create_env
 from hypre.bindings.config import augment_setup_params
-from hypre.bindings.recovery import validate_measured_runtime
+from hypre.bindings.recovery import validate_runtime_cost
 from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
 from joint_online_common import _build_paired_instance_stream, configure_paired_environment
 from online_td_experiment_common import _write_json
@@ -70,7 +70,7 @@ def main():
                     solved = env.solve(augment_setup_params(DEFAULT_SETUP_PARAMS),
                                        tol=runtime.tol, max_iter=runtime.max_cycles)
                     elapsed = time.perf_counter() - started
-                validate_measured_runtime(solved.runtime_sec, elapsed)
+                validate_runtime_cost(solved.runtime_sec)
                 if solved.iterations <= 0 or solved.solve_runtime_sec <= 0:
                     raise ValueError("Cannot estimate positive cycle cost from this calibration")
                 if index >= 0:

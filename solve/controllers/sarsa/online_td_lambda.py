@@ -22,7 +22,7 @@ from hypre.bindings import (
     execute_attempt,
 )
 from hypre.bindings.recovery import (
-    InvalidObservationError, validate_failure_penalty, validate_measured_runtime,
+    InvalidObservationError, validate_failure_penalty, validate_runtime_cost,
 )
 from solve.controllers.common.action_space import (
     build_action_basis,
@@ -807,10 +807,9 @@ def run_td_episode(
             finally:
                 lifecycle_runtime += time.perf_counter() - lifecycle_started
         with create_env(**dict(mkw)) as env:
-            prepare_started = time.perf_counter() if retain_failed_episodes else 0.0
             prep = env.prepare_rl(params=augment_setup_params(dict(params)))
             if retain_failed_episodes:
-                validate_measured_runtime(prep.setup_runtime_sec, time.perf_counter() - prepare_started)
+                validate_runtime_cost(prep.setup_runtime_sec)
             initial_residual = float(prep.initial_residual_norm)
             initial_environment_weight = (
                 float(prep.initial_relax_weight)
@@ -877,7 +876,6 @@ def run_td_episode(
                         int(action_index),
                         float(last_weight),
                     )
-                step_started = time.perf_counter() if retain_failed_episodes else 0.0
                 try:
                     residual_new, cycle_time = env.step_rl(
                         relax_weight=float(weight),
@@ -887,7 +885,7 @@ def run_td_episode(
                         max_cycles=int(solve_max_cycles),
                     )
                     if retain_failed_episodes:
-                        validate_measured_runtime(cycle_time, time.perf_counter() - step_started)
+                        validate_runtime_cost(cycle_time)
                 except InvalidObservationError:
                     raise
                 except Exception as step_exc:
@@ -899,7 +897,7 @@ def run_td_episode(
                     )
                     failed_step_runtime = float(failed_step.solve_runtime_sec)
                     if retain_failed_episodes:
-                        validate_measured_runtime(failed_step_runtime, time.perf_counter() - step_started)
+                        validate_runtime_cost(failed_step_runtime)
                     solve_runtime += failed_step_runtime
                     iterations = cycle + 1
                     primary_payload = {

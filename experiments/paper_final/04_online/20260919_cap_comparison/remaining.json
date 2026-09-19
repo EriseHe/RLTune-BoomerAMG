@@ -15,8 +15,8 @@
   "timing_schema_version": 2,
   "seed_provenance": "User-requested reuse of the pre-run diagnosis tuple, previously used for development; not an untouched holdout or a replicate of September 17 at the same seed.",
   "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
-  "name": "04_online_20260919_cap_comparison",
-  "checkpoint": "d22753b7dbed533b6af4fa7f346d6d081fcc57e8",
+  "name": "04_online_20260919_remaining_caps",
+  "checkpoint": "f24e11f8f7d88c2cf7631a4ea54068555c7dd228",
   "families": [
     "diffusion_advection"
   ],
@@ -24,7 +24,6 @@
     60
   ],
   "caps": [
-    100,
     200,
     500
   ],
@@ -37,8 +36,8 @@
   "allow_unrecovered_families": [
     "diffusion_advection"
   ],
-  "execution": "Sequential cap 100, 200, 500. Fresh learners per cap; three paired methods in seeded randomized per-problem order.",
-  "purpose": "One post-fix development comparison before selecting a cap for the final multi-grid suite; 5000 problems per setting and method.",
+  "execution": "Fresh cap 200 followed by cap 500, 5000 paired problems per method; cap 100 is already complete under the previous launch.",
+  "purpose": "User-requested continuation after removing cross-clock guards. Delete and restart the incomplete cap 200; retain completed cap 100 with its original provenance.",
   "failure_feedback": {
     "mode": "budgeted_penalty",
     "penalty_sec": 2.378,
@@ -50,16 +49,6 @@
     "cost_definition": "Measured finite expenditure C_H plus Lambda if the complete primary/recovery procedure finally fails. Penalty is not physical runtime."
   },
   "runs": [
-    {
-      "name": "cap_100",
-      "family": "diffusion_advection",
-      "grid": 60,
-      "seed": 1,
-      "cap": 100,
-      "config": "cap_100.json",
-      "config_sha256": "38cbfc01e480de48d0a8354e9c474a3eb551ce1804171b6e077798b0a0a34bf2",
-      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
-    },
     {
       "name": "cap_200",
       "family": "diffusion_advection",
@@ -80,5 +69,12 @@
       "config_sha256": "10c44f914564079aef144b2e0f994f762d9658ab5cbb2642959818f5edabec25",
       "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
     }
-  ]
+  ],
+  "completed_reference": {
+    "cap": 100,
+    "result_dir": "results/paper_final/04_online/20260919_cap_comparison/cap_100",
+    "source_manifest": "results/paper_final/04_online/20260919_cap_comparison/source_manifest.json",
+    "git_commit": "f24e11f8f7d88c2cf7631a4ea54068555c7dd228"
+  },
+  "changes": "Remove native-versus-Python clock assertions and duplicate per-call stopwatch measurements; preserve native C/HYPRE timers, failure target and all algorithm/stream settings."
 }

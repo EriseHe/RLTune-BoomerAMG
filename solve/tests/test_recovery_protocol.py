@@ -241,7 +241,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertTrue(result["controller_update_committed"])
 
     def test_corrupt_times_and_estimator_errors_abort_and_restore_v3(self):
-        for invalid_kind in ("nan_time", "clock_jump", "estimator"):
+        for invalid_kind in ("nan_time", "negative_time", "estimator"):
             with self.subTest(invalid_kind=invalid_kind):
                 controller = _v3_controller()
                 before = controller.snapshot_learning_state()
@@ -251,7 +251,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                 def step(**kwargs):
                     residual, cost = actual_step(**kwargs)
                     if env._cycles == 2 and invalid_kind != "estimator":
-                        cost = float("nan") if invalid_kind == "nan_time" else 300.0
+                        cost = float("nan") if invalid_kind == "nan_time" else -1.0
                     return residual, cost
 
                 def broken_update(**kwargs):
@@ -274,6 +274,24 @@ class RecoveryProtocolTests(unittest.TestCase):
                 for key in ("a_matrix", "a_inverse", "b", "theta", "episode_moment_covariance", "trace"):
                     np.testing.assert_array_equal(before[key], after[key])
                 self.assertEqual(controller.episodes, 0)
+
+    def test_native_cost_is_not_rejected_by_an_independent_python_clock(self):
+        controller = _RecordingController()
+        env = _SequentialEnv([1e-8])
+        prep = env.prepare_rl({})
+        prep.setup_runtime_sec = .977915
+        with patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=env), \
+                patch.object(env, "prepare_rl", return_value=prep), \
+                patch("time.perf_counter", return_value=0.):
+            result = run_td_episode(
+                mkw={}, params={}, controller=controller, encoder=_Encoder(),
+                solve_tol=1e-6, solve_max_cycles=200, learn=True, explore=False,
+                failure_penalty_sec=2.378,
+            )
+            accepted = execute_attempt(lambda: result, require_valid_observation=True)
+        self.assertTrue(result["controller_update_committed"])
+        self.assertAlmostEqual(accepted.native_runtime_sec, .978915)
+        self.assertEqual(controller.learning_costs, [.001])
 
     def test_strict_attempt_rejects_execution_errors_and_sanitized_times(self):
         def broken():

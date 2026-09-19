@@ -1,5 +1,22 @@
 # Module 04 — 60³ diffusion–advection cap comparison
 
+Cap 100 completed at commit `f24e11f`. The incomplete cap-200 run was deleted
+at the user's request after a cross-clock assertion stopped it. The remaining
+caps now start fresh using `remaining.json` and `run_remaining.command`, with
+results under `results/paper_final/04_online/20260919_cap_comparison/restart/`.
+The completed reference and its original source manifest stay at the parent
+location. The new launch has its own source manifest; no completed run is
+relabeled with the newer code version.
+
+The cleanup removes per-setup, per-cycle and per-method comparisons between
+native MPI time and Python time, along with their environment-variable switch.
+It also removes the duplicate Python setup/cycle stopwatches. Native C/HYPRE
+timers, cost scopes, failure target, algorithms and input configurations are
+unchanged. Finite nonnegative costs and valid features remain required for
+learning. Python still measures learning overhead; the complete method-call
+stopwatch remains reporting-only in experiment code. Reporting does not reject
+an otherwise finite record because the two independent clocks disagree.
+
 This is one post-fix development comparison before choosing the cap for a final
 multi-grid suite. It runs the complete 5000-problem stream for each setting:
 
@@ -95,7 +112,7 @@ stopping or seed changes. Timing/estimator integrity failures still abort.
 The report labels every cap separately and never pools caps as replicates.
 
 ```bash
-experiments/paper_final/04_online/20260919_cap_comparison/run.command
+experiments/paper_final/04_online/20260919_cap_comparison/run_remaining.command
 ```
 
 The launcher requires committed source and waits for AC power before starting.
@@ -103,9 +120,10 @@ Keep the laptop plugged in and open. It enables idle-sleep prevention and
 single-thread execution. Once started it continues independently of Codex.
 Source/config/native hashes and the exact Git revision are recorded at launch.
 
-Results and normal plots/checkpoints are under
+The original full-comparison results and normal plots/checkpoints are under
 `results/paper_final/04_online/20260919_cap_comparison/cap_100`, `cap_200`, and
-`cap_500`; logs stay in the parent's `logs/` folder. Per-cap results and the
+`cap_500`; logs stay in the parent's `logs/` folder. Fresh 200/500 outputs and
+their logs use the `restart/` subdirectory described above. Per-cap results and the
 aggregate report are generated automatically. Earlier historical suites are
 not changed. Budget roughly 5–8 hours provisionally; cap 500 is unmeasured and
 learned trajectories can move that estimate substantially.

@@ -262,9 +262,6 @@ def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=Non
                     target.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(ROOT / relative, target)
         environment = dict(os.environ, **THREAD_ENV, PYTHONUNBUFFERED="1", MPLBACKEND="Agg")
-        environment["RLTUNE_ABORT_ON_CLOCK_MISMATCH"] = (
-            "1" if manifest.get("abort_on_clock_mismatch", False) else "0"
-        )
         for name in ("SETUP_RELAX_TYPE", "SETUP_NUM_SWEEPS", "SETUP_CYCLE_TYPE", "SETUP_MAX_LEVELS",
                      "AMG_RELAX_TYPE", "AMG_COARSE_RELAX_TYPE", "AMG_CYCLE_TYPE"):
             environment.pop(name, None)

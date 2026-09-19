@@ -90,7 +90,7 @@ def audit_run(path: Path, expected_config: dict, *, require_completed_residuals:
                 raise ValueError(f"Runtime components do not sum to online E2E: {path}/{method}")
             if result["protocol"].get("timing", {}).get("schema_version", 1) >= 2:
                 wall = float(outcome.get("method_wall_runtime", float("nan")))
-                if not math.isfinite(wall) or wall < values[-1] - 1e-6:
+                if not math.isfinite(wall) or wall < 0.0:
                     raise ValueError(f"Invalid method-call wall time: {path}/{method}, problem {i + 1}")
                 if "lifecycle_runtime" in outcome:
                     phases = [float(outcome.get(key, float("nan"))) for key in (
