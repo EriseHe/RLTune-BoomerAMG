@@ -1,6 +1,10 @@
 # PAPER_FINAL: Modules 1 and 2
 
-The active [original-policy cap comparison](20260919_cap_baseline/README.md)
+The current [final six-group run](20260920_formal/README.md) uses the
+user-selected existing seed 56700120, cap 50 for both families, and grids
+40³/60³/80³. All six groups start fresh with the original failure rollback.
+
+The completed [original-policy cap comparison](20260919_cap_baseline/README.md)
 restores the September 18 failure-learning rollback rule and varies only the
 cap (50, 100, 200, 500) on the same 60³ diffusion–advection stream. Cap 50
 is an additional development run requested after 100/200/500 completed. The
