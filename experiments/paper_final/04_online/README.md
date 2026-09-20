@@ -1,9 +1,10 @@
 # PAPER_FINAL: Modules 1 and 2
 
-The [September 19 cap comparison](20260919_cap_comparison/README.md) runs 60³
-diffusion–advection at caps 100, 200 and 500 with retained valid failures and a
-common fixed penalty. It replaces the canceled four-group 40/60 suite, whose
-new results were deleted at the user's request. Earlier results remain separate.
+The active [original-policy cap comparison](20260919_cap_baseline/README.md)
+restores the September 18 failure-learning rollback rule and varies only the
+cap (100, 200, 500) on the same 60³ diffusion–advection stream. The
+[penalized-feedback trial](20260919_cap_comparison/README.md) was stopped and
+withdrawn from the active plan; its recorded results remain development history.
 
 The September 17 diffusion runs are complete. The separately versioned
 [September 18 suite](20260918/README.md) charges controller lifecycle work,
@@ -242,7 +243,13 @@ interim reports automatically after each completed group. Completing the three
 selected groups still produces a partial report relative to the full 18-group
 plan. There is no score-based seed selection or early stopping.
 
-## Failure feedback after the September 19 review
+## Historical failure-feedback trial after the September 19 review
+
+This opt-in trial has been withdrawn from active paper runs. The active suite
+explicitly uses `rollback_unrecovered` for both learners; it does not retain
+unrecovered observations or apply a penalty. The options below describe the
+historical trial and remain available for reproducing it at its recorded
+settings. No feedback-mode or penalty-size comparison is currently scheduled.
 
 The joint runner now supports an explicit finite-budget objective
 `L_H = C_H + Lambda * final_failure`. `C_H` is measured online E2E under the

@@ -1,5 +1,11 @@
 # Module 04 — 60³ diffusion–advection cap comparison
 
+This penalized-feedback development trial is withdrawn from the active paper
+plan. Its cap-500 run was stopped at the user's request with the last progress
+report at 4000/5000. Existing results remain historical diagnostics. The active
+replacement is `../20260919_cap_baseline/README.md`, which restores the original
+learning rollback and varies only the cap.
+
 Cap 100 completed at commit `f24e11f`. The incomplete cap-200 run was deleted
 at the user's request after a cross-clock assertion stopped it. The remaining
 caps now start fresh using `remaining.json` and `run_remaining.command`, with

@@ -193,8 +193,16 @@ def _base_protocol(
         "failure_feedback": {
             "mode": "rollback_unrecovered" if getattr(args, "failure_penalty_sec", None) is None else "budgeted_penalty",
             "penalty_sec": getattr(args, "failure_penalty_sec", None),
-            "setup_target": "measured protocol cost plus selection and previous-update estimate, plus final-failure penalty",
-            "solve_target": "native cycle costs, terminal recovery cost and final-failure penalty",
+            "setup_target": (
+                "cost of successfully completed primary/recovery procedure plus selection and previous-update estimate; unrecovered observations rolled back"
+                if getattr(args, "failure_penalty_sec", None) is None else
+                "measured protocol cost plus selection and previous-update estimate, plus final-failure penalty"
+            ),
+            "solve_target": (
+                "native cycle costs plus successful terminal recovery; unrecovered episodes rolled back"
+                if getattr(args, "failure_penalty_sec", None) is None else
+                "native cycle costs, terminal recovery cost and final-failure penalty"
+            ),
             "penalty_is_measured_runtime": False,
             "failure_head_label": "primary attempt failure; used only for setup-construction reselection",
         },

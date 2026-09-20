@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1
+  ],
+  "seed_offsets": [
+    4000063
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "timing_schema_version": 2,
+  "seed_provenance": "User-requested reuse of the pre-run diagnosis tuple, previously used for development; not an untouched holdout or a replicate of September 17 at the same seed.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "families": [
+    "diffusion_advection"
+  ],
+  "grids": [
+    60
+  ],
+  "caps": [
+    100,
+    200,
+    500
+  ],
+  "reference_cap": 100,
+  "cap_roles": {
+    "100": "reference",
+    "200": "main untested alternative",
+    "500": "high-budget experiment; no presumed superiority"
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "name": "04_online_20260919_cap_baseline",
+  "checkpoint": "6576ed54764de0106526ddadf08a94609c5a2efb",
+  "failure_feedback": {
+    "mode": "rollback_unrecovered"
+  },
+  "execution": "Sequential caps 100, 200, 500; fresh learners for each cap; three methods in paired seeded random order per problem.",
+  "purpose": "Restore the original learning/recovery policy and vary only the cycle cap. No retained-unrecovered learning, no failure penalty and no feedback-mode ablation.",
+  "baseline_config": "experiments/paper_final/04_online/20260918/advection_60_s1.json",
+  "retained_fixes": [
+    "Immutable setup-arm logging",
+    "Correct recovery cost reconstruction",
+    "Correct LSTDQ inverse handling and measured overhead scopes",
+    "Cross-clock automatic stop checks remain removed"
+  ],
+  "runs": [
+    {
+      "name": "cap_100",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 100,
+      "config": "cap_100.json",
+      "config_sha256": "70d3c6bcb3cee110ed5b8e194043ad7b8451d0d47af4de4e36bcc4f537d5a2b4",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "cap_200",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 200,
+      "config": "cap_200.json",
+      "config_sha256": "ccdab39c58c7ab488622b293d76e40e72e6afeac47e93de7b525760c6bec806a",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "cap_500",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "cap": 500,
+      "config": "cap_500.json",
+      "config_sha256": "40d3b6162db84b91d7ab9f56dbf73c19398b6abfd56a8223fd43b6ef90c778b5",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    }
+  ]
+}

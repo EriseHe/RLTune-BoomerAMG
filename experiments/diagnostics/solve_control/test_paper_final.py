@@ -267,6 +267,30 @@ class PaperFinalTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "failure objective fixed"):
                 suite.validate_suite(path)
 
+    def test_original_policy_cap_suite_changes_only_horizon(self):
+        path = suite.SUITE.parent / "20260919_cap_baseline/suite.json"
+        manifest, configs = suite.load_suite(path)
+        baseline = json.loads((suite.SUITE.parent / "20260918/advection_60_s1.json").read_text())
+        self.assertEqual(manifest["failure_feedback"], {"mode":"rollback_unrecovered"})
+        self.assertEqual([entry["cap"] for entry, _, _ in configs], [100, 200, 500])
+        for entry, _, raw in configs:
+            runtime = runtime_config_from_spec(parse_joint_experiment_config(raw))
+            self.assertIsNone(runtime.failure_penalty_sec)
+            self.assertEqual(runtime.max_cycles, entry["cap"])
+            comparable = copy.deepcopy(raw)
+            self.assertEqual(comparable.pop("failure_feedback"), {"mode":"rollback_unrecovered"})
+            for key in ("name", "description", "output_dir"):
+                comparable[key] = baseline[key]
+            comparable["solve"]["max_cycles"] = 100
+            self.assertEqual(comparable, baseline)
+        report = suite.validate_suite(path)
+        self.assertEqual(len({run["stream_sha256"] for run in report["runs"]}), 1)
+        changed = copy.deepcopy(configs)
+        changed[0][2]["failure_feedback"] = {"mode":"budgeted_penalty", "penalty_sec":0}
+        with patch.object(suite, "load_suite", return_value=(manifest, changed)):
+            with self.assertRaisesRegex(ValueError, "failure objective fixed"):
+                suite.validate_suite(path)
+
     def test_method_wall_report_does_not_abort_on_cross_clock_difference(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp)

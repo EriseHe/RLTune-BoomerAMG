@@ -110,7 +110,9 @@ def validate_suite(path: Path = SUITE) -> dict:
             raise ValueError("PAPER_FINAL must retain the agreed setup and solve settings")
         if manifest.get("caps"):
             feedback = manifest["failure_feedback"]
-            if raw.get("failure_feedback") != {key: feedback[key] for key in ("mode", "penalty_sec")}:
+            if validation["failure_feedback"] != {
+                "mode": feedback["mode"], "penalty_sec": feedback.get("penalty_sec")
+            }:
                 raise ValueError("Cap comparisons must keep the failure objective fixed")
         expected_problem = {
             "kind": "scalar_anisotropic_" + entry["family"],
