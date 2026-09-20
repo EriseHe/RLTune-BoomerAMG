@@ -2,7 +2,8 @@
 
 The active [original-policy cap comparison](20260919_cap_baseline/README.md)
 restores the September 18 failure-learning rollback rule and varies only the
-cap (100, 200, 500) on the same 60³ diffusion–advection stream. The
+cap (50, 100, 200, 500) on the same 60³ diffusion–advection stream. Cap 50
+is an additional development run requested after 100/200/500 completed. The
 [penalized-feedback trial](20260919_cap_comparison/README.md) was stopped and
 withdrawn from the active plan; its recorded results remain development history.
 

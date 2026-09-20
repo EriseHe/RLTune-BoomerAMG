@@ -3,7 +3,9 @@
 This suite restores the learning/recovery policy of the September 18 60³
 diffusion–advection reference at commit `6576ed5`. The retained-failure and
 failure-penalty trial is withdrawn from the active paper experiment plan.
-The only experimental variable in this suite is the V-cycle cap: 100, 200, 500.
+The only experimental variable is the V-cycle cap: 50, 100, 200, 500.
+The original 100/200/500 suite is complete. Cap 50 was requested afterward as
+a lower-budget development extension on the same seed.
 
 ## Fixed protocol
 
@@ -65,3 +67,31 @@ Cap 100 is the new same-code reference. This is one previously exposed
 development seed; the three caps are not independent replications. Report all
 5000 problems and the last 1000, measured time and failures, with every cap
 listed separately. No cap is chosen based on an incomplete curve.
+
+## Cap 50 extension
+
+`cap_50.json` changes only the horizon and identifying metadata from
+`cap_100.json`. It keeps fresh learners, all seeds, input stream, methods,
+failure rollback, timing scopes and RL activation unchanged. The original
+three configs, `suite.json`, source manifest and completion markers remain
+intact. `comparison.json` lists all four caps for combined reporting and
+records that cap 50 was added after the other results were inspected.
+
+Only the new run is launched, through the existing runner:
+
+```bash
+python experiments/joint/solve_control/run_joint_experiment.py \
+  --config experiments/paper_final/04_online/20260919_cap_baseline/cap_50.json \
+  --output-dir results/paper_final/04_online/20260919_cap_baseline/cap_50
+python -m experiments.paper_final.analyze_04_online \
+  --suite experiments/paper_final/04_online/20260919_cap_baseline/comparison.json \
+  --output-root results/paper_final/04_online/20260919_cap_baseline
+```
+
+The detached launch uses the same single-thread environment and AC/sleep
+handling as the original launcher. Its exact command, committed source and
+native-library hashes are recorded separately in `logs/cap_50.*`. The existing
+auditor checks the completed run before the comparison report is regenerated.
+Per-run plots appear in `cap_50/figures`; all four runs are reported together
+in `analysis/modules_1_2.md`. Caps remain separate settings of one development
+seed, not independent replications.
