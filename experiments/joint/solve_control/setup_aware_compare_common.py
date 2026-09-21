@@ -1459,6 +1459,7 @@ def solve_schedule_case(
     schedule: Sequence[Tuple[int, float, int, int]],
     solve_tol: float,
     solve_max_cycles: int,
+    audit_hierarchy: bool = False,
 ) -> Dict[str, Any]:
     started_at = time.perf_counter()
     prep = None
@@ -1470,11 +1471,17 @@ def solve_schedule_case(
     residual_norm = float("nan")
     iterations = 0
     native_status = SolveStatus.CONTINUE
+    hierarchy_audit = {}
     try:
         params = augment_setup_params(params)
         schedule_sorted = sorted((int(end), float(w), int(sd), int(su)) for end, w, sd, su in schedule)
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
+            if audit_hierarchy:
+                audit_started = time.perf_counter()
+                hierarchy_audit = {"hierarchy_fingerprint": env.hierarchy_fingerprint(),
+                                   "initial_cycle": env.cycle}
+                hierarchy_audit["hierarchy_audit_runtime"] = time.perf_counter() - audit_started
             residual_norm = float(env.r0)
             last_w = float("nan")
             last_sd = -1
@@ -1520,6 +1527,7 @@ def solve_schedule_case(
             "cycle_actions": cycle_actions,
             "cycle_residuals": cycle_residuals,
             "cycle_times": cycle_times,
+            **hierarchy_audit,
             "failed": bool(failure_reason),
             "failure_reason": str(failure_reason),
             "attempt_status": "success" if not failure_reason else "nonconvergence",
@@ -1548,6 +1556,7 @@ def solve_schedule_case(
             "cycle_times": cycle_times,
             "infer_runtime": float(decision_runtime),
             "native_solve_runtime": float(result["solve_runtime"]),
+            **hierarchy_audit,
         })
         result["runtime"] += decision_runtime
         result["solve_runtime"] += decision_runtime

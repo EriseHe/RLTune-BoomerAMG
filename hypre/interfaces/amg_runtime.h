@@ -97,6 +97,8 @@ AMG_API int amg_runtime_get_cycle_type(AMGRuntime *env);
 AMG_API int amg_runtime_get_relax_type(AMGRuntime *env);
 AMG_API int amg_runtime_get_cycle_relax_type(AMGRuntime *env, int stage);
 AMG_API int amg_runtime_get_relax_weight(AMGRuntime *env, int level, double *out_weight);
+/* Read-only, CPU hierarchy audit. Call after prepare and before any cycles. */
+AMG_API int amg_runtime_hierarchy_fingerprint(AMGRuntime *env, unsigned long long *out_hash);
 
 #ifdef __cplusplus
 }

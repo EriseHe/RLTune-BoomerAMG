@@ -237,6 +237,70 @@ struct AMGRuntime
     HYPRE_BigInt        last_row;
 };
 
+/* FNV-1a over numerical CSR entries and topology, without addresses or timers.
+ * Diagnostic only: never called by ordinary setup/solve execution. The current
+ * runtime is single-rank CPU; reject other layouts instead of dereferencing
+ * device memory or pretending this is a global distributed digest.
+ */
+static unsigned long long audit_bytes(unsigned long long h, const void *data, size_t n)
+{
+    const unsigned char *p = (const unsigned char *) data;
+    for (size_t i = 0; i < n; ++i) { h ^= p[i]; h *= 1099511628211ULL; }
+    return h;
+}
+
+static unsigned long long audit_csr(unsigned long long h, hypre_CSRMatrix *a)
+{
+    HYPRE_Int shape[3] = {hypre_CSRMatrixNumRows(a), hypre_CSRMatrixNumCols(a),
+                          hypre_CSRMatrixNumNonzeros(a)};
+    h = audit_bytes(h, shape, sizeof(shape));
+    h = audit_bytes(h, hypre_CSRMatrixI(a), (shape[0] + 1) * sizeof(HYPRE_Int));
+    h = audit_bytes(h, hypre_CSRMatrixJ(a), shape[2] * sizeof(HYPRE_Int));
+    return audit_bytes(h, hypre_CSRMatrixData(a), shape[2] * sizeof(HYPRE_Complex));
+}
+
+static unsigned long long audit_parcsr(unsigned long long h, hypre_ParCSRMatrix *a)
+{
+    int present = a != NULL;
+    h = audit_bytes(h, &present, sizeof(present));
+    if (!a) { return h; }
+    HYPRE_BigInt shape[2] = {hypre_ParCSRMatrixGlobalNumRows(a),
+                            hypre_ParCSRMatrixGlobalNumCols(a)};
+    h = audit_bytes(h, shape, sizeof(shape));
+    h = audit_csr(h, hypre_ParCSRMatrixDiag(a));
+    return audit_csr(h, hypre_ParCSRMatrixOffd(a));
+}
+
+int amg_runtime_hierarchy_fingerprint(AMGRuntime *env, unsigned long long *out_hash)
+{
+    if (!env || !env->solver || !out_hash || env->cycles_done != 0)
+        { return AMG_RUNTIME_ERR_INVALID_ARGUMENT; }
+    int ranks = 0;
+    hypre_MPI_Comm_size(env->comm, &ranks);
+    if (ranks != 1 || hypre_GetActualMemLocation(hypre_ParCSRMatrixMemoryLocation(env->A))
+                       != hypre_MEMORY_HOST)
+        { return AMG_RUNTIME_ERR_INVALID_ARGUMENT; }
+    hypre_ParAMGData *amg = (hypre_ParAMGData *) env->solver;
+    int levels = hypre_ParAMGDataNumLevels(amg);
+    unsigned long long h = audit_bytes(14695981039346656037ULL, &levels, sizeof(levels));
+    for (int level = 0; level < levels; ++level)
+    {
+        h = audit_parcsr(h, hypre_ParAMGDataAArray(amg)[level]);
+        if (level + 1 < levels)
+        {
+            h = audit_parcsr(h, hypre_ParAMGDataPArray(amg)[level]);
+            h = audit_parcsr(h, hypre_ParAMGDataRArray(amg)
+                               ? hypre_ParAMGDataRArray(amg)[level] : NULL);
+        }
+    }
+    hypre_Vector *b = hypre_ParVectorLocalVector(env->b);
+    hypre_Vector *x = hypre_ParVectorLocalVector(env->x);
+    h = audit_bytes(h, hypre_VectorData(b), hypre_VectorSize(b) * sizeof(HYPRE_Complex));
+    h = audit_bytes(h, hypre_VectorData(x), hypre_VectorSize(x) * sizeof(HYPRE_Complex));
+    *out_hash = h;
+    return AMG_RUNTIME_OK;
+}
+
 static int _initialized = 0;
 
 static void clear_hypre_errors(void)

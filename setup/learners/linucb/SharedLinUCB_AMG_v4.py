@@ -654,6 +654,25 @@ class SharedLinUCB_AMG_v4:
             alpha=alpha,
         )
 
+    def _select_score_location(
+        self, x: np.ndarray, arms: np.ndarray | None, score: np.ndarray,
+    ) -> int:
+        """Keep the default tie rule; allow an explicit experimental selector.
+
+        The optional callback is configuration, not learned checkpoint state.
+        Experiment runners must record and restore it with their protocol.
+        """
+        selector = getattr(self, "experimental_score_selector", None)
+        if selector is not None:
+            if arms is None:
+                arms = np.arange(self.K)
+            location = int(selector(self, x, arms, score))
+            if not 0 <= location < len(score):
+                raise ValueError("Experimental selector returned an invalid location")
+            return location
+        tied = np.flatnonzero(score <= float(np.min(score)) + 1e-12)
+        return int(self.rng.choice(tied))
+
     def _failure_subset(
         self,
         x: np.ndarray,
@@ -1035,9 +1054,7 @@ class SharedLinUCB_AMG_v4:
             score, mean, uncert = self._selection_score_subset(
                 x, arms=None, alpha=alpha_eff
             )
-            best_score = float(np.min(score))
-            best_arms = np.flatnonzero(score <= best_score + 1e-12)
-            chosen = int(self.rng.choice(best_arms))
+            chosen = self._select_score_location(x, None, score)
             arm = chosen
             best_mean = float(mean[chosen])
             best_unc = float(uncert[chosen])
@@ -1080,9 +1097,7 @@ class SharedLinUCB_AMG_v4:
                 action_features=candidate_features,
                 alpha=alpha_eff,
             )
-            best_score = float(np.min(score))
-            best_loc = np.flatnonzero(score <= best_score + 1e-12)
-            loc = int(self.rng.choice(best_loc))
+            loc = self._select_score_location(x, cand, score)
             arm = int(cand[loc])
             best_mean = float(mean[loc])
             best_unc = float(uncert[loc])

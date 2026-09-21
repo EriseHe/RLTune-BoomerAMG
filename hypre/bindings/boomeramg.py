@@ -279,6 +279,20 @@ class PreparedAMGEnv:
             float("nan"),
         )
 
+    def hierarchy_fingerprint(self) -> str:
+        """Audit the prepared A/P/R hierarchy, RHS and zero initial iterate.
+
+        This noncryptographic digest is diagnostic work, outside solver timers.
+        Ordinary runs never call it. A fresh environment is used for each policy.
+        """
+        function = _lib.amg_runtime_hierarchy_fingerprint
+        function.restype = _I
+        function.argtypes = [_VP, ctypes.POINTER(_ULL)]
+        value = _ULL()
+        if function(self._env, ctypes.byref(value)) != 0:
+            raise RuntimeError("Hierarchy audit requires a prepared, unstepped CPU environment")
+        return f"{value.value:016x}"
+
     def prepare_rl(self, params: Optional[Dict[str, Any]] = None) -> PrepareResult:
         """Prepare AMG and its initial residual, charging both to setup time."""
         _, c_args = _encode_params(params)

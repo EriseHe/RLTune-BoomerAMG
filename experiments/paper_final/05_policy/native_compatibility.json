@@ -1,0 +1,36 @@
+{
+  "passed": true,
+  "old_binary_sha256": "09735807fcd7072ef8479a1bea33fa2279c45b074ceb5e1a42fdc5e6de90a940",
+  "new_binary_sha256": "6afb42ac83a351783ded832f3ce45eb8f51f870b547085e039b325e9403ff038",
+  "numerics": [
+    {
+      "stencil": 0,
+      "iterations": 10,
+      "residual": 5.350431517049581e-07,
+      "status": "CONVERGED",
+      "controlled_residual_trace": [
+        0.17245822330434118,
+        0.09291223349571318,
+        0.005781916703310897,
+        0.006452364488676501,
+        0.0003708703879474834,
+        0.0005668734544207449
+      ]
+    },
+    {
+      "stencil": 7,
+      "iterations": 5,
+      "residual": 8.524991483406112e-07,
+      "status": "CONVERGED",
+      "controlled_residual_trace": [
+        0.038060657716707656,
+        0.06072382780970765,
+        0.002400745639836762,
+        0.004856874016576026,
+        0.0001668437307534547,
+        0.00042413914690152304
+      ]
+    }
+  ],
+  "scope": "8-cubed integration probes; full solves and controlled cycles, no performance inference"
+}

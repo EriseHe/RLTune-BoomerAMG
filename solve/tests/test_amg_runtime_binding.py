@@ -24,6 +24,21 @@ from solve.core.outcomes import classify_rl_failure
 
 
 class AMGRuntimeBindingTests(unittest.TestCase):
+    def test_hierarchy_fingerprint_matches_rebuild_and_detects_rhs_changes(self):
+        signatures = []
+        for seed in (23, 23, 24):
+            with create_env(nx=8, ny=8, nz=8, rhs_type=1, rhs_seed=seed) as env:
+                env.prepare_rl()
+                signature = env.hierarchy_fingerprint()
+                self.assertEqual(env.cycle, 0)
+                self.assertEqual(signature, env.hierarchy_fingerprint())
+                signatures.append(signature)
+                env.step_rl(relax_weight=1., sweeps_down=1, sweeps_up=1, tol=1e-6, max_cycles=50)
+                with self.assertRaises(RuntimeError):
+                    env.hierarchy_fingerprint()
+        self.assertEqual(signatures[0], signatures[1])
+        self.assertNotEqual(signatures[0], signatures[2])
+
     def test_native_timers_cover_completed_work_on_success_and_failure(self):
         root = Path(__file__).resolve().parents[2]
         compiler = shutil.which("mpicc")

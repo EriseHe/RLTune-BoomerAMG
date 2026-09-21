@@ -38,6 +38,7 @@ class OnlineSolveCase:
     initial_environment_weight_override: float | None = None
     fallback_attempt: FallbackAttempt | None = None
     failure_penalty_sec: float | None = None
+    audit_hierarchy: bool = False
 
     def __post_init__(self) -> None:
         validate_failure_penalty(self.failure_penalty_sec)
@@ -96,6 +97,7 @@ class ControllerBundle:
             ),
             fallback_attempt=case.fallback_attempt,
             failure_penalty_sec=case.failure_penalty_sec,
+            audit_hierarchy=case.audit_hierarchy,
         )
 
     def summary(self) -> dict[str, Any]:

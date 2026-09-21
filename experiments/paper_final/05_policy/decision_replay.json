@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "scope": "Replay first 16 original decisions using recorded targets; no PDE solves",
+  "matched_decisions": {
+    "old/bandit_default": 16,
+    "old/bandit_lstdq": 16,
+    "new/bandit_default": 16,
+    "new/bandit_lstdq": 16
+  },
+  "total": 64
+}

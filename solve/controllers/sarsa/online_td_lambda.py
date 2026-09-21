@@ -757,6 +757,7 @@ def run_td_episode(
     initial_environment_weight_override: float | None = None,
     fallback_attempt: Callable[[], Mapping[str, Any] | AttemptOutcome] | None = None,
     failure_penalty_sec: float | None = None,
+    audit_hierarchy: bool = False,
 ) -> Dict[str, Any]:
     failure_penalty_sec = validate_failure_penalty(failure_penalty_sec)
     retain_failed_episodes = failure_penalty_sec is not None
@@ -793,6 +794,7 @@ def run_td_episode(
     episode_started = False
     learning_snapshot = None
     prep = None
+    hierarchy_audit = {}
     fast_anchor_tail = bool(
         controller.config.adaptive_cycles is not None
         and int(controller.config.adaptive_cycles) > 0
@@ -808,6 +810,11 @@ def run_td_episode(
                 lifecycle_runtime += time.perf_counter() - lifecycle_started
         with create_env(**dict(mkw)) as env:
             prep = env.prepare_rl(params=augment_setup_params(dict(params)))
+            if audit_hierarchy:
+                audit_started = time.perf_counter()
+                hierarchy_audit = {"hierarchy_fingerprint": env.hierarchy_fingerprint(),
+                                   "initial_cycle": env.cycle}
+                hierarchy_audit["hierarchy_audit_runtime"] = time.perf_counter() - audit_started
             if retain_failed_episodes:
                 validate_runtime_cost(prep.setup_runtime_sec)
             initial_residual = float(prep.initial_residual_norm)
@@ -1246,6 +1253,7 @@ def run_td_episode(
             )
         if defer_monte_carlo_update:
             outcome["_monte_carlo_transitions"] = episode_transitions
+        outcome.update(hierarchy_audit)
         outcome["failure_feedback_mode"] = "budgeted_penalty" if retain_failed_episodes else "rollback_unrecovered"
         outcome["failure_penalty_sec"] = (
             float(failure_penalty_sec or 0.0) if outcome.get("unrecovered_failure", False) else 0.0
@@ -1359,5 +1367,6 @@ def run_td_episode(
             "selection": {},
             "recovery_protocol_applied": not setup_construction_failure,
             "controller_update_committed": False,
+            **hierarchy_audit,
         })
         return outcome

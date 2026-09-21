@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "regression_tests": 70,
+  "historical_decisions_replayed": 64,
+  "native_compatibility": "native_compatibility.json",
+  "unit_consistency": "seconds/milliseconds across raw, stable and near_tie rules; original raw decisions and RNG preserved",
+  "integration_smoke": {
+    "grid": 8,
+    "logical_records": 258,
+    "pipeline_complete": true,
+    "frozen_sources_unchanged": true,
+    "path": "results/paper_final/05_policy/smoke_04"
+  },
+  "aot_schedule_matches_original": true,
+  "scope": "No full-size performance experiment has started; integration measurements are excluded from conclusions."
+}

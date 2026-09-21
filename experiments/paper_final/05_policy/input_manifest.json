@@ -1,0 +1,14 @@
+{
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/final_bandit_states/bandit_default.npz": "cf6a77cad4a46f9612b4f5f76d338364d11cae9266fbbfe91a251cb8d8938e6d",
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/final_bandit_states/bandit_lstdq.npz": "7578af3da35332acccefd074b2942d4fa34277c4734d88b4a3ac2bd1185c3fcc",
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/checkpoints/bandit_lstdq_final.npz": "1dd46ccec998e50c6477a343ca0ebb16874094285f7a9efa3ea67b7097495ea9",
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/checkpoints/bandit_lstdq_final.npz.encoder.json": "29748abdcb06d3c69d97f75fa9b462822b298f0b120d60d6496e899edec81168",
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/experiment_config.json": "ba05d915a771d7ac6c3a3d6b0bfc0f68e68ce2530d799f0052c75283ab029dc5",
+  "results/paper_final/04_online/20260919_cap_baseline/cap_50/trajectories/bandit_default.jsonl": "8cb51b1e7ea3dbf9fe0bc91910cddaae1344ac83bd3301b1ff3a50a5b681d662",
+  "results/paper_final/04_online/20260920_formal/advection_60/final_bandit_states/bandit_default.npz": "d173e980f831c92a8a48c4ea84cd6ff064ecad99d89f8675d4d0d440129ab522",
+  "results/paper_final/04_online/20260920_formal/advection_60/final_bandit_states/bandit_lstdq.npz": "847a2de00f57d037610ff036d39b9baa76ac8842efe7191aa1b482e366df9c21",
+  "results/paper_final/04_online/20260920_formal/advection_60/checkpoints/bandit_lstdq_final.npz": "0574d506b4f6ce899048a7b156085b166308d1a3ea0567c8e428f41f01071347",
+  "results/paper_final/04_online/20260920_formal/advection_60/checkpoints/bandit_lstdq_final.npz.encoder.json": "29748abdcb06d3c69d97f75fa9b462822b298f0b120d60d6496e899edec81168",
+  "results/paper_final/04_online/20260920_formal/advection_60/experiment_config.json": "3385265e170c91599d87337c43617e859a0ba5951a842a7dc1e803e989d614f1",
+  "results/paper_final/04_online/20260920_formal/advection_60/trajectories/bandit_default.jsonl": "d34ecb32f7b18a89014fdb13e67e6843aae7ee8cef8140910eced14002598de6"
+}

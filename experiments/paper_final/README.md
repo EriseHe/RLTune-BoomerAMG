@@ -1,5 +1,10 @@
 # Paper final work
 
+The current development follow-up is [05 — controlled RL comparisons](05_policy/README.md)
+and its [09 — timing stability ablation](09_algorithms/README.md). It preserves
+the completed Module 04 code at tag `checkpoint/20260920-before-timing-rl-study`
+and keeps the new experimental work on `experiment/timing-rl-isolation`.
+
 ## Start here — updated September 17
 
 Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04's September 17 diffusion replicate is complete at 40³, 60³ and 80³. The user-authorized [September 18 suite](04_online/20260918/README.md) uses the earlier diagnosis seed across both families, adds controller lifecycle timing and per-method wall timing, and sets the advection cap to 100. Its source, protocol and outputs are kept separate from the September 17 results. The most useful reading order is:
