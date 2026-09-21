@@ -1,5 +1,11 @@
 # 05 — Controlled RL comparisons
 
+**September 21:** the subsequent timing stage had a context-interface bug and
+its results were discarded. The frozen and common-hierarchy phases were checked
+separately and retained. Read the [correction and two-repeat rerun](../09_algorithms/README.md).
+The original 8³ smoke audit did not establish that timing-stage RL had trained;
+the corrected checks explicitly require training steps and parameter changes.
+
 This development study is authorized after the completed Module 04 results.
 The rollback point is `checkpoint/20260920-before-timing-rl-study`, commit
 `007bd195b9aa976f6b640bd0de861669e3dcde7f`. New code lives on
@@ -32,7 +38,7 @@ features and action space. No penalty or RNG-stream redesign is introduced.
    own trajectory. This first trial has one training execution; it does not
    estimate training-repeat uncertainty or select an activation boundary.
 4. **Timing stability:** run the separate [09 protocol](../09_algorithms/README.md)
-   sequentially. Three execution repetitions compare the raw rule, stable
+   sequentially. Two corrected execution repetitions compare the raw rule, stable
    numerical ties, and the same stable rule with a calibrated near-tie band.
 
 The frozen setup sources use `recommend`, their final effective alpha, and a
@@ -85,7 +91,7 @@ phase reports and status while running; a failed audit stops the remaining queue
 - `results/paper_final/05_policy/controlled/status.json`: current progress.
 - `frozen/`: held-out cross evaluation, baseline selection and frozen-state audit.
 - `online/`: common-hierarchy learning curve, cost comparisons and checkpoints.
-- `results/paper_final/09_algorithms/timing/`: three execution repetitions.
+- `results/paper_final/09_algorithms/timing_corrected/`: two corrected execution repetitions.
 - `results/paper_final/05_policy/controlled_launch/`: launch, power and exit logs.
 
 The source checkpoints are local artifacts from the two previously supplied

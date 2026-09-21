@@ -27,9 +27,10 @@ import numpy as np
 
 from composable_joint_4k import resolve_composable_study
 from hypre.bindings import run_with_default_fallback
+from hypre.bindings.recovery import InvalidObservationError
 from hypre.bindings.config import configure_smoother_profile
 from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_online_common import report_online_outcome
+from joint_online_common import report_online_outcome, _build_paired_instance_stream
 from online_td_experiment_common import _json_ready, _write_json
 from problems.registry import context_for_setup_method, learning_context_for_setup
 from problems.streams import generate_scalar_anisotropic_diffusion_advection_instances
@@ -52,7 +53,20 @@ def digest(value):
     return hashlib.sha256(json.dumps(_json_ready(value), sort_keys=True).encode()).hexdigest()
 
 
+def check_execution_errors(outcome):
+    """Programming/interface errors must never become valid fallback samples."""
+    for attempt in [outcome, *outcome.get("primary_attempts", [])]:
+        origins = (attempt.get("failure_origin"), attempt.get("fallback_failure_origin"))
+        reasons = [str(attempt.get(key, "")) for key in
+                   ("failure_reason", "primary_failure_reason", "fallback_failure_reason")]
+        execution_reasons = [reason for reason in reasons if reason.startswith("exception:")
+                             and not reason.startswith("exception:AMGNativeError:")]
+        if "execution" in origins or execution_reasons:
+            raise InvalidObservationError("Execution error in study attempt: " + "; ".join(execution_reasons or reasons))
+
+
 def check_outcome(outcome):
+    check_execution_errors(outcome)
     total = sum(float(outcome.get(k, 0)) for k in
                 ("setup_runtime", "solve_runtime", "infer_runtime", "bandit_overhead_runtime"))
     if not np.isfinite(total) or total < 0 or not np.isclose(
@@ -476,13 +490,24 @@ class Study:
         records = [json.loads(line) for line in (self.new / "trajectories/bandit_default.jsonl").open()]
         records = records[:p["robustness_cases"]]
         if self.smoke:
-            records = [{"mkw": m, "context": self.context(m, c).tolist()}
+            records = [{"mkw": m, "context": self.context(m, c).tolist(), "problem_context": c.tolist()}
                        for m, c in self.stream("online", p["robustness_cases"])]
+        else:
+            # Saved trajectory `context` is the seven-value setup-learner view.
+            # The solve API accepts the full eight-value PDE context and applies
+            # its own projection. Rebuild it through the production stream helper.
+            stream, _ = _build_paired_instance_stream(self.runtime)
+            for entry, (mkw, context) in zip(records, stream):
+                if entry["mkw"] != mkw:
+                    raise AssertionError("Robustness input differs from the production stream")
+                np.testing.assert_array_equal(entry["context"], self.context(mkw, context))
+                entry["problem_context"] = context.tolist()
         _write_json(self.timing_output / "protocol.json", p)
         _write_json(self.timing_output / "calibration.json", calibration)
         all_rows = []
         for repeat in range(p["robustness_repetitions"]):
-            self.update_status("robustness", repeat=repeat + 1, index=0, total=p["robustness_cases"])
+            self.update_status("robustness", repeat=repeat + 1, index=0, total=p["robustness_cases"],
+                controller_steps={name: 0 for name in p["robustness_variants"]})
             directory = self.timing_output / f"repeat_{repeat + 1}"
             directory.mkdir()
             branches = {name: self.branch(directory / "candidates", cases=p["robustness_cases"])
@@ -506,6 +531,7 @@ class Study:
             for index, entry in enumerate(records):
                 self.environment("robustness")
                 mkw, context = entry["mkw"], np.asarray(entry["context"])
+                solve_context = np.asarray(entry["problem_context"])
                 for rank, name in enumerate(order.permutation(names)):
                     branch, bundle = branches[name], controllers[name]
                     active = index >= p["online_activation"]
@@ -515,8 +541,9 @@ class Study:
                                 solver_tol=1e-6, solver_max_iter=50, augment_params=augment_setup_params),
                                 include_controller=False)
                         native = bundle.run_case(OnlineSolveCase(mkw=mkw, params=params, solve_tol=1e-6,
-                            solve_max_cycles=50, learn=True, explore=True, problem_context=context,
+                            solve_max_cycles=50, learn=True, explore=True, problem_context=solve_context,
                             record_action_metadata=True, fallback_attempt=lambda: self.fallback(mkw)))
+                        check_execution_errors(native)
                         return _as_feedback(native, include_controller=True)
                     started = time.perf_counter()
                     params, native, timing, _fallback, update = run_bandit_step_test_final(
@@ -534,12 +561,16 @@ class Study:
                     outcome["algorithm_runtime"] += outcome["calibration_charge"]
                     row = {"phase": "robustness", "source": "adaptive_joint", "policy": str(name), "repeat": repeat,
                         "index": index, "execution_rank": rank, "mkw": mkw, "context": context.tolist(),
-                        "params": params, "outcome": outcome, "decision": copy.deepcopy(selectors[name].last)}
+                        "problem_context": solve_context.tolist(), "params": params, "outcome": outcome,
+                        "decision": copy.deepcopy(selectors[name].last)}
                     self.append(directory / "trajectories.jsonl", [row], rows)
                 if (index + 1) % 100 == 0:
-                    self.update_status("robustness", repeat=repeat + 1, index=index + 1, total=len(records))
+                    self.update_status("robustness", repeat=repeat + 1, index=index + 1, total=len(records),
+                        controller_steps={name: int(bundle.controller.steps) for name, bundle in controllers.items()})
                     write_report(directory, rows, f"Timing stability execution {repeat + 1}")
             for name, branch in branches.items():
+                if len(records) > p["online_activation"] and controllers[name].controller.steps == 0:
+                    raise AssertionError(f"No RL training occurred in completed robustness branch {name}")
                 branch.policy.model.save_mutable_state(directory / f"{name}_setup.npz", metadata={
                     "variant": name, "sigma_sec": calibration["sigma_sec"],
                     "band_multiplier": p["near_tie_multiplier"], "numeric_tolerance": 1e-12})
@@ -582,14 +613,44 @@ class Study:
             "timing_results": str(self.timing_output)})
         self.update_status("complete", status="complete")
 
+    def run_timing_only(self, previous):
+        """Rerun the invalid timing stage without repeating valid attribution work."""
+        for phase in ("frozen", "online"):
+            if not json.loads((previous / phase / "summary.json").read_text())["complete"]:
+                raise ValueError(f"The retained {phase} phase is incomplete")
+        configure_smoother_profile(self.raw["solve"]["smoother_profile"])
+        self.environment("preparing")
+        _write_json(self.output / "protocol.json", self.protocol)
+        state = source_state()
+        state["git_commit"] = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        _write_json(self.output / "source_manifest.json", state)
+        _write_json(self.output / "continuation.json", {
+            "retained_attribution_results": str(previous),
+            "retained_phases": ["frozen", "online"], "timing_restarts_from_scratch": True,
+            "reason": "Correct solve-context dimension and require evidence of actual RL training",
+            "fresh_calibration": True})
+        calibration = self.calibrate()
+        self.robustness(calibration)
+        _write_json(self.output / "complete.json", {"complete": True, "scope": "corrected timing study only",
+            "timing_results": str(self.timing_output), "retained_attribution_results": str(previous)})
+        self.update_status("complete", status="complete")
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="store_true")
     parser.add_argument("--smoke", action="store_true")
     parser.add_argument("--output-root", type=Path, default=OUTPUT)
+    parser.add_argument("--timing-only-from", type=Path)
+    parser.add_argument("--repetitions", type=int, choices=(2, 3))
     args = parser.parse_args()
     protocol = json.loads(PROTOCOL.read_text())
+    if args.timing_only_from:
+        if args.output_root.resolve() == OUTPUT.resolve():
+            raise ValueError("Timing-only reruns need a fresh --output-root")
+        protocol["timing_output"] = str(args.output_root.resolve() / "runs")
+    if args.repetitions is not None:
+        protocol["robustness_repetitions"] = args.repetitions
     for path, expected in json.loads(PROTOCOL.with_name("input_manifest.json").read_text()).items():
         if not (ROOT / path).is_file() or file_hash(ROOT / path) != expected:
             raise ValueError(f"Historical input artifact changed or is missing: {path}")
@@ -617,7 +678,10 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         study = Study(protocol, args.output_root, args.smoke)
         try:
-            study.run()
+            if args.timing_only_from:
+                study.run_timing_only(args.timing_only_from.resolve())
+            else:
+                study.run()
         except BaseException as exc:
             study.update_status(study.status.get("phase", "preparing"), status="failed", error=repr(exc))
             raise

@@ -1,16 +1,75 @@
 {
   "passed": true,
-  "regression_tests": 70,
-  "historical_decisions_replayed": 64,
-  "native_compatibility": "native_compatibility.json",
-  "unit_consistency": "seconds/milliseconds across raw, stable and near_tie rules; original raw decisions and RNG preserved",
-  "integration_smoke": {
-    "grid": 8,
-    "logical_records": 258,
-    "pipeline_complete": true,
-    "frozen_sources_unchanged": true,
-    "path": "results/paper_final/05_policy/smoke_04"
+  "regression_tests": 72,
+  "historical_setup_decisions_replayed": 64,
+  "full_production_context_contracts_checked": 5000,
+  "actual_rl_training_probes": {
+    "grid8": {
+      "raw": {
+        "steps": 163,
+        "episodes": 5,
+        "sample_count": 163,
+        "theta_norm": 0.0004716234458024308
+      },
+      "stable": {
+        "steps": 167,
+        "episodes": 5,
+        "sample_count": 167,
+        "theta_norm": 0.00045790799409963385
+      },
+      "near_tie": {
+        "steps": 164,
+        "episodes": 5,
+        "sample_count": 164,
+        "theta_norm": 0.00046318388007342336
+      }
+    },
+    "grid60": {
+      "raw": {
+        "steps": 235,
+        "episodes": 5,
+        "sample_count": 235,
+        "theta_norm": 0.9984524868118804
+      },
+      "stable": {
+        "steps": 238,
+        "episodes": 5,
+        "sample_count": 238,
+        "theta_norm": 1.0074537191602206
+      },
+      "near_tie": {
+        "steps": 238,
+        "episodes": 5,
+        "sample_count": 238,
+        "theta_norm": 1.0031595436907228
+      }
+    }
   },
-  "aot_schedule_matches_original": true,
-  "scope": "No full-size performance experiment has started; integration measurements are excluded from conclusions."
+  "retained_attribution_audit": {
+    "valid_phases": [
+      "frozen",
+      "online"
+    ],
+    "records": {
+      "frozen": 4736,
+      "online": 20000
+    },
+    "programming_errors": 0,
+    "paired_hierarchy_mismatches": 0,
+    "frozen_source_recommendations_reproduced": 5640,
+    "rl_rows_with_actions": {
+      "new_rl": 640,
+      "old_rl": 640,
+      "online_rl": 5000
+    },
+    "online_training": {
+      "steps": 57285,
+      "samples": 57285,
+      "episodes": 3974,
+      "theta_norm": 1.2353804622445754
+    },
+    "scope": "Recomputed all frozen source choices and checked saved runtime/residual records; no new PDE solves. Invalid robustness data is excluded and removed at user request."
+  },
+  "supersedes": "The original smoke verification at 75fdbbd did not require nonzero RL training and missed a solve-context interface error. Those timing results and smoke artifacts were removed at user request.",
+  "corrected_timing_repetitions": 2
 }

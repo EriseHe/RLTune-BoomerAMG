@@ -6,7 +6,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 import numpy as np
 
-from experiments.paper_final.run_05_controlled import Study, match_hierarchies, choose_baselines, paired_comparisons
+from experiments.paper_final.run_05_controlled import (
+    Study, match_hierarchies, choose_baselines, paired_comparisons, check_execution_errors)
+from hypre.bindings.recovery import InvalidObservationError
+from solve.controllers.common import OnlineSolveCase
 from experiments.paper_final.timing_selection import TimingSelection
 from setup.learners.linucb.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
 from setup.learners.common import ParameterSpec, ParameterSpaceSpec
@@ -14,6 +17,24 @@ from setup.utils.setup_amg import build_actions_from_spec
 
 
 class ControlledStudyTests(unittest.TestCase):
+    def test_recovered_programming_error_invalidates_experiment(self):
+        recovered = {"failed": False, "fallback_status": "success", "primary_attempts": [
+            {"failure_origin": "execution", "failure_reason": "exception:ValueError:wrong context"}]}
+        with self.assertRaises(InvalidObservationError):
+            check_execution_errors(recovered)
+        with self.assertRaises(InvalidObservationError):
+            check_execution_errors({"failed": False,
+                                    "primary_failure_reason": "exception:ValueError:wrong context"})
+        check_execution_errors({"failure_origin": "solver",
+                                "primary_failure_reason": "exception:AMGNativeError:native setup failed"})
+
+    def test_solve_contract_requires_full_context_not_setup_projection(self):
+        arguments = dict(mkw={}, params={}, solve_tol=1e-6, solve_max_cycles=50, learn=True, explore=True)
+        with self.assertRaisesRegex(ValueError, "8 values"):
+            OnlineSolveCase(**arguments, problem_context=np.ones(7))
+        case = OnlineSolveCase(**arguments, problem_context=np.ones(8))
+        self.assertEqual(len(case.problem_context), 8)
+
     @staticmethod
     def learner():
         spec = ParameterSpaceSpec(parameters=(ParameterSpec(name="weight", kind="continuous",
