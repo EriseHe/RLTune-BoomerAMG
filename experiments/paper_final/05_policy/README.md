@@ -1,5 +1,8 @@
 # 05 — Controlled RL comparisons
 
+The retained attribution phases and corrected two-execution timing study are
+complete. Read the [completed results](RESULTS.md) and [compact data](results_summary.json).
+
 **September 21:** the subsequent timing stage had a context-interface bug and
 its results were discarded. The frozen and common-hierarchy phases were checked
 separately and retained. Read the [correction and two-repeat rerun](../09_algorithms/README.md).

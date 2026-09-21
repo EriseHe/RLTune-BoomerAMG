@@ -1,5 +1,8 @@
 # 09 — Timing stability development experiment
 
+The corrected two-execution study completed successfully on September 21.
+The [completed results](../05_policy/RESULTS.md) exclude the discarded initial runs.
+
 ## September 21 correction
 
 The initial timing runs at commit `75fdbbd` are **invalid**. The experiment
