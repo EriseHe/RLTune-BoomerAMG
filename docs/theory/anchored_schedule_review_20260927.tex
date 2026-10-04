@@ -1,0 +1,320 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,booktabs,hyperref}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+\newcommand{\R}{\mathbb R}
+\title{An analytic rationale for an anchored two-weight relaxation baseline}
+\author{}
+\date{September 27, 2026}
+\begin{document}
+\maketitle
+\noindent
+This note derives a small, explicitly delimited baseline-design result. It
+does not prove that the observed pair $(2.5,1)$ minimizes actual BoomerAMG
+runtime, nor that a full multilevel V-cycle equals a single Richardson step.
+The mathematical claims are separate from the Module 05 Run 04 measurements. The weighted polynomial-smoothing
+objective is classical; the anchored specialization and two-grid spectral
+calculation below are provided with self-contained proofs, without a claim
+of priority.
+
+\section{Why a difference of weights is not an effective relaxation}
+For $S(w)=I-wT$, two successive steps produce
+\[
+ S(b)S(a)=I-(a+b)T+abT^2.
+\]
+With $m=(a+b)/2$ and $d=(a-b)/2$, the scalar polynomial is
+\[
+ p_{a,b}(t)=(1-mt)^2-d^2t^2.
+\]
+There is no general rule identifying $a-b$ with an optimal constant weight.
+Even the usual first-kind Chebyshev construction, on an SPD interval
+$[\mu,L]$, instead has
+\[
+ a^{-1}+b^{-1}=L+\mu,\qquad
+ w_{\rm constant}=\frac{2}{L+\mu}=\frac{2ab}{a+b}.
+\]
+This relation holds for those interval-minimax choices, not arbitrary
+runtime-optimal AMG weights. For $(a,b)=(2.5,1)$ the latter harmonic mean
+is $10/7$, not $1.5$ or $1.6$.
+
+\section{The normalized SPD smoothing model}
+For symmetric positive definite $A$, define the conventional row-$\ell_1$
+Jacobi diagonal
+\[
+ D_{ii}=a_{ii}+\sum_{j\ne i}|a_{ij}|.
+\]
+For every vector $x$,
+\[
+ x^\top Ax
+ \le \sum_i a_{ii}x_i^2+
+       \sum_{i<j}|a_{ij}|(x_i^2+x_j^2)
+ =x^\top Dx.
+\]
+Consequently $0\prec A\preceq D$. In energy coordinates the smoother is
+\[
+ S(w)=I-wT,\qquad T=A^{1/2}D^{-1}A^{1/2},\qquad0\prec T\preceq I.
+\]
+The equivalent symmetric matrix $D^{-1/2}AD^{-1/2}$ has the same
+eigenvalues. The row-$\ell_1$ formulation and polynomial acceleration are
+discussed explicitly by D'Ambra et al.~\cite{dambra}.
+
+For polynomial smoothers, a classical two-grid bound contains
+$\sup_{0<t\le1}\sqrt t\,|p(t)|$; see Lottes~\cite{lottes}, Eq.~(4).
+We therefore consider its square, $\sup_{0\le t\le1}t p(t)^2$.
+This is a smoothing-bound surrogate, not a wall-clock objective.
+
+\section{An anchored two-stage minimax problem}
+Retain one ordinary step of weight one and allow a second weight $a$.
+The paired polynomial is
+\[
+ p_a(t)=(1-t)(1-at),\qquad
+ \eta(a)=\max_{0\le t\le1}t(1-t)^2(1-at)^2.
+\]
+
+\begin{proposition}[Anchored weighted-minimax coefficient]
+The unique minimizer of $\eta(a)$ over $a\in\R$ (hence also over
+$a\in[1,3]$) is
+\[
+ a_*=\frac{3+\sqrt5}{2}=2.6180339887\ldots,
+ \qquad
+ \eta(a_*)=\frac{10-2\sqrt5}{125}.
+\]
+\end{proposition}
+\begin{proof}
+Set $f_a(t)=\sqrt t(1-t)(1-at)$. For $0<t<1$,
+\[
+ f_a'(t)=\frac{1-3(a+1)t+5at^2}{2\sqrt t}.
+\]
+At $a=a_*$ its only interior stationary points are
+\[
+ t_+=1-\frac2{\sqrt5},\qquad
+ t_-=\frac12\left(1+\frac1{\sqrt5}\right).
+\]
+Direct substitution gives
+\[
+ f_{a_*}(t_+)=g,\qquad f_{a_*}(t_-)=-g,\qquad
+ g^2=\frac{10-2\sqrt5}{125}.
+\]
+Both endpoint values are zero, so $\max_t|f_{a_*}(t)|=g$.
+If $a<a_*$, then
+\[
+ f_a(t_+)=g+(a_*-a)t_+^{3/2}(1-t_+)>g.
+\]
+If $a>a_*$, then
+\[
+ f_a(t_-)=-g-(a-a_*)t_-^{3/2}(1-t_-)<-g.
+\]
+Every other $a$ therefore has a larger maximum absolute value. Squaring
+proves the result.
+\end{proof}
+
+For the five-point grid used in the development search, the exact
+stationary-point calculation gives:
+\begin{center}
+\begin{tabular}{rr}
+\toprule
+$a$ & $\eta(a)$\\
+\midrule
+1.0 & 0.0819200000\\
+1.5 & 0.0652127357\\
+2.0 & 0.0538822475\\
+2.5 & 0.0457988174\\
+3.0 & 0.0762755014\\
+\bottomrule
+\end{tabular}
+\end{center}
+Thus $(2.5,1)$ is the coarse-grid minimizer of this independently specified
+surrogate. On the actual $0.05$ action grid, the minimizer is $(2.6,1)$,
+with $\eta(2.6)=0.0444568225$. This discrete statement follows by the
+same calculation; it is not justified solely by nearest rounding.
+The coarse-grid objective is about $3.56\%$ above the continuous minimum.
+This percentage is a surrogate-gap percentage, not a predicted runtime gap.
+
+\begin{remark}
+Although $a_*-1=(1+\sqrt5)/2$ is near $1.6$, it is not the optimum
+one-step weight for the same weighted smoothing problem. That one-step
+optimum is $4/3$~\cite{lottes}. The proximity must not be turned into
+an explanation of the experimentally observed best fixed AMG weight.
+\end{remark}
+
+\section{A precise connection to complete two-grid cycles}
+The preceding objective is not only a scalar heuristic: it also bounds a
+particular complete two-grid periodic iteration.
+
+\begin{proposition}[Compression identity and two-cycle rate bound]
+Let $0\prec T=T^\top\preceq I$ and let $Q=Q^\top=Q^2$ be the exact
+coarse-correction projection in energy coordinates. Define
+\[
+ E(w)=(I-wT)Q(I-wT),\qquad P_a=p_a(T),\qquad
+ K=\|T^{-1/2}Q\|_2^2.
+\]
+Then
+\[
+ \rho\big(E(1)E(a)\big)
+ =\|QP_aQ\|_2^2
+ \le K\,\eta(a).
+\]
+The same spectral radius is obtained with the opposite phase
+$E(a)E(1)$.
+\end{proposition}
+\begin{proof}
+Write $S_1=I-T$ and $S_a=I-aT$. These commute, so
+\[
+ E(1)E(a)=S_1 QP_a Q S_a.
+\]
+Cyclic permutation of square factors preserves the characteristic
+polynomial, giving the same eigenvalues as
+\[
+ S_aS_1QP_aQ=(P_aQ)^2.
+\]
+In a basis adapted to $\operatorname{range}Q$ and $\ker Q$, $P_aQ$
+has the eigenvalues of the symmetric compression $QP_aQ$ on
+$\operatorname{range}Q$, together with zeros. Therefore
+\[
+ \rho\big(E(1)E(a)\big)=\rho(P_aQ)^2=\|QP_aQ\|_2^2.
+\]
+Moreover,
+\[
+ \|QP_aQ\|_2
+ \le\|P_aQ\|_2
+ \le\|P_aT^{1/2}\|_2\,\|T^{-1/2}Q\|_2
+ \le\sqrt{\eta(a)K}.
+\]
+The two products $E(1)E(a)$ and $E(a)E(1)$ have the same eigenvalues.
+\end{proof}
+
+This minimizes an upper bound for a two-cycle spectral radius with fixed
+$K$, not the exact rate of every hierarchy. The bound can exceed one
+when coarse approximation is poor. It does not control intermediate
+growth, finite-tolerance stopping time, or unequal execution costs.
+In a genuine multilevel cycle, changing relaxation on all levels also
+changes the inexact coarse correction. Its effective correction is
+not necessarily this fixed projection $Q$. Nonsymmetric advection
+requires a separate analysis.
+
+In the manuscript's rank-one special case, $Q=uu^\top$,
+\[
+ QP_aQ=
+ \big[1-m_1(1+a)+m_2a\big]Q,\quad
+ m_1=u^\top Tu,\quad m_2=u^\top T^2u.
+\]
+The exact cancellation test for $(2.5,1)$ is therefore
+$1-3.5m_1+2.5m_2=0$. Knowing $w_*=m_1/m_2$ alone does not determine it.
+
+\section{An unanchored literature comparator}
+The degree-two fourth-kind Chebyshev polynomial in Lottes~\cite{lottes},
+Eq.~(7), is
+\[
+ p_2(t)=1-4t+\frac{16}{5}t^2
+       =(1-at)(1-bt),
+\quad
+ a=2+\frac2{\sqrt5},\quad b=2-\frac2{\sqrt5}.
+\]
+It gives $(a,b)\simeq(2.894427,1.105573)$, or $(2.90,1.10)$ on the
+$0.05$ grid. Exact factorization realizes this polynomial with two
+successive Jacobi steps on the same matrix; rounding changes the
+polynomial. Using these coefficients on successive complete multilevel
+V-cycles is a motivated transfer, not the original polynomial-smoother
+theorem. Standard SRJ/nonstationary Richardson theory also concerns
+operator products rather than differences of coefficients
+\cite{yang,adsuara}.
+
+The sharper multilevel objective in Lottes, Section 3.2, is different:
+$\sup_t t p(t)^2/(1-p(t)^2)$. Its unrestricted degree-two optimum
+has weights $\sqrt5/2$ and $(5+\sqrt5)/2$, the latter exceeding the
+study's allowed upper weight 3. We do not call the anchored minimizer
+optimal for that different objective, or clip another optimum and
+retain its theorem.
+
+\section{Audit against the implemented experiment}
+The production profile is \texttt{l1\_jacobi\_direct\_coarse}. The native
+source sets relaxation type 18 on the down and up stages and type 9
+(Gaussian elimination) on the coarsest stage. Natural relaxation order
+(\texttt{relax\_order=0}) is the HYPRE default and is not overridden in
+any of the 600 frozen test jobs. For this order, HYPRE constructs type-18
+norms with option 1 and a null C/F marker, giving exactly
+$D_{ii}=\sum_j|a_{ij}|$. Since an SPD matrix has $a_{ii}>0$, this equals
+the diagonal used above. The type-18 kernel uses the old iterate on all
+points and applies $x\leftarrow x+wD^{-1}(b-Ax)$.
+
+The inputs are the positive-coefficient, zero-advection 7-point diffusion
+stencil with homogeneous Dirichlet boundaries; hence the fine matrix is
+SPD. Standard Galerkin coarsening preserves SPD in exact arithmetic when
+interpolation has full column rank. Positive off-diagonal entries on a
+coarse level would not invalidate the absolute-row-sum domination proof.
+This note does not certify every computed coarse matrix against
+floating-point perturbations.
+
+Each experimental action runs one complete V-cycle, with one pre-sweep
+and one post-sweep. The selected weight is set on every relaxation level;
+the direct coarse solve is unaffected by that weight. Thus the actual
+fine-level error operator has the form
+\[
+ E_0(w)=S_0(w)\,[I-P_0 B_1(w)P_0^\top A_0],S_0(w)
+\]
+in original coordinates, where here
+$S_0(w)=I-wD_0^{-1}A_0$ and $B_1(w)$ is the recursive coarse solver.
+For more than two levels, $B_1(w)$ generally depends on $w$ and is not
+$A_1^{-1}$. The fixed-projection proposition therefore applies exactly
+to the ideal two-grid specialization, not to arbitrary production cycles.
+The coefficient is a polynomial-smoothing-inspired baseline.
+
+\section{Run 04 protocol and paper wording}
+Module 05 Run 04 repeats the Run 03 diffusion $60^3$ evaluation with the
+same six frozen setup/controller checkpoints (including the refreshed
+seed 4), the same 100 test inputs, identical setup tuples, three timing
+repetitions, and the same previously selected fixed weights. The only
+policy replacement is $(2.5,1)\mapsto(2.6,1)$. The phase is prescribed as
+high first and reset on each primary solve; the older $(1,3)$ comparator
+remains. This phase is a protocol choice, not a minimax theorem.
+
+The tolerance remains $10^{-6}$ relative to the initial residual, with
+the existing 50-cycle stopping semantics and charged reference recovery.
+Native continuation costs include all primary solves and recovery
+setup/solve; the common initial setup is excluded. Controller-inclusive
+costs are reported separately. No learner is retrained, no fixed-weight
+scan is repeated, and no schedule is selected using Run 04 timings.
+The historical development use and checkpoint selection remain disclosed;
+this is not a new independent replication.
+
+A paper-ready description is:
+\begin{quote}
+We include a prescribed period-two relaxation baseline with weights
+$(2.6,1)$, motivated by normalized SPD $\ell_1$-Jacobi polynomial smoothing.
+Anchoring one coefficient at unity and minimizing
+$\max_{t\in[0,1]}t(1-t)^2(1-at)^2$ gives
+$a_*=(3+\sqrt5)/2$; analytic evaluation on our $0.05$ grid selects $a=2.6$.
+An exact two-grid model links this surrogate to an upper bound on the
+two-cycle spectral radius. We transfer the coefficients to complete
+multilevel cycles and assess their finite-tolerance cost empirically.
+\end{quote}
+
+The accompanying verification script checks the symbolic extrema,
+all 41 grid coefficients, 500 small-matrix compression identities and
+bounds, every frozen test input, and one native profile per checkpoint.
+These checks supplement, rather than replace, the proofs.
+
+\begin{thebibliography}{9}
+\bibitem{yang}
+X. I. A. Yang and R. Mittal,
+Acceleration of the Jacobi iterative method by factors exceeding 100
+using scheduled relaxation,
+\emph{Journal of Computational Physics}, 274 (2014), 695--708.
+doi:10.1016/j.jcp.2014.06.010.
+\bibitem{adsuara}
+J. E. Adsuara, I. Cordero-Carri\'on, P. Cerd\'a-Dur\'an, V. Mewes,
+and M. A. Aloy,
+On the equivalence between the Scheduled Relaxation Jacobi method
+and Richardson's non-stationary method, arXiv:1607.03712 (2016).
+\bibitem{lottes}
+J. Lottes, Optimal polynomial smoothers for multigrid V-cycles,
+\emph{Numerical Linear Algebra with Applications}, 30(6) (2023), e2518.
+doi:10.1002/nla.2518. Equation numbers here follow arXiv:2202.08830v3.
+\bibitem{dambra}
+P. D'Ambra, F. Durastante, S. Filippone, S. Massei, and S. Thomas,
+Optimal Polynomial Smoothers for Parallel AMG,
+\emph{Numerical Algorithms} (2025).
+doi:10.1007/s11075-025-02117-6; arXiv:2407.09848v3.
+\end{thebibliography}
+\end{document}

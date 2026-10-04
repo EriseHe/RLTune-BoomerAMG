@@ -1,0 +1,59 @@
+{
+  "module": "05",
+  "run_number": 4,
+  "status": "complete",
+  "package_id": "module05_run04_anchored26_diffusion60_six_seeds_20260927",
+  "registered_at": "2026-09-28T03:22:11.584052+00:00",
+  "completed_at": "2026-09-28T03:17:14.279844+00:00",
+  "scope": "Diffusion 60^3; six Run 03 Joint checkpoints; same 100 cases; six policies; three fresh timing repetitions",
+  "schedule": [
+    2.6,
+    1.0
+  ],
+  "checkpoint_set": {
+    "retrained_module04_setup_and_rl": [
+      4
+    ],
+    "original_module04_setup_and_rl": [
+      1,
+      2,
+      3,
+      5,
+      6
+    ]
+  },
+  "audit": {
+    "status": "passed",
+    "seeds": 6,
+    "cases_per_seed": 100,
+    "repetitions_per_case": 3,
+    "final_evaluations": 10260,
+    "fixed_scan_evaluations": 29520,
+    "fixed_scan_by_seed": {
+      "1": 4920,
+      "2": 4920,
+      "3": 4920,
+      "4": 4920,
+      "5": 4920,
+      "6": 4920
+    },
+    "unrecovered_failures": 0,
+    "recovered_evaluations": 15,
+    "all_fixed_choices_reconstructed": true,
+    "all_current_cost_arrays_recomputed": true,
+    "manifest_verified": true
+  },
+  "figure_count": 18,
+  "main_figure_count": 8,
+  "pdf_pages": 10,
+  "theory_pdf_pages": 4,
+  "archive": "results/paper_final/05_policy/releases/module05_run04_anchored26_diffusion60_six_seeds_20260927.zip",
+  "archive_bytes": 66855047,
+  "archive_sha256": "68a77a5640bc7784c2a963f1f1a07a2c31a84caf2b4d9a713bde34ab4aa4f09a",
+  "summary_pdf": "results/paper_final/05_policy/releases/module05_run04_anchored26_diffusion60_six_seeds_20260927/RUN04_RESULTS.pdf",
+  "theory_pdf": "results/paper_final/05_policy/releases/module05_run04_anchored26_diffusion60_six_seeds_20260927/theory/anchored_schedule_review.pdf",
+  "extraction_verification": "Passed from a fresh extracted ZIP using only the Python standard library.",
+  "clean_restart": "The discarded attempt was deleted without archiving. Every retained Run 04 execution is from the fresh restart.",
+  "selection_disclosure": "Same accepted checkpoints and previously examined cases; not a fresh holdout or newly trained seeds.",
+  "theory_claim": "Fine-grid minimizer of a normalized SPD anchored smoothing surrogate; fixed exact two-grid bound, not a general multilevel runtime optimum."
+}

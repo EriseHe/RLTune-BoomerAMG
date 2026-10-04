@@ -1,6 +1,57 @@
 # Paper final work
 
-## Start here — updated September 17
+**Current manuscript scope, September 29:** The paper retains Module 04 and
+the corrected six-checkpoint [matched-hierarchy Run 05](05_policy/RUN05.md).
+The separate experiment based on the new Module 05 checkpoints has been
+removed from the paper at the user's request. Its completed records below
+are historical archives, not evidence to reinsert into the current manuscript.
+
+**Module plan updated September 28, 2026:** Module 04 retains its accepted
+protocol and results. New [Module 05](05_online_policies/README.md) prepares
+solve-specific frozen checkpoints using one shared 1000-problem W1 prefix
+and five independent 4000-problem continuations.
+The former Module 05 frozen-policy study is now [Module 06](06_policy/README.md);
+the remaining planned stages shift to 07–11. At the user's request the initial
+four-branch run was discarded. The revised Module 05 includes both
+Default-development-selected w=1.40 and historical learned-hierarchy
+reference w=1.60. It completed all 21,000 method–problem executions in
+54.81 minutes, with zero unrecovered failures and verified frozen checkpoints;
+see its [training report](../../results/paper_final/05_online_policies/20260928_shared_prefix/training/TRAINING_REPORT.md).
+Module 06 completed the five frozen methods on 100 fresh diffusion 60³ inputs,
+three repetitions, plus the periodic/RL 2×2 cross: 2,100 trials in 5.00 minutes,
+zero failures or recoveries, all freeze/data audits passed. For this one trained
+checkpoint set, periodic had the lowest complete-method mean (119.988 ms),
+followed by RL (124.671 ms) and fixed 1.60 (127.213 ms). See the
+[fresh frozen-method report](../../results/paper_final/06_policy/20260928_frozen_five_methods/REPORT.md).
+The original Run 04 figure system now renders this new data: eight updated
+main figures and four timing-repeat supplements. The main heatmaps use W1,
+Fixed 1.60, Periodic (2.85,1.10), and frozen RL. See the
+[12-figure PDF](../../results/paper_final/06_policy/20260928_frozen_five_methods/analysis/paper_figures/all_figures.pdf)
+and [figure pack](../../results/paper_final/06_policy/20260928_frozen_five_methods/analysis/paper_figures/figure_pack.zip).
+
+Module 05 now also has [two training cost figures](../../results/paper_final/05_online_policies/20260928_shared_prefix/training/analysis/paper_figures/module05_runtime_comparisons.pdf)
+using Module 04's stacked-bar layout, for all 5000 and the final 1000 problems.
+The [cost comparison](../../results/paper_final/05_online_policies/20260928_shared_prefix/training/analysis/paper_figures/REPORT.md)
+shows that Periodic already wins the late-training window despite RL's small
+cumulative lead. Download the current modules together in the
+[Module 05/06 archive](../../results/paper_final/releases/module05_module06_20260928.zip).
+
+**Module 06 corrected matched-hierarchy Run 05 (historical Module 05 numbering)**
+uses **(2.85,1.10)** as the only periodic baseline, removing (1,3) and (2.6,1).
+All five roles share the same Joint-trained hierarchy within each of six
+checkpoints and 100 inputs; three new repetitions produced 8460 distinct
+successful solves, with no recovery. The unfinished attempt was discarded.
+RL's native reduction against Periodic is 0.63% ± 0.55 percentage points;
+including controller cost gives -3.65% ± 0.63. See the
+[Run 05 report, current atlas and verified archive](05_policy/RUN05.md).
+The older [Run 04 completion record](05_policy/COMPLETED.md) and archives
+remain historical. The prescribed pair follows the
+[discrete weighted-minimax rule](../../docs/theory/period_two_weighted_minimax_20260928.md).
+
+## Earlier overview — September 17
+
+The following overview records that date's progress. Current module numbers
+and the current checkpoint-preparation task are defined above and in the stage directory.
 
 Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04's September 17 diffusion replicate is complete at 40³, 60³ and 80³. The user-authorized [September 18 suite](04_online/20260918/README.md) uses the earlier diagnosis seed across both families, adds controller lifecycle timing and per-method wall timing, and sets the advection cap to 100. Its source, protocol and outputs are kept separate from the September 17 results. The most useful reading order is:
 
@@ -62,16 +113,17 @@ belongs in the protocol, rather than in every method name.
 
 ### What comes next
 
-1. Freeze the formal protocol using the corrected timing and stopping code,
-   including independent input streams and the
-   treatment/reporting of unrecovered failures. Development reuse of prepared
-   formal inputs must be resolved or explicitly disclosed before launch.
-2. Run **04** for the complete online comparison; reuse its logs for component
-   analysis. Then use the final checkpoints for **05**, the independent matched
-   setup evaluation against fixed weights and schedules.
-3. Integrate the theory in **06**: the general moment identity, the 3D
+1. Prepare **05** with Default-only development calibration and a common
+   1000-problem W1 prefix followed by five 4000-problem continuations. Save
+   each setup selector and the LSTDQ controller at problem 5000; training
+   victory/payback is not an acceptance requirement.
+2. Keep **04** as accepted. In **06**, evaluate each frozen setup–solve
+   pairing on fresh inputs with full setup/controller/recovery cost. A small
+   periodic/RL crossed-hierarchy comparison addresses compatibility.
+3. Integrate the theory in **07**: the general moment identity, the 3D
    coarse-correction example, the 2D myopic-residual example, episode-boundary
-   LSTDQ coercivity, and the conditional comparison/accounting results.
+   LSTDQ coercivity, the weighted-minimax prescription, and the conditional
+   comparison/accounting results.
 4. Keep algorithm alternatives and dynamic deployment ideas conditional on
    a separate decision; they are not prerequisites automatically added by 02.
 
@@ -108,13 +160,19 @@ location and provenance.
 | 01 | [numerics](01_numerics/README.md) | Inverse recovery, checkpoints, rollback, stopping and timing | Original 65 tests; subsequent stopping/timing checks passed |
 | 02 | [diagnostics](02_diagnostics/README.md) | Matched setup fixed/schedule checks; harder advection functional checks | Complete: 1176 diffusion + 336 advection comparisons; 58 abandoned training rows retained |
 | 03 | [activation](03_activation/README.md) | Advection activation-time diagnostics | s1 and s2 complete: six and three paths × 5000; original full s2/s3 suite remains unexecuted |
-| 04 | [online](04_online/README.md) | Main three-method comparison; reuse logs for cost breakdown | Diffusion s1 launched September 17, 04:53 EDT; 40³ → 60³ → 80³ |
-| 05 | `05_policy` | Final frozen-policy evaluation on independent inputs | After final training |
-| 06 | `06_theory` | Integrate mathematical results and deterministic proof checks | Paper editing stage |
-| 07 | `07_baselines` | Stronger native/polynomial baselines and problem breadth | Planned |
-| 08 | `08_feedback` | Matched feedback ablations, if needed for the claims | Conditional |
-| 09 | `09_algorithms` | Forgetting / policy-bandit alternatives | Conditional, not part of the current run |
-| 10 | `10_paper` | Regenerate final figures/tables and reproduction checks | Final assembly |
+| 04 | [online](04_online/README.md) | Existing main three-method comparison and cost breakdown | Accepted scope and results retained |
+| 05 | [checkpoint preparation](05_online_policies/README.md) | Shared 1000 W1 + five independent 4000 continuations; five setup selectors and LSTDQ checkpoint | Complete: 21,000 executions, zero unrecovered failures, frozen artifacts verified; original four-branch run discarded |
+| 06 | [policy](06_policy/README.md) | Five frozen complete methods and periodic/RL 2×2 cross on 100 fresh inputs × three repetitions | Complete: 2,100 trials, zero failures/recoveries, audits passed; periodic lowest full cost on this checkpoint set; [historical accepted data](05_policy/COMPLETED.md) preserved |
+| 07 | `07_theory` | Integrate mathematical results and deterministic proof checks | Paper editing stage |
+| 08 | `08_baselines` | Stronger native/polynomial baselines and problem breadth | Planned |
+| 09 | `09_feedback` | Matched feedback ablations, if needed for the claims | Conditional |
+| 10 | `10_algorithms` | Forgetting / policy-bandit alternatives | Conditional, not part of the current run |
+| 11 | `11_paper` | Regenerate final figures/tables and reproduction checks | Final assembly |
+
+Historical `05_policy` directories, `run_05_policy*` entry points, and
+`module05` archives now provide Module 06 evidence. Their original names and
+captured manifests remain the reproduction identifiers. New Module 05 work
+uses `05_online_policies` and does not overwrite those records.
 
 The general joint runner and native helpers remain in their existing modules.
 These entry points reuse them:
@@ -126,6 +184,7 @@ python -m experiments.paper_final.run_02_diagnostics --run
 python -m experiments.paper_final.run_03_activation        # validation only
 python -m experiments.paper_final.run_04_online --validate-only
 python -m experiments.paper_final.analyze_04_online
+python -m experiments.paper_final.plot_05_policy          # completed logs only; no solver runs
 ```
 
 Use the project's `rl` Python environment. Stage 03 and the remaining stage 02
