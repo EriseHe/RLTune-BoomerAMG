@@ -14,11 +14,8 @@ from typing import Any, Callable, Dict, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambda,
-    SolveStateEncoder,
-    run_td_episode,
-)
+from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder
+from solve.core.episode import run_td_episode
 from solve.controllers.ppo import (
     FrozenPpoConfig,
     SetupAwareSolvePolicyRunner,
@@ -35,20 +32,12 @@ from experiments.joint.solve_control.joint_online_common import (
     _report_online_outcome,
     _validate_recovery_stream,
 )
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    DEFAULT_SETUP_PARAMS,
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-    augment_setup_params,
-    classify_rl_failure,
-    default_test_final_bandit_config_from_env,
-    run_bandit_step_test_final,
-    solve_default_baseline_case,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-    solve_setup_aware_rl_case,
-    validate_expected_setup_action_count,
-)
+from setup.space import DEFAULT_SETUP_PARAMS
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION
+from hypre.bindings import augment_setup_params
+from solve.core.outcomes import classify_rl_failure
+from experiments.joint.solve_control.setup_branches import default_test_final_bandit_config_from_env, run_bandit_step_test_final, validate_expected_setup_action_count
+from experiments.joint.solve_control.native_evaluation import solve_default_baseline_case, solve_fixed_w_case, solve_no_rl_case, solve_setup_aware_rl_case
 
 
 METHODS = (

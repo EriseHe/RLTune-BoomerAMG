@@ -15,19 +15,12 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambda,
-    ExpectedSarsaLambdaConfig,
-    SolveStateEncoder,
-    run_td_episode,
-)
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    DEFAULT_SETUP_PARAMS,
-    augment_setup_params,
-    generate_difconv_instances,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-)
+from solve.controllers.sarsa import ExpectedSarsaLambda, ExpectedSarsaLambdaConfig, SolveStateEncoder
+from solve.core.episode import run_td_episode
+from setup.space import DEFAULT_SETUP_PARAMS
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import generate_difconv_instances
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_no_rl_case
 
 
 def _json_ready(value: Any) -> Any:

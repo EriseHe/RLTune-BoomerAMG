@@ -76,7 +76,7 @@ class ControllerBundle:
     def run_case(self, case: OnlineSolveCase) -> dict[str, Any]:
         """Run one solve episode through the shared transactional adapter."""
 
-        from solve.controllers.sarsa.online_td_lambda import run_td_episode
+        from solve.core.episode import run_td_episode
 
         return run_td_episode(
             mkw=dict(case.mkw),

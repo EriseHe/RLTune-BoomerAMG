@@ -13,7 +13,7 @@ from solve.controllers.common import (
     _json_dataclass,
     _sandwich_quadratic,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .config import RecursiveMonteCarloLcbSpec
 

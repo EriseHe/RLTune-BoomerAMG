@@ -113,15 +113,9 @@ from experiments.joint.solve_control.run_online_methods_2k import (
     _as_feedback,
 )
 from problems.registry import context_for_setup_method
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    build_online_linucb_branch,
-    clone_branch_for_independent_updates,
-    default_test_final_bandit_config_from_env,
-    run_bandit_step_test_final,
-    solve_no_rl_case,
-    validate_expected_setup_action_count,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, clone_branch_for_independent_updates, default_test_final_bandit_config_from_env, run_bandit_step_test_final, validate_expected_setup_action_count
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 
 _build_bandit = build_online_linucb_branch
 RunnerConfig = JointExperimentRuntimeConfig | argparse.Namespace

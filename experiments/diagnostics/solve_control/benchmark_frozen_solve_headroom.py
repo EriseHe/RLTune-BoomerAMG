@@ -10,7 +10,7 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from experiments.joint.solve_control.setup_aware_compare_common import solve_schedule_case
+from experiments.joint.solve_control.native_evaluation import solve_schedule_case
 
 
 def _parse_values(raw: str, cast: Any) -> tuple[Any, ...]:

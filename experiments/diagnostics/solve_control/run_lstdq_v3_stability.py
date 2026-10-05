@@ -25,10 +25,8 @@ from experiments.diagnostics.solve_control.run_solve_controller_calibration impo
     _write_json_line,
 )
 from setup.space import DEFAULT_SETUP_PARAMS
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    solve_no_rl_case,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 from solve.controllers.common import ControllerBundle, OnlineSolveCase
 from solve.controllers.recursive_lstdq import (
     RecursiveLstdqV2LcbSpec,

@@ -18,11 +18,8 @@ from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
     normalize_problem_kind,
 )
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    EXP44_SETUP_PARAM_RESOLUTION,
-    EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
-    generate_difconv_instances,
-)
+from experiments.joint.solve_control.action_spaces import EXP44_SETUP_PARAM_RESOLUTION, EXP44_TUNE7_CATEGORICAL_ACTION_COUNT
+from experiments.joint.solve_control.setup_branches import generate_difconv_instances
 
 
 def git_revision() -> str:

@@ -44,12 +44,9 @@ from problems.registry import (
 )
 from setup.registry import ONLINE_SETUP_KINDS
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    build_online_linucb_branch,
-    run_bandit_step_test_final,
-    solve_no_rl_case,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, run_bandit_step_test_final
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from solve.controllers.common import ControllerBundle
 from solve.controllers.ppo import (

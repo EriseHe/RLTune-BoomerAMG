@@ -30,10 +30,9 @@ from experiments.joint.solve_control.joint_online_common import report_online_ou
 from problems.registry import context_for_setup_method
 from problems.streams import generate_scalar_anisotropic_diffusion_instances
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params, build_online_linucb_branch, solve_fixed_w_case,
-    solve_no_rl_case, solve_schedule_case,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_online_linucb_branch
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_no_rl_case, solve_schedule_case
 
 ROOT = base.ROOT
 PARENT = training.OUTPUT / "training"

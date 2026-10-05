@@ -15,19 +15,15 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
+from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder
+from solve.core.episode import run_td_episode
 from experiments.joint.solve_control.run_exp44_online_rl import make_controller
 from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 from experiments.joint.solve_control.run_mature_bandit_rl_pipeline import _frozen_trace
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-    EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
-    augment_setup_params,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-    validate_expected_setup_action_count,
-)
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION, EXP44_TUNE7_CATEGORICAL_ACTION_COUNT
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_no_rl_case
+from experiments.joint.solve_control.setup_branches import validate_expected_setup_action_count
 
 
 DEFAULT_ALPHAS = (0.001, 0.005)

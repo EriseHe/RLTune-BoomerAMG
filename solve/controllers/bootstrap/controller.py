@@ -9,10 +9,8 @@ from typing import Any, Dict
 import numpy as np
 
 from solve.controllers.common import _greedy_cost_index, _json_dataclass
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambda,
-    ExpectedSarsaLambdaConfig,
-)
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.controllers.sarsa import ExpectedSarsaLambda
 
 from .config import BootstrapSarsaSpec
 

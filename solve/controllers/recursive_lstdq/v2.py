@@ -15,7 +15,7 @@ from solve.controllers.common import (
     _rank_one_accumulate,
     _rank_one_inverse_update,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .common import _FactorizedLstdqScoring
 from .config import RecursiveLstdqV2LcbSpec

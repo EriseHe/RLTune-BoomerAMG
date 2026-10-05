@@ -13,7 +13,7 @@ from solve.controllers.common.action_space import (
     joint_action_features,
 )
 from solve.controllers.common import _greedy_cost_index, _json_dataclass
-from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .config import StagewiseLsviLcbSpec
 

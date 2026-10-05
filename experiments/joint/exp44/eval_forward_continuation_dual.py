@@ -21,16 +21,11 @@ REPO = _repo_root()
 TEST_DIR = REPO / "experiments" / "joint" / "solve_control"
 sys.path.insert(0, str(TEST_DIR))
 
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    DEFAULT_SETUP_PARAMS,
-    SetupAwareRLConfig,
-    SetupAwareSolvePolicyRunner,
-    augment_setup_params,
-    eval_runner,
-    fixed_trace,
-    solve_schedule_case,
-    solve_no_rl_case,
-)
+from setup.space import DEFAULT_SETUP_PARAMS
+from solve.controllers.ppo import SetupAwareRLConfig, SetupAwareSolvePolicyRunner
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.evaluation import eval_runner, fixed_trace
+from experiments.joint.solve_control.native_evaluation import solve_schedule_case, solve_no_rl_case
 
 
 OUT_DIR = Path(

@@ -2,8 +2,7 @@ import os
 import time
 from pathlib import Path
 import json
-import time
-from pathlib import Path
+from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -518,7 +517,48 @@ def _make_env(
     )
 
 
-def main():
+@dataclass(frozen=True)
+class _EvaluationSettings:
+    baseline_cfg: tuple[float, ...]
+    baseline_lib_path: str
+    baseline_relax_type: int
+    difconv_a: tuple[float, ...]
+    difconv_atype: int
+    difconv_c: tuple[float, ...]
+    difconv_c_range: tuple[float, ...]
+    eval_cases: list[dict]
+    fixed_a_mode: bool
+    fixed_rhs_seed: int
+    fixed_rhs_type: int
+    fixed_stencil: int
+    grid_max: int
+    grid_min: int
+    grid_sizes: list[tuple[int, int, int]]
+    lib_path: str
+    model_path: str
+    model_type: str
+    plot_grid_step: int
+    plot_grid_sweep: bool
+    plot_sweep_instances: int
+    plot_sweep_seed_stride: int
+    randomize_A: bool
+    randomize_b: bool
+    randomize_grid: bool
+    rl_relax_type: int
+    seed_start: int
+    seed_stride: int
+    sweeps_init: int | None
+    sweeps_max: int
+    sweeps_min: int
+    vec_path: str
+    w_center: float
+    w_init: float | None
+    w_only: bool
+    w_scale: float
+
+
+def _prepare_evaluation():
+    """Read evaluation settings and construct the prescribed paired cases."""
     lib_path = str(DEFAULT_AMG_RUNTIME_LIBRARY)
     seed_start = int(os.environ.get("EVAL_SEED_START", "100"))
     seed_count = int(os.environ.get("EVAL_SEED_COUNT", "6"))
@@ -615,87 +655,134 @@ def main():
     vec_path = os.environ.get("VEC_PATH", "vecnormalize_gen.pkl")
     baseline_lib_path = os.environ.get("BASELINE_LIB_PATH", lib_path)
 
+    return _EvaluationSettings(
+        baseline_cfg=baseline_cfg,
+        baseline_lib_path=baseline_lib_path,
+        baseline_relax_type=baseline_relax_type,
+        difconv_a=difconv_a,
+        difconv_atype=difconv_atype,
+        difconv_c=difconv_c,
+        difconv_c_range=difconv_c_range,
+        eval_cases=eval_cases,
+        fixed_a_mode=fixed_a_mode,
+        fixed_rhs_seed=fixed_rhs_seed,
+        fixed_rhs_type=fixed_rhs_type,
+        fixed_stencil=fixed_stencil,
+        grid_max=grid_max,
+        grid_min=grid_min,
+        grid_sizes=grid_sizes,
+        lib_path=lib_path,
+        model_path=model_path,
+        model_type=model_type,
+        plot_grid_step=plot_grid_step,
+        plot_grid_sweep=plot_grid_sweep,
+        plot_sweep_instances=plot_sweep_instances,
+        plot_sweep_seed_stride=plot_sweep_seed_stride,
+        randomize_A=randomize_A,
+        randomize_b=randomize_b,
+        randomize_grid=randomize_grid,
+        rl_relax_type=rl_relax_type,
+        seed_start=seed_start,
+        seed_stride=seed_stride,
+        sweeps_init=sweeps_init,
+        sweeps_max=sweeps_max,
+        sweeps_min=sweeps_min,
+        vec_path=vec_path,
+        w_center=w_center,
+        w_init=w_init,
+        w_only=w_only,
+        w_scale=w_scale,
+    )
+
+
+def _load_evaluation_policy(settings: _EvaluationSettings):
+    """Load optional normalization, the frozen policy, and output settings."""
     vec_norm = None
-    if os.path.exists(vec_path):
+    if os.path.exists(settings.vec_path):
         try:
             raw_env = DummyVecEnv(
                 [
                     lambda: _make_env(
-                        lib_path,
-                        seed_start,
-                        grid_sizes[0],
-                        randomize_A,
-                        randomize_b,
-                        fixed_rhs_seed,
-                        fixed_rhs_type,
-                        relax_type=rl_relax_type,
-                        fixed_stencil=fixed_stencil,
-                        randomize_grid=randomize_grid,
-                        grid_min=grid_min,
-                        grid_max=grid_max,
-                        difconv_c=difconv_c,
-                        difconv_c_range=difconv_c_range,
-                        difconv_a=difconv_a,
-                        difconv_atype=difconv_atype,
-                        w_center=w_center,
-                        w_scale=w_scale,
-                        sweeps_min=sweeps_min,
-                        sweeps_max=sweeps_max,
-                        w_only=w_only,
-                        w_init=w_init,
-                        sweeps_init=sweeps_init,
+                        settings.lib_path,
+                        settings.seed_start,
+                        settings.grid_sizes[0],
+                        settings.randomize_A,
+                        settings.randomize_b,
+                        settings.fixed_rhs_seed,
+                        settings.fixed_rhs_type,
+                        relax_type=settings.rl_relax_type,
+                        fixed_stencil=settings.fixed_stencil,
+                        randomize_grid=settings.randomize_grid,
+                        grid_min=settings.grid_min,
+                        grid_max=settings.grid_max,
+                        difconv_c=settings.difconv_c,
+                        difconv_c_range=settings.difconv_c_range,
+                        difconv_a=settings.difconv_a,
+                        difconv_atype=settings.difconv_atype,
+                        w_center=settings.w_center,
+                        w_scale=settings.w_scale,
+                        sweeps_min=settings.sweeps_min,
+                        sweeps_max=settings.sweeps_max,
+                        w_only=settings.w_only,
+                        w_init=settings.w_init,
+                        sweeps_init=settings.sweeps_init,
                     )
                 ]
             )
-            vec_norm = VecNormalize.load(vec_path, raw_env)
+            vec_norm = VecNormalize.load(settings.vec_path, raw_env)
             vec_norm.training = False
             vec_norm.norm_reward = False
-            print(f"Loaded VecNormalize: {vec_path}")
+            print(f"Loaded VecNormalize: {settings.vec_path}")
         except AssertionError as exc:
-            print(f"VecNormalize mismatch; skipping {vec_path}. Reason: {exc}")
+            print(f"VecNormalize mismatch; skipping {settings.vec_path}. Reason: {exc}")
 
-    if model_type == "lstm":
-        model = RecurrentPPO.load(model_path)
+    if settings.model_type == "lstm":
+        model = RecurrentPPO.load(settings.model_path)
     else:
-        model = PPO.load(model_path)
+        model = PPO.load(settings.model_path)
 
     plot_count = int(os.environ.get("PLOT_COUNT", "3"))
-    plot_count = max(1, min(plot_count, len(eval_cases)))
+    plot_count = max(1, min(plot_count, len(settings.eval_cases)))
     failure_log_path = Path(os.environ.get("EVAL_FAILURE_LOG_PATH", Path.cwd() / "eval_default_vs_rl_failures.jsonl"))
 
+    return model, vec_norm, plot_count, failure_log_path
+
+
+def _evaluate_cases(settings: _EvaluationSettings, model, vec_norm, plot_count):
+    """Evaluate baseline and policy in case order with unchanged timing scope."""
     base_results = []
     rl_results = []
     failure_records = []
-    for i, case in enumerate(eval_cases):
+    for i, case in enumerate(settings.eval_cases):
         env = _make_env(
-            baseline_lib_path,
+            settings.baseline_lib_path,
             case["seed"],
             case["grid"],
             case["randomize_A"],
             case["randomize_b"],
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
-            relax_type=baseline_relax_type,
-            fixed_stencil=fixed_stencil,
-            randomize_grid=randomize_grid,
-            grid_min=grid_min,
-            grid_max=grid_max,
-            difconv_c=difconv_c,
-            difconv_c_range=difconv_c_range,
-            difconv_a=difconv_a,
-            difconv_atype=difconv_atype,
-            w_center=w_center,
-            w_scale=w_scale,
-            sweeps_min=sweeps_min,
-            sweeps_max=sweeps_max,
-            w_only=w_only,
+            relax_type=settings.baseline_relax_type,
+            fixed_stencil=settings.fixed_stencil,
+            randomize_grid=settings.randomize_grid,
+            grid_min=settings.grid_min,
+            grid_max=settings.grid_max,
+            difconv_c=settings.difconv_c,
+            difconv_c_range=settings.difconv_c_range,
+            difconv_a=settings.difconv_a,
+            difconv_atype=settings.difconv_atype,
+            w_center=settings.w_center,
+            w_scale=settings.w_scale,
+            sweeps_min=settings.sweeps_min,
+            sweeps_max=settings.sweeps_max,
+            w_only=settings.w_only,
             w_init=None,
             sweeps_init=None,
         )
         t0 = time.perf_counter()
         out_base = run_episode(
             env,
-            fixed_cfg=baseline_cfg,
+            fixed_cfg=settings.baseline_cfg,
             record_curve=(i < plot_count),
             measure_wall=False,
         )
@@ -709,29 +796,29 @@ def main():
             failure_records.append(_failure_log_record(scope="main_eval", mode="baseline", case=case, result=out_base))
 
         env2 = _make_env(
-            lib_path,
+            settings.lib_path,
             case["seed"],
             case["grid"],
             case["randomize_A"],
             case["randomize_b"],
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
-            relax_type=rl_relax_type,
-            fixed_stencil=fixed_stencil,
-            randomize_grid=randomize_grid,
-            grid_min=grid_min,
-            grid_max=grid_max,
-            difconv_c=difconv_c,
-            difconv_c_range=difconv_c_range,
-            difconv_a=difconv_a,
-            difconv_atype=difconv_atype,
-            w_center=w_center,
-            w_scale=w_scale,
-            sweeps_min=sweeps_min,
-            sweeps_max=sweeps_max,
-            w_only=w_only,
-            w_init=w_init,
-            sweeps_init=sweeps_init,
+            relax_type=settings.rl_relax_type,
+            fixed_stencil=settings.fixed_stencil,
+            randomize_grid=settings.randomize_grid,
+            grid_min=settings.grid_min,
+            grid_max=settings.grid_max,
+            difconv_c=settings.difconv_c,
+            difconv_c_range=settings.difconv_c_range,
+            difconv_a=settings.difconv_a,
+            difconv_atype=settings.difconv_atype,
+            w_center=settings.w_center,
+            w_scale=settings.w_scale,
+            sweeps_min=settings.sweeps_min,
+            sweeps_max=settings.sweeps_max,
+            w_only=settings.w_only,
+            w_init=settings.w_init,
+            sweeps_init=settings.sweeps_init,
         )
         t0 = time.perf_counter()
         out_rl = run_episode(
@@ -739,7 +826,7 @@ def main():
             policy=model,
             record_curve=(i < plot_count),
             obs_normalizer=(vec_norm.normalize_obs if vec_norm is not None else None),
-            use_lstm=(model_type == "lstm"),
+            use_lstm=(settings.model_type == "lstm"),
             measure_wall=False,
             measure_infer=True,
         )
@@ -752,10 +839,15 @@ def main():
         if out_rl.get("failed", False):
             failure_records.append(_failure_log_record(scope="main_eval", mode="rl", case=case, result=out_rl))
 
+    return base_results, rl_results, failure_records
+
+
+def _report_evaluation(settings: _EvaluationSettings, base_results, rl_results):
+    """Report costs, failures, inference overhead, and evaluation coverage."""
     print("\n=== Baseline vs RL (Hypre default baseline) ===")
-    print("Baseline config (w, sweeps_down, sweeps_up):", baseline_cfg)
-    if baseline_lib_path != lib_path:
-        print("Baseline lib:", baseline_lib_path)
+    print("Baseline config (w, sweeps_down, sweeps_up):", settings.baseline_cfg)
+    if settings.baseline_lib_path != settings.lib_path:
+        print("Baseline lib:", settings.baseline_lib_path)
     print("Baseline:", _summarize(base_results))
     print("RL      :", _summarize(rl_results))
     print("Baseline failures:", _summarize_failures(base_results))
@@ -769,14 +861,17 @@ def main():
     rl_infer = _summarize_infer(rl_results)
     if rl_infer is not None:
         print("RL inference time (policy.predict only):", rl_infer)
-    if randomize_grid:
-        print(f"Eval grid range: [{grid_min}, {grid_max}] (uniform, cubic)")
+    if settings.randomize_grid:
+        print(f"Eval grid range: [{settings.grid_min}, {settings.grid_max}] (uniform, cubic)")
     else:
-        print("Eval grid sizes:", grid_sizes)
-    print("Eval cases:", len(eval_cases))
-    if fixed_a_mode:
+        print("Eval grid sizes:", settings.grid_sizes)
+    print("Eval cases:", len(settings.eval_cases))
+    if settings.fixed_a_mode:
         print("Fixed-A mode: ON (A coefficients and size fixed)")
 
+
+def _plot_first_case(settings: _EvaluationSettings, base_results, rl_results):
+    """Plot the recorded first-case actions and residuals."""
     if base_results and base_results[0]["cfg_curve"] and rl_results[0]["cfg_curve"]:
         base_last = base_results[0]["cfg_curve"][-1]
         rl_last = rl_results[0]["cfg_curve"][-1]
@@ -793,7 +888,7 @@ def main():
         plt.figure()
         plt.plot(base_steps, base_cfg[:, 0], label="baseline")
         plt.plot(rl_steps, rl_cfg[:, 0], label="rl")
-        plt.title(f"Relaxation weight w (baseline w={baseline_cfg[0]:.3f})")
+        plt.title(f"Relaxation weight w (baseline w={settings.baseline_cfg[0]:.3f})")
         plt.xlabel("V-cycle")
         plt.ylabel("w")
         plt.legend()
@@ -807,7 +902,7 @@ def main():
         plt.plot(rl_steps, rl_cfg[:, 2], label="rl sweeps_up")
         plt.title(
             "Sweeps per cycle "
-            f"(baseline down={int(baseline_cfg[1])}, up={int(baseline_cfg[2])})"
+            f"(baseline down={int(settings.baseline_cfg[1])}, up={int(settings.baseline_cfg[2])})"
         )
         plt.xlabel("V-cycle")
         plt.ylabel("sweeps")
@@ -831,53 +926,56 @@ def main():
         plt.tight_layout()
         plt.show()
 
-    if plot_grid_sweep:
-        grid_sizes_plot = list(range(grid_min, grid_max + 1, max(1, plot_grid_step)))
+
+def _evaluate_grid_sweep(settings: _EvaluationSettings, model, vec_norm, failure_records):
+    """Run and report the requested paired grid sweep after the main evaluation."""
+    if settings.plot_grid_sweep:
+        grid_sizes_plot = list(range(settings.grid_min, settings.grid_max + 1, max(1, settings.plot_grid_step)))
         rl_curves = []
         base_means = []
         rl_means = []
         for idx, n in enumerate(grid_sizes_plot):
             base_runs = []
             rl_runs = []
-            for j in range(max(1, plot_sweep_instances)):
-                seed = seed_start + idx * seed_stride + j * plot_sweep_seed_stride
+            for j in range(max(1, settings.plot_sweep_instances)):
+                seed = settings.seed_start + idx * settings.seed_stride + j * settings.plot_sweep_seed_stride
                 case = {
                     "seed": seed,
                     "grid": (n, n, n),
-                    "randomize_A": randomize_A,
-                    "randomize_b": randomize_b,
-                    "fixed_rhs_seed": fixed_rhs_seed,
-                    "fixed_rhs_type": fixed_rhs_type,
+                    "randomize_A": settings.randomize_A,
+                    "randomize_b": settings.randomize_b,
+                    "fixed_rhs_seed": settings.fixed_rhs_seed,
+                    "fixed_rhs_type": settings.fixed_rhs_type,
                 }
 
                 envb = _make_env(
-                    baseline_lib_path,
+                    settings.baseline_lib_path,
                     case["seed"],
                     case["grid"],
                     case["randomize_A"],
                     case["randomize_b"],
                     case["fixed_rhs_seed"],
                     case["fixed_rhs_type"],
-                    relax_type=baseline_relax_type,
-                    fixed_stencil=fixed_stencil,
+                    relax_type=settings.baseline_relax_type,
+                    fixed_stencil=settings.fixed_stencil,
                     randomize_grid=False,
-                    grid_min=grid_min,
-                    grid_max=grid_max,
-                    difconv_c=difconv_c,
-                    difconv_c_range=difconv_c_range,
-                    difconv_a=difconv_a,
-                    difconv_atype=difconv_atype,
-                    w_center=w_center,
-                    w_scale=w_scale,
-                    sweeps_min=sweeps_min,
-                    sweeps_max=sweeps_max,
-                    w_only=w_only,
+                    grid_min=settings.grid_min,
+                    grid_max=settings.grid_max,
+                    difconv_c=settings.difconv_c,
+                    difconv_c_range=settings.difconv_c_range,
+                    difconv_a=settings.difconv_a,
+                    difconv_atype=settings.difconv_atype,
+                    w_center=settings.w_center,
+                    w_scale=settings.w_scale,
+                    sweeps_min=settings.sweeps_min,
+                    sweeps_max=settings.sweeps_max,
+                    w_only=settings.w_only,
                     w_init=None,
                     sweeps_init=None,
                 )
                 base_out = run_episode(
                     envb,
-                    fixed_cfg=baseline_cfg,
+                    fixed_cfg=settings.baseline_cfg,
                     record_curve=False,
                 )
                 envb.close()
@@ -886,36 +984,36 @@ def main():
                     failure_records.append(_failure_log_record(scope="grid_sweep", mode="baseline", case=case, result=base_out))
 
                 envp = _make_env(
-                    lib_path,
+                    settings.lib_path,
                     case["seed"],
                     case["grid"],
                     case["randomize_A"],
                     case["randomize_b"],
                     case["fixed_rhs_seed"],
                     case["fixed_rhs_type"],
-                    relax_type=rl_relax_type,
-                    fixed_stencil=fixed_stencil,
+                    relax_type=settings.rl_relax_type,
+                    fixed_stencil=settings.fixed_stencil,
                     randomize_grid=False,
-                    grid_min=grid_min,
-                    grid_max=grid_max,
-                    difconv_c=difconv_c,
-                    difconv_c_range=difconv_c_range,
-                    difconv_a=difconv_a,
-                    difconv_atype=difconv_atype,
-                    w_center=w_center,
-                    w_scale=w_scale,
-                    sweeps_min=sweeps_min,
-                    sweeps_max=sweeps_max,
-                    w_only=w_only,
-                    w_init=w_init,
-                    sweeps_init=sweeps_init,
+                    grid_min=settings.grid_min,
+                    grid_max=settings.grid_max,
+                    difconv_c=settings.difconv_c,
+                    difconv_c_range=settings.difconv_c_range,
+                    difconv_a=settings.difconv_a,
+                    difconv_atype=settings.difconv_atype,
+                    w_center=settings.w_center,
+                    w_scale=settings.w_scale,
+                    sweeps_min=settings.sweeps_min,
+                    sweeps_max=settings.sweeps_max,
+                    w_only=settings.w_only,
+                    w_init=settings.w_init,
+                    sweeps_init=settings.sweeps_init,
                 )
                 out = run_episode(
                     envp,
                     policy=model,
                     record_curve=(j == 0),
                     obs_normalizer=(vec_norm.normalize_obs if vec_norm is not None else None),
-                    use_lstm=(model_type == "lstm"),
+                    use_lstm=(settings.model_type == "lstm"),
                 )
                 envp.close()
                 rl_runs.append(out)
@@ -931,7 +1029,7 @@ def main():
         print(f"Saved RL grid-sweep plots to: {plots_dir}")
 
         rows = _summarize_grid_sweep(grid_sizes_plot, base_means, rl_means)
-        print(f"\n=== Grid Sweep Summary (per n, avg over {max(1, plot_sweep_instances)} inst) ===")
+        print(f"\n=== Grid Sweep Summary (per n, avg over {max(1, settings.plot_sweep_instances)} inst) ===")
         print("n   baseline_time  baseline_cycles   rl_time   rl_cycles")
         for row in rows:
             print(
@@ -939,6 +1037,17 @@ def main():
                 f"{row['baseline_cycles']:>16.1f} {row['rl_time']:>9.6f} "
                 f"{row['rl_cycles']:>10.1f}"
             )
+
+
+def main():
+    settings = _prepare_evaluation()
+    model, vec_norm, plot_count, failure_log_path = _load_evaluation_policy(settings)
+    base_results, rl_results, failure_records = _evaluate_cases(
+        settings, model, vec_norm, plot_count,
+    )
+    _report_evaluation(settings, base_results, rl_results)
+    _plot_first_case(settings, base_results, rl_results)
+    _evaluate_grid_sweep(settings, model, vec_norm, failure_records)
 
     if failure_records:
         _write_failure_log(failure_log_path, failure_records)

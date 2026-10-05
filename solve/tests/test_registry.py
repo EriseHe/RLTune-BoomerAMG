@@ -315,7 +315,7 @@ class SolveRegistryTests(unittest.TestCase):
         )
         expected = {"runtime": 0.25, "failed": False}
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.run_td_episode",
+            "solve.core.episode.run_td_episode",
             return_value=expected,
         ) as run_episode:
             self.assertIs(bundle.run_case(case), expected)
@@ -336,6 +336,28 @@ class SolveRegistryTests(unittest.TestCase):
             fallback_attempt=fallback,
             failure_penalty_sec=0.5,
         )
+
+    def test_episode_legacy_imports_share_the_core_implementation(self) -> None:
+        from solve.core.episode import run_td_episode
+        from solve.controllers.sarsa import run_td_episode as family_episode
+        from solve.controllers.sarsa.online_td_lambda import (
+            run_td_episode as legacy_episode,
+        )
+
+        self.assertIs(family_episode, run_td_episode)
+        self.assertIs(legacy_episode, run_td_episode)
+
+    def test_td_config_legacy_imports_share_the_common_class(self) -> None:
+        from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+        from solve.controllers.sarsa import (
+            ExpectedSarsaLambdaConfig as FamilyConfig,
+        )
+        from solve.controllers.sarsa.config import (
+            ExpectedSarsaLambdaConfig as LegacyConfig,
+        )
+
+        self.assertIs(FamilyConfig, ExpectedSarsaLambdaConfig)
+        self.assertIs(LegacyConfig, ExpectedSarsaLambdaConfig)
 
     def test_specs_remain_available_from_legacy_implementation_modules(self) -> None:
         from solve.controllers.lsvi.config import (

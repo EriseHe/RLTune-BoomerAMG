@@ -44,7 +44,7 @@ from problems.registry import context_for_setup_method
 from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from experiments.joint.solve_control.run_paper_final import source_state
 from setup.learners.linucb.SharedLinUCB_AMG_v4 import SharedLinUCBv4Step
-from experiments.joint.solve_control.setup_aware_compare_common import solve_schedule_case
+from experiments.joint.solve_control.native_evaluation import solve_schedule_case
 
 ROOT = base.ROOT
 OUTPUT = ROOT / "results/paper_final/05_online_policies/20260928_shared_prefix"

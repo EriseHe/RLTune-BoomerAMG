@@ -19,14 +19,10 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
 from solve.core.amg_gym_env import build_policy_obs
 from experiments.joint.solve_control.frozen_bandit_step_env import FrozenBanditStepEnv
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    SetupAwareRLConfig,
-    SetupAwareSolvePolicyRunner,
-    augment_setup_params,
-    eval_runner,
-    fixed_trace,
-    solve_no_rl_case,
-)
+from solve.controllers.ppo import SetupAwareRLConfig, SetupAwareSolvePolicyRunner
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.evaluation import eval_runner, fixed_trace
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 from hypre.bindings import create_env
 
 # Active Exp44 path:

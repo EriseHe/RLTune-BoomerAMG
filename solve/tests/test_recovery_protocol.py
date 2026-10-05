@@ -180,7 +180,7 @@ class RecoveryProtocolTests(unittest.TestCase):
             with self.subTest(name=name):
                 controller = _RecordingController()
                 fallback = None if fallback_failed is None else lambda: _result(failed=fallback_failed, runtime=0.02)
-                with patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=_SequentialEnv(residuals)), \
+                with patch("solve.core.episode.create_env", return_value=_SequentialEnv(residuals)), \
                         patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
                     result = run_td_episode(
                         mkw={}, params={}, controller=controller, encoder=_Encoder(),
@@ -197,7 +197,7 @@ class RecoveryProtocolTests(unittest.TestCase):
 
     def test_valid_native_exception_retains_failed_terminal(self):
         controller = _RecordingController()
-        with patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=_SolveFailureEnv([])), \
+        with patch("solve.core.episode.create_env", return_value=_SolveFailureEnv([])), \
                 patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
             result = run_td_episode(
                 mkw={}, params={}, controller=controller, encoder=_Encoder(),
@@ -212,7 +212,7 @@ class RecoveryProtocolTests(unittest.TestCase):
     def test_failed_v3_episode_matches_batch_and_retains_coercivity(self):
         controller = _v3_controller()
         controller.config = replace(controller.config, trace_lambda=0.8)
-        with patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=_SequentialEnv([0.8, 0.7, 0.6])), \
+        with patch("solve.core.episode.create_env", return_value=_SequentialEnv([0.8, 0.7, 0.6])), \
                 patch("time.perf_counter", side_effect=itertools.count(step=1.0)), \
                 patch.object(controller, "update", wraps=controller.update) as updates:
             result = run_td_episode(
@@ -259,7 +259,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                     raise FloatingPointError("estimator arithmetic")
 
                 with ExitStack() as stack:
-                    stack.enter_context(patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=env))
+                    stack.enter_context(patch("solve.core.episode.create_env", return_value=env))
                     stack.enter_context(patch.object(env, "step_rl", side_effect=step))
                     stack.enter_context(patch("time.perf_counter", side_effect=itertools.count(step=1.0)))
                     if invalid_kind == "estimator":
@@ -280,7 +280,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         env = _SequentialEnv([1e-8])
         prep = env.prepare_rl({})
         prep.setup_runtime_sec = .977915
-        with patch("solve.controllers.sarsa.online_td_lambda.create_env", return_value=env), \
+        with patch("solve.core.episode.create_env", return_value=env), \
                 patch.object(env, "prepare_rl", return_value=prep), \
                 patch("time.perf_counter", return_value=0.):
             result = run_td_episode(
@@ -351,7 +351,7 @@ class RecoveryProtocolTests(unittest.TestCase):
     def test_episode_passes_native_cycle_targets_separately_from_learning_cost(self):
         controller = _RecordingController()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_SequentialEnv([0.5, 1.0e-8]),
         ):
             outcome = run_td_episode(
@@ -406,11 +406,11 @@ class RecoveryProtocolTests(unittest.TestCase):
                     operation = getattr(controller, name)
                     patches.enter_context(patch.object(controller, name, side_effect=timed(operation, duration)))
                 patches.enter_context(patch(
-                    "solve.controllers.sarsa.online_td_lambda.time.perf_counter",
+                    "solve.core.episode.time.perf_counter",
                     side_effect=lambda: clock[0],
                 ))
                 patches.enter_context(patch(
-                    "solve.controllers.sarsa.online_td_lambda.create_env", return_value=env,
+                    "solve.core.episode.create_env", return_value=env,
                 ))
                 fallback = (None if fallback_failed is None else
                             lambda: _result(failed=fallback_failed, runtime=0.02))
@@ -434,7 +434,7 @@ class RecoveryProtocolTests(unittest.TestCase):
     def test_native_exception_does_not_fabricate_physical_cycle_target(self):
         controller = _RecordingController()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_SolveFailureEnv([]),
         ):
             outcome = run_td_episode(
@@ -508,7 +508,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         controller = _controller()
         learning_before = controller.snapshot_learning_state()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_SetupFailureEnv([]),
         ):
             outcome = run_td_episode(
@@ -537,7 +537,7 @@ class RecoveryProtocolTests(unittest.TestCase):
     def test_recovered_solve_error_commits_fallback_as_terminal_cost(self):
         controller = _controller()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_SolveFailureEnv([]),
         ):
             outcome = run_td_episode(
@@ -565,7 +565,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         rng_before = copy.deepcopy(controller.rng.bit_generator.state)
 
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_FakeEnv([1.0]),
         ):
             outcome = run_td_episode(
@@ -597,7 +597,7 @@ class RecoveryProtocolTests(unittest.TestCase):
     def test_recovered_nonconvergence_commits_one_episode(self):
         controller = _controller()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_FakeEnv([1.0]),
         ):
             outcome = run_td_episode(
@@ -624,7 +624,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         controller = _v3_controller()
         covariance_before = controller.episode_moment_covariance.copy()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_FakeEnv([1.0]),
         ):
             outcome = run_td_episode(
@@ -653,7 +653,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         controller = _v3_controller()
         state_before = controller.snapshot_learning_state()
         with patch(
-            "solve.controllers.sarsa.online_td_lambda.create_env",
+            "solve.core.episode.create_env",
             return_value=_FakeEnv([1.0]),
         ):
             outcome = run_td_episode(
@@ -701,7 +701,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                     return _result(failed=fallback_failed, runtime=0.02)
 
                 with patch(
-                    "solve.controllers.sarsa.online_td_lambda.create_env",
+                    "solve.core.episode.create_env",
                     return_value=_SequentialEnv([0.5]*49 + [8e-7]),
                 ):
                     outcome = run_td_episode(

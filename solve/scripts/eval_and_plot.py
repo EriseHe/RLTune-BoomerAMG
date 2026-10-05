@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -316,7 +317,35 @@ def _summarize(results):
     }
 
 
-def main():
+@dataclass(frozen=True)
+class _EvaluationSettings:
+    baseline_cases: int
+    baseline_samples: int
+    difconv_a: tuple[float, ...]
+    difconv_atype: int
+    difconv_c: tuple[float, ...]
+    difconv_c_range: tuple[float, ...]
+    eval_cases: list[dict]
+    fixed_a_mode: bool
+    fixed_rhs_seed: int
+    fixed_rhs_type: int
+    fixed_stencil: int
+    grid_max: int
+    grid_min: int
+    grid_sizes: list[tuple[int, int, int]]
+    lib_path: str
+    randomize_A: bool
+    randomize_b: bool
+    randomize_grid: bool
+    seed_start: int
+    sweeps_max: int
+    sweeps_min: int
+    w_center: float
+    w_scale: float
+
+
+def _prepare_evaluation():
+    """Read settings and construct the prescribed baseline/policy cases."""
     lib_path = str(DEFAULT_AMG_RUNTIME_LIBRARY)
     seed_start = int(os.environ.get("EVAL_SEED_START", "100"))
     seed_count = int(os.environ.get("EVAL_SEED_COUNT", "6"))
@@ -395,63 +424,97 @@ def main():
     baseline_cases = max(1, min(baseline_cases, len(eval_cases)))
     baseline_samples = int(os.environ.get("BASELINE_SAMPLES", "25"))
 
-    tmp_env = _make_env(
-        lib_path,
-        seed_start,
-        grid_sizes[0],
-        randomize_A,
-        randomize_b,
-        fixed_rhs_seed,
-        fixed_rhs_type,
-        relax_type=13,
-        fixed_stencil=fixed_stencil,
-        randomize_grid=randomize_grid,
-        grid_min=grid_min,
-        grid_max=grid_max,
-        difconv_c=difconv_c,
-        difconv_c_range=difconv_c_range,
+    return _EvaluationSettings(
+        baseline_cases=baseline_cases,
+        baseline_samples=baseline_samples,
         difconv_a=difconv_a,
         difconv_atype=difconv_atype,
+        difconv_c=difconv_c,
+        difconv_c_range=difconv_c_range,
+        eval_cases=eval_cases,
+        fixed_a_mode=fixed_a_mode,
+        fixed_rhs_seed=fixed_rhs_seed,
+        fixed_rhs_type=fixed_rhs_type,
+        fixed_stencil=fixed_stencil,
+        grid_max=grid_max,
+        grid_min=grid_min,
+        grid_sizes=grid_sizes,
+        lib_path=lib_path,
+        randomize_A=randomize_A,
+        randomize_b=randomize_b,
+        randomize_grid=randomize_grid,
+        seed_start=seed_start,
+        sweeps_max=sweeps_max,
+        sweeps_min=sweeps_min,
         w_center=w_center,
         w_scale=w_scale,
-        sweeps_min=sweeps_min,
-        sweeps_max=sweeps_max,
+    )
+
+
+def _select_constant_baseline(settings: _EvaluationSettings):
+    """Search the original baseline sample and report the selected constant."""
+    tmp_env = _make_env(
+        settings.lib_path,
+        settings.seed_start,
+        settings.grid_sizes[0],
+        settings.randomize_A,
+        settings.randomize_b,
+        settings.fixed_rhs_seed,
+        settings.fixed_rhs_type,
+        relax_type=13,
+        fixed_stencil=settings.fixed_stencil,
+        randomize_grid=settings.randomize_grid,
+        grid_min=settings.grid_min,
+        grid_max=settings.grid_max,
+        difconv_c=settings.difconv_c,
+        difconv_c_range=settings.difconv_c_range,
+        difconv_a=settings.difconv_a,
+        difconv_atype=settings.difconv_atype,
+        w_center=settings.w_center,
+        w_scale=settings.w_scale,
+        sweeps_min=settings.sweeps_min,
+        sweeps_max=settings.sweeps_max,
     )
     w_min = tmp_env.w_center - tmp_env.w_scale
     w_max = tmp_env.w_center + tmp_env.w_scale
     tmp_env.close()
 
     best = find_rough_best_constant(
-        lib_path,
-        eval_cases[:baseline_cases],
+        settings.lib_path,
+        settings.eval_cases[:settings.baseline_cases],
         w_min,
         w_max,
-        sweeps_min,
-        sweeps_max,
-        baseline_samples,
+        settings.sweeps_min,
+        settings.sweeps_max,
+        settings.baseline_samples,
         relax_type=13,
-        fixed_stencil=fixed_stencil,
-        randomize_grid=randomize_grid,
-        grid_min=grid_min,
-        grid_max=grid_max,
-        difconv_c=difconv_c,
-        difconv_c_range=difconv_c_range,
-        difconv_a=difconv_a,
-        difconv_atype=difconv_atype,
-        w_center=w_center,
-        w_scale=w_scale,
+        fixed_stencil=settings.fixed_stencil,
+        randomize_grid=settings.randomize_grid,
+        grid_min=settings.grid_min,
+        grid_max=settings.grid_max,
+        difconv_c=settings.difconv_c,
+        difconv_c_range=settings.difconv_c_range,
+        difconv_a=settings.difconv_a,
+        difconv_atype=settings.difconv_atype,
+        w_center=settings.w_center,
+        w_scale=settings.w_scale,
     )
     print("\n=== Grid-best constant ===")
     print(best)
     print("Grid-best cfg (w, sweeps_down, sweeps_up):", best["cfg"])
-    if randomize_grid:
-        print(f"Eval grid range: [{grid_min}, {grid_max}] (uniform, cubic)")
+    if settings.randomize_grid:
+        print(f"Eval grid range: [{settings.grid_min}, {settings.grid_max}] (uniform, cubic)")
     else:
-        print("Eval grid sizes:", grid_sizes)
-    print("Eval cases:", len(eval_cases), "| baseline cases:", baseline_cases)
-    if fixed_a_mode:
+        print("Eval grid sizes:", settings.grid_sizes)
+    print("Eval cases:", len(settings.eval_cases), "| baseline cases:", settings.baseline_cases)
+    if settings.fixed_a_mode:
         print("Fixed-A mode: ON (A coefficients and size fixed)")
 
+    return best
+
+
+def _load_evaluation_policy(settings: _EvaluationSettings):
+    """Load optional normalization and the frozen PPO or recurrent policy."""
     vec_path = "vecnormalize_gen.pkl"
     # vec_path = "vecnormalize_fixed.pkl"
     vec_norm = None
@@ -460,26 +523,26 @@ def main():
             raw_env = DummyVecEnv(
                 [
                     lambda: _make_env(
-                        lib_path,
-                        seed_start,
-                        grid_sizes[0],
-                        randomize_A,
-                        randomize_b,
-                        fixed_rhs_seed,
-                        fixed_rhs_type,
+                        settings.lib_path,
+                        settings.seed_start,
+                        settings.grid_sizes[0],
+                        settings.randomize_A,
+                        settings.randomize_b,
+                        settings.fixed_rhs_seed,
+                        settings.fixed_rhs_type,
                         relax_type=18,
-                        fixed_stencil=fixed_stencil,
-                        randomize_grid=randomize_grid,
-                        grid_min=grid_min,
-                        grid_max=grid_max,
-                        difconv_c=difconv_c,
-                        difconv_c_range=difconv_c_range,
-                        difconv_a=difconv_a,
-                        difconv_atype=difconv_atype,
-                        w_center=w_center,
-                        w_scale=w_scale,
-                        sweeps_min=sweeps_min,
-                        sweeps_max=sweeps_max,
+                        fixed_stencil=settings.fixed_stencil,
+                        randomize_grid=settings.randomize_grid,
+                        grid_min=settings.grid_min,
+                        grid_max=settings.grid_max,
+                        difconv_c=settings.difconv_c,
+                        difconv_c_range=settings.difconv_c_range,
+                        difconv_a=settings.difconv_a,
+                        difconv_atype=settings.difconv_atype,
+                        w_center=settings.w_center,
+                        w_scale=settings.w_scale,
+                        sweeps_min=settings.sweeps_min,
+                        sweeps_max=settings.sweeps_max,
                     )
                 ]
             )
@@ -498,13 +561,18 @@ def main():
     # model = PPO.load("ppo_boomeramg_fixed")
 
     plot_count = int(os.environ.get("PLOT_COUNT", "3"))
-    plot_count = max(1, min(plot_count, len(eval_cases)))
+    plot_count = max(1, min(plot_count, len(settings.eval_cases)))
 
+    return model, vec_norm, model_type, plot_count
+
+
+def _evaluate_cases(settings: _EvaluationSettings, best, model, vec_norm, model_type, plot_count):
+    """Evaluate the selected constant and frozen policy on the same cases."""
     best_results = []
     rl_results = []
-    for i, case in enumerate(eval_cases):
+    for i, case in enumerate(settings.eval_cases):
         env = _make_env(
-            lib_path,
+            settings.lib_path,
             case["seed"],
             case["grid"],
             case["randomize_A"],
@@ -512,18 +580,18 @@ def main():
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
             relax_type=13,
-            fixed_stencil=fixed_stencil,
-            randomize_grid=randomize_grid,
-            grid_min=grid_min,
-            grid_max=grid_max,
-            difconv_c=difconv_c,
-            difconv_c_range=difconv_c_range,
-            difconv_a=difconv_a,
-            difconv_atype=difconv_atype,
-            w_center=w_center,
-            w_scale=w_scale,
-            sweeps_min=sweeps_min,
-            sweeps_max=sweeps_max,
+            fixed_stencil=settings.fixed_stencil,
+            randomize_grid=settings.randomize_grid,
+            grid_min=settings.grid_min,
+            grid_max=settings.grid_max,
+            difconv_c=settings.difconv_c,
+            difconv_c_range=settings.difconv_c_range,
+            difconv_a=settings.difconv_a,
+            difconv_atype=settings.difconv_atype,
+            w_center=settings.w_center,
+            w_scale=settings.w_scale,
+            sweeps_min=settings.sweeps_min,
+            sweeps_max=settings.sweeps_max,
         )
         out_best = run_episode(env, fixed_cfg=best["cfg"], record_curve=(i < plot_count))
         env.close()
@@ -531,7 +599,7 @@ def main():
         best_results.append(out_best)
 
         env2 = _make_env(
-            lib_path,
+            settings.lib_path,
             case["seed"],
             case["grid"],
             case["randomize_A"],
@@ -539,18 +607,18 @@ def main():
             case["fixed_rhs_seed"],
             case["fixed_rhs_type"],
             relax_type=18,
-            fixed_stencil=fixed_stencil,
-            randomize_grid=randomize_grid,
-            grid_min=grid_min,
-            grid_max=grid_max,
-            difconv_c=difconv_c,
-            difconv_c_range=difconv_c_range,
-            difconv_a=difconv_a,
-            difconv_atype=difconv_atype,
-            w_center=w_center,
-            w_scale=w_scale,
-            sweeps_min=sweeps_min,
-            sweeps_max=sweeps_max,
+            fixed_stencil=settings.fixed_stencil,
+            randomize_grid=settings.randomize_grid,
+            grid_min=settings.grid_min,
+            grid_max=settings.grid_max,
+            difconv_c=settings.difconv_c,
+            difconv_c_range=settings.difconv_c_range,
+            difconv_a=settings.difconv_a,
+            difconv_atype=settings.difconv_atype,
+            w_center=settings.w_center,
+            w_scale=settings.w_scale,
+            sweeps_min=settings.sweeps_min,
+            sweeps_max=settings.sweeps_max,
         )
         out_rl = run_episode(
             env2,
@@ -563,6 +631,11 @@ def main():
         out_rl["case"] = case
         rl_results.append(out_rl)
 
+    return best_results, rl_results
+
+
+def _report_and_plot(best, best_results, rl_results):
+    """Report costs and plot the recorded first-case controls and residuals."""
     print("\n=== Summary ===")
     print("Grid-best:", _summarize(best_results))
     print("RL       :", _summarize(rl_results))
@@ -621,6 +694,16 @@ def main():
         plt.ylabel("||r||")
         plt.tight_layout()
         plt.show()
+
+
+def main():
+    settings = _prepare_evaluation()
+    best = _select_constant_baseline(settings)
+    model, vec_norm, model_type, plot_count = _load_evaluation_policy(settings)
+    best_results, rl_results = _evaluate_cases(
+        settings, best, model, vec_norm, model_type, plot_count,
+    )
+    _report_and_plot(best, best_results, rl_results)
 
 
 if __name__ == "__main__":

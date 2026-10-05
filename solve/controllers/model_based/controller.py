@@ -13,7 +13,7 @@ from solve.controllers.common import (
     _SharedActionLcbController,
     _json_dataclass,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .config import StructuredModelBasedSpec
 

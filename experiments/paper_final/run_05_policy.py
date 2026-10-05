@@ -46,9 +46,9 @@ from problems.registry import context_for_setup_method
 from problems.streams import generate_scalar_anisotropic_diffusion_instances
 from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params, build_online_linucb_branch, solve_no_rl_case,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_online_linucb_branch
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = ROOT / "results/paper_final/05_policy/20260927_diffusion60_6seeds_100cases"

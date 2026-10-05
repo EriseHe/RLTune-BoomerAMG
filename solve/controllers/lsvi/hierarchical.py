@@ -13,7 +13,7 @@ from solve.controllers.common import (
     _json_dataclass,
     _rank_one_inverse_update,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .config import HierarchicalLsviLcbSpec
 

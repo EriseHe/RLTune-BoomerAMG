@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
-from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .state_encoder import (
     CANONICAL_PROBLEM_CONTEXT,

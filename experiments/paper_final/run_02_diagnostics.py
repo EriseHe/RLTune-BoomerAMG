@@ -36,7 +36,8 @@ from problems.streams import (generate_scalar_anisotropic_diffusion_instances,
 from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
 from experiments.joint.solve_control.run_paper_final import file_hash, source_state
 from setup.space import DEFAULT_SETUP_PARAMS
-from experiments.joint.solve_control.setup_aware_compare_common import augment_setup_params, solve_no_rl_case, solve_schedule_case
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case, solve_schedule_case
 
 
 ROOT = Path(__file__).resolve().parents[2]

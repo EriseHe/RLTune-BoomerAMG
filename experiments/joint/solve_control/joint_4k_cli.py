@@ -7,10 +7,7 @@ from pathlib import Path
 
 from experiments.joint.solve_control.legacy_joint_studies import SHARED_ACTION_PROFILES
 from problems.registry import SUPPORTED_PROBLEM_KINDS
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-)
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION
 
 
 def build_parser() -> argparse.ArgumentParser:

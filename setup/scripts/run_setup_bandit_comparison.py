@@ -844,21 +844,39 @@ def _save_per_instance_csv(
                 )
 
 
-def main() -> None:
-    sampler_kwargs = {
-        "nx": int(FIXED_NX),
-        "ny": int(FIXED_NY),
-        "nz": int(FIXED_NZ),
-        "n_min": int(max(FIXED_NX, FIXED_NY, FIXED_NZ)),
-        "n_max": int(max(FIXED_NX, FIXED_NY, FIXED_NZ)),
-        "c_min": float(C_MIN),
-        "c_max": float(C_MAX),
-    }
+@dataclass(frozen=True)
+class _ComparisonActions:
+    grid_n: int
+    actions_tune3: List[Dict[str, Any]]
+    actions_tune5: List[Dict[str, Any]]
+    actions_tune7: List[Dict[str, Any]]
+    default_arm_index_tune3: int
+    default_arm_index_tune5: int
+    default_arm_index_tune7: int
+    p_max_values: List[int]
+    agg_nl_values: List[int]
+    coarsen_type_values_tune7: List[int]
+    interp_values_tune7: List[int]
+    agg_interp_values_tune7: List[int]
+    agg_tr_values_tune7: List[float]
+    agg_pmx_values_tune7: List[int]
+    parameter_spec_tune7: ParameterSpaceSpec | None
 
-    warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
-    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
-    _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
 
+@dataclass(frozen=True)
+class _ComparisonResults:
+    permutation_seed: int
+    branch_labels: List[str]
+    runtime_sec: Dict[str, np.ndarray]
+    overhead_sec: Dict[str, np.ndarray]
+    failed_flags: Dict[str, np.ndarray]
+    fallback_counts: Dict[str, np.ndarray]
+    outcomes: Dict[str, List[Dict[str, Any]]]
+    traces: Dict[str, Dict[str, np.ndarray]]
+
+
+def _build_comparison_actions():
+    """Build the requested action grids and retain reporting metadata."""
     grid_n, th_grid, mxrs_grid, tr_grid = _build_grids()
     actions_tune3 = _build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
     actions_tune3, default_arm_index_tune3 = _ensure_default_arm(actions_tune3)
@@ -913,11 +931,52 @@ def main() -> None:
             raise RuntimeError(f"Unsupported TUNE7_VARIANT: {TUNE7_VARIANT}")
         actions_tune7, default_arm_index_tune7 = _ensure_default_arm(actions_tune7)
 
+    return _ComparisonActions(
+        grid_n=grid_n,
+        actions_tune3=actions_tune3,
+        actions_tune5=actions_tune5,
+        actions_tune7=actions_tune7,
+        default_arm_index_tune3=default_arm_index_tune3,
+        default_arm_index_tune5=default_arm_index_tune5,
+        default_arm_index_tune7=default_arm_index_tune7,
+        p_max_values=p_max_values,
+        agg_nl_values=agg_nl_values,
+        coarsen_type_values_tune7=coarsen_type_values_tune7,
+        interp_values_tune7=interp_values_tune7,
+        agg_interp_values_tune7=agg_interp_values_tune7,
+        agg_tr_values_tune7=agg_tr_values_tune7,
+        agg_pmx_values_tune7=agg_pmx_values_tune7,
+        parameter_spec_tune7=parameter_spec_tune7,
+    )
+
+
+def _prepare_comparison_stream():
+    """Warm the native solver, then prepare actions and the paired stream."""
+    sampler_kwargs = {
+        "nx": int(FIXED_NX),
+        "ny": int(FIXED_NY),
+        "nz": int(FIXED_NZ),
+        "n_min": int(max(FIXED_NX, FIXED_NY, FIXED_NZ)),
+        "n_max": int(max(FIXED_NX, FIXED_NY, FIXED_NZ)),
+        "c_min": float(C_MIN),
+        "c_max": float(C_MAX),
+    }
+
+    warm_rng = np.random.default_rng(SEED ^ 0xBADC0FFE)
+    warm_mkw, _, _ = stencil_0_scalar_anisotropic_diffusion_rl(rng=warm_rng, t=0, trial=0, **sampler_kwargs)
+    _ = solve(params=DEFAULT_PARAMS, **warm_mkw)
+
+    actions = _build_comparison_actions()
     instances = _generate_instances(T=T, seed=SEED, sampler_kwargs=sampler_kwargs)
 
-    parameter_space_tune3 = {"actions": actions_tune3, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
-    parameter_space_tune5 = {"actions": actions_tune5, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM} if actions_tune5 else None
-    parameter_space_tune7 = {"actions": actions_tune7, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM} if actions_tune7 else None
+    return actions, instances
+
+
+def _build_comparison_branches(actions: _ComparisonActions):
+    """Construct independent branches using the prescribed family seeds."""
+    parameter_space_tune3 = {"actions": actions.actions_tune3, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM}
+    parameter_space_tune5 = {"actions": actions.actions_tune5, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM} if actions.actions_tune5 else None
+    parameter_space_tune7 = {"actions": actions.actions_tune7, "context_dim": SCALAR_ANISOTROPIC_DIFFUSION_CONTEXT_DIM} if actions.actions_tune7 else None
 
     seed_map_by_family = {
         "Shared LinUCB v2": int(SEED + 11003),
@@ -974,7 +1033,7 @@ def main() -> None:
                     "action_center": DEFAULT_PARAMS,
                     "alpha_decay": True,
                     "candidate_pool_size": CANDIDATE_POOL_SIZE,
-                    "always_include_arms": [int(default_arm_index_tune3)],
+                    "always_include_arms": [int(actions.default_arm_index_tune3)],
                     "elite_cache_size": ELITE_CACHE_SIZE,
                 },
             ).new_trial(parameter_space=parameter_space_tune3, seed=family_seed, T=T, trial=0)
@@ -993,9 +1052,9 @@ def main() -> None:
     else:
         for family_name, model_cls in family_specs:
             family_seed = int(seed_map_by_family[family_name])
-            tune_specs = [("tune3", parameter_space_tune3, int(default_arm_index_tune3))]
+            tune_specs = [("tune3", parameter_space_tune3, int(actions.default_arm_index_tune3))]
             if 5 in FINAL_TUNE_DIMS and parameter_space_tune5 is not None:
-                tune_specs.append(("tune5", parameter_space_tune5, int(default_arm_index_tune5)))
+                tune_specs.append(("tune5", parameter_space_tune5, int(actions.default_arm_index_tune5)))
             for tune_set, parameter_space, default_arm_index in tune_specs:
                 policy = SharedFactory(
                     model_cls,
@@ -1022,16 +1081,16 @@ def main() -> None:
                     )
                 )
 
-    if 7 in FINAL_TUNE_DIMS and parameter_space_tune7 is not None and parameter_spec_tune7 is not None:
+    if 7 in FINAL_TUNE_DIMS and parameter_space_tune7 is not None and actions.parameter_spec_tune7 is not None:
         family_name = "Shared LinUCB v4"
         family_seed = int(seed_map_by_family[family_name])
         tune7_label = f"{family_name} | tune7" if TUNE7_VARIANT == "agg_conditional" else f"{family_name} | tune7-categorical"
         tune7_model_kwargs: Dict[str, Any] = {
-            "parameter_spec": parameter_spec_tune7,
+            "parameter_spec": actions.parameter_spec_tune7,
             "context_interaction_indices": (1, 2, 3, 4),
-            "always_include_arms": [int(default_arm_index_tune7)],
+            "always_include_arms": [int(actions.default_arm_index_tune7)],
             "elite_cache_size": ELITE_CACHE_SIZE,
-            "initial_guess": [DEFAULT_PARAMS[param.name] for param in parameter_spec_tune7.parameters],
+            "initial_guess": [DEFAULT_PARAMS[param.name] for param in actions.parameter_spec_tune7.parameters],
             "initial_guess_rounds": 1,
         }
         tune7_candidate_strategy = resolve_tune7_candidate_strategy(
@@ -1085,15 +1144,11 @@ def main() -> None:
     if not branches:
         raise RuntimeError("No branches selected for run_setup_bandit_comparison.py")
 
-    run_dir = create_run_output_dir(
-        base_dir=plots_base_dir,
-        script_name=Path(__file__).stem,
-        problem_name="scalar_anisotropic_diffusion",
-        size_tag=f"{FIXED_NX}x{FIXED_NY}x{FIXED_NZ}",
-        T=T,
-        seed=SEED,
-    )
+    return branches, seed_map_by_family
 
+
+def _evaluate_comparison(branches: Sequence[BranchRun], instances):
+    """Execute paired instances with the original within-step permutation."""
     permutation_seed = int(SEED ^ 0x1A2B3C4D)
     rng_order = np.random.default_rng(permutation_seed)
     print("Within-step permutation over all branches: enabled")
@@ -1132,9 +1187,23 @@ def main() -> None:
 
         progress_bar(t + 1, T, prefix="  final run")
 
+    return _ComparisonResults(
+        permutation_seed=permutation_seed,
+        branch_labels=branch_labels,
+        runtime_sec=runtime_sec,
+        overhead_sec=overhead_sec,
+        failed_flags=failed_flags,
+        fallback_counts=fallback_counts,
+        outcomes=outcomes,
+        traces=traces,
+    )
+
+
+def _audit_comparison_recovery(branches: Sequence[BranchRun], results: _ComparisonResults):
+    """Verify committed feedback and summarize attempts and recovery."""
     recovery_audit: Dict[str, Dict[str, int]] = {}
     for branch in branches:
-        branch_outcomes = outcomes[branch.label]
+        branch_outcomes = results.outcomes[branch.label]
         update_count = sum(
             bool(outcome.get("bandit_update_committed", False))
             for outcome in branch_outcomes
@@ -1169,9 +1238,9 @@ def main() -> None:
                     int(outcome.get("primary_attempt_count", 1))
                     for outcome in branch_outcomes
                 )
-                + np.sum(fallback_counts[branch.label])
+                + np.sum(results.fallback_counts[branch.label])
             ),
-            "fallback_uses": int(np.sum(fallback_counts[branch.label])),
+            "fallback_uses": int(np.sum(results.fallback_counts[branch.label])),
             "recovered_failures": int(
                 sum(
                     bool(outcome.get("recovered", False))
@@ -1188,11 +1257,16 @@ def main() -> None:
             ),
         }
 
-    active_trace_keys = _select_trace_keys(traces, TRACE_KEYS_FINAL)
+    return recovery_audit
+
+
+def _save_comparison_results(actions: _ComparisonActions, branches, instances, seed_map_by_family, run_dir, results: _ComparisonResults, recovery_audit):
+    """Write runtime summaries, parameter diagnostics, and per-instance data."""
+    active_trace_keys = _select_trace_keys(results.traces, TRACE_KEYS_FINAL)
     late_window_summary = _late_window_diagnostics(
-        method_names=branch_labels,
-        traces=traces,
-        runtime_sec=runtime_sec,
+        method_names=results.branch_labels,
+        traces=results.traces,
+        runtime_sec=results.runtime_sec,
         trace_keys=active_trace_keys,
     )
     late_window_flat = _late_window_flat_fields(late_window_summary)
@@ -1200,15 +1274,15 @@ def main() -> None:
     summary = save_runtime_artifacts(
         run_dir=run_dir,
         run_prefix="final_unified_tuning_runtime",
-        method_names=branch_labels,
-        runtime_sec=runtime_sec,
-        overhead_sec=overhead_sec,
+        method_names=results.branch_labels,
+        runtime_sec=results.runtime_sec,
+        overhead_sec=results.overhead_sec,
         T=T,
         title=(
             f"BoomerAMG setup cumulative runtime (final unified tuning, non-RL)  "
             f"T={T}  n={FIXED_NX}x{FIXED_NY}x{FIXED_NZ}  c={C_MIN:g}..{C_MAX:g}"
         ),
-        default_method_name=("default (fixed)" if FINAL_INCLUDE_DEFAULT else branch_labels[0]),
+        default_method_name=("default (fixed)" if FINAL_INCLUDE_DEFAULT else results.branch_labels[0]),
         trace_keys=(),
         default_params=DEFAULT_PARAMS,
         summary_extra={
@@ -1233,7 +1307,7 @@ def main() -> None:
             "failure_protocol": "single_default_fallback",
             "shared_instance_stream": True,
             "within_step_branch_permutation": True,
-            "permutation_seed": int(permutation_seed),
+            "permutation_seed": int(results.permutation_seed),
             "seed_map_by_family": {k: int(v) for k, v in seed_map_by_family.items()},
             "branch_seed_map": {branch.label: int(branch.seed) for branch in branches if branch.seed is not None},
             "branch_solver_profile_map": {
@@ -1245,24 +1319,24 @@ def main() -> None:
             },
             "tune_dimensions": [int(v) for v in FINAL_TUNE_DIMS],
             "default_baseline": ("default (fixed)" if FINAL_INCLUDE_DEFAULT else None),
-            "actions_count_tune3": int(len(actions_tune3)),
-            "actions_count_tune5": int(len(actions_tune5)),
-            "actions_count_tune7": int(len(actions_tune7)),
-            "grid_n": int(grid_n),
+            "actions_count_tune3": int(len(actions.actions_tune3)),
+            "actions_count_tune5": int(len(actions.actions_tune5)),
+            "actions_count_tune7": int(len(actions.actions_tune7)),
+            "grid_n": int(actions.grid_n),
             "coarsen_type_values": [int(v) for v in DEFAULT_COARSEN_TYPE_VALUES],
-            "p_max_values": [int(v) for v in p_max_values],
-            "agg_num_levels_values": [int(v) for v in agg_nl_values],
+            "p_max_values": [int(v) for v in actions.p_max_values],
+            "agg_num_levels_values": [int(v) for v in actions.agg_nl_values],
             "tune7_variant": str(TUNE7_VARIANT),
             "tune7_alpha": (float(TUNE7_ALPHA_OVERRIDE) if TUNE7_ALPHA_OVERRIDE else float(ALPHA)),
             "tune7_candidate_strategy": resolve_tune7_candidate_strategy(
                 tune7_variant=TUNE7_VARIANT,
                 configured_strategy=TUNE7_CANDIDATE_STRATEGY,
             ),
-            "tune7_coarsen_types": [int(v) for v in coarsen_type_values_tune7],
-            "tune7_interp_types": [int(v) for v in interp_values_tune7],
-            "tune7_agg_interp_types": [int(v) for v in agg_interp_values_tune7],
-            "tune7_agg_tr_values": [float(v) for v in agg_tr_values_tune7],
-            "tune7_agg_pmx_values": [int(v) for v in agg_pmx_values_tune7],
+            "tune7_coarsen_types": [int(v) for v in actions.coarsen_type_values_tune7],
+            "tune7_interp_types": [int(v) for v in actions.interp_values_tune7],
+            "tune7_agg_interp_types": [int(v) for v in actions.agg_interp_values_tune7],
+            "tune7_agg_tr_values": [float(v) for v in actions.agg_tr_values_tune7],
+            "tune7_agg_pmx_values": [int(v) for v in actions.agg_pmx_values_tune7],
             "tune7_candidate_pool_size": int(TUNE7_CANDIDATE_POOL_SIZE),
             "tune7_candidate_pool_size_burnin": int(TUNE7_CANDIDATE_POOL_SIZE_BURNIN),
             "tune7_candidate_pool_burnin_rounds": int(TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS),
@@ -1271,10 +1345,10 @@ def main() -> None:
             "tune7_candidate_local_fraction": float(TUNE7_CANDIDATE_LOCAL_FRACTION),
             "tune7_candidate_elite_fraction": float(TUNE7_CANDIDATE_ELITE_FRACTION),
             "branch_filter": list(FINAL_BRANCH_FILTER),
-            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in failed_flags.items()},
-            "fallback_count_total": {k: int(np.sum(v.astype(int))) for k, v in fallback_counts.items()},
+            "failed_count_total": {k: int(np.sum(v.astype(int))) for k, v in results.failed_flags.items()},
+            "fallback_count_total": {k: int(np.sum(v.astype(int))) for k, v in results.fallback_counts.items()},
             "recovery_audit": recovery_audit,
-            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in runtime_sec.items()},
+            "mean_test_problem_runtime_sec": {k: float(np.mean(v)) for k, v in results.runtime_sec.items()},
             "late_window_summary": late_window_summary,
             **late_window_flat,
         },
@@ -1285,17 +1359,36 @@ def main() -> None:
         out_csv=data_csv_path,
         branches=branches,
         instances=instances,
-        runtime_sec=runtime_sec,
-        overhead_sec=overhead_sec,
-        failed_flags=failed_flags,
-        fallback_counts=fallback_counts,
-        outcomes=outcomes,
-        traces=traces,
+        runtime_sec=results.runtime_sec,
+        overhead_sec=results.overhead_sec,
+        failed_flags=results.failed_flags,
+        fallback_counts=results.fallback_counts,
+        outcomes=results.outcomes,
+        traces=results.traces,
     )
 
     print("RUNTIME PLOT:", summary["plot"])
     print("RUNTIME SUMMARY:", summary["summary_path"])
     print("DATA CSV:", data_csv_path)
+
+
+def main() -> None:
+    actions, instances = _prepare_comparison_stream()
+    branches, seed_map_by_family = _build_comparison_branches(actions)
+    run_dir = create_run_output_dir(
+        base_dir=plots_base_dir,
+        script_name=Path(__file__).stem,
+        problem_name="scalar_anisotropic_diffusion",
+        size_tag=f"{FIXED_NX}x{FIXED_NY}x{FIXED_NZ}",
+        T=T,
+        seed=SEED,
+    )
+
+    results = _evaluate_comparison(branches, instances)
+    recovery_audit = _audit_comparison_recovery(branches, results)
+    _save_comparison_results(
+        actions, branches, instances, seed_map_by_family, run_dir, results, recovery_audit,
+    )
 
 
 if __name__ == "__main__":

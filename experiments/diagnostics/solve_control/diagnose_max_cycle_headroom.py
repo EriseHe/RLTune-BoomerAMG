@@ -22,11 +22,8 @@ import numpy as np
 
 from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 from experiments.joint.solve_control.joint_experiment_plotting import _read_json_lines
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    solve_no_rl_case,
-    solve_schedule_case,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case, solve_schedule_case
 
 
 DEFAULT_METHOD = "default_setup_default_solve"

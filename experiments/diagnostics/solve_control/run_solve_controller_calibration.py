@@ -27,14 +27,9 @@ from experiments.joint.solve_control.joint_controller_build import (
 from experiments.joint.solve_control.joint_reporting import _action_summary
 from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    build_online_linucb_branch,
-    run_bandit_step_test_final,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-    validate_expected_setup_action_count,
-)
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, run_bandit_step_test_final, validate_expected_setup_action_count
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_no_rl_case
 from solve.controllers.common import (
     ControllerBundle,
     EpsilonScheduleSpec,

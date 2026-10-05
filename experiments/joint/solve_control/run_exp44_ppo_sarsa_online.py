@@ -17,7 +17,8 @@ from typing import Any, Callable, Dict, Sequence
 import numpy as np
 
 from experiments.joint.solve_control.online_td_experiment_common import _action_diagnostics, _git_revision, _json_ready, _write_json
-from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
+from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder
+from solve.core.episode import run_td_episode
 from experiments.joint.solve_control.joint_online_common import _method_stream_summary, _report_online_outcome
 from experiments.joint.solve_control.run_online_methods_2k import (
     _continuous_action_diagnostics,
@@ -25,20 +26,13 @@ from experiments.joint.solve_control.run_online_methods_2k import (
     make_exp44_ppo_runner,
     make_true_online_sarsa_controller,
 )
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    DEFAULT_SETUP_PARAMS,
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-    EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
-    SetupAwareSolvePolicyRunner,
-    augment_setup_params,
-    classify_rl_failure,
-    fixed_trace,
-    solve_fixed_w_case,
-    solve_default_baseline_case,
-    solve_no_rl_case,
-    solve_setup_aware_rl_case,
-)
+from setup.space import DEFAULT_SETUP_PARAMS
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION, EXP44_TUNE7_CATEGORICAL_ACTION_COUNT
+from solve.controllers.ppo import SetupAwareSolvePolicyRunner
+from hypre.bindings import augment_setup_params
+from solve.core.outcomes import classify_rl_failure
+from experiments.joint.solve_control.evaluation import fixed_trace
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_default_baseline_case, solve_no_rl_case, solve_setup_aware_rl_case
 
 
 METHODS = (

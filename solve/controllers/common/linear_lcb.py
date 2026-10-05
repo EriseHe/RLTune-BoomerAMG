@@ -12,7 +12,7 @@ try:
 except ImportError:  # pragma: no cover - NumPy fallback keeps SciPy optional.
     _blas_dger = None
 
-from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .action_space import build_action_basis, joint_action_features
 

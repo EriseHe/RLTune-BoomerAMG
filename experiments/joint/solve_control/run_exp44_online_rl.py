@@ -34,11 +34,7 @@ from experiments.joint.solve_control.online_td_experiment_common import (
     _write_json,
 )
 from experiments.joint.solve_control.run_mature_bandit_rl_pipeline import _build_train_trace, _frozen_trace, _warmup_bandit
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-    EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
-)
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION, EXP44_TUNE7_CATEGORICAL_ACTION_COUNT
 
 
 def _parse_values(raw: str, cast: Any) -> tuple[Any, ...]:

@@ -39,15 +39,10 @@ from experiments.joint.solve_control.online_td_experiment_common import _json_re
 from problems.amg import normalize_diffusion_advection_context
 from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    augment_setup_params,
-    classify_rl_failure,
-    run_bandit_step_test_final,
-    solve_default_baseline_case,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-    solve_setup_aware_rl_case,
-)
+from hypre.bindings import augment_setup_params
+from solve.core.outcomes import classify_rl_failure
+from experiments.joint.solve_control.setup_branches import run_bandit_step_test_final
+from experiments.joint.solve_control.native_evaluation import solve_default_baseline_case, solve_fixed_w_case, solve_no_rl_case, solve_setup_aware_rl_case
 from solve.controllers.common import ControllerBundle, OnlineSolveCase
 
 

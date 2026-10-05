@@ -19,25 +19,13 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from sb3_contrib import RecurrentPPO
 
 from experiments.joint.solve_control.frozen_bandit_step_env import FrozenBanditStepEnv
-from experiments.joint.solve_control.setup_aware_compare_common import (
-    DEFAULT_SETUP_PARAMS,
-    EXP44_MATRIX_GRID_N,
-    EXP44_SETUP_PARAM_RESOLUTION,
-    SetupAwareRLConfig,
-    SetupAwareSolvePolicyRunner,
-    augment_setup_params,
-    build_test10_branches,
-    classify_rl_failure,
-    default_branch_label,
-    default_test_final_bandit_config_from_env,
-    generate_difconv_instances,
-    run_bandit_step_test_final,
-    solve_fixed_w_case,
-    solve_no_rl_case,
-    solve_schedule_case,
-    solve_setup_aware_rl_case,
-    validate_expected_setup_action_count,
-)
+from setup.space import DEFAULT_SETUP_PARAMS
+from experiments.joint.solve_control.action_spaces import EXP44_MATRIX_GRID_N, EXP44_SETUP_PARAM_RESOLUTION
+from solve.controllers.ppo import SetupAwareRLConfig, SetupAwareSolvePolicyRunner
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.setup_branches import build_test10_branches, default_branch_label, default_test_final_bandit_config_from_env, generate_difconv_instances, run_bandit_step_test_final, validate_expected_setup_action_count
+from solve.core.outcomes import classify_rl_failure
+from experiments.joint.solve_control.native_evaluation import solve_fixed_w_case, solve_no_rl_case, solve_schedule_case, solve_setup_aware_rl_case
 
 
 def _env_int(name: str, default: int) -> int:

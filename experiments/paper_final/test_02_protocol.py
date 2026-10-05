@@ -28,7 +28,7 @@ class ScheduleTests(unittest.TestCase):
             return (1e-7 if terminal else .1, .01)
 
         env.step_rl = step
-        with patch("experiments.joint.solve_control.setup_aware_compare_common.create_env", return_value=nullcontext(env)):
+        with patch("experiments.joint.solve_control.native_evaluation.create_env", return_value=nullcontext(env)):
             result = run_schedule({}, {}, [2.9, 1.])
         self.assertEqual(calls, [2.9, 1., 2.9])
         self.assertEqual(result["cycle_actions"], calls)

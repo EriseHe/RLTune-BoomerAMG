@@ -24,7 +24,8 @@ from setup.space import (
     build_setup_parameter_spec,
 )
 from hypre.bindings import SolveStatus, create_env
-from experiments.joint.solve_control.setup_aware_compare_common import augment_setup_params, solve_no_rl_case
+from hypre.bindings import augment_setup_params
+from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 
 
 class FrozenBanditStepEnv(gym.Env):
