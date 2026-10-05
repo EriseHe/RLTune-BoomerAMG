@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260926_macmini_seeds4to6",
+  "checkpoint": "007bd195b9aa976f6b640bd0de861669e3dcde7f",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "seed_offsets": [
+    212487867,
+    287223730,
+    651764678
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion": 50,
+    "diffusion_advection": 50
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "Three concurrent single-thread seed processes. Within each seed, diffusion then advection at grids 40, 60, 80 run serially. Methods remain paired and randomized per problem.",
+  "seed_provenance": "Drawn once with SystemRandom before any new outcomes; over 1,000,000 from existing recorded experiment seed values and each other. Three concurrent workers, fresh learners for every group. Global seeds 4/5/6 use unchanged runner local labels 1/2/3 in a separate batch.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "diffusion_40_s4",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "diffusion_40_s4.json",
+      "config_sha256": "ce8620acd15a204ccc40876c2a86e176023a50f5ea098af3089fee2e8b684e19",
+      "stream_sha256": "744e2ae71c2c6a65663b088c94ba665e48b3d79d1674e93b73620488232740e1"
+    },
+    {
+      "name": "advection_40_s4",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "advection_40_s4.json",
+      "config_sha256": "91024565b61863796b861b11dc3fa547fcbfd48e84d35f4f5b93ccaf9cd1628d",
+      "stream_sha256": "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11"
+    },
+    {
+      "name": "diffusion_60_s4",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "diffusion_60_s4.json",
+      "config_sha256": "c30f3013c701d83fbc2f2899703851796938289eca5271d079bb34d049326dc1",
+      "stream_sha256": "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b"
+    },
+    {
+      "name": "advection_60_s4",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "advection_60_s4.json",
+      "config_sha256": "4a669b16d19abcb40dc42b114f18aba2343986bdafe4ee53ebad99235d8b2776",
+      "stream_sha256": "d9187b5e5a02dcf1bc8527e22e9f07363f393c98a9d2c7b34e3222b5f619a19b"
+    },
+    {
+      "name": "diffusion_80_s4",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "diffusion_80_s4.json",
+      "config_sha256": "62ac87d8c4f6f2f758230a90bf76d15f235df51226545338b49f61db1f394f9b",
+      "stream_sha256": "32400cecb4ed27a69bdb63a156bce699d2c9138669b718a0b6783a8c36712568"
+    },
+    {
+      "name": "advection_80_s4",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 1,
+      "global_seed": 4,
+      "base_seed": 265187924,
+      "config": "advection_80_s4.json",
+      "config_sha256": "1084423ae1862a2c8f19771feba1e22ddd8d1f10103403528f9ac00c2e5d3bf7",
+      "stream_sha256": "1518149a9ca8cc2615206b7b581678b3267f371524829f9da2ec5f21323f88e4"
+    },
+    {
+      "name": "diffusion_40_s5",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "diffusion_40_s5.json",
+      "config_sha256": "3be7c6b3b34d7bc81d2d8f32e50a6fcae38371e729ceb7c24132f05480f86600",
+      "stream_sha256": "336d6c5d021e2702cecf32444af85ec0efdf8d232a0249dd50c8d3e68ae5aab0"
+    },
+    {
+      "name": "advection_40_s5",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "advection_40_s5.json",
+      "config_sha256": "1f44fc9b26436b0353d1063c0a7d3d6eae5816809bf0791dd96d9d0791c176c8",
+      "stream_sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4"
+    },
+    {
+      "name": "diffusion_60_s5",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "diffusion_60_s5.json",
+      "config_sha256": "b8a73acfde82470bd011be5c093ba9761b07102408cd2a880c0e23b7606989e9",
+      "stream_sha256": "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4"
+    },
+    {
+      "name": "advection_60_s5",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "advection_60_s5.json",
+      "config_sha256": "3cc3d9b7aede8a6b7c17cbc9143ae31b0ecb11a5841ea08132504c5c2c363b72",
+      "stream_sha256": "b5c8c80e6438dbf208fad5894af9cf6bb420622d9800f7ba79250298fb2791d4"
+    },
+    {
+      "name": "diffusion_80_s5",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "diffusion_80_s5.json",
+      "config_sha256": "a4015066e4a6fda9b333350deac9b74b440c87e618ca23fa0ababebed53a28b7",
+      "stream_sha256": "e53481fe3f0c8c6be90f0e1e2c125cd3bdbc66f42f2f266e03371d17bab4148e"
+    },
+    {
+      "name": "advection_80_s5",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 2,
+      "global_seed": 5,
+      "base_seed": 339923787,
+      "config": "advection_80_s5.json",
+      "config_sha256": "b5018e080402a7e6bae580c6e284e320a2d5f7f0600ea2fbb8b2d4e9c2309499",
+      "stream_sha256": "707f2312f5d4c0d510622bbee6584a4ee2f26bef4b128c63a985fa697e623476"
+    },
+    {
+      "name": "diffusion_40_s6",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_40_s6.json",
+      "config_sha256": "14d6dd53c006af196090a5bf400cc2b8e222afc27d410ae4106bd302169bd18c",
+      "stream_sha256": "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed"
+    },
+    {
+      "name": "advection_40_s6",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_40_s6.json",
+      "config_sha256": "52dd7731591db75d4aa08b64588066ce6d3df3ba3108eb15bdb6142b609a4c1b",
+      "stream_sha256": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55"
+    },
+    {
+      "name": "diffusion_60_s6",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_60_s6.json",
+      "config_sha256": "71ff84a0f4bae6428f23ce7744482616e252e3cf61091eb686c6be5e9be6d3a7",
+      "stream_sha256": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66"
+    },
+    {
+      "name": "advection_60_s6",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_60_s6.json",
+      "config_sha256": "34655dfea73075fab422366009a2189a8fcd8f4a9ab9191477a19da5f7acf906",
+      "stream_sha256": "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9"
+    },
+    {
+      "name": "diffusion_80_s6",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_80_s6.json",
+      "config_sha256": "8cce806a2d442840d0f8ee2ecbce8ee20bb36ad7b72b75475d4e53561586c875",
+      "stream_sha256": "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d"
+    },
+    {
+      "name": "advection_80_s6",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_80_s6.json",
+      "config_sha256": "a3c4d066f0cbea1f03e7152f6e8626177734ebd5a00ae73ff7ae25097c945236",
+      "stream_sha256": "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3"
+    }
+  ],
+  "families": [
+    "diffusion",
+    "diffusion_advection"
+  ],
+  "grids": [
+    40,
+    60,
+    80
+  ],
+  "failure_feedback": {
+    "mode": "rollback_unrecovered"
+  },
+  "purpose": "Additional three fresh seeds, global labels 4/5/6, full Module 04 with unchanged numerical and learning settings.",
+  "concurrency": {
+    "workers": 3,
+    "unit": "complete_seed",
+    "threads_per_worker": 1,
+    "pinned_cores": false
+  },
+  "global_seed_mapping": {
+    "1": 4,
+    "2": 5,
+    "3": 6
+  }
+}

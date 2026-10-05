@@ -1,5 +1,6 @@
 .DS_Store
 .idea/
+/tmp/
 
 # Python bytecode / caches
 __pycache__/
@@ -48,3 +49,6 @@ results/**/run_logs/
 # Out-of-source HYPRE build and install trees
 /hypre/build/
 /hypre/install/
+/hypre/interfaces/build/
+/hypre/interfaces/libamg_runtime.dylib
+/hypre/interfaces/libamg_runtime.so

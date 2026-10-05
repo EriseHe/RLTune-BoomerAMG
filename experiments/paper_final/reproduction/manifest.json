@@ -1,0 +1,240 @@
+{
+  "purpose": "Compact computational evidence and original experiment configurations; historical captures are unchanged.",
+  "files": [
+    {
+      "path": "online/seeds_1_to_3/advection_40.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_40.json",
+      "sha256": "136ea592c58249d11b57fd0d5703bafa9f9265e5d32e000c2028b0f4497bf860"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_40_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_40_s2.json",
+      "sha256": "457d3ce19e3ef263f5688494eb45ce8027924504df1c49d8be422bf36345db6d"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_40_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_40_s3.json",
+      "sha256": "790a1c6fddb248abfa2547afe5504d68a58bb23a92628703cf00d9134a4db69b"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_60.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_60.json",
+      "sha256": "e9f81e8c1df675a7899be1ffd65169facbda52b1e5fd7d033f59ef85cb1726e2"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_60_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_60_s2.json",
+      "sha256": "a779ce88e4ddad8970c6d10c4d58a0766dd3c47abbdba20b5d8c0834fe0cf339"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_60_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_60_s3.json",
+      "sha256": "cc7bad187f00cb8d8d64c34d2422a501bb9f9dbcb806f97fdb5e0513854cefae"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_80.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_80.json",
+      "sha256": "7864654a9e43ec141cf9741fbadf68b0854568c816b7cf1e3db875b7f0dd52f1"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_80_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_80_s2.json",
+      "sha256": "de628fb804208413040b5dca4608c41651f5f11c6190659c94abd85bc84dfccb"
+    },
+    {
+      "path": "online/seeds_1_to_3/advection_80_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/advection_80_s3.json",
+      "sha256": "22d2ae612a00e5ae67c00934b62415e57f65d0fbdf685f619123d3237ce64efc"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_40.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_40.json",
+      "sha256": "959a51d2132f4979f02a563fe926e7dccd8299fa83a942545f6c470a80a02c3e"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_40_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_40_s2.json",
+      "sha256": "9b651b04b24134609579b1d9ec254373baf331072bc0b7a9cecaec90eb8c6ab5"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_40_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_40_s3.json",
+      "sha256": "734efdcc81293de5c8972480b834232ade30af3fc436602c3476d843f27285f5"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_60.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_60.json",
+      "sha256": "27e234e77a72e8c820f9d7a4941171bafa4e83027e028181a9e70b79a7bcac04"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_60_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_60_s2.json",
+      "sha256": "af0e23b72dd6088784f7c6192315cabe2377969010a31870ddb82fad25fec853"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_60_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_60_s3.json",
+      "sha256": "a58cd1313544bcf31b9e0ae26c4523fa13b5fe5ba98370587c4e86d9e2489ef6"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_80.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_80.json",
+      "sha256": "86d6799d7573a4e39981b1a76c84ee3b51c565bc611ac23e5a40d24766ec369a"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_80_s2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_80_s2.json",
+      "sha256": "27cb5b6d4932689b02f681dacfe3dd0cfe109a98c7bb3b4d5a557722afb32355"
+    },
+    {
+      "path": "online/seeds_1_to_3/diffusion_80_s3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/diffusion_80_s3.json",
+      "sha256": "b8272b9203512cfef1c969bbb3e3831af9dae3216afa0f50926abf332e30e12e"
+    },
+    {
+      "path": "online/seeds_1_to_3/suite.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/suite.json",
+      "sha256": "42781d4624e9571dc5acdc941a0a2122a1ad09380b607b013ae1e0454efc195c"
+    },
+    {
+      "path": "online/seeds_1_to_3/suite_seed_1.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/suite_seed_1.json",
+      "sha256": "1655de740fbac76d9ffbe78bdb8ac3e16c067ef6a7f0fc0dda55b05bc879a522"
+    },
+    {
+      "path": "online/seeds_1_to_3/suite_seed_2.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/suite_seed_2.json",
+      "sha256": "575b3219d0f31ca0641cda6dbc5ae52f4fe14478291f59b1f78bf35492131a05"
+    },
+    {
+      "path": "online/seeds_1_to_3/suite_seed_3.json",
+      "source": "results/paper_final/04_online/20260925_macmini_module04_3seeds/protocol/suite_seed_3.json",
+      "sha256": "dec20a64c5b8052ad5fe42e03c716a118811e6246ba2b13113f37ea9f407f652"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_40_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_40_s4.json",
+      "sha256": "91024565b61863796b861b11dc3fa547fcbfd48e84d35f4f5b93ccaf9cd1628d"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_40_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_40_s5.json",
+      "sha256": "1f44fc9b26436b0353d1063c0a7d3d6eae5816809bf0791dd96d9d0791c176c8"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_40_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_40_s6.json",
+      "sha256": "52dd7731591db75d4aa08b64588066ce6d3df3ba3108eb15bdb6142b609a4c1b"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_60_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_60_s4.json",
+      "sha256": "4a669b16d19abcb40dc42b114f18aba2343986bdafe4ee53ebad99235d8b2776"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_60_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_60_s5.json",
+      "sha256": "3cc3d9b7aede8a6b7c17cbc9143ae31b0ecb11a5841ea08132504c5c2c363b72"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_60_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_60_s6.json",
+      "sha256": "34655dfea73075fab422366009a2189a8fcd8f4a9ab9191477a19da5f7acf906"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_80_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_80_s4.json",
+      "sha256": "1084423ae1862a2c8f19771feba1e22ddd8d1f10103403528f9ac00c2e5d3bf7"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_80_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_80_s5.json",
+      "sha256": "b5018e080402a7e6bae580c6e284e320a2d5f7f0600ea2fbb8b2d4e9c2309499"
+    },
+    {
+      "path": "online/seeds_4_to_6/advection_80_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/advection_80_s6.json",
+      "sha256": "a3c4d066f0cbea1f03e7152f6e8626177734ebd5a00ae73ff7ae25097c945236"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_40_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_40_s4.json",
+      "sha256": "ce8620acd15a204ccc40876c2a86e176023a50f5ea098af3089fee2e8b684e19"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_40_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_40_s5.json",
+      "sha256": "3be7c6b3b34d7bc81d2d8f32e50a6fcae38371e729ceb7c24132f05480f86600"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_40_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_40_s6.json",
+      "sha256": "14d6dd53c006af196090a5bf400cc2b8e222afc27d410ae4106bd302169bd18c"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_60_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_60_s4.json",
+      "sha256": "c30f3013c701d83fbc2f2899703851796938289eca5271d079bb34d049326dc1"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_60_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_60_s5.json",
+      "sha256": "b8a73acfde82470bd011be5c093ba9761b07102408cd2a880c0e23b7606989e9"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_60_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_60_s6.json",
+      "sha256": "71ff84a0f4bae6428f23ce7744482616e252e3cf61091eb686c6be5e9be6d3a7"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_80_s4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_80_s4.json",
+      "sha256": "62ac87d8c4f6f2f758230a90bf76d15f235df51226545338b49f61db1f394f9b"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_80_s5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_80_s5.json",
+      "sha256": "a4015066e4a6fda9b333350deac9b74b440c87e618ca23fa0ababebed53a28b7"
+    },
+    {
+      "path": "online/seeds_4_to_6/diffusion_80_s6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/diffusion_80_s6.json",
+      "sha256": "8cce806a2d442840d0f8ee2ecbce8ee20bb36ad7b72b75475d4e53561586c875"
+    },
+    {
+      "path": "online/seeds_4_to_6/suite.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/suite.json",
+      "sha256": "58b391c53b64c00f93afbc051d08e6fc4ab2fba58d04497711f416741753eb03"
+    },
+    {
+      "path": "online/seeds_4_to_6/suite_seed_4.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/suite_seed_4.json",
+      "sha256": "29c9d2e1fb40ac53dcf3cfc53710fd1e79092c04aa1b3a7b3c669d05e1dd2f6b"
+    },
+    {
+      "path": "online/seeds_4_to_6/suite_seed_5.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/suite_seed_5.json",
+      "sha256": "331eab4b1b64082ba7090f16e9c70b3e100d89853b1c1d4d85a3015733581c25"
+    },
+    {
+      "path": "online/seeds_4_to_6/suite_seed_6.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/protocol/suite_seed_6.json",
+      "sha256": "9e7c6242773fbc59504d2ced90fd4d92c772f6115ba75cb770a67a3ed2e26be0"
+    },
+    {
+      "path": "online/six_seeds.json",
+      "source": "results/paper_final/04_online/20260926_macmini_module04_overnight/analysis/six_seeds.json",
+      "sha256": "5164a890f41ec9e34e054d1da07156007d9e7fe938a12cc26b5060858248c0d9"
+    },
+    {
+      "path": "matched_policy/protocol.json",
+      "source": "results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/protocol.json",
+      "sha256": "069bdb93399827886a86341e96ffb0139cb7e939737d46a9283ee86e525c9892"
+    },
+    {
+      "path": "matched_policy/summary.json",
+      "source": "results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/analysis/summary.json",
+      "sha256": "d9c4b8a54dbbf535f08c5246463dd4638e05cb842482ba83214753924050dec7"
+    }
+  ]
+}

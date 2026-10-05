@@ -1,12 +1,29 @@
 # RLTune-BoomerAMG
 
-Research code for online BoomerAMG setup tuning and per-cycle solve control.
+Research code for online BoomerAMG setup tuning with contextual bandits and
+per-cycle relaxation control with reinforcement learning.
+
+## Start here
+
+- [Reproduction index](docs/reproduction.md): accepted studies, commands,
+  timing definitions, and required data.
+- [Repository layout](docs/repository_layout.md): component ownership and
+  dependency direction.
+- [Paper experiment index](experiments/paper_final/README.md): current studies
+  and separately labeled development history.
+- [Joint experiment runner](experiments/joint/solve_control/README.md): JSON
+  configuration and general experiment execution.
+
+The repository contains experiment source, configurations, and compact numerical
+evidence. Large trajectories, frozen checkpoints, and generated figure archives
+are separate artifacts. A fresh clone does not include every historical result
+folder; the reproduction index identifies what each operation requires.
 
 ## Build from a fresh checkout
 
-The Conda environment contains the Python dependencies. CMake, Make, a C/C++
-toolchain, and MPI compiler wrappers (`mpicc` and `mpicxx`) must already be
-available on the system.
+Install Conda, CMake, Make, a C/C++ compiler, and MPI compiler wrappers
+(`mpicc` and `mpicxx`). Confirm that the wrappers reference installed compilers
+before building. From the repository root:
 
 ```bash
 conda env create -f environment.yml
@@ -14,65 +31,44 @@ conda activate rl
 make -C hypre
 ```
 
-The environment is named `rl` by `environment.yml`, but the experiment scripts
-only require that the intended Python environment is active. The HYPRE build is
-kept under `hypre/build/` and `hypre/install/`.
+The environment is named `rl`. Activate it before running Python commands.
+HYPRE is built out of source under `hypre/build/` and `hypre/install/`;
+project-owned native interfaces are built under `hypre/interfaces/`.
+The vendored HYPRE implementation in `hypre/source/` is kept unchanged.
 
-## Reproduce a paper experiment
-
-The primary five-branch scalar-diffusion comparison is documented in
-[`results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/README.md`](results/joint/paper_n60_scalar_diffusion_v5_vs_physics_linear_default_vs_lstdq_v3_staged1000_5k_tol1e6_20260731/README.md).
-
-The latest diffusion-advection hybrid comparison is documented in
-[`results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/README.md`](results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/README.md).
-
-Validate the latest frozen configuration without running HYPRE:
+## Validate the accepted online protocol
 
 ```bash
-python -u experiments/joint/solve_control/run_joint_experiment.py \
-  --config results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/experiment_config.json \
+python -m experiments.paper_final.run_04_online \
+  --suite experiments/paper_final/04_online/20260920_formal/suite.json \
   --validate-only
 ```
 
-Run it into a new output directory:
-
-```bash
-OUTPUT_DIR=results/joint/hybrid_reproduction \
-  ./results/joint/paper_n60_diffusion_advection_v5_setup_physics_solve_hybrid_staged1000_5k_tol1e6_20260801/reproduce.sh
-```
-
-The exact stream, seeds, setup/solve contexts, activation boundary, tolerance,
-and method roster come from the frozen JSON. Full trajectories and checkpoints
-are generated locally; Git tracks only the compact paper evidence bundle.
-
-## Current experiment path
-
-- `experiments/joint/solve_control/run_joint_experiment.py`: JSON experiment
-  entry point.
-- `experiments/joint/solve_control/configs/`: reusable experiment configs.
-- `experiments/joint/solve_control/generate_joint_experiment_plots.py`:
-  plot-only entry point.
-- `results/joint/paper_*/`: frozen configs, compact summaries, figures, and
-  reproduction scripts.
-
-See [`experiments/joint/solve_control/README.md`](experiments/joint/solve_control/README.md)
-for runner details.
+This validates six PDE/grid groups without executing solves. It is the
+September 20 single-seed protocol. The later six-seed evidence has separate
+captured configurations; see the [reproduction index](docs/reproduction.md).
 
 ## Failure protocol
 
-Each learned branch permits up to three setup attempts, followed by one
-measured default setup/default solve fallback. Failed or nonconverged primary
-work and fallback work are included in runtime and learning feedback. If the
-fallback also fails, pending learner updates are rolled back.
+Construction failures permit up to three learned setup attempts total, with
+previously failed exact configurations excluded on the same problem. Solve
+nonconvergence goes directly to default recovery. There is at most one default
+attempt. All attempted work and measured recovery cost remain in reported
+runtime. Under the accepted `rollback_unrecovered` protocol, provisional
+learning feedback is rolled back if recovery also fails.
 
 ## Tests
 
+Run in the activated environment after building the native interfaces:
+
 ```bash
-python -m unittest discover -s setup/tests -p 'test_*.py' -v
-python -m unittest discover -s problems/tests -p 'test_*.py' -v
-python -m unittest discover -s solve/tests -p 'test_*.py' -v
-python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py' -v
+python -m unittest discover -s setup/tests -p 'test_*.py'
+python -m unittest discover -s problems/tests -p 'test_*.py'
+python -m unittest discover -s solve/tests -p 'test_*.py'
+python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py'
+python -m unittest discover -s experiments/paper_final -p 'test_*.py'
 ```
 
-Repository ownership and dependency rules are in
-[`docs/repository_layout.md`](docs/repository_layout.md).
+Native integration checks require the MPI compiler toolchain in addition to the
+Python environment. Timing depends on hardware and system load; preserve inputs,
+seeds, stopping rules, and accounting when comparing runs.
