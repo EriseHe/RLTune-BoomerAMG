@@ -1,4 +1,4 @@
-# SISC 论文收尾计划：独立评估、理论整合与实验优先级
+# SISC paper completion plan: checkpoint preparation, frozen evaluation, and theory
 
 **2026-09-29 论文范围更新：** 按用户决定，论文保留原 Module 04 在线结果及原 Module 05 编号的 Run 05 matched-hierarchy 对照；从论文中完整移除基于新 Module 05 checkpoints 的新 Module 06 own-pair/crossed 实验。后者的已完成记录仅作历史存档，不再作为当前论文待整合或必跑证据。新增三张论文图来自刚完成的 Run 05／相应 minimax 数学：五方法节省、W1/per-instance/periodic/RL 四面板 action heatmap，以及 weighted-minimax 双面板图。
 
@@ -14,166 +14,39 @@
 报告、图表和阅读顺序见[总入口](../../experiments/paper_final/README.md)。
 当前显示名称为 LinUCB（diffusion 4D / advection 7D，均含截距）；维数是 context 配置。
 
-## 结论
+**Module 04 remains unchanged.** No source code, completed configuration, result, checkpoint or historical path is modified by this documentation revision. No experiment is launched. The earlier full plan remains available in [revision 53f48f8](https://github.com/EriseHe/RLTune-BoomerAMG/blob/53f48f8ab16cc91f38aa7863c964147e132ca521/docs/theory/paper_completion_plan_20260915.md). The detailed original T1–T6 proof review and September 15–17 execution history remain in [revision 007bd195](https://github.com/EriseHe/RLTune-BoomerAMG/blob/007bd195b9aa976f6b640bd0de861669e3dcde7f/docs/theory/paper_completion_plan_20260915.md).
 
-我基本同意“审查理论证明”两轮回复的核心判断：当前论文的主要条件性数学结果成立，新增三维 two-grid 构造和完整 episode 的 LSTDQ coercivity 结果值得采用；当前最缺的是能区分完整方法收益、同一 hierarchy 上的控制收益、以及简单 schedule 与反馈控制差异的实验。
+## 1. Current division of work
 
-我会调整执行顺序：**先修数值恢复问题，补同一 hierarchy 的 fixed/schedule 对照并检查困难工况；再冻结正式方案，运行已准备好的主实验。** 遗忘机制、schedule-policy bandit、SquareCB 和新动态部署算法都不应自动变成投稿前必做项。
-
-推荐论文定位：
-
-> 面向相关线性系统序列的在线 BoomerAMG setup–solve 联合调优，以累计完成成本衡量收益；用数值构造解释为何即时残差改善不足以指导完成成本，用路径上的矩阵恒等式说明估计器的边界可解性，并明确条件性性能比较的适用范围。
-
-“RL 在便宜 hierarchy 上恢复较好的 solve 效率”是有依据的机制解释。它目前仍需正式配置和独立测试确认。论文不需要以证明整个自适应系统的无条件 regret/convergence 为完成条件。
-
-最初评估已读完用户补齐的两条完整回复、REVIEW.md 与 additional_theorems.tex，并对照当前论文、代码、实验协议和新增共享前缀 pilot。随后按用户授权完成 01，并先完成单 seed 的 03，再用预定的 start_1000_final checkpoint 补完 02 的 advection 部分。新理论仍待整合进论文正文。
-
-## 1. 哪些判断同意，哪些需要调整
-
-| 对话建议 | 独立判断 | 对论文的具体处理 |
+| Module | Role | Primary deliverable |
 |---|---|---|
-| 现有理论大体正确，但没有闭合实际联合学习保证 | 同意；现稿已经写清许多限制 | 保留限制，压缩重复说明，避免把已修正问题列作新错误 |
-| 泛化 rank-one 分析，并加入三维 Galerkin 例子 | 同意，数学成立，比旧例子更能说明 coarse correction 的作用 | 一个一般命题组织两个例子，不再平行堆一组重叠 theorem |
-| 保留二维 Euclidean-residual greedy 的 9 对 2 | 同意；它直接解释目标选择 | 保留明确的共同初值、41 个动作、残差范数、停止和成本约定 |
-| 完整 episode 的 LSTDQ coercivity | 强烈同意，是最贴近当前更新式的补充 | 写成 episode-boundary well-posedness；不要扩大成所有前缀稳定、条件数有界或学习收敛 |
-| 伪逆后继续 Sherman–Morrison 有问题 | 同意，审阅时存在该路径；标量反例成立 | 01 已修复并通过回归测试；不据此否定所有旧实验 |
-| RL 已有明显贡献 | 同意其修正后的判断；同一 hierarchy 和 setup-only 对照比只比 Default 更有解释力 | 旧数据作为开发证据；最终百分比由当前协议重新生成 |
-| matched hierarchy + fixed/schedule 对照优先 | 强烈同意 | 是最重要的新增实验，正式主实验本身不能替代 |
-| 先试遗忘机制，再试 schedule-policy bandit | 方向合理，但作为投稿执行顺序偏激进 | 先做诊断和简单对照；只有它们暴露清楚问题，才付出重跑主实验的代价 |
-| 保留固定 1000，做小型启动敏感性实验 | 同意 | 1000 是有待验证的工程选择；不声称最优，也不根据单个 seed 改 gate |
-| 随机化成本验证的 confidence sequence | 在给定冻结策略、条件均值和有界成本条件下成立 | 只作为后续方法方向；它判断已训练策略的部署，不决定何时开始训练 |
-| approximate finite memory 是下一步理论方向 | 引理成立，应用前提很强 | 暂列后续研究，不能用 rank-one toy 直接解释真实高维 AMG 的全部观测充分性 |
-| 应压缩篇幅、明确 novelty | 同意，并核实了页数与官方政策 | 当前 32 页，需要压至不超过 26 页；核心贡献的证明留在论文内 |
+| 01–03 | Numerical checks and earlier development/activation diagnostics | Preserve existing records |
+| **04** | Existing complete online experiment and cumulative-cost evidence | Leave completed data and protocol unchanged |
+| **05** | **Matched-budget setup/controller checkpoint preparation** | Four frozen setup selectors and the corresponding trained RL controller |
+| **06** | **Fresh-input evaluation of the frozen trained methods, with optional crossed-policy diagnostics** | Post-training runtime, cycles, accuracy/recovery, and hierarchy–controller compatibility |
+| **07** | Theory integration and deterministic proof checks | Consolidated numerical mechanisms, estimator identities, and qualified performance statements |
+| 08 | Stronger conventional baselines/problem breadth | Conditional on manuscript scope |
+| 09 | Retrained feedback/cadence ablations | Only for stronger mechanism claims |
+| 10 | Optional new learning algorithms | Not required for Modules 05–06 |
+| 11 | Paper assembly and reproducibility checks | Final manuscript, tables and archived protocol |
 
-### 本次新增的证据
+Former Module 05 / physical `05_policy` is now logical Module 06. Former `06_theory` is logical Module 07; later logical numbers shift accordingly. Existing scripts, imports, result directories and archive names are not renamed.
 
-最新本地共享前缀 pilot 已完成，且比对话引用的部分诊断更晚：
+## 2. Module 05: matched training to prepare frozen setup policies
 
-| 60³ diffusion，新 seed，5000 题 | Fixed | Composite dynamic |
-|---|---:|---:|
-| 第一次 RL 问题 | 1001 | 898 |
-| 累计在线成本 | 1106.320 s | 1156.593 s |
-| 未恢复失败 | 0 | 0 |
+### 2.1 Why this stage exists
 
-动态启动慢 50.273 s，即 4.54%。但第 898–1000 题它节省了 5.130 s；全程 setup 多花 57.141 s，solve 少花 6.664 s，gate 总开销只有约 0.466 s。这个结果支持“后续联合学习路径发生分化”，不支持把全程差距解释成“早启动本身一定坏”或“gate 计算太贵”。单个完整 pilot 也不足以判断平均效果。
+The final Joint setup selector was trained under weight one for the first 1000 systems, then under an evolving LSTDQ controller for the next 4000. Evaluating other solve policies only on that selector's hierarchies is a valid conditional substitution test, but does not give those alternatives their own trained setup–solve pairing.
 
-来源：[共享前缀 pilot 分析](../../results/paper/paper_test_n60_composite_activation_seed1/activation_analysis/findings_zh.md)。
+Module 05 supplies that missing pairing. Fairness here means a common starting setup history and an equal number of subsequent problem opportunities for adaptation to each designated solve method. It does not mean that all models converge to an optimum, have identical retained update counts, or receive equal numbers of seconds/cycles. Those are outcomes, not matching constraints.
 
-## 2. 数学核验与建议采用的证明
+### 2.2 Training protocol
 
-### T1：一般 spectral-moment 命题——采用，合并现有例子
+For each prescribed training replicate, execute **one actual LinUCB + weight-one prefix on problems 1–1000**. Clone the complete setup-learning state at the boundary: regression/inverse state, retained observations/counts, selected and elite history, candidate cursor/generator state, random-number state, and protocol counters. Four independently timed prefixes with the same seed are not a substitute for a genuinely shared state when measured times enter learning.
 
-设 \(B(w)=v(w)v(w)^\top\)、\(v(w)=(I-wH)u\)、\(\|u\|=1\)、\(H\succ0\)。定义 \(m_1=u^\top Hu\)、\(m_2=u^\top H^2u\)。则
+Retain the shared observations in every branch. Do not reset the model only for prescribed alternatives. The continuation is:
 
-\[
-q(w)=1-2m_1w+m_2w^2,\qquad
-B(b)B(a)=[1-m_1(a+b)+m_2ab]v(b)v(a)^\top.
-\]
-
-固定权重的收缩由方向长度决定，连续两个周期的作用还取决于方向内积。证明短、解释明确。
-
-并入论文时必须保留：
-
-- \(q_*=1-m_1^2/m_2>0\)，否则所定义的 \(z_*\) 无意义。
-- energy-greedy 陷阱要求动作集合包含 \(w_*=m_1/m_2\)；不能默认它属于实际离散网格。
-- 消去动作必须在允许集合内。一般对称消去对可能落在 [1,3] 外。
-- 这是对称 SPD/Galerkin 模型，不是 diffusion–advection 或任意 BoomerAMG hierarchy 的一般定理。
-
-### T2：三维例子与 7 对 2——采用
-
-对附件中的
-
-\[
-A=\frac15\begin{pmatrix}4&-1&0\\-1&3&-1\\0&-1&4\end{pmatrix},
-\qquad P=U\Lambda^{-1/2}R,
-\]
-
-我独立核对了特征分解、\(P^\top AP=I\) 的构造逻辑和所有关键系数：
-
-\[
-q(w)=\frac35w^2-\frac{22}{15}w+1,\quad
-q_*=\frac{14}{135},\quad
-E(2)E(1)=E(1)E(2)=0.
-\]
-
-两个周期各自的 energy contraction 是 \(2/15\)、\(7/15\)。对应 smoother product 的特征值为 \(3/25,-3/25,0\)，未被消去；即使去掉两次 coarse correction 后比较四次 smoothing，非零模式仍保留。这确实比原二维例子更清楚地说明 coarse correction 参与了作用。
-
-共同初始残差和实际网格下，精确有理数表达式给出：
-
-- 所有固定权重前六步的统一残差下界约 \(1.2023992\times10^{-6}>10^{-6}\)。
-- 41 点网格上第六步最小残差约 \(1.2417993\times10^{-6}\)。
-- 固定 \(w=1.2\) 在第七步约 \(1.2914712\times10^{-7}\)。
-- 序列 (1,2) 第二步为零，且第一步未收敛。
-
-因此 7 对 2 成立。成本差 \(5\tau\) 需要明确相同 cycle cost，及未收敛固定动作在 cap 下的失败/收费约定；不能把 cap 时失败当成免费完成。
-
-附件的对称扰动界也成立。但其有限步 4 对至少 7 是 **worst-case energy-norm** 结论，不能替换前面的 **共同 Euclidean residual 初值** 结论。建议保留一个简短 robustness corollary，避免把二者的量词混在一起。
-
-### T3：二维 Euclidean-residual greedy 的 9 对 2——保留
-
-它回答“最优下一步残差是否等于最优完成成本”，三维例子回答“coarse correction 是否参与序列优势”。二者有不同用途。
-
-主文给清楚陈述和直观解释，完整有限网格证明放论文内 appendix。旧二维的其他重复谱率说明可合并。
-
-### T4：完整 episode 的 LSTDQ coercivity——优先采用
-
-附件恒等式正确：
-
-\[
-\operatorname{sym}M_e
-=\frac{1+\ell}{2}\sum_k(z_k-z_{k-1})(z_k-z_{k-1})^\top
-+\frac{1-\ell}{2}z_{H-1}z_{H-1}^\top\succeq0.
-\]
-
-所以
-
-\[
-\mathsf A=\lambda_{\rm sol}I+\sum_eM_e
-\quad\Rightarrow\quad
-\sigma_{\min}(\mathsf A)\ge\lambda_{\rm sol}.
-\]
-
-我重新检查了二次型的望远镜求和，并做了三步、二维符号特征的精确代数核验。其条件与当前保留的完整 episode 相符：gamma=1、executed next action、terminal next feature=0、episode 间 reset trace、未恢复 episode 回滚。
-
-论文应同时说清：
-
-1. 这是批矩阵在完整 retained episode 边界的性质。
-2. 它不保证内部每个 prefix 可逆；不保证存储的浮点逆矩阵准确。
-3. 它控制最小奇异值，不给出与样本量无关的 condition-number 上界。
-4. 它不证明 Q 估计误差小、sandwich statistic 有 coverage、或者策略收敛。
-5. exact feature redundancy 不妨碍 ridge 可逆性；后续 excitation 分析需限制在 effective span。
-
-保留一个误差恒等式作为紧接其后的说明即可：
-
-\[
-\widehat\theta-\theta_0
-=\mathsf A^{-1}\left[
-\sum_{e,k}z_k\delta_k(\theta_0)-\lambda_{\rm sol}\theta_0
-\right].
-\]
-
-尚缺的统计工作是控制括号内的误差，不是再次证明矩阵可逆。引用 [Lazaric et al. 的 pathwise LSTD](https://jmlr.org/papers/v13/lazaric12a.html) 作为相关先例，证明本特定 gamma=1/trace 恒等式；不要把 discounted LSPI 的误差界直接代入 gamma=1。
-
-### T5：现有条件性性能分析——保留，缩短
-
-- Calibrated LinUCB：明确固定 downstream、线性模型、候选集合、校准半径；不能赋予当前衰减 alpha 的联合实现同一个 regret 保证。
-- Policy quality：保留 action-oscillation 和实际 selection deficit，比 uniform full-state Q error 更切合选动作的问题。
-- Joint decomposition：保留好 hierarchy 上的 continuation error；误差可能发生在尚未访问的 hierarchy。
-- Payback：分开期望成本、实际累计计时和一次性准备成本；把纯 accounting 结果降为简短 corollary/说明。
-- Representation、aliasing、finite memory：整理为一段主文解释和必要的短 appendix，不把“可表达”写成“学得到”。
-
-### T6：本次不扩展为主贡献的理论
-
-- approximate finite memory：引理的 \(2\delta/m\) 方向误差成立，但实际高维周期是否近 rank one 未知；近消去时非退化前提还会失效。推广到停止时间需 margin 或其他专门处理。
-- reliability activation theorem：若主方法仍固定启动，将其从主投稿的贡献链中移出；保留独立研究笔记与实验记录。
-- cost-aware deployment：独立随机化验证和 Hoeffding/union-bound 下界计算成立。正均值优势、预期未来收益、历史投入回本、实际未来节省，是不同结论。
-- 全自适应 LSTDQ / 联合 regret 收敛理论：不列为本次投稿前必须攻克的任务。
-
-## 3. 按依赖关系排序的总清单
-
-P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据；P2 是最有价值的增强；P3 留作条件触发或后续研究。
-
-| 顺序 / 目录 | 级别 | 工作 | 完成标准 / 产物 |
+| Branch | Problems 1–1000 | Problems 1001–5000 | Final artifacts |
 |---|---|---|---|
 | 01_numerics | P0 | 修复 LSTDQ inverse recovery，核对 commit/rollback；统一协议记录 | 65 项相关测试已通过；正常路径、异常路径与 batch 对齐 |
 | 02_diagnostics | P0/P1 | 同 setup 的 fixed/schedule 开发筛查，加困难工况检查 | 已完成 1176 次 diffusion 与 336 次 advection 比较；另保留 58 条中止短训练记录；见完成报告 |
@@ -199,62 +72,44 @@ P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据�
 - **新增 05 准备可比的冻结 checkpoint：**共享 1000 W1 前缀后，让五条 LinUCB 在各自规定的 solve policy 成本反馈下学习 4000 题，为 06 提供配套 selector。范围仅一个 diffusion 60³ replicate，不自动扩展原 04 的全部 18 组。schedule 使用离散 minimax 规则，不再通过 PDE test time 搜索 pair。
 - **P1 表示论文证据的重要性，不意味着全部是 04 的前置任务。**P2 crossed-controller / 时间特征重训练仍由论文主张决定。
 
-## 4. P0：正式运行前的数值与协议修复
+### 2.3 Selecting prescribed policies before training
 
-### 4.1 Inverse recovery
+Freeze w_dev using separate development inputs before training its setup branch. Tuning on Default hierarchies is permissible but not uniquely neutral and does not establish an optimum on later learned hierarchies. A prespecified mixed development panel is another permissible choice. Call it development-selected, not the global optimum of the coadapted system. Do not use Module 06 test hindsight to choose this coefficient.
 
-修复前 v1 的均值更新被 v3 继承。在触发分母保护后，它使用 pseudoinverse，而后又按真 inverse 继续 Sherman–Morrison。附件的 scalar path 经独立复算：
+Use (2.85,1.10) as the specified periodic pair. It minimizes, up to permutation, `max_{0<=lambda<=1} lambda[(1-a lambda)(1-b lambda)]^2` over `W={1,1.05,...,3}`. That discrete SPD smoothing-surrogate rationale does not imply optimal multilevel runtime or nonsymmetric-advection convergence. High-first phase is separately prescribed. Other already tested schedules can remain Module 06 diagnostics; do not add more training arms automatically.
 
-\[
-\mathsf A_1=0,\quad b_1=1;\qquad
-\mathsf A_2=28/5,\quad b_2=19/5.
-\]
+A per-instance fixed-weight hindsight oracle is not a training branch. Scanning 41 weights on 5000 supplied hierarchies already requires 205000 solve trials before repeats and recovery; feeding their minima into setup training creates a different information-rich procedure. Retain the fixed-weight oracle as a smaller Module 06 diagnostic.
 
-旧递推分支可留下 theta=0，最终正确 batch 解应是 19/28；新回归测试已验证这一结果。
+### 2.4 What to retain and how to judge completion
 
-- [x] 标记 cached inverse 是否有效；奇异/截断伪逆状态不可直接继续普通逆更新。
-- [x] 利用现有累计 A、b 和已有保存/恢复路径，在可逆时恢复真正的解/逆。
-- [x] 在完整 episode 边界处理未恢复的 inverse 状态；别把仅做 inverse × b 称为重新求解。
-- [x] 测试奇异 prefix、接近奇异且触发截断的恢复、正常非奇异路径、checkpoint/reload、失败 rollback、recovered terminal。
-- [x] 测试检查线性系统残差、inverse 残差与 batch 等价；记录修复次数。
-- [x] 控制诊断成本：不默认每个 cycle 或每个 episode 都加昂贵的完整矩阵分解。异常路径和预定审计点的额外耗时计入实验。
+Save full trajectories, terminal outcomes, cost components, learning-state audits, final setup/controller checkpoints, and exact source/config/input identifiers. Run functional checks for clone independence, policy switching at problem 1001, schedule reset, recovery, and accounting before the prescribed training runs.
 
-对话中“seed-D 的五个 controller rebuild count 均为零”是其所查记录的结论，不代表生产特征一定能到达该标量反例，也不证明其他浮点误差不存在。修复是为了数值正确性，不是据此声称原性能结论已经失效。
+**The primary product is the final checkpoint set, not a winning training-time curve.** Periodic being faster during training does not disqualify the RL checkpoint or this design. Do not require an online victory or payback threshold before proceeding to Module 06. Training costs remain available for diagnostics and a transparent description of the budget; they need not become an additional standalone primary paper experiment.
 
-### 4.2 固定算法与成本定义
+Use the prescribed final training endpoint and retain every valid replicate. Test outcomes must not select replacement checkpoints. Final scope/seeds are fixed before training. Initial engineering checks and any development runs remain separate. No launch or final seed list is implied by this document.
 
-- [x] 主 setup 路由是 shared LinUCB v4；solve 是 recursive LSTDQ v3。旧 v5 是继承 v4、限制旧 8D context 的类；避免仅凭版本名描述论文算法。
-- [x] 确认 context：diffusion 含截距 4D，solve state/Q 为 31/279；advection 为 7D、34/306。公开方法名采用 LinUCB，维数需要时注明。
-- [ ] 核对 context 来源措辞：当前实验从 PDE coefficients / matrix-generation kwargs 构造描述量。摘要仍有 matrix-derived features 的说法；如果没有实际从任意矩阵提取这些特征的实现与计时，应改成准确的 problem/PDE descriptors，说明可获得哪些元数据。
-- [ ] 维持 18/18/9、tol=1e-6、cap=50、41 weights、gamma=1、trace=0.8、ridge=1，除非开发试验有预先记录的变更。
-- [ ] 明确 setup label 是当前 continuation 下的完成 suffix cost，包含其既定 overhead 估算；不是仅 setup time。多个失败 suffix label 会重叠。
-- [ ] 明确 solve TD target 的当前 cycle 部分是 native time，当前 controller overhead 在报告总成本时另计；不能说它精确最小化了所有 Python overhead。
-- [ ] 报告总成本按实际执行工作计算一次；不要把多个 suffix 标签相加当作真实费用。
-- [ ] 主统计量为全 5000 题 recorded online solver cost；last 1000 和 cycles 是次要指标。
-- [ ] 一次性初始化/AOT 生成与每题指标分开计量；涉及完整应用 payback 时补上方法专属准备成本，明确 assembly/IO 的范围。
-- [ ] 用 code/config/native hashes 固定最终版本；修复后重做相关测试与 18 配置验证。
+## 3. Module 06: evaluate the trained frozen methods
 
-当前正式套件已移至 `experiments/paper_final/04_online`，18 组配置、输入 hash 和 context 验证通过；本次验证时可用磁盘约 11.5 GiB，启动前仍按 runner 重新检查。没有启动正式 PDE 套件，也没有删除历史结果。
+### 3.1 Primary comparison: each solve method gets its own adapted setup selector
 
-另有一个实际的数据划分问题：04 的 diffusion_60_s1 输入 hash 与最近已完成的 shared-prefix pilot 相同。它不能再被称为开发后完全未见的测试流。04 启动前应预先替换受影响 replicate 的种子并重算 hash，或明确报告开发重用；不能隐瞒这一重叠。本次只整理名字和路径，未擅自更换已规定的正式输入。
+On each common fresh test input x, evaluate these four frozen pipelines:
 
-## 5. 需要运行的实验：具体设计
+- B_W1(x) followed by fixed weight one;
+- B_Fixed(x) followed by fixed w_dev;
+- B_Periodic(x) followed by prescribed (2.85,1.10);
+- B_RL(x) followed by frozen pi_RL.
 
-### E0：困难工况与记录检查——先做，低成本
+All setup regressions, statistics and inference conventions are frozen. Fix the same intended frozen-selector rule across models before evaluation; do not silently switch some models from LCB to mean-greedy. No test cost updates any setup model or solve controller. Prescribe candidate generation, source selection and model snapshots before evaluating outcomes; cache each input/source hierarchy choice for paired timing repetitions and crossed evaluations. Frozen RL can still respond to the evolving residual and measured cycle-time inputs, but it performs no parameter/statistic updates; random exploration is disabled according to the frozen-evaluation protocol.
 
-**目的：** 避免把可见的数值失败、恢复问题或编码问题误判为“1000 不合适”。
+The primary full-pipeline metric includes setup-selector inference, hierarchy construction, native solve/residual monitoring, solve-policy execution, and recovery. There is no online training-update cost during frozen evaluation, though necessary execution/bookkeeping is charged. Retain separate native and controller-inclusive breakdowns and successful outcomes/failures. Historical training expense is described in Module 05; do not claim Module 06 by itself establishes cumulative online payback. Module 04 remains the paper's existing evidence for that distinct claim.
 
-- 工况：60³ diffusion 与 80³ diffusion–advection；使用正式 seed 之外的开发输入。
-- 先做短的功能/稳定性检查；启动/回本结论必须来自后面的完整 stream。
-- 记录真实最终残差、first-attempt failure、unrecovered failure、recovery cost、cycle cap 命中、controller 开销。
-- 从原始 cycle time 统计 state time feature 的 clipping 比例。当前编码在 10 ms 以上饱和；先测比例及预测/决策影响，不能只凭较大网格就宣告编码失效。
-- 检查包含恢复的时长恒等式、terminal trace、inverse recovery 计数。
+This comparison removes the asymmetry of forcing every prescribed baseline onto Joint-selected hierarchies. It compares **post-training complete methods**, not relaxation policies on one fixed hierarchy. Different trained sources can legitimately select different hierarchies, and their construction costs cannot be omitted from this full-pipeline comparison.
 
-**完成标准：** 有可运行且可核算的主方法；若需改 time scaling/recovery，先修正并冻结，再进行正式比较。只改编码而继续加载旧 theta 不能视为同一已训练模型。
+The common weight-one prefix is a deliberately specified, matched training history. It does not guarantee that 4000 further problems suffice for every learner or that the resulting models are globally optimal. It also does not evaluate the fastest possible training protocol for every prescribed policy; no such claim is needed for this checkpoint comparison.
 
-### E1：主在线比较——现有 Module 1，P1 必做
+### 3.2 Optional crossed controls to explain compatibility
 
-复用现有 PAPER_FINAL 套件：
+When attributing a difference specifically to solve control, test policies on the same hierarchy. The compact Periodic/RL crossed comparison is:
 
 \[
 2\text{ families}\times3\text{ grids}\times3\text{ replicates}
@@ -352,57 +207,55 @@ P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据�
 
 | 对象 | 选择方式 | 如何解释 |
 |---|---|---|
-| Weight 1 | 固定 reference | 默认 solve 的对照 |
-| 一个 tuned fixed weight | 在 development 上按完成成本选择，然后冻结 | 可部署 baseline |
-| 41 个固定权重扫网格 | 在相同测试 hierarchy 上全部评估 | 强诊断；可以计算 test hindsight oracle |
-| 短周期 schedule | 包含两个顺序；另用 development 选一个合适的 pair | 识别仅靠简单非恒定序列能获得多少收益 |
-| Frozen LSTDQ | 停止学习、随机 epsilon=0，保留实际 LCB/tie rule | 当前选动作规则的冻结表现 |
-| Frozen mean-greedy LSTDQ | beta=0、epsilon=0，单独标注 | 分离均值排序与 optimism 的影响 |
+| B_Periodic | Own pairing | Transferred RL pairing |
+| B_RL | Transferred periodic pairing | Own pairing |
 
-不要只把 toy 的 (1,3) 当作唯一 schedule baseline。建议基础库包含 (1,2)、(2,1)、(1,3)、(3,1)，再用 development 从预定粗权重网格选择一对并测试其两个顺序。预算控制在约六条 schedule；选取规则及搜索成本预先记录。完整 41×41 pair 搜索不是默认必做。
+Generate each source hierarchy once per input and restart the identical initial state for its policy comparisons. Common initial setup cancels in within-row solve contrasts, while policy-induced recovery setup remains charged. Add W1/fixed sources and fixed-weight scans only where they address the intended claim; a full four-by-four evaluation is not automatically required.
 
-必须区分三种固定权重结果：
+The two own-pairing cells answer post-training pipeline performance. The within-row differences answer conditional controller performance. A changed ranking between sources indicates compatibility, not that either conditional comparison is invalid. No hierarchy source is universally neutral.
 
-\[
-C(\widehat w_{\rm dev}),\qquad
-\min_w\sum_iC_i(w),\qquad
-\sum_i\min_wC_i(w).
-\]
+### 3.3 Fixed-reference and timing details
 
-后两项分别是 test 上的全局固定 hindsight optimum 和逐实例 hindsight oracle。它们的免费搜索不代表可部署算法；单次带噪声计时取最小值还会有选择偏差。主结论以 development-selected baseline 为准，oracle 作为有标签的补充。
+Per-case/global fixed references must be recomputed on their specified source hierarchies. Best-observed values from a finite, noisy scan are not exact continuous optima. Do not transplant a weight selected on B_RL and label it optimal on B_Periodic. Keep development-selected weights distinct from test-hindsight diagnostics.
 
-**建议起始样本量：** 每个 family/训练 replicate/hierarchy 来源 100 个 fresh test cases，development 另设。若使用 41 fixed + 6 schedules + 2 learned scoring variants，规模为
+Use the same matrices/RHS, tolerance, cap and recovery convention; reset all mutable native solve state. If rebuilding, verify numerical/structural consistency rather than calling a hash of parameters a full hierarchy-array hash. Randomize serial policy execution and use prescribed timing repetitions without training on those repetitions. Report uncertainty at appropriate problem and independently trained checkpoint levels; repetitions are not additional independent training seeds. No fastest-repeat selection or silent dropping of failed cases.
 
-\[
-2\times3\times2\times100\times49=58{,}800
-\]
+No dynamic oracle, new solve-bandit, or proof of RL necessity is required. A retrained observation ablation remains conditional on a specific residual-feedback claim, not on completing the current evaluation.
 
-次 solve-policy 评估，开发搜索、计时重复、恢复另计。100 是预算建议，不是功效保证；先用开发阶段的配对波动确定最终样本量，再锁定测试集。
+## 4. Module 07: concise theory integration
 
-**计时与控制：**
+Use the [original detailed mathematical review](https://github.com/EriseHe/RLTune-BoomerAMG/blob/007bd195b9aa976f6b640bd0de861669e3dcde7f/docs/theory/paper_completion_plan_20260915.md) for complete T1–T6 arguments. Preserve:
 
-- solve+controller 是主要同 hierarchy 对比；setup 是共同成本，另报包含 setup 的 totals。
-- 真正重用同一 hierarchy 时重置所有 solve 状态；若只能重建，检查相同配置产生的结构一致性，并随机化执行顺序。
-- 在预定子样本上重复计时以评估噪声；不挑最快一次。
-- 所有策略使用相同的失败与 default recovery 规则；设置改变导致的 recovery setup 成本计入该策略。
-- 冻结测试既不更新 theta/协方差，也不利用测试表现更新 setup 选择或 schedule。
-- 被固定的 controller 仍可能根据 residual 反馈改变动作；“frozen”不是“固定 action”。
+1. Spectral-moment identities distinguishing fixed-cycle contraction from mixed-cycle interactions, with explicit admissibility and SPD/norm assumptions.
+2. The three-dimensional exact-Galerkin construction and its seven-versus-two comparison, with the same initial residual and equal-cycle-cost qualifications; take the implementation cap strictly greater than seven if cap exhaustion has priority.
+3. The separate two-dimensional residual-greedy counterexample, which concerns completion objectives, not learning convergence.
+4. Complete retained-episode LSTDQ coercivity and recursive/batch identities, not all-prefix invertibility, accurate Q-values or calibrated confidence.
+5. Conditional performance/payback accounting, not a proved regret theorem for the actual evolving joint learner.
+6. Explicit polynomial-schedule optimization classes: anchored (2.6,1), continuous fourth-kind pair, and grid-constrained (2.85,1.10). Their smoothing objectives are not full multilevel runtime objectives.
 
-**结果决定论文语言：**
+Proceed with manuscript editing in parallel. Do not reopen cap, failure-target, dynamic-start, feature or learner design solely to make a training curve favorable.
 
-- 优于 default、tuned fixed、tested schedules：支持该控制器在这些比较上的额外价值。
-- 与简单 schedule 接近：仍可报告在线发现有效 solve 行为，但弱化“反馈机制不可替代”。
-- 只优于 weight 1：不能写优于 tuned relaxation。
-- 不要求胜过免费逐实例 oracle；不以结果是否有利决定是否报告。
+## 5. Reproduction and paper checklist
 
-### E4 / 03：共享前缀启动敏感性——单 seed 开发诊断已完成
+- Module 04 is unchanged; Modules 05 and 06 have distinct training and evaluation roles.
+- Clone the actual common setup prefix; all four branches inherit its records and complete state.
+- Freeze endpoint models before accessing fresh Module 06 outcomes.
+- Preserve all incurred training costs in logs, but make frozen test cost the new comparison's principal result.
+- Include hierarchy construction when comparing own-pairing pipelines; use matched hierarchies for direct solve contrasts.
+- Keep prescribed-policy selection, training budget and final evaluation inputs distinct.
+- Match solver tolerances, caps, failure/recovery, features, cost scopes and model-selection conventions.
+- Keep old files/archives and numbering traceable; no destructive renaming is needed.
+- Report supported finite-domain results without asserting necessary RL, neutral hierarchies or globally optimal learned setups.
 
-按用户最新选择，只跑 **80³ diffusion–advection**。六条线路是：
+## 6. Existing entry points
 
-- `setup_only`：setup 全程学习，solve 全程 weight 1；
-- `start_750`、`start_1000`、`start_1250`、`start_1500`、`start_2000`；
-- RL 首题分别为 751、1001、1251、1501、2001；setup 学习始终继续；
-- 每条逻辑线路完整 5000 题；用户明确仅跑当前一个 development seed，作为诊断和 checkpoint 来源，不直接作为正式论文实验。
+- [Experiment index](../../experiments/paper_final/README.md)
+- [Module 04 protocol](../../experiments/paper_final/04_online/README.md)
+- [Shared-prefix/state restore machinery](../../experiments/joint/solve_control/joint_4k_execution.py)
+- [Existing frozen cross-source diagnostic](../../experiments/diagnostics/solve_control/diagnose_context_activation_crossed.py)
+- [Setup feedback](../../setup/learners/linucb/setup_reselection.py)
+- [LSTDQ episode/recovery handling](../../solve/controllers/sarsa/online_td_lambda.py)
+- [Original theory review](theory_review_and_revision_plan_20260915.md)
 
 `setup_only` 替代含义含混的 default，回答 RL 是否值得加入；完全默认 AMG 保留在 04。主比较是相对 setup-only 的全 5000 累计记录成本（保留失败及恢复）；相对 start_1000 的差值是次要比较。
 
