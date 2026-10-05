@@ -5,8 +5,8 @@ needed for Module 04 online autotuning and accepted Module 05 matched-hierarchy
 Run 05. The official entry modules keep their names under
 `experiments/paper_final/`.
 
-Start with the [root guide](../README.md) for installation and checks, or the
-[reproduction guide](reproduction.md) to run either official study. This page
+Start with the [root guide](../README.md) for installation and input validation,
+or the [reproduction guide](reproduction.md) to run either official study. This page
 maps the source files and their responsibilities. Implementation details are in
 the [setup guide](../setup/README.md), [solve guide](../solve/README.md), and
 [native-binding guide](../hypre/bindings/README.md).
@@ -24,7 +24,6 @@ the [setup guide](../setup/README.md), [solve guide](../solve/README.md), and
 | `experiments/paper_final/reproduction/` | Exact captured configurations, compact accepted results and the verified Run 05 input bundle |
 | `experiments/runtime.py` | Explicit thread configuration and optional sleep prevention for command-line runs |
 | `experiments/tests/` | Import/runtime and shared experiment checks |
-| `scripts/check_repository.py` | Static checks and the five unit/native test groups |
 | `docs/` | Reproduction, component layout and smoothing-theory references |
 | `results/` | Generated outputs from fresh runs; large logs and figures are ignored |
 

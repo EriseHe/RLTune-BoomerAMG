@@ -18,7 +18,7 @@ The bundle is sufficient for new matched retiming without earlier result folders
 
 | Task | Where to go |
 |---|---|
-| Install and check the code | [Install and build](#install-and-build), then [check the checkout](#check-the-checkout) below |
+| Prepare the experiments | [Install and build](#install-and-build), then [validate the inputs](#validate-experiment-inputs) below |
 | Run Module 04 online autotuning | [Module 04 reproduction](docs/reproduction.md#module-04-exact-configurations) |
 | Run Module 05 matched-hierarchy comparison | [Module 05 reproduction](docs/reproduction.md#module-05-verify-and-retime-the-frozen-bundle) |
 | Understand or maintain the code | [Repository layout](docs/repository_layout.md), with setup, solve and native-binding details linked there |
@@ -33,13 +33,13 @@ Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and
 `mpicxx`. From the repository root, install into an activated Python environment:
 
 ```sh
-python -m pip install -e '.[dev,artifacts]'
+python -m pip install -e '.[artifacts]'
 make -C hypre JOBS=4
 ```
 
 Core Python dependencies are NumPy, SciPy, mpi4py, Matplotlib and mpmath. The
-`dev` extra provides Ruff; `artifacts` provides ReportLab and pypdf for PDF release
-packaging. `python -m pip install -e .` installs the computational dependencies.
+`artifacts` extra provides ReportLab and pypdf for PDF release packaging.
+`python -m pip install -e .` installs the computational dependencies.
 Conda users can create the supplied environment with `conda env create -f
 environment.yml`, activate `rl`, then install the extras above.
 
@@ -47,20 +47,11 @@ The build writes to `hypre/build/`, `hypre/install/` and `hypre/interfaces/`.
 The HYPRE implementation under `hypre/source/` is preserved unchanged; our native
 and Python wiring lives in `hypre/interfaces/` and `hypre/bindings/`.
 
-## Check the checkout
+## Validate experiment inputs
 
-```sh
-python scripts/check_repository.py --static-only
-python scripts/check_repository.py --tests-only
-python -m unittest solve.tests.test_amg_runtime_binding
-```
-
-The static check runs fatal source checks. The test check covers five groups:
-setup, PDE problems, solve control, experiment utilities and paper studies.
-Build first for native status/timing tests. The last command runs the native
-binding integration tests directly. These checks do not launch the full paper
-experiments. The validation record is in the
-[organization report](docs/sisc_repository_cleanup.md).
+The following commands check the recorded experiment configuration and frozen
+inputs without running the full paper experiments. The recorded validation and
+environment limitations are in the [organization report](docs/sisc_repository_cleanup.md).
 
 Validate the formal online protocol without solving PDEs:
 

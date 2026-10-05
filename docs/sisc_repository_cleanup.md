@@ -26,16 +26,18 @@ on `online-bandit-rl` and `cleanup/sisc-repository-20261004`.
    frozen evaluation, worker supervision and figures use ordinary modules and
    functions. No new public API or checkpoint framework was introduced. The
    accepted NPZ formats and encoder sidecars are preserved.
-5. **Submission checks and documentation.** The root guide describes fresh
-   builds, official studies and evidence boundaries. A small test runner checks
-   the five required groups in separate Python processes. CI builds HYPRE and
-   the project interfaces, then runs static, unit and native checks. The Linux
-   wrapper now preserves its literal loader-relative HYPRE path.
+5. **Submission documentation and validation.** The root guide describes fresh
+   builds, official studies, input validation and evidence boundaries. Package
+   tests remain available through Python's standard `unittest` commands. The
+   GitHub workflow, repository-check script, and associated Ruff dependency and
+   settings were removed from `main` at the author's request. Build files and
+   official experiment verifiers remain. The Linux wrapper preserves its literal
+   loader-relative HYPRE path.
 
 ## Documentation navigation
 
-The root README is the entry point for installation, checks, and both official
-studies. Experiment commands are collected in the reproduction guide; source
+The root README is the entry point for installation, input validation, and both
+official studies. Experiment commands are collected in the reproduction guide; source
 ownership and file responsibilities are collected in the repository layout.
 Separate setup, solve, native-binding, theory, formal-protocol, and input-bundle
 notes retain their implementation or provenance details.
@@ -93,26 +95,28 @@ separate protocol and is not part of this organization change.
 
 ## Validation record
 
-The curated tree passes **113 local tests** without skips: problems 9, setup 14,
-solve/native/recovery 52, experiment infrastructure/protocols 18, and official
-paper helpers 20. Python 3.10 syntax and fatal Ruff checks pass on 114 source
-files. The formal six-group CLI validates without native solves; all 42 recorded
-streams validate, and all six accepted V3 checkpoints load with their encoders.
-HYPRE and project interfaces build from a fresh checkout, and wheel construction
-passes. The full Module 05 packaging smoke and standalone release verifier pass.
+The initial curated tree passed **113 local tests** without skips: problems 9,
+setup 14, solve/native/recovery 52, experiment infrastructure/protocols 18, and official
+paper helpers 20. Python 3.10 syntax and fatal Ruff checks passed on the then-114
+source files, including the subsequently removed repository-check script.
+The formal six-group CLI validated without native solves; all 42 recorded streams
+validated, and all six accepted V3 checkpoints loaded with their encoders.
+HYPRE and project interfaces built from a fresh checkout, and wheel construction
+passed. The full Module 05 packaging smoke and standalone release verifier passed.
 
-The separate development branch passes its 158 required Linux CI tests in
+The separate development branch passed its 158 required Linux CI tests in
 [run 37251317768](https://github.com/EriseHe/RLTune-BoomerAMG/actions/runs/37251317768).
-Its full 421 local tests include historical diagnostics and archive checks.
+Its full 421 local tests included historical diagnostics and archive checks.
 Those optional historical fixtures remain platform-specific and are outside
-this submission tree. The [main CI workflow](../.github/workflows/ci.yml) tests
-all five retained groups from a fresh Linux dependency installation/build.
+this submission tree. Before workflow removal,
+[main run 37252065358](https://github.com/EriseHe/RLTune-BoomerAMG/actions/runs/37252065358)
+tested all five retained groups from a fresh Linux dependency installation/build.
 A fresh pip-only macOS environment exposed a loader error in the third-party
 SciPy 1.15.3 `_spropack` wheel on this host. The existing working `rl` environment
 passes the local source, learner and native checks. The scientific dependency
-versions are preserved; this repository does not patch SciPy binaries. Linux CI
-checks the fresh pip installation separately. A new macOS installation requires
-a working SciPy build before the experiment packages can import.
+versions are preserved; this repository does not patch SciPy binaries. The
+recorded Linux run checked the fresh pip installation separately. A new macOS
+installation requires a working SciPy build before the experiment packages can import.
 
 See the [reproduction guide](reproduction.md) for fresh-run commands and timing
 definitions. Existing accepted results remain distinct from any new retiming.
