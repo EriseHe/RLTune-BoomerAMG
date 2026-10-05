@@ -32,8 +32,8 @@ COMMON_OBJECTS := $(BUILD_DIR)/amg_cycle.o $(BUILD_DIR)/amg_rl_shared.o
 
 all: $(RUNTIME_TARGET)
 
-$(RUNTIME_TARGET): $(BUILD_DIR)/amg_runtime.o $(COMMON_OBJECTS)
-	$(MPICC) $(SHARED_FLAG) $(SHARED_ID_FLAG) -o $@ $^ $(LDLIBS) -Wl,-rpath,$(HYPRE_RPATH)
+$(RUNTIME_TARGET): $(BUILD_DIR)/amg_runtime.o $(COMMON_OBJECTS) Makefile
+	$(MPICC) $(SHARED_FLAG) $(SHARED_ID_FLAG) -o $@ $(filter %.o,$^) $(LDLIBS) -Wl,-rpath,'$(HYPRE_RPATH)'
 
 $(BUILD_DIR)/%.o: %.c
 	@mkdir -p $(BUILD_DIR)
@@ -48,4 +48,4 @@ print-vars:
 	@echo "HYPRE_INCLUDE=$(HYPRE_INCLUDE)"
 	@echo "HYPRE_LIB=$(HYPRE_LIB)"
 	@echo "MPICC=$(MPICC)"
-	@echo "HYPRE_RPATH=$(HYPRE_RPATH)"
+	@echo 'HYPRE_RPATH=$(HYPRE_RPATH)'
