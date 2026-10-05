@@ -32,6 +32,29 @@ on `online-bandit-rl` and `cleanup/sisc-repository-20261004`.
    the project interfaces, then runs static, unit and native checks. The Linux
    wrapper now preserves its literal loader-relative HYPRE path.
 
+## Documentation navigation
+
+The root README is the entry point for installation, checks, and both official
+studies. Experiment commands are collected in the reproduction guide; source
+ownership and file responsibilities are collected in the repository layout.
+Separate setup, solve, native-binding, theory, formal-protocol, and input-bundle
+notes retain their implementation or provenance details.
+
+Six overlapping READMEs were consolidated, reducing the project-owned count
+from 14 to 8:
+
+| Former README | Information retained in |
+|---|---|
+| `problems/README.md` | [Repository layout: PDE problems](repository_layout.md#pde-problems) |
+| `setup/learners/README.md` | [Setup guide](../setup/README.md#linucb-implementation) |
+| `solve/controllers/README.md` | [Solve guide](../solve/README.md#lstdq-implementation) |
+| `experiments/paper_final/online/README.md` | [Repository layout: online experiment engine](repository_layout.md#online-experiment-engine) |
+| `experiments/paper_final/04_online/README.md` | [Module 04 reproduction](reproduction.md#module-04-exact-configurations) |
+| `experiments/paper_final/README.md` | [Reproduction guide](reproduction.md), with study links in the root README |
+
+This consolidation changes documentation only. The frozen protocols, input
+captures, accepted results, checkpoint files, and implementation remain intact.
+
 ## Scientific preservation
 
 The vendored `hypre/source` tree is unchanged. Its recorded Git tree is

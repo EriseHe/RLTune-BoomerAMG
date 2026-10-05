@@ -14,10 +14,18 @@ Run 05 frozen-input bundle.
 Original raw measurement logs and generated figure releases are not included.
 The bundle is sufficient for new matched retiming without earlier result folders.
 
-- [Reproduction guide](docs/reproduction.md): protocols, commands, evidence and timing.
-- [Repository layout](docs/repository_layout.md): source responsibilities and dependencies.
-- [Paper experiments](experiments/paper_final/README.md): the two official studies.
-- [Theory checks](docs/theory/README.md): the prescribed period-two smoothing rule.
+## Start here
+
+| Task | Where to go |
+|---|---|
+| Install and check the code | [Install and build](#install-and-build), then [check the checkout](#check-the-checkout) below |
+| Run Module 04 online autotuning | [Module 04 reproduction](docs/reproduction.md#module-04-exact-configurations) |
+| Run Module 05 matched-hierarchy comparison | [Module 05 reproduction](docs/reproduction.md#module-05-verify-and-retime-the-frozen-bundle) |
+| Understand or maintain the code | [Repository layout](docs/repository_layout.md), with setup, solve and native-binding details linked there |
+| Inspect the prescribed smoothing rule | [Theory references](docs/theory/README.md) |
+
+The reproduction guide links the detailed protocols, accepted results and input
+provenance for each study. Use it as the starting point for experiment commands.
 
 ## Install and build
 

@@ -6,6 +6,20 @@ Install with `python -m pip install -e '.[dev,artifacts]'` and build with
 See the [organization report](sisc_repository_cleanup.md) for validation results
 and environment limitations.
 
+## Choose a study
+
+This is the command guide for the two official paper studies. Detailed protocol
+and input notes are linked alongside each study; code ownership is documented
+separately in the [repository layout](repository_layout.md).
+
+- [Module 04: online autotuning](#module-04-exact-configurations) — validate, run,
+  and analyze the formal single-seed design or the accepted six-seed batches.
+- [Module 05: matched-hierarchy comparison](#module-05-verify-and-retime-the-frozen-bundle)
+  — verify the accepted bundle, then prepare, run, plot, package, and check a
+  fresh retiming.
+- [Timing and recovery](#timing-and-recovery) — cost definitions, failure
+  handling, fixed comparators, and interpretation limits shared by the studies.
+
 ## Included evidence
 
 | Study | Included protocol and evidence | Fresh execution |
@@ -36,6 +50,13 @@ design and 36 in the accepted six-seed batches. These are distinct protocol
 captures, not 42 independent seeds to pool. All use 5000 inputs per PDE/grid group,
 the three paired methods, tolerance `1e-6`, the recorded 50-cycle cap, and solve
 learning from problem 1001.
+
+The three methods are Default, LinUCB V4 with default solve, and LinUCB V4 with
+recursive LSTDQ V3. They use the shared online experiment engine and its
+recovery/cost accounting. The [formal protocol](../experiments/paper_final/04_online/20260920_formal/README.md)
+records group order, context sizes, RNG seeds, and the optional `run.command`
+launcher. The [accepted six-seed aggregate](../experiments/paper_final/reproduction/online/six_seeds.json)
+records the later captured batches.
 
 Validate all three captured suites without native solves:
 

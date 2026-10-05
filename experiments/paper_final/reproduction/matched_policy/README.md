@@ -14,6 +14,10 @@ included files. The approximately 14 MB bundle contains:
 - the accepted environment and three smoothing-theory/audit files;
 - 29,520 compact fixed-grid selection records in six JSONL gzip files.
 
+For navigable theory references, use the
+[theory guide](../../../../docs/theory/README.md). The theory copy inside the
+bundle preserves its accepted bytes, including links to historical locations.
+
 The runtime uses the saved hierarchy tuples in the jobs; historical setup-bandit
 checkpoint files and earlier result directories are unnecessary. All included
 checkpoint and input bytes match the hashes in `accepted_prepared.json`.

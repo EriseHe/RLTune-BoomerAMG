@@ -1,7 +1,8 @@
 # HYPRE Python bindings
 
 This directory contains the Python binding shared by setup learners, solve
-controllers, and joint experiments.
+controllers, and joint experiments. Run the commands below from the repository
+root.
 
 ## What is here
 
@@ -29,16 +30,17 @@ The canonical build command is run from the repository root:
 make -C hypre
 ```
 
-The local convenience wrapper remains available from this directory:
+On macOS, the convenience wrapper and local Makefile remain available as
+alternatives after building HYPRE:
 
 ```bash
-bash build_libamg_runtime.sh
+bash hypre/bindings/build_libamg_runtime.sh
 ```
 
 Or directly:
 
 ```bash
-make
+make -C hypre/bindings
 ```
 
 The resulting library is shared by all setup experiments at:
@@ -48,16 +50,10 @@ hypre/interfaces/libamg_runtime.dylib  # macOS
 hypre/interfaces/libamg_runtime.so     # Linux
 ```
 
-It links to the single out-of-source HYPRE installation at `hypre/install/`
-using this runtime search path:
-
-```text
-@loader_path/../install/lib
-```
-
-as its runtime search path on macOS. Linux uses the literal
-`$ORIGIN/../install/lib` for the same relative lookup. Keep the installed HYPRE
-libraries alongside the interface library in this repository layout.
+It links to the single out-of-source HYPRE installation at `hypre/install/`.
+The runtime search path is `@loader_path/../install/lib` on macOS and the literal
+`$ORIGIN/../install/lib` on Linux. Keep the installed HYPRE libraries alongside
+the interface library in this repository layout.
 
 The binding reports setup errors, solve errors, non-finite results,
 convergence, and max-cycle nonconvergence as explicit statuses. Failed native
@@ -115,20 +111,25 @@ equality and LSTDQ recovery/rollback. These cases are covered by
 ## Clean
 
 ```bash
-make clean
+make -C hypre/bindings clean
 ```
 
 ## If loading fails
 
-Check the dynamic dependencies:
+On macOS, check the dynamic dependencies and loader search path:
 
 ```bash
-otool -L ../../hypre/interfaces/libamg_runtime.dylib  # macOS
-hypre/interfaces/libamg_runtime.so     # Linux
-otool -l ../../hypre/interfaces/libamg_runtime.dylib | rg "LC_RPATH|path"
+otool -L hypre/interfaces/libamg_runtime.dylib
+otool -l hypre/interfaces/libamg_runtime.dylib | rg "LC_RPATH|path"
 ```
 
 You should see:
 
 - `@rpath/libHYPRE-3.0.0.dylib`
 - an `LC_RPATH` entry rooted at `@loader_path/...`
+
+On Linux, inspect the shared-library dependencies with:
+
+```bash
+ldd hypre/interfaces/libamg_runtime.so
+```
