@@ -20,9 +20,10 @@ undecided; existing third-party notices remain in place.
 
 ## Verification
 
-- All **420 tests** pass: problems 14, setup 30, solve/native 87,
-  infrastructure 10, official paper 16, diagnostics 209, and archived paper 54.
-- Python 3.10 syntax compilation and fatal Ruff checks pass on 314 project files.
+- All **421 tests** pass on the recorded local macOS platform: problems 14,
+  setup 30, solve/native 87, infrastructure 11, official paper 16,
+  diagnostics 209, and archived paper 54.
+- Python 3.10 syntax compilation and fatal Ruff checks pass on 315 project files.
   Wheel construction and the check runner's required/optional group rules pass.
 - The 40 extracted experiment definitions and action defaults match the original
   AST. Shared episode comparisons match outputs, learner state, random state,
@@ -36,6 +37,34 @@ undecided; existing third-party notices remain in place.
 
 These checks verify structural and behavioral preservation. The cleanup does
 not replace accepted timings with measurements from reorganized code.
+
+## Development CI scope
+
+Linux CI runs the five required groups: problems, setup, solve/native integration,
+experiment infrastructure, and official paper modules 04/05. The test command is:
+
+```sh
+python scripts/check_repository.py --tests-only --core-only
+```
+
+The five groups passed in Linux run
+[37250091193](https://github.com/EriseHe/RLTune-BoomerAMG/actions/runs/37250091193)
+before its later historical diagnostic failures. Historical checks retain a
+macOS-specific HYPRE `.dylib` fixture and exact stream/log-context SHA fixtures;
+their passing local results do not establish Linux portability. Linux CI does
+not run the optional diagnostics or paper-development archive tests.
+
+The default local command still includes both historical groups when present:
+
+```sh
+python scripts/check_repository.py --tests-only
+```
+
+`--core-only` changes test-group selection only. Static checks still cover the
+maintained source, including the paper-development archive. Historical scientific
+test definitions, locked fixture hashes, and production protocol guards remain
+unchanged. Every test in a selected group remains required. The curated SISC main
+tree has only the five required groups and its own separate check runner.
 
 ## Reproduction boundaries
 

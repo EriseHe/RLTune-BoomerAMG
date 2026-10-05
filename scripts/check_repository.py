@@ -2,6 +2,7 @@
 
 Use --static-only before building native interfaces, or --tests-only afterward.
 Development diagnostics and archived paper tests are included when present.
+Use --core-only to limit tests to the five required groups used by Linux CI.
 """
 
 from __future__ import annotations
@@ -66,18 +67,19 @@ def check_source(archive: Path) -> None:
     )
 
 
-def run_tests(archive: Path) -> None:
+def run_tests(archive: Path, *, core_only: bool = False) -> None:
     groups = [(name, ROOT / path, True) for name, path in REQUIRED_TEST_GROUPS]
-    groups.extend(
-        (
+    if not core_only:
+        groups.extend(
             (
-                "development diagnostics",
-                ROOT / "experiments/diagnostics/solve_control",
-                False,
-            ),
-            ("archived paper development", archive, False),
+                (
+                    "development diagnostics",
+                    ROOT / "experiments/diagnostics/solve_control",
+                    False,
+                ),
+                ("archived paper development", archive, False),
+            )
         )
-    )
     for name, path, required in groups:
         if not path.is_dir() or not any(path.glob("test_*.py")):
             if required:
@@ -109,13 +111,18 @@ def main() -> None:
     phase = parser.add_mutually_exclusive_group()
     phase.add_argument("--static-only", action="store_true")
     phase.add_argument("--tests-only", action="store_true")
+    parser.add_argument(
+        "--core-only",
+        action="store_true",
+        help="Run only required core/native, infrastructure and official paper test groups",
+    )
     parser.add_argument("--archive-dir", type=Path, default=DEFAULT_ARCHIVE)
     args = parser.parse_args()
     archive = (ROOT / args.archive_dir).resolve()
     if not args.tests_only:
         check_source(archive)
     if not args.static_only:
-        run_tests(archive)
+        run_tests(archive, core_only=args.core_only)
 
 
 if __name__ == "__main__":

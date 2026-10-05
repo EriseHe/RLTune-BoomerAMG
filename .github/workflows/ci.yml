@@ -44,5 +44,5 @@ jobs:
         run: make -C hypre JOBS=2
       - name: Verify vendored HYPRE source is unchanged
         run: git diff --exit-code -- hypre/source
-      - name: Unit and native integration tests
-        run: python scripts/check_repository.py --tests-only
+      - name: Required core/native, infrastructure and official paper tests
+        run: python scripts/check_repository.py --tests-only --core-only
