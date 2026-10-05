@@ -51,12 +51,18 @@ captures, not 42 independent seeds to pool. All use 5000 inputs per PDE/grid gro
 the three paired methods, tolerance `1e-6`, the recorded 50-cycle cap, and solve
 learning from problem 1001.
 
-The three methods are Default, LinUCB V4 with default solve, and LinUCB V4 with
-recursive LSTDQ V3. They use the shared online experiment engine and its
+The three methods are Default, LinUCB with default solve, and LinUCB with
+recursive LSTDQ. They use the shared online experiment engine and its
 recovery/cost accounting. The [formal protocol](../experiments/paper_final/04_online/20260920_formal/README.md)
 records group order, context sizes, RNG seeds, and the optional `run.command`
 launcher. The [accepted six-seed aggregate](../experiments/paper_final/reproduction/online/six_seeds.json)
 records the later captured batches.
+
+Current code uses the unversioned names `SharedLinUCB`, `RecursiveLstdqController`,
+and solve kind `recursive_lstdq`. Frozen configurations and checkpoint bytes retain
+their original recorded identities. The reader translates `recursive_lstdq_v3`
+and its `lstdq_v3` confidence settings into the same method; fresh configurations
+use `recursive_lstdq` and the single `lstdq` settings section.
 
 Validate all three captured suites without native solves:
 

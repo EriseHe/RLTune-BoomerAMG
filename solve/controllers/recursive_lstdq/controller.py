@@ -1,3 +1,5 @@
+"""Recursive LSTDQ with episode-cluster sandwich uncertainty."""
+
 from __future__ import annotations
 
 import json
@@ -9,21 +11,22 @@ import numpy as np
 
 from solve.controllers.common import (
     _SharedActionLcbController,
+    _blas_dger,
     _json_dataclass,
     _rank_one_accumulate,
     _rank_one_inverse_accumulate,
-    _sandwich_quadratic,
 )
 from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
-from .config import RecursiveLstdqLcbSpec
+from .common import _FactorizedLstdqScoring
+from .config import RecursiveLstdqSpec
 
-_RECURSIVE_LSTDQ_CHECKPOINT_VERSION = 3
+_RECURSIVE_LSTDQ_CHECKPOINT_VERSION = 2
 _INVERSE_DENOMINATOR_CEILING = 1.0 / np.sqrt(np.finfo(float).eps)
 
 
-class RecursiveLstdqLcbController(_SharedActionLcbController):
-    """Recursive LSTDQ(lambda) with post-fit sandwich uncertainty."""
+class RecursiveLstdqController(_SharedActionLcbController):
+    """Learn completion cost and commit one covariance moment per episode."""
 
     prefer_mean_on_score_ties = True
 
@@ -32,7 +35,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         *,
         feature_dim: int,
         config: ExpectedSarsaLambdaConfig,
-        spec: RecursiveLstdqLcbSpec,
+        spec: RecursiveLstdqSpec,
         seed: int,
     ) -> None:
         if float(spec.ridge) <= 0.0:
@@ -55,11 +58,6 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.a_inverse = np.eye(self.joint_dim, dtype=float) / ridge
         self.b = np.zeros(self.joint_dim, dtype=float)
         self.theta = np.zeros(self.joint_dim, dtype=float)
-        self.moment_covariance = (
-            float(spec.residual_floor_sec) ** 2
-            * ridge
-            * np.eye(self.joint_dim, dtype=float)
-        )
         self.trace = np.zeros(self.joint_dim, dtype=float)
         self._joint_feature_work = np.empty(self.joint_dim, dtype=float)
         self._next_joint_feature_work = np.empty(self.joint_dim, dtype=float)
@@ -68,6 +66,29 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.inverse_rebuild_count = 0
         self.inverse_is_valid = True
         self.last_postfit_td_error = 0.0
+        use_rank_one_blas = _blas_dger is not None
+        if use_rank_one_blas:
+            self.a_matrix = np.asfortranarray(self.a_matrix)
+            self.a_inverse = np.asfortranarray(self.a_inverse)
+        ridge = float(spec.ridge)
+        self.episode_moment_covariance = (
+            float(spec.residual_floor_sec) ** 2
+            * ridge
+            * np.eye(self.joint_dim, dtype=float)
+        )
+        if use_rank_one_blas:
+            self.episode_moment_covariance = np.asfortranarray(
+                self.episode_moment_covariance
+            )
+        self.episode_moment_count = 0
+        self._episode_a_start = self.a_matrix.copy()
+        self._episode_b_start = self.b.copy()
+        self._episode_score = np.empty(self.joint_dim, dtype=float)
+        self._episode_active = False
+        self._factorized_scoring = _FactorizedLstdqScoring(
+            action_basis=self.action_basis,
+            feature_dim=self.feature_dim,
+        )
 
     @property
     def requires_next_action(self) -> bool:
@@ -77,6 +98,9 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.trace.fill(0.0)
         if initial_environment_weight is not None:
             self._initial_environment_weight = float(initial_environment_weight)
+        self._episode_a_start[:] = self.a_matrix
+        self._episode_b_start[:] = self.b
+        self._episode_active = True
 
     def _inverse_residual_is_small(self, inverse: np.ndarray) -> bool:
         """Audit a rebuilt/legacy inverse, never on the normal update path."""
@@ -104,7 +128,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             inverse = np.linalg.pinv(self.a_matrix)
         if not np.all(np.isfinite(inverse)):
             raise FloatingPointError("LSTDQ rebuilt inverse became non-finite")
-        # Preserve the Fortran layout used by v2/v3's BLAS updates.
+        # Preserve the Fortran layout used by the BLAS updates.
         self.a_inverse[:] = inverse
         self.inverse_rebuild_count += 1
 
@@ -134,23 +158,6 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         if not np.all(np.isfinite(self.theta)):
             raise FloatingPointError("recursive LSTDQ parameters became non-finite")
 
-    def _values(
-        self,
-        features: np.ndarray,
-        *,
-        cycle: int | None,
-    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        del cycle
-        joint = self.state_action_features(features)
-        means = joint @ self.theta
-        projected = joint @ self.a_inverse
-        quadratic = _sandwich_quadratic(projected, self.moment_covariance)
-        uncertainty = np.sqrt(np.maximum(quadratic, 0.0))
-        scores = means - float(self.spec.uncertainty_beta) * uncertainty
-        if self.spec.lcb_lower_bound_sec is not None:
-            scores = np.maximum(scores, float(self.spec.lcb_lower_bound_sec))
-        return means, uncertainty, scores
-
     def _update_mean(
         self,
         *,
@@ -162,7 +169,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         next_cycle: int | None = None,
         next_action_index: int | None = None,
     ) -> tuple[float, np.ndarray]:
-        """Apply the recursive LSTDQ mean update shared by v1 and v2."""
+        """Apply the recursive LSTDQ mean update for the executed next action."""
 
         del next_cycle
         joint = self.state_action_feature(
@@ -226,6 +233,56 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.sample_count += 1
         return td_error, joint
 
+    def _values(
+        self,
+        features: np.ndarray,
+        *,
+        cycle: int | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        del cycle
+        state = self._factorized_scoring.prepare_state(features)
+        state_lift = self._factorized_scoring.state_lift
+        projected_lift = state_lift @ self.a_inverse
+        reduced_covariance = (
+            projected_lift @ self.episode_moment_covariance
+        ) @ projected_lift.T
+        reduced_covariance = 0.5 * (
+            reduced_covariance + reduced_covariance.T
+        )
+        means = self._factorized_scoring.means(self.theta, state)
+        quadratic = self._factorized_scoring.action_quadratic(
+            reduced_covariance
+        )
+        if not (
+            np.all(np.isfinite(means))
+            and np.all(np.isfinite(reduced_covariance))
+            and np.all(np.isfinite(quadratic))
+        ):
+            raise FloatingPointError(
+                "LSTDQ sandwich scoring became non-finite"
+            )
+        roundoff_tolerance = (
+            100.0
+            * np.finfo(float).eps
+            * max(
+                1.0,
+                float(np.linalg.norm(reduced_covariance, ord=np.inf)),
+            )
+        )
+        if np.any(quadratic < -roundoff_tolerance):
+            raise FloatingPointError(
+                "LSTDQ sandwich covariance produced a materially "
+                "negative action variance"
+            )
+        uncertainty = np.sqrt(np.maximum(quadratic, 0.0))
+        scores = means - float(self.spec.uncertainty_beta) * uncertainty
+        if self.spec.lcb_lower_bound_sec is not None:
+            scores = np.maximum(
+                scores,
+                float(self.spec.lcb_lower_bound_sec),
+            )
+        return means, uncertainty, scores
+
     def update(
         self,
         *,
@@ -249,19 +306,39 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             next_cycle=next_cycle,
             next_action_index=next_action_index,
         )
-        moment = self.trace * self.last_postfit_td_error
-        self.moment_covariance += np.outer(moment, moment)
-        if not np.all(np.isfinite(self.moment_covariance)):
-            raise FloatingPointError(
-                "recursive LSTDQ moment covariance became non-finite"
-            )
-        return td_error
+        return float(td_error)
 
     def finish_episode(self, *, learned: bool) -> None:
         if learned:
+            if not self._episode_active:
+                raise RuntimeError(
+                    "LSTDQ cannot commit an episode that was not started"
+                )
             self._resync_theta(require_inverse=True)
+            # g_e = b_e - A_e theta, evaluated at the current post-fit
+            # parameter.  The equivalent expanded expression avoids storing a
+            # second joint_dim x joint_dim episode-delta matrix.
+            self._episode_score[:] = self.b - self._episode_b_start
+            self._episode_score -= self.a_matrix @ self.theta
+            self._episode_score += self._episode_a_start @ self.theta
+            if not np.all(np.isfinite(self._episode_score)):
+                raise FloatingPointError(
+                    "LSTDQ episode estimating-equation moment became "
+                    "non-finite"
+                )
+            _rank_one_accumulate(
+                self.episode_moment_covariance,
+                self._episode_score,
+                self._episode_score,
+            )
+            if not np.all(np.isfinite(self.episode_moment_covariance)):
+                raise FloatingPointError(
+                    "LSTDQ episode moment covariance became non-finite"
+                )
+            self.episode_moment_count += 1
             self.episodes += 1
         self.trace.fill(0.0)
+        self._episode_active = False
 
     def snapshot_learning_state(self) -> Dict[str, Any]:
         state = self._snapshot_common_learning_state()
@@ -271,12 +348,18 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
                 "a_inverse": self.a_inverse.copy(),
                 "b": self.b.copy(),
                 "theta": self.theta.copy(),
-                "moment_covariance": self.moment_covariance.copy(),
+                "episode_moment_covariance": (
+                    self.episode_moment_covariance.copy()
+                ),
+                "episode_moment_count": int(self.episode_moment_count),
                 "trace": self.trace.copy(),
                 "sample_count": int(self.sample_count),
                 "inverse_rebuild_count": int(self.inverse_rebuild_count),
                 "inverse_is_valid": bool(self.inverse_is_valid),
                 "last_postfit_td_error": float(self.last_postfit_td_error),
+                "episode_a_start": self._episode_a_start.copy(),
+                "episode_b_start": self._episode_b_start.copy(),
+                "episode_active": bool(self._episode_active),
             }
         )
         return state
@@ -287,13 +370,24 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.a_inverse[:] = np.asarray(state["a_inverse"], dtype=float)
         self.b[:] = np.asarray(state["b"], dtype=float)
         self.theta[:] = np.asarray(state["theta"], dtype=float)
-        self.moment_covariance[:] = np.asarray(
-            state["moment_covariance"], dtype=float
+        self.episode_moment_covariance[:] = np.asarray(
+            state["episode_moment_covariance"],
+            dtype=float,
         )
+        self.episode_moment_count = int(state["episode_moment_count"])
         self.trace[:] = np.asarray(state["trace"], dtype=float)
         self.sample_count = int(state["sample_count"])
         self.inverse_rebuild_count = int(state["inverse_rebuild_count"])
         self.last_postfit_td_error = float(state["last_postfit_td_error"])
+        self._episode_a_start[:] = np.asarray(
+            state["episode_a_start"],
+            dtype=float,
+        )
+        self._episode_b_start[:] = np.asarray(
+            state["episode_b_start"],
+            dtype=float,
+        )
+        self._episode_active = bool(state["episode_active"])
         self._restore_inverse_validity(state)
 
     def save(self, path: Path) -> None:
@@ -304,17 +398,24 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             a_matrix=self.a_matrix,
             a_inverse=self.a_inverse,
             b=self.b,
-            moment_covariance=self.moment_covariance,
+            episode_moment_covariance=self.episode_moment_covariance,
+            episode_moment_count=np.asarray(
+                self.episode_moment_count,
+                dtype=np.int64,
+            ),
             sample_count=np.asarray(self.sample_count, dtype=np.int64),
             inverse_rebuild_count=np.asarray(
-                self.inverse_rebuild_count, dtype=np.int64
+                self.inverse_rebuild_count,
+                dtype=np.int64,
             ),
             inverse_is_valid=np.asarray(self.inverse_is_valid, dtype=bool),
             last_postfit_td_error=np.asarray(
-                self.last_postfit_td_error, dtype=float
+                self.last_postfit_td_error,
+                dtype=float,
             ),
             checkpoint_version=np.asarray(
-                _RECURSIVE_LSTDQ_CHECKPOINT_VERSION, dtype=np.int64
+                _RECURSIVE_LSTDQ_CHECKPOINT_VERSION,
+                dtype=np.int64,
             ),
             spec=np.asarray(json.dumps(asdict(self.spec))),
             **self._common_checkpoint_fields(),
@@ -322,22 +423,27 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
 
     def load(self, path: Path, *, restore_counters: bool = True) -> Dict[str, Any]:
         with np.load(path, allow_pickle=False) as payload:
-            version = int(payload.get("checkpoint_version", np.asarray(1)).item())
-            if version not in (2, _RECURSIVE_LSTDQ_CHECKPOINT_VERSION):
-                raise ValueError(
-                    "Legacy recursive LSTDQ checkpoint is incompatible with "
-                    "post-fit covariance"
-                )
-            if json.loads(str(payload["config"].item())) != _json_dataclass(self.config):
-                raise ValueError("Checkpoint recursive LSTDQ config does not match")
-            if json.loads(str(payload["spec"].item())) != _json_dataclass(self.spec):
-                raise ValueError("Checkpoint recursive LSTDQ spec does not match")
+            version = int(payload["checkpoint_version"].item())
+            if version not in (1, _RECURSIVE_LSTDQ_CHECKPOINT_VERSION):
+                raise ValueError("LSTDQ checkpoint version does not match")
+            if json.loads(str(payload["config"].item())) != _json_dataclass(
+                self.config
+            ):
+                raise ValueError("Checkpoint LSTDQ config does not match")
+            if json.loads(str(payload["spec"].item())) != _json_dataclass(
+                self.spec
+            ):
+                raise ValueError("Checkpoint LSTDQ spec does not match")
             self.theta[:] = np.asarray(payload["theta"], dtype=float)
             self.a_matrix[:] = np.asarray(payload["a_matrix"], dtype=float)
             self.a_inverse[:] = np.asarray(payload["a_inverse"], dtype=float)
             self.b[:] = np.asarray(payload["b"], dtype=float)
-            self.moment_covariance[:] = np.asarray(
-                payload["moment_covariance"], dtype=float
+            self.episode_moment_covariance[:] = np.asarray(
+                payload["episode_moment_covariance"],
+                dtype=float,
+            )
+            self.episode_moment_count = int(
+                payload["episode_moment_count"].item()
             )
             self.sample_count = int(payload["sample_count"].item())
             self.inverse_rebuild_count = int(
@@ -349,6 +455,9 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             self._load_common(payload, restore_counters=restore_counters)
             self._restore_inverse_validity(payload)
         self.trace.fill(0.0)
+        self._episode_a_start[:] = self.a_matrix
+        self._episode_b_start[:] = self.b
+        self._episode_active = False
         return {
             "path": str(path),
             "restored_steps": int(self.steps),
@@ -359,10 +468,16 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         return {
             "joint_feature_dim": int(self.joint_dim),
             "sample_count": int(self.sample_count),
+            "episode_moment_count": int(self.episode_moment_count),
             "uncertainty_beta": float(self.spec.uncertainty_beta),
             "lcb_lower_bound_sec": self.spec.lcb_lower_bound_sec,
-            "covariance_residual": "postfit_unclipped",
+            "uncertainty": (
+                "episode-cluster post-fit sandwich covariance"
+            ),
             "inverse_rebuild_count": int(self.inverse_rebuild_count),
             "inverse_is_valid": bool(self.inverse_is_valid),
             "stored_transition_count": 0,
         }
+
+
+__all__ = ["RecursiveLstdqController"]

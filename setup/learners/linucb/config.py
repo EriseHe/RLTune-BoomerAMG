@@ -5,11 +5,11 @@ from typing import Any
 
 
 @dataclass(frozen=True)
-class LinUCBV4Spec:
-    """Algorithm-specific configuration for shared LinUCB v4."""
+class LinUCBSpec:
+    """Algorithm-specific configuration for shared context-action LinUCB."""
 
     def learner_kwargs(self) -> dict[str, Any]:
         return {}
 
 
-__all__ = ["LinUCBV4Spec"]
+__all__ = ["LinUCBSpec"]

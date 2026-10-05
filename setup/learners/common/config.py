@@ -14,7 +14,7 @@ from .aot_candidates import (
 class SharedSetupLearnerSpec:
     """Inputs shared by the active setup-phase linear learners.
 
-    The fields intentionally mirror ``SharedLinUCB_AMG_v4``. Keeping this
+    The fields intentionally mirror ``SharedLinUCB``. Keeping this
     object free of experiment imports makes the construction boundary reusable
     by setup-only and joint runners.
     """

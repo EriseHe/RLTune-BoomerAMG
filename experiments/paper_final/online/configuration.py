@@ -16,7 +16,7 @@ from solve.controllers.common import (
     SharedActionSpec,
     SolveStateSpec,
 )
-from solve.controllers.recursive_lstdq import RecursiveLstdqV3LcbSpec
+from solve.controllers.recursive_lstdq import RecursiveLstdqSpec
 from solve.registry import (
     ONLINE_SOLVE_KINDS,
     OnlineControllerBuildSpec,
@@ -372,7 +372,7 @@ class ReportingSpec:
 class JointSolveSpec:
     state: SolveStateSpec
     actions: SharedActionSpec
-    recursive_lstdq_v3: RecursiveLstdqV3LcbSpec
+    recursive_lstdq: RecursiveLstdqSpec
     trace_lambda: float
     smoother_profile: str = "legacy_l1_jacobi"
     controller_specs: Mapping[str, OnlineControllerBuildSpec] = field(
@@ -415,8 +415,9 @@ class JointSolveSpec:
             encoding_version=str(raw.get("state_encoding", "legacy_v1")),
         )
         lstdq = mapping(raw.get("lstdq", {}), name="solve.lstdq")
-        lstdq_v2 = mapping(raw.get("lstdq_v2", {}), name="solve.lstdq_v2")
-        lstdq_v3 = mapping(raw.get("lstdq_v3", {}), name="solve.lstdq_v3")
+        # Preserve the exact archived settings while fresh configs use only lstdq.
+        legacy_unused = mapping(raw.get("lstdq_v2", {}), name="solve.lstdq_v2")
+        legacy_confidence = mapping(raw.get("lstdq_v3", {}), name="solve.lstdq_v3")
         reject_unknown_keys(
             lstdq,
             {
@@ -429,15 +430,16 @@ class JointSolveSpec:
             name="solve.lstdq",
         )
         reject_unknown_keys(
-            lstdq_v2,
+            legacy_unused,
             {"beta", "coverage_ridge", "residual_window", "min_samples"},
             name="solve.lstdq_v2",
         )
-        reject_unknown_keys(lstdq_v3, {"beta"}, name="solve.lstdq_v3")
-        lstdq_v3_spec = RecursiveLstdqV3LcbSpec(
+        reject_unknown_keys(legacy_confidence, {"beta"}, name="solve.lstdq_v3")
+        confidence = legacy_confidence if "lstdq_v3" in raw else lstdq
+        lstdq_spec = RecursiveLstdqSpec(
             ridge=float(lstdq.get("ridge", 1.0)),
             uncertainty_beta=float(
-                lstdq_v3.get("beta", RecursiveLstdqV3LcbSpec.uncertainty_beta)
+                confidence.get("beta", RecursiveLstdqSpec.uncertainty_beta)
             ),
             residual_floor_sec=float(lstdq.get("residual_floor_sec", 0.001)),
             q_max_sec=0.1,
@@ -453,7 +455,7 @@ class JointSolveSpec:
                 kind=cast(OnlineSolveKind, kind),
                 state=state_spec,
                 actions=action_spec,
-                algorithm=lstdq_v3_spec,
+                algorithm=lstdq_spec,
                 trace_lambda=trace_lambda,
             )
             for kind in requested_kinds
@@ -461,7 +463,7 @@ class JointSolveSpec:
         return cls(
             state=state_spec,
             actions=action_spec,
-            recursive_lstdq_v3=lstdq_v3_spec,
+            recursive_lstdq=lstdq_spec,
             trace_lambda=trace_lambda,
             smoother_profile=smoother_profile,
             controller_specs=controller_specs,

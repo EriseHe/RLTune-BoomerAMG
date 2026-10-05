@@ -12,9 +12,9 @@ from setup.learners.common import (
     ParameterSpec,
 )
 from setup.learners.linucb import (
-    SharedLinUCB_AMG_v4,
-    LinUCBV4Spec,
-    build_linucb_v4_learner,
+    SharedLinUCB,
+    LinUCBSpec,
+    build_linucb_learner,
 )
 from setup.registry import (
     COMPOSABLE_SETUP_KINDS,
@@ -59,10 +59,10 @@ class SetupRegistryTests(unittest.TestCase):
         self.assertEqual(COMPOSABLE_SETUP_KINDS, ("default", "linucb"))
         self.assertEqual(ONLINE_SETUP_KINDS, ("linucb",))
         self.assertIs(
-            setup_kind_registration("linucbv4").learner_type, SharedLinUCB_AMG_v4
+            setup_kind_registration("LinUCB").learner_type, SharedLinUCB
         )
         self.assertIs(
-            setup_kind_registration("linucb").factory, build_linucb_v4_learner
+            setup_kind_registration("linucb").factory, build_linucb_learner
         )
         for kind in ("random", "linucb_v5", "linucb_v6", "lints"):
             with self.subTest(kind=kind), self.assertRaises(ValueError):
@@ -70,38 +70,38 @@ class SetupRegistryTests(unittest.TestCase):
 
     def test_canonical_learner_class_path_is_stable(self) -> None:
         self.assertEqual(
-            SharedLinUCB_AMG_v4.__module__, "setup.learners.linucb.SharedLinUCB_AMG_v4"
+            SharedLinUCB.__module__, "setup.learners.linucb.learner"
         )
-        self.assertEqual(LinUCBV4Spec.__module__, "setup.learners.linucb.config")
+        self.assertEqual(LinUCBSpec.__module__, "setup.learners.linucb.config")
 
     def test_linucb_factory_matches_direct_constructor(self) -> None:
         shared = self._shared()
         built = build_online_setup_learner(
             make_setup_learner_spec(kind="linucb", shared=shared)
         )
-        direct = SharedLinUCB_AMG_v4(
+        direct = SharedLinUCB(
             shared.actions,
             context_dim=shared.context_dim,
             **shared.learner_kwargs(),
         )
 
         context = np.asarray((1.0, 0.25), dtype=float)
-        self.assertIsInstance(built, SharedLinUCB_AMG_v4)
+        self.assertIsInstance(built, SharedLinUCB)
         self.assertEqual(built.predict(context), direct.predict(context))
         np.testing.assert_allclose(built.A_inv, direct.A_inv)
         np.testing.assert_allclose(built.b, direct.b)
 
-        family_built = build_linucb_v4_learner(
+        family_built = build_linucb_learner(
             SetupLearnerFactoryRequest(
                 shared=shared,
-                algorithm=LinUCBV4Spec(),
+                algorithm=LinUCBSpec(),
             )
         )
-        self.assertIsInstance(family_built, SharedLinUCB_AMG_v4)
+        self.assertIsInstance(family_built, SharedLinUCB)
         np.testing.assert_allclose(family_built.A_inv, direct.A_inv)
 
     def test_factory_rejects_a_non_linucb_algorithm_spec(self) -> None:
-        with self.assertRaisesRegex(TypeError, "requires LinUCBV4Spec"):
+        with self.assertRaisesRegex(TypeError, "requires LinUCBSpec"):
             build_online_setup_learner(
                 SetupLearnerBuildSpec(
                     kind="linucb", shared=self._shared(), algorithm=object()

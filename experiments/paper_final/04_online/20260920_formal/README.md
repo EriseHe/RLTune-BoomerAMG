@@ -10,7 +10,7 @@ The later accepted six-seed batches are indexed in the
 - Group order: diffusion 40³, advection 40³, diffusion 60³, advection 60³,
   diffusion 80³, advection 80³. Groups run serially.
 - Each group uses 5000 paired problems and three methods: Default,
-  LinUCB V4 with default solve, and LinUCB V4 with recursive LSTDQ V3.
+  LinUCB with default solve, and LinUCB with recursive LSTDQ.
   Method order is randomized per problem with its recorded seed.
 - Setup learning starts on problem 1; solve learning starts on problem 1001.
   There are no imported checkpoints or additional training problems.
@@ -33,7 +33,7 @@ The later accepted six-seed batches are indexed in the
 | Controller | 56766120 |
 | Method order | 56772120 |
 
-The V3 method retains its controller seed offset of 2018. The eight input seeds
+The LSTDQ method retains its controller seed offset of 2018. The eight input seeds
 are `56700120 + 6000*k`, for `k=0,...,7`; the stream shuffle seed is 56748120.
 The six groups share this seed tuple and are different problem settings, not six
 independent training seeds. This seed was examined in preceding development

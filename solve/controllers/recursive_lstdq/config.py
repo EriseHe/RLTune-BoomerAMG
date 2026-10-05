@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class RecursiveLstdqLcbSpec:
-    """Configuration for recursive LSTDQ with sandwich uncertainty."""
+class RecursiveLstdqSpec:
+    """Recursive LSTDQ with episode-cluster sandwich uncertainty."""
 
     ridge: float = 1.0
     uncertainty_beta: float = 2.0
@@ -15,9 +15,4 @@ class RecursiveLstdqLcbSpec:
     lcb_lower_bound_sec: float | None = 0.0
 
 
-@dataclass(frozen=True)
-class RecursiveLstdqV3LcbSpec(RecursiveLstdqLcbSpec):
-    """Episode-cluster sandwich confidence controls for recursive LSTDQ."""
-
-
-__all__ = ["RecursiveLstdqLcbSpec", "RecursiveLstdqV3LcbSpec"]
+__all__ = ["RecursiveLstdqSpec"]

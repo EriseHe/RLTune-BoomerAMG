@@ -9,10 +9,8 @@ from pathlib import Path
 import numpy as np
 
 from solve.controllers.recursive_lstdq import (
-    RecursiveLstdqLcbController,
-    RecursiveLstdqLcbSpec,
-    RecursiveLstdqV3LcbController,
-    RecursiveLstdqV3LcbSpec,
+    RecursiveLstdqController,
+    RecursiveLstdqSpec,
 )
 from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
@@ -40,75 +38,68 @@ def _config(
     )
 
 
-class RecursiveLstdqV3Tests(unittest.TestCase):
+class RecursiveLstdqEpisodeTests(unittest.TestCase):
     @staticmethod
-    def _controllers() -> tuple[
-        RecursiveLstdqLcbController,
-        RecursiveLstdqV3LcbController,
-    ]:
-        config = _config()
-        base = RecursiveLstdqLcbController(
+    def _controller() -> RecursiveLstdqController:
+        return RecursiveLstdqController(
             feature_dim=3,
-            config=config,
-            spec=RecursiveLstdqLcbSpec(
+            config=_config(),
+            spec=RecursiveLstdqSpec(
                 ridge=1.0,
                 uncertainty_beta=2.0,
                 residual_floor_sec=1.0e-3,
             ),
             seed=71,
         )
-        v3 = RecursiveLstdqV3LcbController(
-            feature_dim=3,
-            config=config,
-            spec=RecursiveLstdqV3LcbSpec(
-                ridge=1.0,
-                uncertainty_beta=2.0,
-                residual_floor_sec=1.0e-3,
-            ),
-            seed=71,
-        )
-        return base, v3
 
-    def test_mean_update_is_identical_to_numerical_base(self) -> None:
-        base, v3 = self._controllers()
+    def test_mean_update_matches_independent_dense_lstd_system(self) -> None:
+        controller = self._controller()
+        expected_a = float(controller.spec.ridge) * np.eye(controller.joint_dim)
+        expected_b = np.zeros(controller.joint_dim)
         rng = np.random.default_rng(7101)
         for _episode in range(4):
-            base.start_episode(initial_environment_weight=1.0)
-            v3.start_episode(initial_environment_weight=1.0)
+            controller.start_episode(initial_environment_weight=1.0)
+            expected_trace = np.zeros(controller.joint_dim)
             features = rng.normal(size=3)
             for cycle in range(6):
                 terminal = cycle == 5
                 next_features = rng.normal(size=3)
                 action = int(rng.integers(0, 2))
                 next_action = None if terminal else int(rng.integers(0, 2))
-                kwargs = {
-                    "features": features,
-                    "action_index": action,
-                    "cost": float(rng.uniform(1.0e-3, 5.0e-3)),
-                    "next_features": next_features,
-                    "terminal": terminal,
-                    "next_action_index": next_action,
-                }
-                self.assertAlmostEqual(base.update(**kwargs), v3.update(**kwargs))
-                for name in ("a_matrix", "a_inverse", "b", "theta", "trace"):
-                    np.testing.assert_allclose(
-                        getattr(base, name),
-                        getattr(v3, name),
-                        rtol=2.0e-12,
-                        atol=2.0e-14,
-                    )
+                cost = float(rng.uniform(1.0e-3, 5.0e-3))
+                joint = np.outer(controller.action_basis[action], features).reshape(-1)
+                next_joint = (
+                    np.zeros(controller.joint_dim)
+                    if terminal else
+                    np.outer(controller.action_basis[next_action], next_features).reshape(-1)
+                )
+                expected_trace = (
+                    controller.config.gamma * controller.config.trace_lambda * expected_trace
+                    + joint
+                )
+                expected_a += np.outer(
+                    expected_trace, joint - controller.config.gamma * next_joint
+                )
+                expected_b += cost * expected_trace
+                controller.update(
+                    features=features,
+                    action_index=action,
+                    cost=cost,
+                    next_features=next_features,
+                    terminal=terminal,
+                    next_action_index=next_action,
+                )
+                np.testing.assert_allclose(controller.a_matrix, expected_a, rtol=2e-12, atol=2e-14)
+                np.testing.assert_allclose(controller.b, expected_b, rtol=2e-12, atol=2e-14)
+                np.testing.assert_allclose(
+                    controller.theta, np.linalg.solve(expected_a, expected_b),
+                    rtol=2e-11, atol=2e-13,
+                )
                 features = next_features
-            base.finish_episode(learned=True)
-            v3.finish_episode(learned=True)
-            np.testing.assert_allclose(
-                base.theta,
-                v3.theta,
-                rtol=2.0e-12,
-                atol=2.0e-14,
-            )
+            controller.finish_episode(learned=True)
 
     def test_one_cluster_moment_is_committed_per_episode(self) -> None:
-        _base, controller = self._controllers()
+        controller = self._controller()
         initial_covariance = controller.episode_moment_covariance.copy()
         controller.start_episode(initial_environment_weight=1.0)
         a_start = controller.a_matrix.copy()
@@ -155,10 +146,10 @@ class RecursiveLstdqV3Tests(unittest.TestCase):
     def test_factorized_sandwich_matches_full_joint_quadratic(self) -> None:
         weights = tuple(float(value) for value in np.linspace(1.0, 3.0, 41))
         centers = tuple(float(value) for value in np.linspace(1.0, 3.0, 9))
-        controller = RecursiveLstdqV3LcbController(
+        controller = RecursiveLstdqController(
             feature_dim=32,
             config=_config(weights=weights, centers=centers),
-            spec=RecursiveLstdqV3LcbSpec(
+            spec=RecursiveLstdqSpec(
                 ridge=1.0,
                 uncertainty_beta=2.0,
                 residual_floor_sec=1.0e-3,
@@ -217,7 +208,7 @@ class RecursiveLstdqV3Tests(unittest.TestCase):
         )
 
     def test_snapshot_rollback_and_checkpoint_restore_covariance(self) -> None:
-        _base, controller = self._controllers()
+        controller = self._controller()
         controller.start_episode(initial_environment_weight=1.0)
         controller.update(
             features=np.asarray([1.0, 0.0, 0.5]),
@@ -251,9 +242,9 @@ class RecursiveLstdqV3Tests(unittest.TestCase):
             np.testing.assert_allclose(actual, expected)
 
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "lstdq_v3.npz"
+            path = Path(tmp) / "lstdq.npz"
             controller.save(path)
-            _unused, restored = self._controllers()
+            restored = self._controller()
             restored.load(path)
         self.assertEqual(
             restored.episode_moment_count,
@@ -292,7 +283,7 @@ class RecursiveLstdqV3Tests(unittest.TestCase):
         self.assertEqual(restored.summary()["stored_transition_count"], 0)
 
     def test_invalid_sandwich_state_fails_loudly(self) -> None:
-        _base, controller = self._controllers()
+        controller = self._controller()
         features = np.asarray([1.0, 0.5, 0.25])
         controller.episode_moment_covariance.fill(0.0)
         controller.episode_moment_covariance[0, 0] = float("nan")
@@ -310,7 +301,7 @@ class RecursiveLstdqV3Tests(unittest.TestCase):
             controller._values(features, cycle=0)
 
     def test_uncommitted_episode_does_not_change_cluster_covariance(self) -> None:
-        _base, controller = self._controllers()
+        controller = self._controller()
         covariance = controller.episode_moment_covariance.copy()
         controller.start_episode(initial_environment_weight=1.0)
         controller.update(

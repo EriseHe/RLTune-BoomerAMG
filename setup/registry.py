@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Any, Callable, Literal, Mapping, cast
 
 from .learners.common import SetupLearnerFactoryRequest, SharedSetupLearnerSpec
-from .learners.linucb.config import LinUCBV4Spec
-from .learners.linucb.factory import LINUCB_V4_LEARNER_TYPE, build_linucb_v4_learner
+from .learners.linucb.config import LinUCBSpec
+from .learners.linucb.factory import LINUCB_LEARNER_TYPE, build_linucb_learner
 
 OnlineSetupKind = Literal["linucb"]
-SetupAlgorithmSpec = LinUCBV4Spec
+SetupAlgorithmSpec = LinUCBSpec
 
 
 @dataclass(frozen=True)
@@ -35,16 +35,15 @@ SETUP_KIND_REGISTRY: dict[str, SetupKindRegistration] = {
         kind="linucb",
         family="linucb",
         backend="online_learner",
-        learner_type=LINUCB_V4_LEARNER_TYPE,
-        spec_type=LinUCBV4Spec,
-        factory=build_linucb_v4_learner,
+        learner_type=LINUCB_LEARNER_TYPE,
+        spec_type=LinUCBSpec,
+        factory=build_linucb_learner,
     ),
 }
 ONLINE_SETUP_KINDS = tuple(
     kind for kind, registration in SETUP_KIND_REGISTRY.items() if registration.online
 )
 COMPOSABLE_SETUP_KINDS = ("default", *ONLINE_SETUP_KINDS)
-_SETUP_KIND_ALIASES = {"linucbv4": "linucb", "sharedlinucbv4": "linucb"}
 
 
 @dataclass(frozen=True)
@@ -56,7 +55,7 @@ class SetupLearnerBuildSpec:
 
 def normalize_setup_kind(kind: str) -> str:
     token = str(kind).strip().lower().replace("-", "").replace("_", "").replace(" ", "")
-    return _SETUP_KIND_ALIASES.get(token, token)
+    return token
 
 
 def make_setup_learner_spec(

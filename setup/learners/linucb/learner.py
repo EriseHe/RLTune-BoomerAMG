@@ -1,14 +1,13 @@
 """
 Shared LinUCB for BoomerAMG setup tuning with a generic n-parameter action spec.
 
-v4 keeps the LinUCB v3 architecture:
+The learner provides:
 - shared linear model over context-action features
 - candidate subset support
 - elite cache support
 - optional alpha decay
 
-The difference is that action encoding is driven by a ParameterSpaceSpec
-instead of a hardcoded 3- or 5-knob feature map.
+Action encoding is driven by a mixed-type ParameterSpaceSpec.
 """
 
 from __future__ import annotations
@@ -35,7 +34,7 @@ from ..common.candidate_subset import CandidateSelector
 
 
 @dataclass(frozen=True)
-class SharedLinUCBv4Step:
+class SharedLinUCBStep:
     t: int
     arm_index: int
     loss: float
@@ -47,7 +46,7 @@ class SharedLinUCBv4Step:
 
 
 @dataclass(frozen=True)
-class SharedLinUCBv4DeferredObservation:
+class SharedLinUCBDeferredObservation:
     """One selected setup whose suffix runtime is not known yet."""
 
     arm_index: int
@@ -56,7 +55,7 @@ class SharedLinUCBv4DeferredObservation:
     history_index: int
 
 
-class SharedLinUCB_AMG_v4:
+class SharedLinUCB:
     def __init__(
         self,
         actions: Sequence[Dict[str, Any]],
@@ -285,11 +284,11 @@ class SharedLinUCB_AMG_v4:
         self.t = 0
         self._last_phi: Optional[np.ndarray] = None
         self._last_arm: Optional[int] = None
-        self.history: List[SharedLinUCBv4Step] = []
+        self.history: List[SharedLinUCBStep] = []
         self.candidate_stats_history: List[Dict[str, int | str]] = []
         self._recovery_transaction: Optional[Dict[str, Any]] = None
 
-    def clone_for_independent_updates(self) -> "SharedLinUCB_AMG_v4":
+    def clone_for_independent_updates(self) -> "SharedLinUCB":
         """Clone mutable online state while sharing the immutable action catalog."""
         if self._candidate_schedule is not None:
             raise RuntimeError(
@@ -1015,7 +1014,7 @@ class SharedLinUCB_AMG_v4:
             self._last_phi = self._phi(x, arm)
             self._last_arm = arm
             self.history.append(
-                SharedLinUCBv4Step(
+                SharedLinUCBStep(
                     t=self.t + 1,
                     arm_index=arm,
                     loss=float("nan"),
@@ -1107,7 +1106,7 @@ class SharedLinUCB_AMG_v4:
         self._last_arm = arm
 
         self.history.append(
-            SharedLinUCBv4Step(
+            SharedLinUCBStep(
                 t=self.t + 1,
                 arm_index=arm,
                 loss=float("nan"),
@@ -1258,7 +1257,7 @@ class SharedLinUCB_AMG_v4:
         )
         self._last_arm = arm
         self.history.append(
-            SharedLinUCBv4Step(
+            SharedLinUCBStep(
                 t=self.t + 1,
                 arm_index=arm,
                 loss=float("nan"),
@@ -1330,7 +1329,7 @@ class SharedLinUCB_AMG_v4:
         self,
         *,
         failure_label: float,
-    ) -> SharedLinUCBv4DeferredObservation:
+    ) -> SharedLinUCBDeferredObservation:
         """Update coverage/failure risk now and defer the suffix runtime label."""
 
         if self._last_phi is None or self._last_arm is None:
@@ -1356,7 +1355,7 @@ class SharedLinUCB_AMG_v4:
         self.t += 1
 
         last = self.history[history_index]
-        self.history[history_index] = SharedLinUCBv4Step(
+        self.history[history_index] = SharedLinUCBStep(
             t=last.t,
             arm_index=last.arm_index,
             loss=last.loss,
@@ -1368,7 +1367,7 @@ class SharedLinUCB_AMG_v4:
         )
         self._last_phi = None
         self._last_arm = None
-        return SharedLinUCBv4DeferredObservation(
+        return SharedLinUCBDeferredObservation(
             arm_index=arm,
             phi=phi,
             provisional_loss=provisional_loss,
@@ -1377,7 +1376,7 @@ class SharedLinUCB_AMG_v4:
 
     def commit_deferred_observation(
         self,
-        observation: SharedLinUCBv4DeferredObservation,
+        observation: SharedLinUCBDeferredObservation,
         *,
         loss: float,
     ) -> None:
@@ -1388,7 +1387,7 @@ class SharedLinUCB_AMG_v4:
         self._cand.observe(int(observation.arm_index), y)
         index = int(observation.history_index)
         last = self.history[index]
-        self.history[index] = SharedLinUCBv4Step(
+        self.history[index] = SharedLinUCBStep(
             t=last.t,
             arm_index=last.arm_index,
             loss=y,
@@ -1450,7 +1449,7 @@ class SharedLinUCB_AMG_v4:
         self.failure_observation_count += 1
 
         last = self.history[-1]
-        self.history[-1] = SharedLinUCBv4Step(
+        self.history[-1] = SharedLinUCBStep(
             t=last.t,
             arm_index=last.arm_index,
             loss=y,

@@ -1,10 +1,10 @@
 # Solve phase
 
-The SISC studies use recursive LSTDQ V3 to select relaxation weights after each
-AMG cycle. `registry.py` accepts `default`, `fixed`, and `recursive_lstdq_v3`.
+The SISC studies use recursive LSTDQ to select relaxation weights after each
+AMG cycle. `registry.py` accepts `default`, `fixed`, and `recursive_lstdq`.
 
-- `controllers/recursive_lstdq/`: the V3 episode-cluster controller and the V1
-  numerical base it inherits.
+- `controllers/recursive_lstdq/`: the single episode-cluster controller,
+  numerical configuration, and factory.
 - `controllers/common/`: state and action encoders, construction inputs,
   controller/checkpoint pairing, and linear numerical primitives.
 - `core/episode.py`: the cycle loop, completion-cost targets, recovery accounting,
@@ -15,22 +15,20 @@ AMG cycle. `registry.py` accepts `default`, `fixed`, and `recursive_lstdq_v3`.
 
 ## LSTDQ implementation
 
-`controllers/recursive_lstdq/v3.py` implements the episode-cluster controller.
-`v1.py` remains as its required mean-update, inverse, checkpoint, and
-behavior-policy base; it is not separately selectable as an experiment
-algorithm. `controllers/recursive_lstdq/common.py` factorizes the shared
-state-action scoring.
+[RecursiveLstdqController](controllers/recursive_lstdq/controller.py) contains
+the recursive mean update, inverse maintenance, episode-cluster covariance,
+and checkpoint operations in one implementation.
+`controllers/recursive_lstdq/common.py` factorizes the shared state-action scoring.
 
 `controllers/recursive_lstdq/config.py` defines the numerical specs; its factory
-constructs V3 with the encoder and action configuration supplied by
+constructs the controller with the encoder and action configuration supplied by
 `solve.registry`. `controllers/common/` contains the encoders, controller bundle,
 TD configuration, and linear primitives. The TD configuration retains its
 historical class name because checkpoint configuration fields remain unchanged.
 
-V3 commits one cluster covariance update per successfully committed episode.
+The controller commits one cluster covariance update per successfully committed episode.
 The episode runner owns recovery and rollback; the controller owns its numerical
-state and NPZ checkpoint. Canonical V1/V3 class paths and checkpoint schemas
-remain stable.
+state and NPZ checkpoint. The saved checkpoint fields and schema remain unchanged.
 
 ## Shared components and checks
 

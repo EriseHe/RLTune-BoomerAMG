@@ -12,7 +12,7 @@ from problems.amg import (
 from problems.scalar_anisotropic_diffusion_advection import (
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_DIM,
     build_context_scalar_anisotropic_diffusion_advection,
-    build_legacy_linucb_v4_context,
+    build_default_linucb_context,
     build_matrix_kwargs_scalar_anisotropic_diffusion_advection,
     stencil_0_scalar_anisotropic_diffusion_advection_rl,
 )
@@ -107,7 +107,7 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
             expected,
         )
 
-    def test_legacy_v4_projection_restores_fixed_grid_features(self) -> None:
+    def test_default_linucb_projection_restores_fixed_grid_features(self) -> None:
         context = build_context_scalar_anisotropic_diffusion_advection(
             cx=2.0,
             cy=3.0,
@@ -122,7 +122,7 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
             c_norm_div=1000.0,
             a_norm_div=1000.0,
         )
-        legacy = build_legacy_linucb_v4_context(
+        legacy = build_default_linucb_context(
             stream_context=context,
             nx=60,
             ny=60,

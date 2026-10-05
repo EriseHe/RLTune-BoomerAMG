@@ -63,10 +63,15 @@ The vendored `hypre/source` tree is unchanged. Its recorded Git tree is
 `ab1f65095a820e6ecfa4473218985779df654a83`. Project-owned interfaces remain in
 `hypre/interfaces` and `hypre/bindings`.
 
-Shared LinUCB V4 and recursive LSTDQ V3 retain their numerical bodies and
-checkpoint schemas. V3's required V1 numerical base remains; it is not an
-additional supported experiment method. Unreachable Monte Carlo episode paths
-and unused setup reporting helpers were removed from this submission tree.
+The paper implementations are named `SharedLinUCB` and `RecursiveLstdqController`.
+The previously separate LSTDQ numerical base and episode-cluster implementation
+are merged in `solve/controllers/recursive_lstdq/controller.py`. Mean updates,
+action selection, episode covariance, and saved checkpoint schemas are preserved.
+LinUCB's implementation is in `setup/learners/linucb/learner.py`; development
+version labels have been removed from class, factory, and current method names.
+Original labels inside frozen configuration/provenance records remain unchanged
+and are translated at the experiment input boundary. Unreachable Monte Carlo
+episode paths and unused setup reporting helpers were removed from this submission tree.
 
 Differential checks against the development implementation preserved actions,
 learner/controller arrays, random states, method order, update order, native
@@ -95,12 +100,28 @@ separate protocol and is not part of this organization change.
 
 ## Validation record
 
+After merging LSTDQ and removing development labels, **114 local tests** passed
+without skips: problems 9, setup 14, solve/native/recovery 52, experiment
+infrastructure/protocols 19, and official paper helpers 20. The existing input
+tests now cover equivalence between current and captured LSTDQ settings,
+including default and nondefault confidence values.
+
+Temporary differential checks compared all 42 LinUCB method bodies, 40 LinUCB
+cases and 168 LSTDQ transitions with the previous implementation. Actions,
+learned arrays, uncertainty scores, rollback state, RNG state and every saved
+checkpoint field matched exactly; all six accepted controller checkpoints loaded.
+All three captured online suites and the frozen bundle verified. Python 3.10
+syntax passed for 112 project sources, and 70 maintained local documentation
+links and anchors resolved. All 130 protected evidence files and the HYPRE
+source tree remained unchanged. Temporary comparison scripts and baseline
+copies were removed after verification.
+
 The initial curated tree passed **113 local tests** without skips: problems 9,
 setup 14, solve/native/recovery 52, experiment infrastructure/protocols 18, and official
 paper helpers 20. Python 3.10 syntax and fatal Ruff checks passed on the then-114
 source files, including the subsequently removed repository-check script.
 The formal six-group CLI validated without native solves; all 42 recorded streams
-validated, and all six accepted V3 checkpoints loaded with their encoders.
+validated, and all six accepted LSTDQ checkpoints loaded with their encoders.
 HYPRE and project interfaces built from a fresh checkout, and wheel construction
 passed. The full Module 05 packaging smoke and standalone release verifier passed.
 

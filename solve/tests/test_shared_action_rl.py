@@ -8,8 +8,8 @@ import numpy as np
 from solve.controllers.common import build_action_basis, joint_action_features
 from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 from solve.controllers.recursive_lstdq import (
-    RecursiveLstdqLcbController,
-    RecursiveLstdqLcbSpec,
+    RecursiveLstdqController,
+    RecursiveLstdqSpec,
 )
 
 WEIGHTS = tuple(float(value) for value in np.round(np.arange(1.0, 2.01, 0.1), 1))
@@ -73,7 +73,7 @@ class SharedActionFeatureTests(unittest.TestCase):
 
 
 class RecursiveLstdqTests(unittest.TestCase):
-    def _controller(self) -> RecursiveLstdqLcbController:
+    def _controller(self) -> RecursiveLstdqController:
         config = _config(
             weights=(1.0,),
             anchor_weight=1.0,
@@ -82,10 +82,10 @@ class RecursiveLstdqTests(unittest.TestCase):
             epsilon_final=0.0,
             trace_lambda=0.8,
         )
-        return RecursiveLstdqLcbController(
+        return RecursiveLstdqController(
             feature_dim=2,
             config=config,
-            spec=RecursiveLstdqLcbSpec(
+            spec=RecursiveLstdqSpec(
                 ridge=1.0e-3,
                 uncertainty_beta=1.0,
                 residual_floor_sec=1.0e-6,
@@ -123,7 +123,7 @@ class RecursiveLstdqTests(unittest.TestCase):
         reference_quadratic = np.einsum(
             "ai,ij,aj->a",
             projected,
-            controller.moment_covariance,
+            controller.episode_moment_covariance,
             projected,
             optimize=True,
         )
@@ -144,18 +144,18 @@ class RecursiveLstdqTests(unittest.TestCase):
             epsilon_final=0.0,
             trace_lambda=0.8,
         )
-        spec = RecursiveLstdqLcbSpec(
+        spec = RecursiveLstdqSpec(
             ridge=1.0,
             uncertainty_beta=2.0,
             residual_floor_sec=1.0e-3,
         )
-        fast = RecursiveLstdqLcbController(
+        fast = RecursiveLstdqController(
             feature_dim=4,
             config=config,
             spec=spec,
             seed=53,
         )
-        reference = RecursiveLstdqLcbController(
+        reference = RecursiveLstdqController(
             feature_dim=4,
             config=config,
             spec=spec,
@@ -200,8 +200,6 @@ class RecursiveLstdqTests(unittest.TestCase):
             )
             reference.theta[:] = reference.a_inverse @ reference.b
             reference.last_postfit_td_error = float(cost - difference @ reference.theta)
-            moment = reference.trace * reference.last_postfit_td_error
-            reference.moment_covariance += np.outer(moment, moment)
             reference.steps += 1
             reference.sample_count += 1
             return td_error
@@ -259,7 +257,7 @@ class RecursiveLstdqTests(unittest.TestCase):
                     (fast.a_inverse, reference.a_inverse),
                     (fast.b, reference.b),
                     (fast.theta, reference.theta),
-                    (fast.moment_covariance, reference.moment_covariance),
+                    (fast.episode_moment_covariance, reference.episode_moment_covariance),
                 ):
                     np.testing.assert_allclose(
                         fast_value,
@@ -279,7 +277,7 @@ class RecursiveLstdqTests(unittest.TestCase):
         controller = self._controller()
         features = np.asarray([1.0, 0.0])
         joint = controller.state_action_features(features)[0]
-        initial_covariance = controller.moment_covariance.copy()
+        initial_covariance = controller.episode_moment_covariance.copy()
         controller.start_episode(initial_environment_weight=1.0)
         td_error = controller.update(
             features=features,
@@ -288,10 +286,11 @@ class RecursiveLstdqTests(unittest.TestCase):
             next_features=features,
             terminal=True,
         )
+        controller.finish_episode(learned=True)
         np.testing.assert_allclose(controller.b, 0.3 * joint)
         expected_postfit = float(0.3 - joint @ controller.theta)
         np.testing.assert_allclose(
-            controller.moment_covariance - initial_covariance,
+            controller.episode_moment_covariance - initial_covariance,
             np.outer(expected_postfit * joint, expected_postfit * joint),
         )
         self.assertAlmostEqual(td_error, 0.3)
@@ -305,10 +304,10 @@ class RecursiveLstdqTests(unittest.TestCase):
             epsilon_start=0.0,
             epsilon_final=0.0,
         )
-        controller = RecursiveLstdqLcbController(
+        controller = RecursiveLstdqController(
             feature_dim=1,
             config=config,
-            spec=RecursiveLstdqLcbSpec(
+            spec=RecursiveLstdqSpec(
                 ridge=1.0,
                 uncertainty_beta=1.0,
                 residual_floor_sec=1.0,

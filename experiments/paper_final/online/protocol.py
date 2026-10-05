@@ -200,7 +200,7 @@ def build_joint_protocol(
         for (method, metadata) in solve_controller_protocols.items()
     }
     protocol["solve_controllers"] = resolved_controller_protocols
-    section_by_kind = {"recursive_lstdq_v3": "recursive_lstdq_v3_lcb"}
+    section_by_kind = {"recursive_lstdq": "recursive_lstdq_lcb"}
     for spec in composable_specs:
         metadata = resolved_controller_protocols.get(spec.name)
         section = section_by_kind.get(spec.solve_kind)

@@ -225,10 +225,10 @@ def build_online_linucb_branch(
 ) -> tuple[BranchRun, TestFinalBanditConfig]:
     """Build a canonical online setup-bandit branch without a Gym dependency."""
     if learner_kind != "linucb":
-        raise ValueError("The official setup learner is LinUCB v4")
+        raise ValueError("The official setup learner is LinUCB")
     learner_token = "linucb"
-    learner_method = "linucbv4"
-    family = "Shared LinUCB v4"
+    learner_method = "linucb"
+    family = "Shared LinUCB"
     cfg = default_test_final_bandit_config_from_env()
     resolved_context_dim = int(context_dim)
     resolved_interaction_indices = tuple(

@@ -26,8 +26,8 @@ from hypre.bindings.recovery import (
 from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 from solve.core.episode import run_td_episode
 from solve.controllers.recursive_lstdq import (
-    RecursiveLstdqV3LcbController,
-    RecursiveLstdqV3LcbSpec,
+    RecursiveLstdqController,
+    RecursiveLstdqSpec,
 )
 
 
@@ -128,16 +128,16 @@ def _controller(seed: int = 7):
         initial_q_sec=0.0,
         td_algorithm="true_online_sarsa",
     )
-    return RecursiveLstdqV3LcbController(
-        feature_dim=1, config=config, spec=RecursiveLstdqV3LcbSpec(), seed=seed
+    return RecursiveLstdqController(
+        feature_dim=1, config=config, spec=RecursiveLstdqSpec(), seed=seed
     )
 
 
-def _v3_controller(seed: int = 7) -> RecursiveLstdqV3LcbController:
+def _lstdq_controller(seed: int = 7) -> RecursiveLstdqController:
     return _controller(seed=seed)
 
 
-class _RecordingController(RecursiveLstdqV3LcbController):
+class _RecordingController(RecursiveLstdqController):
     def __init__(self, *, seed: int = 7):
         base = _controller(seed=seed)
         super().__init__(
@@ -238,8 +238,8 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertTrue(result["controller_update_committed"])
         self.assertAlmostEqual(result["native_runtime"], 0.026)
 
-    def test_failed_v3_episode_matches_batch_and_retains_coercivity(self):
-        controller = _v3_controller()
+    def test_failed_lstdq_episode_matches_batch_and_retains_coercivity(self):
+        controller = _lstdq_controller()
         controller.config = replace(controller.config, trace_lambda=0.8)
         with (
             patch(
@@ -289,10 +289,10 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertTrue(result["unrecovered_failure"])
         self.assertTrue(result["controller_update_committed"])
 
-    def test_corrupt_times_and_estimator_errors_abort_and_restore_v3(self):
+    def test_corrupt_times_and_estimator_errors_abort_and_restore_lstdq(self):
         for invalid_kind in ("nan_time", "negative_time", "estimator"):
             with self.subTest(invalid_kind=invalid_kind):
-                controller = _v3_controller()
+                controller = _lstdq_controller()
                 before = controller.snapshot_learning_state()
                 env = _SequentialEnv([0.5, 0.4])
                 actual_step = env.step_rl
@@ -754,8 +754,8 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertEqual(controller.steps, 1)
         self.assertGreater(outcome["runtime"], 0.02)
 
-    def test_v3_recovered_nonconvergence_commits_one_cluster(self):
-        controller = _v3_controller()
+    def test_lstdq_recovered_nonconvergence_commits_one_cluster(self):
+        controller = _lstdq_controller()
         covariance_before = controller.episode_moment_covariance.copy()
         with patch(
             "solve.core.episode.create_env",
@@ -783,8 +783,8 @@ class RecoveryProtocolTests(unittest.TestCase):
             )
         )
 
-    def test_v3_unrecovered_failure_restores_cluster_and_mean_state(self):
-        controller = _v3_controller()
+    def test_lstdq_unrecovered_failure_restores_cluster_and_mean_state(self):
+        controller = _lstdq_controller()
         state_before = controller.snapshot_learning_state()
         with patch(
             "solve.core.episode.create_env",
@@ -823,10 +823,10 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertTrue(outcome["unrecovered_failure"])
         self.assertFalse(outcome["controller_update_committed"])
 
-    def test_v3_target_on_cycle_50_uses_recovery_and_transaction_rules(self):
+    def test_lstdq_target_on_cycle_50_uses_recovery_and_transaction_rules(self):
         for fallback_failed in (False, True):
             with self.subTest(fallback_failed=fallback_failed):
-                controller = _v3_controller()
+                controller = _lstdq_controller()
                 state_before = controller.snapshot_learning_state()
                 calls = []
 

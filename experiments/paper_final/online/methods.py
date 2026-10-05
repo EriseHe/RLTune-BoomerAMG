@@ -25,7 +25,7 @@ from solve.controllers.common import ControllerBundle
 from solve.registry import ONLINE_SOLVE_KINDS, build_online_solve_controller
 
 SETUP_BANDIT_KINDS = ONLINE_SETUP_KINDS
-_CONTROLLER_SEED_OFFSETS = {"recursive_lstdq_v3": 2018}
+_CONTROLLER_SEED_OFFSETS = {"recursive_lstdq": 2018}
 
 
 @dataclass(frozen=True)

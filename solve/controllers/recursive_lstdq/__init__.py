@@ -1,14 +1,11 @@
 """Episode-cluster recursive LSTDQ used by the SISC studies."""
 
-from .config import RecursiveLstdqLcbSpec, RecursiveLstdqV3LcbSpec
-from .factory import build_recursive_lstdq_v3_controller
-from .v1 import RecursiveLstdqLcbController
-from .v3 import RecursiveLstdqV3LcbController
+from .config import RecursiveLstdqSpec
+from .controller import RecursiveLstdqController
+from .factory import build_recursive_lstdq_controller
 
 __all__ = [
-    "RecursiveLstdqLcbSpec",
-    "RecursiveLstdqV3LcbSpec",
-    "build_recursive_lstdq_v3_controller",
-    "RecursiveLstdqLcbController",
-    "RecursiveLstdqV3LcbController",
+    "RecursiveLstdqSpec",
+    "build_recursive_lstdq_controller",
+    "RecursiveLstdqController",
 ]

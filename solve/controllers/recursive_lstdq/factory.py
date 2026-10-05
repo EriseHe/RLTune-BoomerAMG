@@ -5,25 +5,24 @@ from solve.controllers.common import (
     OnlineControllerFactoryRequest,
     build_shared_action_controller_bundle,
 )
-from .config import RecursiveLstdqV3LcbSpec
-from .v3 import RecursiveLstdqV3LcbController
+from .config import RecursiveLstdqSpec
+from .controller import RecursiveLstdqController
 
 
-def build_recursive_lstdq_v3_controller(
-    request: OnlineControllerFactoryRequest[RecursiveLstdqV3LcbSpec],
+def build_recursive_lstdq_controller(
+    request: OnlineControllerFactoryRequest[RecursiveLstdqSpec],
 ) -> ControllerBundle:
-    """Build episode-cluster sandwich recursive LSTDQ v3."""
+    """Build recursive LSTDQ with episode-cluster sandwich uncertainty."""
 
     spec = request.algorithm
     return build_shared_action_controller_bundle(
         request=request,
-        kind="recursive_lstdq_v3",
+        kind="recursive_lstdq",
         family="recursive_lstdq",
-        controller_type=RecursiveLstdqV3LcbController,
+        controller_type=RecursiveLstdqController,
         epsilon_enabled=True,
         protocol_details={
-            "version": "v3",
-            "target": "same recursive LSTDQ mean as v1/v2",
+            "target": "completion cost with executed-next-action LSTDQ(lambda)",
             "ridge": float(spec.ridge),
             "uncertainty_beta": float(spec.uncertainty_beta),
             "uncertainty": ("episode-cluster post-fit sandwich covariance"),
@@ -35,4 +34,4 @@ def build_recursive_lstdq_v3_controller(
     )
 
 
-__all__ = ["build_recursive_lstdq_v3_controller"]
+__all__ = ["build_recursive_lstdq_controller"]

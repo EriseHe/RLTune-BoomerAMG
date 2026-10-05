@@ -33,6 +33,36 @@ class RecordedOnlineInputTests(unittest.TestCase):
         )
         self.args = runtime_config_from_spec(parse_joint_experiment_config(self.raw))
 
+    def test_current_lstdq_settings_match_recorded_labels_and_confidence(self):
+        for beta in (None, 2.0, 3.75):
+            with self.subTest(beta=beta):
+                recorded = copy.deepcopy(self.raw)
+                recorded["solve"]["lstdq"]["beta"] = 9.0
+                recorded["solve"]["lstdq_v3"] = (
+                    {} if beta is None else {"beta": beta}
+                )
+                current = copy.deepcopy(recorded)
+                for method in current["methods"]:
+                    if method["solve"] == "recursive_lstdq_v3":
+                        method["solve"] = "recursive_lstdq"
+                current["solve"].pop("lstdq_v2")
+                current["solve"].pop("lstdq_v3")
+                if beta is None:
+                    current["solve"]["lstdq"].pop("beta")
+                else:
+                    current["solve"]["lstdq"]["beta"] = beta
+
+                recorded_spec = parse_joint_experiment_config(recorded)
+                current_spec = parse_joint_experiment_config(current)
+                self.assertEqual(current_spec.solve, recorded_spec.solve)
+                self.assertEqual(current_spec.methods, recorded_spec.methods)
+                self.assertEqual(current_spec.seeds, recorded_spec.seeds)
+                self.assertEqual(current_spec.stream, recorded_spec.stream)
+                self.assertEqual(
+                    current_spec.solve.recursive_lstdq.uncertainty_beta,
+                    2.0 if beta is None else beta,
+                )
+
     def test_accepted_stream_avoids_platform_math_and_retains_old_manifest(self):
         with patch.object(
             case_loop,

@@ -10,13 +10,13 @@ from solve.controllers.common import (
     SolveStateSpec,
 )
 from solve.controllers.recursive_lstdq import (
-    RecursiveLstdqV3LcbController,
-    RecursiveLstdqV3LcbSpec,
-    build_recursive_lstdq_v3_controller,
+    RecursiveLstdqController,
+    RecursiveLstdqSpec,
+    build_recursive_lstdq_controller,
 )
 
-OnlineSolveKind = Literal["recursive_lstdq_v3"]
-AlgorithmSpec = RecursiveLstdqV3LcbSpec
+OnlineSolveKind = Literal["recursive_lstdq"]
+AlgorithmSpec = RecursiveLstdqSpec
 
 
 @dataclass(frozen=True)
@@ -48,13 +48,13 @@ SOLVE_KIND_REGISTRY: dict[str, SolveKindRegistration] = {
         family="fixed_weight",
         backend="fixed_weight",
     ),
-    "recursive_lstdq_v3": SolveKindRegistration(
-        kind="recursive_lstdq_v3",
+    "recursive_lstdq": SolveKindRegistration(
+        kind="recursive_lstdq",
         family="recursive_lstdq",
         backend="online_controller",
-        controller_type=RecursiveLstdqV3LcbController,
-        spec_type=RecursiveLstdqV3LcbSpec,
-        factory=build_recursive_lstdq_v3_controller,
+        controller_type=RecursiveLstdqController,
+        spec_type=RecursiveLstdqSpec,
+        factory=build_recursive_lstdq_controller,
         trace_lambda_from_request=True,
     ),
 }
@@ -127,9 +127,16 @@ def build_online_solve_controller(
 
 def solve_kind_registration(kind: str) -> SolveKindRegistration:
     try:
-        return SOLVE_KIND_REGISTRY[str(kind)]
+        return SOLVE_KIND_REGISTRY[normalize_solve_kind(kind)]
     except KeyError as exc:
         raise ValueError(f"Unknown solve-controller kind: {kind}") from exc
+
+
+def normalize_solve_kind(kind: str) -> str:
+    """Read the original paper label as the single current LSTDQ method."""
+
+    token = str(kind)
+    return "recursive_lstdq" if token == "recursive_lstdq_v3" else token
 
 
 def _online_registration(kind: str) -> SolveKindRegistration:
@@ -168,5 +175,6 @@ __all__ = [
     "SolveKindRegistration",
     "build_online_solve_controller",
     "make_online_controller_spec",
+    "normalize_solve_kind",
     "solve_kind_registration",
 ]

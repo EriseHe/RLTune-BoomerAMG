@@ -14,8 +14,8 @@ the [setup guide](../setup/README.md), [solve guide](../solve/README.md), and
 | Path | Responsibility |
 |---|---|
 | `problems/` | PDE coefficients, context encoders and deterministic input streams |
-| `setup/` | Shared context-action LinUCB V4, hierarchy action spaces, candidate schedules and checkpoint persistence |
-| `solve/` | Recursive LSTDQ V3, state/action encoders, cycle execution and recovery accounting |
+| `setup/` | Shared context-action LinUCB, hierarchy action spaces, candidate schedules and checkpoint persistence |
+| `solve/` | Recursive LSTDQ, state/action encoders, cycle execution and recovery accounting |
 | `hypre/source/` | Preserved HYPRE implementation and upstream notices |
 | `hypre/interfaces/` | Project-owned C wiring into HYPRE and native regression tests |
 | `hypre/bindings/` | Python native adapter, typed statuses and bounded fallback |
@@ -43,8 +43,8 @@ controllers, or experiment runners.
 The underlying stream retains its eight-field coefficient representation.
 Official diffusion experiments select `diffusion3d`; diffusion-advection
 experiments select `canonical_no_c_mean`. Both retain an intercept and remove
-redundant mean features from the learner-visible view. The original default
-V4 context projection remains available for existing configuration defaults.
+redundant mean features from the learner-visible view. The default LinUCB
+context projection remains available for existing configuration defaults.
 
 ## Online experiment engine
 
@@ -80,7 +80,7 @@ combines these components into the three online methods and the matched frozen
 comparison. Learner implementations do not import executable experiment scripts.
 
 `setup.registry` constructs `default` and `linucb` setup branches.
-`solve.registry` constructs `default`, `fixed` and `recursive_lstdq_v3` solve
+`solve.registry` constructs `default`, `fixed` and `recursive_lstdq` solve
 branches. Controller and encoder pairing, numerical updates, candidate schedules
 and checkpoint data stay with their owning packages. Setup/solve coordination
 and study-specific policy selection stay in the experiment layer.

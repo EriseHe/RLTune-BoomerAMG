@@ -1,13 +1,13 @@
 # Setup phase
 
 The SISC studies select BoomerAMG hierarchy parameters with shared context-action
-LinUCB V4. `registry.py` accepts `default` and `linucb`; it constructs the learner
+LinUCB. `registry.py` accepts `default` and `linucb`; it constructs the learner
 through the LinUCB factory. The native solver defaults remain in `space.py`.
 
 - `space.py`: named categorical configuration spaces, parameter grids, and the
   setup observation encoder used by the solve controller, and stable action
   enumeration.
-- `learners/linucb/`: V4 learning, checkpoint persistence, and same-instance setup
+- `learners/linucb/`: learning, checkpoint persistence, and same-instance setup
   reselection.
 - `learners/common/`: mixed-type action features, compact action catalogs,
   candidate schedules, and shared constructor inputs.
@@ -15,7 +15,7 @@ through the LinUCB factory. The native solver defaults remain in `space.py`.
 
 ## LinUCB implementation
 
-`learners/linucb/SharedLinUCB_AMG_v4.py` shares a linear context-action model
+[SharedLinUCB](learners/linucb/learner.py) shares a linear context-action model
 across configurations and preserves its original numerical updates, RNG state,
 and NPZ checkpoint format. `learners/linucb/setup_reselection.py` handles setup
 failure and same-instance reselection; the experiment layer owns the recovery
@@ -25,7 +25,7 @@ policy and supplies the observed completion cost.
 action features, compact catalogs, cached factorized features, and ahead-of-time
 candidate schedules. `learners/common/config.py` holds shared construction
 inputs; `learners/linucb/config.py` and `learners/linucb/factory.py` own the
-V4-specific construction.
+LinUCB-specific construction.
 
 An experiment runner uses `setup.registry.make_setup_learner_spec` and
 `setup.registry.build_online_setup_learner`. Canonical class paths remain under

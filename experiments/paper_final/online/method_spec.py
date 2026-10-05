@@ -5,7 +5,7 @@ from typing import Any, Mapping
 from problems.registry import DEFAULT_SETUP_CONTEXT, normalize_setup_context_mode
 from setup.registry import COMPOSABLE_SETUP_KINDS, ONLINE_SETUP_KINDS
 from solve.controllers.common import CANONICAL_PROBLEM_CONTEXT, PROBLEM_CONTEXT_MODES
-from solve.registry import COMPOSABLE_SOLVE_KINDS, ONLINE_SOLVE_KINDS
+from solve.registry import COMPOSABLE_SOLVE_KINDS, ONLINE_SOLVE_KINDS, normalize_solve_kind
 
 METHOD_KEYS = {
     "id",
@@ -55,7 +55,7 @@ class ComposableMethodSpec:
             return "default_setup"
         if self.solve_kind == "default":
             return "default"
-        return "recursive_lstdq_v3_lcb"
+        return "recursive_lstdq_lcb"
 
     @property
     def label(self) -> str:
@@ -64,7 +64,7 @@ class ComposableMethodSpec:
             setup = f"{setup} ({CONTEXT_DISPLAY_LABELS.get(self.setup_context, self.setup_context)})"
         solve = {
             "default": "default solve",
-            "recursive_lstdq_v3": "Recursive LSTDQ v3-LCB",
+            "recursive_lstdq": "Recursive LSTDQ",
         }[self.solve_kind]
         if self.solve_activation_case:
             solve = f"{solve}; activate={self.solve_activation_case}"
@@ -87,11 +87,12 @@ class ComposableMethodSpec:
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ComposableMethodSpec":
-        if raw.get("setup") == "default" and raw.get("solve") != "default":
+        solve_kind = normalize_solve_kind(raw.get("solve"))
+        if raw.get("setup") == "default" and solve_kind != "default":
             raise ValueError("The official Default branch uses default setup and solve")
-        if raw.get("setup") not in {"default", "linucb"} or raw.get("solve") not in {
+        if raw.get("setup") not in {"default", "linucb"} or solve_kind not in {
             "default",
-            "recursive_lstdq_v3",
+            "recursive_lstdq",
         }:
             raise ValueError(
                 "The submission supports only Default, LinUCB, and LinUCB–LSTDQ"
@@ -107,7 +108,6 @@ class ComposableMethodSpec:
         if any((character in name for character in "/\\")):
             raise ValueError("method ids cannot contain path separators")
         setup_kind = str(raw["setup"])
-        solve_kind = str(raw["solve"])
         if setup_kind not in COMPOSABLE_SETUP_KINDS:
             raise ValueError(f"Unsupported setup kind: {setup_kind}")
         if solve_kind not in COMPOSABLE_SOLVE_KINDS:

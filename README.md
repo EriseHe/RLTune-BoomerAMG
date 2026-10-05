@@ -4,8 +4,8 @@ Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandit
 and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
 
 Code and frozen protocols for the SISC studies of online BoomerAMG autotuning:
-shared context-action LinUCB V4 selects hierarchy parameters, and recursive
-LSTDQ V3 selects relaxation weights during the solve.
+shared context-action LinUCB selects hierarchy parameters, and recursive
+LSTDQ selects relaxation weights during the solve.
 
 This submission tree contains Module 04 online comparison and the accepted
 Module 05 matched-hierarchy Run 05. It includes 42 exact online configurations,

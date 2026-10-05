@@ -19,11 +19,11 @@ from experiments.paper_final.online.reporting import (
     _write_summary_csv,
 )
 
-FAMILY_ORDER = ("default_setup", "default", "recursive_lstdq_v3_lcb")
+FAMILY_ORDER = ("default_setup", "default", "recursive_lstdq_lcb")
 FAMILY_LABELS = {
     "default_setup": "Default",
     "default": "LinUCB",
-    "recursive_lstdq_v3_lcb": "LinUCB–LSTDQ",
+    "recursive_lstdq_lcb": "LinUCB–LSTDQ",
 }
 
 
@@ -69,7 +69,7 @@ def _compact_method_labels(protocol: Dict[str, Any]) -> Dict[str, str]:
         len(specs) == 3
         and len(learned) == 2
         and (
-            {s.get("solve_kind") for s in learned} == {"default", "recursive_lstdq_v3"}
+            {s.get("solve_kind") for s in learned} == {"default", "recursive_lstdq"}
         )
         and (
             len(

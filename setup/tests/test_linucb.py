@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from setup.learners import SharedLinUCB_AMG_v4
+from setup.learners import SharedLinUCB
 from setup.learners.linucb import run_same_context_setup_reselection
 from setup.learners.common import (
     AOTCandidateSchedule,
@@ -24,7 +24,7 @@ from setup.space import build_actions_from_spec
 from hypre.bindings.recovery import InvalidObservationError
 
 
-class SharedLinUCBV4Tests(unittest.TestCase):
+class SharedLinUCBTests(unittest.TestCase):
     def test_budgeted_failure_updates_cost_and_risk_with_matching_precision(self):
         model = self._model()
         context = np.asarray([1.0, 0.5])
@@ -240,7 +240,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
             )
 
             schedule.set_cursor(0)
-            model = SharedLinUCB_AMG_v4(
+            model = SharedLinUCB(
                 catalog,
                 context_dim=2,
                 parameter_spec=parameter_spec,
@@ -300,7 +300,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
                 pool_size=4,
                 seed=23,
             )
-            model = SharedLinUCB_AMG_v4(
+            model = SharedLinUCB(
                 catalog,
                 context_dim=2,
                 parameter_spec=parameter_spec,
@@ -342,7 +342,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
             self.assertEqual(len(model._cand._sparse_arm_stats), 2)
 
     @staticmethod
-    def _model(*, seed: int = 7) -> SharedLinUCB_AMG_v4:
+    def _model(*, seed: int = 7) -> SharedLinUCB:
         parameter_spec = ParameterSpaceSpec(
             parameters=(
                 ParameterSpec(
@@ -356,7 +356,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
             )
         )
         actions = build_actions_from_spec(parameter_spec)
-        return SharedLinUCB_AMG_v4(
+        return SharedLinUCB(
             actions,
             context_dim=2,
             parameter_spec=parameter_spec,
@@ -378,7 +378,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
             )
         )
         actions = build_actions_from_spec(parameter_spec)
-        model = SharedLinUCB_AMG_v4(
+        model = SharedLinUCB(
             actions,
             context_dim=2,
             parameter_spec=parameter_spec,

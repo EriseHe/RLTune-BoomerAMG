@@ -19,7 +19,7 @@ from experiments.paper_final.online.configuration import (
 from experiments.paper_final.online.run import _validate_resolved
 from experiments.paper_final.online.methods import build_composable_solve_runtime
 from solve.controllers.common import ControllerBundle
-from setup.learners.linucb.SharedLinUCB_AMG_v4 import SharedLinUCB_AMG_v4
+from setup.learners.linucb.learner import SharedLinUCB
 from hypre.bindings import AttemptOutcome, RecoveryOutcome
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -29,7 +29,7 @@ def _mocked_online_run(destination, family):
     """Use real learners and deterministic costs to exercise the orchestration."""
     repo = ROOT
     rollback_outcomes = []
-    original_rollback = SharedLinUCB_AMG_v4.rollback_recovery_transaction
+    original_rollback = SharedLinUCB.rollback_recovery_transaction
 
     def checked_rollback(model):
         before = copy.deepcopy(model._recovery_transaction)
@@ -205,7 +205,7 @@ def _mocked_online_run(destination, family):
 
     with (
         patch.object(
-            SharedLinUCB_AMG_v4, "rollback_recovery_transaction", checked_rollback
+            SharedLinUCB, "rollback_recovery_transaction", checked_rollback
         ),
         patch.object(time, "perf_counter", side_effect=sec),
         patch.object(time, "perf_counter_ns", side_effect=ns),

@@ -18,7 +18,7 @@ from .amg import (
 from .scalar_anisotropic_diffusion_advection import (
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_DIM,
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_INTERACTION_INDICES,
-    build_legacy_linucb_v4_context,
+    build_default_linucb_context,
 )
 
 SCALAR_ANISOTROPIC_DIFFUSION = "scalar_anisotropic_diffusion"
@@ -146,7 +146,7 @@ def context_for_setup_method(
             if grid_norm_div is None
             else float(grid_norm_div)
         )
-        return build_legacy_linucb_v4_context(
+        return build_default_linucb_context(
             stream_context=context,
             nx=int(matrix_kwargs["nx"]),
             ny=int(matrix_kwargs["ny"]),

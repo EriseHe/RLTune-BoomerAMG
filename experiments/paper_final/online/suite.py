@@ -228,7 +228,7 @@ def validate_suite(path: Path = SUITE) -> dict:
                 raise ValueError("Unexpected setup/context/activation contract")
         if (
             bandit.solve_kind != "default"
-            or joint.solve_kind != "recursive_lstdq_v3"
+            or joint.solve_kind != "recursive_lstdq"
             or joint.solve_activation_case != 1000
             or (joint.solve_context != mode)
             or (joint.solve_tolerance != 1e-06)
