@@ -13,6 +13,11 @@ __pycache__/
 .ruff_cache/
 .ipynb_checkpoints/
 
+# Python packaging outputs
+*.egg-info/
+/build/
+/dist/
+
 # Virtual environments
 .venv/
 venv/

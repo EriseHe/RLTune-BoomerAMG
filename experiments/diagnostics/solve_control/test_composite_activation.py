@@ -85,7 +85,7 @@ class CompositeEvidenceTests(unittest.TestCase):
 
     def test_configuration_contract_and_legacy_roundtrip(self):
         raw = json.loads(PILOT.read_text())
-        source = json.loads((CONFIGS.parents[2] / 'paper_final/04_online/diffusion_60_s1.json').read_text())
+        source = json.loads((CONFIGS.parents[2] / 'archive/paper_development/04_online/diffusion_60_s1.json').read_text())
         for key in ('problem', 'solve'):
             self.assertEqual(raw[key], source[key])
         # The retained pilot keeps its original seeds; the formal replicate

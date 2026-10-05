@@ -62,13 +62,19 @@ learning feedback is rolled back if recovery also fails.
 Run in the activated environment after building the native interfaces:
 
 ```bash
-python -m unittest discover -s setup/tests -p 'test_*.py'
-python -m unittest discover -s problems/tests -p 'test_*.py'
-python -m unittest discover -s solve/tests -p 'test_*.py'
-python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py'
-python -m unittest discover -s experiments/paper_final -p 'test_*.py'
+python -m pip install -e '.[dev]'
+python scripts/check_repository.py
 ```
 
 Native integration checks require the MPI compiler toolchain in addition to the
 Python environment. Timing depends on hardware and system load; preserve inputs,
 seeds, stopping rules, and accounting when comparing runs.
+
+The checker compiles project Python source, runs fatal static checks, and runs
+each test group in a separate process. CI builds the native interfaces on Linux
+before running the same checks. Development diagnostic/archive tests run when
+those directories are present; required core/native/paper tests always run.
+
+Install `.[artifacts]` when generating the experiment release PDF with the
+Module 05 packager. The [cleanup report](docs/repository_cleanup_20261004.md)
+records the reorganization and validation.

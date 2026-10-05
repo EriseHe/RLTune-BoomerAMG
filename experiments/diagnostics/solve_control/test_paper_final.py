@@ -30,10 +30,19 @@ from problems.registry import context_for_setup_method
 from setup.space import DEFAULT_SETUP_PARAMS
 
 
+ARCHIVED_SUITE = suite.ROOT / "experiments/archive/paper_development/04_online/suite.json"
+
+
 class PaperFinalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.manifest, cls.configs = suite.load_suite()
+        cls.manifest, cls.configs = suite.load_suite(ARCHIVED_SUITE)
+
+    def test_default_suite_is_the_official_six_group_protocol(self):
+        manifest, configs = suite.load_suite()
+        self.assertEqual(len(configs), 6)
+        self.assertEqual(suite.SUITE.parent.name, "20260920_formal")
+        self.assertEqual({entry["family"] for entry, _, _ in configs}, {"diffusion", "diffusion_advection"})
 
     def runtime(self, family="diffusion_advection"):
         raw = next(raw for entry, _path, raw in self.configs if entry["family"] == family)
@@ -219,7 +228,7 @@ class PaperFinalTests(unittest.TestCase):
                 suite.load_suite(suite_path)
 
     def test_september18_suite_has_requested_seed_and_family_budgets(self):
-        path = suite.SUITE.parent / "20260918/suite.json"
+        path = ARCHIVED_SUITE.parent / "20260918/suite.json"
         manifest, configs = suite.load_suite(path)
         self.assertEqual(len(configs), 6)
         self.assertEqual(manifest["allow_unrecovered_families"], ["diffusion_advection"])
@@ -231,13 +240,13 @@ class PaperFinalTests(unittest.TestCase):
         self.assertTrue(suite.validate_suite(path)["valid"])
 
     def test_advection50_rerun_preserves_inputs_and_only_changes_cycle_budget(self):
-        path = suite.SUITE.parent / "20260918_advection50/suite.json"
+        path = ARCHIVED_SUITE.parent / "20260918_advection50/suite.json"
         manifest, configs = suite.load_suite(path)
         self.assertEqual(manifest["families"], ["diffusion_advection"])
         self.assertTrue(manifest["abort_on_clock_mismatch"])
         self.assertEqual([entry["grid"] for entry, _, _ in configs], [40, 60, 80])
         for entry, _, raw in configs:
-            old_path = suite.SUITE.parent / "20260918" / entry["config"]
+            old_path = ARCHIVED_SUITE.parent / "20260918" / entry["config"]
             expected = json.loads(old_path.read_text())
             expected["solve"]["max_cycles"] = 50
             for key in ("description", "output_dir"):
@@ -247,7 +256,7 @@ class PaperFinalTests(unittest.TestCase):
         self.assertTrue(suite.validate_suite(path)["valid"])
 
     def test_cap_comparison_prescribes_identical_inputs_and_common_penalty(self):
-        path = suite.SUITE.parent / "20260919_cap_comparison/suite.json"
+        path = ARCHIVED_SUITE.parent / "20260919_cap_comparison/suite.json"
         manifest, configs = suite.load_suite(path)
         self.assertEqual([entry["cap"] for entry, _, _ in configs], [100, 200, 500])
         self.assertEqual(manifest["reference_cap"], 100)
@@ -269,9 +278,9 @@ class PaperFinalTests(unittest.TestCase):
                 suite.validate_suite(path)
 
     def test_original_policy_cap_suite_changes_only_horizon(self):
-        path = suite.SUITE.parent / "20260919_cap_baseline/suite.json"
+        path = ARCHIVED_SUITE.parent / "20260919_cap_baseline/suite.json"
         manifest, configs = suite.load_suite(path)
-        baseline = json.loads((suite.SUITE.parent / "20260918/advection_60_s1.json").read_text())
+        baseline = json.loads((ARCHIVED_SUITE.parent / "20260918/advection_60_s1.json").read_text())
         self.assertEqual(manifest["failure_feedback"], {"mode":"rollback_unrecovered"})
         self.assertEqual([entry["cap"] for entry, _, _ in configs], [100, 200, 500])
         for entry, _, raw in configs:
@@ -330,16 +339,16 @@ class PaperFinalTests(unittest.TestCase):
                 patch("experiments.joint.solve_control.analyze_paper_final.audit_run", return_value={"unrecovered_failures": 0}), \
                 patch("experiments.joint.solve_control.analyze_paper_final.write_reports"), patch("sys.stdout", new_callable=io.StringIO):
             output = Path(tmp)
-            suite.run_suite(suite.SUITE, output)
+            suite.run_suite(ARCHIVED_SUITE, output)
             self.assertEqual(len(commands), 18)
             for command, (_entry, config_path, _raw) in zip(commands, self.configs):
                 self.assertIn(str(config_path), command)
             self.assertEqual(len(list(output.glob("*.complete.json"))), 18)
-            suite.run_suite(suite.SUITE, output)
+            suite.run_suite(ARCHIVED_SUITE, output)
             self.assertEqual(len(commands), 18)
             source.return_value = {"sha256": "changed", "files": {}}
             with self.assertRaisesRegex(RuntimeError, "changed since suite launch"):
-                suite.run_suite(suite.SUITE, output)
+                suite.run_suite(ARCHIVED_SUITE, output)
 
     def test_family_and_seed_filter_dispatches_only_three_grids(self):
         real_run = suite.subprocess.run
@@ -354,13 +363,13 @@ class PaperFinalTests(unittest.TestCase):
                 patch("sys.stdout", new_callable=io.StringIO):
             audit = Mock(return_value={"unrecovered_failures": 0})
             report = Mock()
-            suite.run_suite(suite.SUITE, Path(tmp), family="diffusion", seed=1,
+            suite.run_suite(ARCHIVED_SUITE, Path(tmp), family="diffusion", seed=1,
                             run_audit=audit, report_writer=report)
             selected = [Path(call.args[0][4]).stem for call in dispatch.call_args_list
                         if call.args[0][0] == suite.sys.executable]
             self.assertEqual(selected, [f"diffusion_{n}_s1" for n in (40, 60, 80)])
             self.assertEqual(len(list((Path(tmp) / "logs").glob("*.log"))), 3)
-            report.assert_called_with(suite.SUITE, Path(tmp), allow_partial=True)
+            report.assert_called_with(ARCHIVED_SUITE, Path(tmp), allow_partial=True)
 
     def test_prescribed_advection_failures_are_retained_and_allow_resume(self):
         configs = [c for c in self.configs if c[0]["family"] == "diffusion_advection"][:2]
@@ -382,8 +391,8 @@ class PaperFinalTests(unittest.TestCase):
             output = Path(tmp)
             kwargs = dict(suite_loader=lambda _: (manifest, configs),
                           run_audit=Mock(return_value={"unrecovered_failures": 2}), report_writer=Mock())
-            suite.run_suite(suite.SUITE, output, **kwargs)
-            suite.run_suite(suite.SUITE, output, **kwargs)
+            suite.run_suite(ARCHIVED_SUITE, output, **kwargs)
+            suite.run_suite(ARCHIVED_SUITE, output, **kwargs)
             self.assertEqual(len(commands), 2)
             markers = list(output.glob("*.complete.json"))
             self.assertEqual(len(markers), 2)
