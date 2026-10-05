@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import sys
@@ -14,13 +15,13 @@ TEST_DIR = Path(__file__).resolve().parents[1]
 if str(TEST_DIR) not in sys.path:
     sys.path.insert(0, str(TEST_DIR))
 
-from run_exp44_ppo_sarsa_online import (  # noqa: E402
+from experiments.joint.solve_control.run_exp44_ppo_sarsa_online import (  # noqa: E402
     _clustered_metric,
     _record,
     _trace_summary,
     run,
 )
-from plot_exp44_ppo_sarsa_online import _paired_improvement_ci  # noqa: E402
+from experiments.joint.solve_control.plot_exp44_ppo_sarsa_online import _paired_improvement_ci  # noqa: E402
 
 
 def _row(value: float, *, params: dict | None = None) -> dict:

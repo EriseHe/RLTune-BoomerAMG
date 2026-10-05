@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -11,7 +12,7 @@ import time
 
 import numpy as np
 
-from diagnose_native_timing_outlier import (
+from experiments.diagnostics.solve_control.diagnose_native_timing_outlier import (
     _cpu_number,
     _delta,
     _proc_counters,
@@ -19,7 +20,7 @@ from diagnose_native_timing_outlier import (
     _usage,
 )
 from hypre.bindings import create_env
-from online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 
 
 def main() -> None:

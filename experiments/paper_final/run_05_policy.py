@@ -5,14 +5,14 @@ records development selection before dispatching any test evaluations.
 """
 from __future__ import annotations
 
+from experiments.runtime import (
+    configure_single_thread, THREAD_KEYS, prevent_sleep, stop_sleep_prevention, single_thread_environment,
+)
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 import os
-
-THREAD_KEYS = ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
-               "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS")
-for _key in THREAD_KEYS:
-    os.environ[_key] = "1"
-
-from experiments.diagnostics.solve_control import _project_paths  # noqa: E402,F401
 
 import argparse
 from collections import defaultdict
@@ -40,13 +40,13 @@ from experiments.paper_final.run_02_diagnostics import (
 )
 from hypre.bindings import RecoveryOutcome, create_env, run_with_default_fallback
 from hypre.bindings.config import configure_smoother_profile
-from joint_online_common import report_online_outcome
-from online_td_experiment_common import _json_ready
+from experiments.joint.solve_control.joint_online_common import report_online_outcome
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready
 from problems.registry import context_for_setup_method
 from problems.streams import generate_scalar_anisotropic_diffusion_instances
-from run_lstdq_v3_stability import _run_case
+from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params, build_online_linucb_branch, solve_no_rl_case,
 )
 
@@ -162,7 +162,7 @@ def environment_check(output):
     current = {d.metadata["Name"].lower().replace("_", "-"): d.version for d in importlib.metadata.distributions()}
     native = {p: file_hash(ROOT / p) for p in reference["native_hashes"]}
     result = {"at": now(), "python": sys.version, "executable": sys.executable,
-              "platform": platform.platform(), "thread_environment": {k: os.environ[k] for k in THREAD_KEYS},
+              "platform": platform.platform(), "thread_environment": {k: os.environ.get(k) for k in THREAD_KEYS},
               "native_hashes": native, "native_identical": native == reference["native_hashes"],
               "python_identical": sys.version == reference["python"], "packages": current,
               "reference_packages": package_reference,
@@ -772,14 +772,14 @@ def _supervisor(output, workers=3):
     def interrupted(signum, frame):
         raise KeyboardInterrupt(f"Supervisor received signal {signum}")
     signal.signal(signal.SIGTERM, interrupted)
-    awake = subprocess.Popen(["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())])
+    awake = prevent_sleep()
     children, logs = [], []
     protocol = read(output / "protocol.json")
     state = {"started_at": now(), "status": "running", "pid": os.getpid(), "workers": workers,
-             "awake_pid": awake.pid, "output": str(output), "completed_phases": []}
+             "awake_pid": (awake.pid if awake is not None else None), "output": str(output), "completed_phases": []}
     dump(output / "status.json", state)
-    emit(output, "Module 05 started; Mac sleep inhibited", workers=workers, seeds=protocol["training_seeds"],
-         cases=protocol["test_cases"], awake_pid=awake.pid)
+    emit(output, "Module 05 started", workers=workers, seeds=protocol["training_seeds"],
+         cases=protocol["test_cases"], awake_pid=(awake.pid if awake is not None else None), sleep_protection=awake is not None)
     run_start = time.monotonic()
     try:
         for phase in ["development", "test", "repetitions"]:
@@ -811,7 +811,7 @@ def _supervisor(output, workers=3):
                 logs.append(log)
                 children.append(subprocess.Popen([sys.executable, "-u", "-m", "experiments.paper_final.run_05_policy", "worker",
                     "--output", str(output), "--phase", phase, "--worker-id", str(worker_id), "--workers", str(workers)],
-                    cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
+                    cwd=ROOT, env=single_thread_environment(), stdout=log, stderr=subprocess.STDOUT))
             state["worker_pids"] = [p.pid for p in children]
             last_print = 0.
             while True:
@@ -858,9 +858,7 @@ def _supervisor(output, workers=3):
         stop_children(children)
         for log in logs:
             log.close()
-        if awake.poll() is None:
-            awake.terminate()
-            awake.wait()
+        stop_sleep_prevention(awake)
 
 
 def show_status(output, *, watching=False):

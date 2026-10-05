@@ -1,7 +1,13 @@
 """Module 05 Run 02: retime frozen policies on the exact Run 01 Joint jobs."""
 from __future__ import annotations
 
-# Import the original runner first: it pins library threads before NumPy/MPI.
+from experiments.runtime import (
+    configure_single_thread, prevent_sleep, stop_sleep_prevention, single_thread_environment,
+)
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 from experiments.paper_final import run_05_policy as first
 
 import argparse
@@ -229,21 +235,21 @@ def supervisor(output, workers=3):
         def interrupted(signum, frame):
             raise KeyboardInterrupt(f"Signal {signum}")
         signal.signal(signal.SIGTERM, interrupted)
-        awake = subprocess.Popen(["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())])
+        awake = prevent_sleep()
         children, logs = [], []
         start = time.monotonic()
         total = len(expected_cells(first.read(output / "jobs_test.json")))
         state = {"run_number": 2, "started_at": first.now(), "at": first.now(), "status": "running", "phase": "test",
-                 "pid": os.getpid(), "awake_pid": awake.pid, "workers": workers, "phase_total": total,
+                 "pid": os.getpid(), "awake_pid": (awake.pid if awake is not None else None), "workers": workers, "phase_total": total,
                  "phase_done": 0, "output": str(output)}
         first.dump(output / "status.json", state)
-        first.emit(output, "Run 02 started; sleep inhibited; all six policies freshly timed", executions=total, workers=workers)
+        first.emit(output, "Run 02 started; all six policies freshly timed", executions=total, workers=workers, sleep_protection=awake is not None)
         try:
             for i in range(workers):
                 log = (output / "raw/test" / f"worker_{i}.log").open("a")
                 logs.append(log)
                 children.append(subprocess.Popen([sys.executable, "-u", "-m", "experiments.paper_final.run_05_policy_repeat", "worker",
-                    "--output", str(output), "--worker-id", str(i), "--workers", str(workers)], cwd=ROOT, stdout=log, stderr=subprocess.STDOUT))
+                    "--output", str(output), "--worker-id", str(i), "--workers", str(workers)], cwd=ROOT, env=single_thread_environment(), stdout=log, stderr=subprocess.STDOUT))
             state["worker_pids"] = [c.pid for c in children]
             last_print = 0.
             while True:
@@ -292,7 +298,7 @@ def supervisor(output, workers=3):
         finally:
             first.stop_children(children)
             for log in logs: log.close()
-            if awake.poll() is None: awake.terminate(); awake.wait()
+            stop_sleep_prevention(awake)
 
 
 def watch(output):
@@ -309,7 +315,7 @@ def watch(output):
                           f"problem {w.get('case','-')} · {w.get('policy','-')} · {w['done']:,}/{w['total']:,}", flush=True)
                 eta = s.get("estimated_remaining_sec")
                 if eta is not None: print(f"Estimated native time remaining: {eta/60:.1f} min; figures follow automatically.", flush=True)
-                print("Sleep protection active while running. Closing this viewer does not stop the experiment.", flush=True)
+                print("Closing this viewer does not stop the experiment.", flush=True)
                 if s.get("error"): print(s["error"], flush=True)
                 previous = marker
             if s["status"] in ("complete", "failed", "interrupted"): return

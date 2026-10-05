@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import copy
@@ -15,16 +16,16 @@ from typing import Any, Callable, Dict, Sequence
 
 import numpy as np
 
-from online_td_experiment_common import _action_diagnostics, _git_revision, _json_ready, _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _action_diagnostics, _git_revision, _json_ready, _write_json
 from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
-from joint_online_common import _method_stream_summary, _report_online_outcome
-from run_online_methods_2k import (
+from experiments.joint.solve_control.joint_online_common import _method_stream_summary, _report_online_outcome
+from experiments.joint.solve_control.run_online_methods_2k import (
     _continuous_action_diagnostics,
     _method_comparison,
     make_exp44_ppo_runner,
     make_true_online_sarsa_controller,
 )
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,

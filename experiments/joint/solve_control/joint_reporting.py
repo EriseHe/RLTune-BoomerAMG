@@ -6,8 +6,8 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from joint_online_common import _method_stream_summary
-from run_online_methods_2k import _method_comparison
+from experiments.joint.solve_control.joint_online_common import _method_stream_summary
+from experiments.joint.solve_control.run_online_methods_2k import _method_comparison
 
 
 _STRUCTURED_MODEL_BASED_METHOD = "bandit_structured_model_based"

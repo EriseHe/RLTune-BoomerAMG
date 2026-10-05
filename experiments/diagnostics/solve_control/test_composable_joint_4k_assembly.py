@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 from pathlib import Path
 from types import SimpleNamespace
@@ -8,8 +9,8 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-import composable_joint_4k as composable
-from joint_method_spec import ComposableMethodSpec
+import experiments.joint.solve_control.composable_joint_4k as composable
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
 from setup.space import SetupConfigurationSpace
 from solve.controllers import ppo
 from solve.controllers.common import SolveStateSpec

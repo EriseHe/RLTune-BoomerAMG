@@ -1,5 +1,9 @@
 """Validate or run the prespecified six-path activation study sequentially."""
-from experiments.diagnostics.solve_control import _project_paths  # noqa: F401
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
 
 import argparse
 import json
@@ -8,12 +12,12 @@ from pathlib import Path
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_online_common import method_stream_summary, validate_recovery_stream
-from online_td_experiment_common import _write_json
-from run_joint_experiment import _validate_resolved
-from run_paper_final import file_hash, require_disk_space, run_suite
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_online_common import method_stream_summary, validate_recovery_stream
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_joint_experiment import _validate_resolved
+from experiments.joint.solve_control.run_paper_final import file_hash, require_disk_space, run_suite
 
 ROOT = Path(__file__).resolve().parents[2]
 SUITE = Path(__file__).with_name("03_activation") / "suite.json"

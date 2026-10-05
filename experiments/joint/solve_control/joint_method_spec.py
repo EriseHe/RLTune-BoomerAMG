@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from joint_rl_activation import ReliabilityActivationSpec
+from experiments.joint.solve_control.joint_rl_activation import ReliabilityActivationSpec
 from problems.registry import (
     DEFAULT_SETUP_CONTEXT,
     normalize_setup_context_mode,

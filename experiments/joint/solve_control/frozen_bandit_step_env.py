@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
 
 import math
 from pathlib import Path
@@ -25,7 +24,7 @@ from setup.space import (
     build_setup_parameter_spec,
 )
 from hypre.bindings import SolveStatus, create_env
-from setup_aware_compare_common import augment_setup_params, solve_no_rl_case
+from experiments.joint.solve_control.setup_aware_compare_common import augment_setup_params, solve_no_rl_case
 
 
 class FrozenBanditStepEnv(gym.Env):

@@ -17,7 +17,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
-import joint_experiment_plotting as module04
+import experiments.joint.solve_control.joint_experiment_plotting as module04
 
 ROOT = base.ROOT
 DEFAULT = training.OUTPUT / "training"

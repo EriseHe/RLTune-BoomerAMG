@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import hashlib
@@ -15,11 +16,11 @@ import numpy as np
 from setup.space import (
     DEFAULT_SETUP_PARAMS,
 )
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 from solve.controllers.common import (
     ControllerBundle,
 )
-from composable_joint_4k import (
+from experiments.joint.solve_control.composable_joint_4k import (
     SETUP_BANDIT_KINDS,
     build_composable_solve_runtime,
     build_named_setup_branches,
@@ -30,8 +31,8 @@ from composable_joint_4k import (
     validate_composable_protocol as _validate_composable_protocol,
     validate_setup_branch_independence,
 )
-from joint_4k_cli import build_parser
-from joint_4k_execution import (
+from experiments.joint.solve_control.joint_4k_cli import build_parser
+from experiments.joint.solve_control.joint_4k_execution import (
     OnlineComparisonHooks,
     OnlineComparisonPlan,
     SolveExecutionConfig,
@@ -40,7 +41,7 @@ from joint_4k_execution import (
     run_default_setup_method,
     run_online_comparison,
 )
-from joint_controller_build import (
+from experiments.joint.solve_control.joint_controller_build import (
     make_encoder as _make_encoder,
     make_lsvi_controller as _make_lsvi_controller,
     make_online_controller_from_args as _make_online_controller_from_args,
@@ -57,9 +58,9 @@ from joint_controller_build import (
     make_structured_model_based_controller as _make_structured_model_based_controller,
     parse_csv_values as _parse_values,
 )
-from joint_experiment_config import JointExperimentRuntimeConfig
+from experiments.joint.solve_control.joint_experiment_config import JointExperimentRuntimeConfig
 from hypre.bindings.recovery import validate_failure_penalty
-from legacy_joint_studies import (
+from experiments.joint.solve_control.legacy_joint_studies import (
     BATCHED_LSVI_METHOD,
     BEHAVIOR_MODES,
     DEFAULT_SETUP_METHOD,
@@ -85,7 +86,7 @@ from legacy_joint_studies import (
     validate_lsvi_protocol as _validate_lsvi_protocol,
     validate_shared_lcb_protocol as _validate_shared_lcb_protocol,
 )
-from joint_online_common import (
+from experiments.joint.solve_control.joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
     _git_revision,
@@ -94,12 +95,12 @@ from joint_online_common import (
     _report_online_outcome,
     _validate_recovery_stream,
 )
-from joint_method_spec import ComposableMethodSpec
-from joint_artifacts import (
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_artifacts import (
     _write_json_line,
     _write_solve_screen_reproduction,
 )
-from joint_reporting import (
+from experiments.joint.solve_control.joint_reporting import (
     _action_summary,
     _comparison_windows,
     _empty_stream_summary,
@@ -107,12 +108,12 @@ from joint_reporting import (
     _write_solve_screen_report,
     _write_summary_csv,
 )
-from joint_protocol import build_joint_protocol
-from run_online_methods_2k import (
+from experiments.joint.solve_control.joint_protocol import build_joint_protocol
+from experiments.joint.solve_control.run_online_methods_2k import (
     _as_feedback,
 )
 from problems.registry import context_for_setup_method
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params,
     build_online_linucb_branch,
     clone_branch_for_independent_updates,

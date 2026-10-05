@@ -4,7 +4,6 @@ No PDE solves or learner updates. Cross-run differences are descriptive: both
 the input/learning seeds and the roster changed. Native costs retain the
 original timer scope; this script does not relabel them as complete wall time.
 """
-from experiments.diagnostics.solve_control import _project_paths  # noqa: F401
 
 import argparse
 import hashlib
@@ -13,9 +12,9 @@ from pathlib import Path
 
 import numpy as np
 
-from analyze_context_activation_mechanism import summarize
+from experiments.diagnostics.solve_control.analyze_context_activation_mechanism import summarize
 from experiments.paper_final.run_03_activation import audit_run
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 
 
 def summarize_window(rows):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from diagnose_max_cycle_headroom import (
+from experiments.diagnostics.solve_control.diagnose_max_cycle_headroom import (
     recorded_action_tail_schedule,
     summarize_replays,
 )

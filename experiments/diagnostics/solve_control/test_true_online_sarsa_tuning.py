@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 from types import SimpleNamespace
 
-from run_exp44_online_rl import make_controller
-from run_true_online_sarsa_tuning import (
+from experiments.joint.solve_control.run_exp44_online_rl import make_controller
+from experiments.joint.solve_control.run_true_online_sarsa_tuning import (
     CandidateSpec,
     DEFAULT_CONTROLLER_SEEDS,
     DEFAULT_EVAL_SEEDS,

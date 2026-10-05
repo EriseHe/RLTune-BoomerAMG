@@ -4,18 +4,20 @@ python -m experiments.paper_final.plot_05_policy
 """
 from __future__ import annotations
 
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 import argparse
 from datetime import datetime, timezone
 import html
 import json
-import os
 from pathlib import Path
 import shutil
 import zipfile
 import numpy as np
 
-for _key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
-    os.environ[_key] = "1"
 
 from experiments.paper_final.module05_figures.data import load_dataset, sha256
 from experiments.paper_final.module05_figures.style import Exporter, apply_style

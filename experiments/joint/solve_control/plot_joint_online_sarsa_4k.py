@@ -7,7 +7,7 @@ adapter preserves historical commands without making current experiments
 depend on a SARSA-named module.
 """
 
-import joint_experiment_plotting as _implementation
+import experiments.joint.solve_control.joint_experiment_plotting as _implementation
 
 
 generate_plots = _implementation.generate_plots

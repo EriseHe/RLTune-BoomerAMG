@@ -5,7 +5,8 @@ flag and still execute through run_joint_experiment.py, without a second runner.
 """
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 from dataclasses import asdict
@@ -22,13 +23,13 @@ import time
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_experiment_plotting import _compact_method_labels
-from joint_online_common import _build_paired_instance_stream
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_experiment_plotting import _compact_method_labels
+from experiments.joint.solve_control.joint_online_common import _build_paired_instance_stream
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 from problems.registry import context_for_setup_method, learning_context_for_setup
-from run_joint_experiment import _validate_resolved
+from experiments.joint.solve_control.run_joint_experiment import _validate_resolved
 from setup.space import DEFAULT_SETUP_PARAMS
 
 
@@ -219,7 +220,7 @@ def require_disk_space(output_root: Path, remaining: int) -> None:
 def run_suite(path: Path, output_root: Path, *, suite_loader=None, run_audit=None,
               report_writer=None, family: str | None = None, seed: int | None = None) -> None:
     import fcntl
-    from analyze_paper_final import audit_run, write_reports
+    from experiments.joint.solve_control.analyze_paper_final import audit_run, write_reports
 
     suite_loader = load_suite if suite_loader is None else suite_loader
     run_audit = partial(audit_run, require_completed_residuals=True) if run_audit is None else run_audit

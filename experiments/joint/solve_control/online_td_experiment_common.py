@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import copy
@@ -20,7 +21,7 @@ from solve.controllers.sarsa import (
     SolveStateEncoder,
     run_td_episode,
 )
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     augment_setup_params,
     generate_difconv_instances,

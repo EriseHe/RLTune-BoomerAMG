@@ -1,4 +1,5 @@
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import ctypes
 import os

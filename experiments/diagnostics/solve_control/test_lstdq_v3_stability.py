@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 
-from run_lstdq_v3_stability import (
+from experiments.diagnostics.solve_control.run_lstdq_v3_stability import (
     V2_METHOD,
     V3_METHOD,
     _summarize_stability,

@@ -3,7 +3,7 @@
 from pathlib import Path
 import sys
 
-from run_joint_experiment import main
+from experiments.joint.solve_control.run_joint_experiment import main
 
 
 if __name__ == "__main__":

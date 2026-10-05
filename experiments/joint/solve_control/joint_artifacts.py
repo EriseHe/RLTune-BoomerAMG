@@ -6,7 +6,7 @@ import shlex
 import sys
 from typing import Any, Dict
 
-from online_td_experiment_common import _json_ready
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready
 
 
 _SOLVE_CONTROLLER_SCREEN_METHODS = (

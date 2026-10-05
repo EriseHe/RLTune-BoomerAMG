@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import copy
@@ -12,16 +13,16 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-import generate_joint_experiment_plots as plot_entrypoint
-import joint_4k_runner as core_runner
-import joint_experiment_plotting as plotter
-import run_joint_experiment as high_level
-import run_joint_online_sarsa_4k as runner
-import plot_shared_action_rl_study as shared_plotter
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import _problem_stream_spec
+import experiments.joint.solve_control.generate_joint_experiment_plots as plot_entrypoint
+import experiments.joint.solve_control.joint_4k_runner as core_runner
+import experiments.joint.solve_control.joint_experiment_plotting as plotter
+import experiments.joint.solve_control.run_joint_experiment as high_level
+import experiments.joint.solve_control.run_joint_online_sarsa_4k as runner
+import experiments.diagnostics.solve_control.plot_shared_action_rl_study as shared_plotter
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import _problem_stream_spec
 from setup.space import SetupConfigurationSpace
-from setup_aware_compare_common import DEFAULT_SETUP_PARAMS
+from experiments.joint.solve_control.setup_aware_compare_common import DEFAULT_SETUP_PARAMS
 
 
 class ComposableJointRunnerTests(unittest.TestCase):

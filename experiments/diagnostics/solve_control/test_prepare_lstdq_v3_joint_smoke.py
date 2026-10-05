@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import json
 from pathlib import Path
 import tempfile
 import unittest
 
-from prepare_lstdq_v3_joint_smoke import prepare_config
-from run_joint_experiment import parse_joint_experiment_config
+from experiments.diagnostics.solve_control.prepare_lstdq_v3_joint_smoke import prepare_config
+from experiments.joint.solve_control.run_joint_experiment import parse_joint_experiment_config
 
 
 class PrepareLstdqV3JointSmokeTests(unittest.TestCase):

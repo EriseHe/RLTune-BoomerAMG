@@ -9,7 +9,8 @@ to infer convergence from residual values alone.
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -19,9 +20,9 @@ from typing import Any, Dict, Iterable, Sequence, Tuple
 
 import numpy as np
 
-from online_td_experiment_common import _json_ready, _write_json
-from joint_experiment_plotting import _read_json_lines
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.joint_experiment_plotting import _read_json_lines
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params,
     solve_no_rl_case,
     solve_schedule_case,

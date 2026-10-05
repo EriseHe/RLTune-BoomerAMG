@@ -1,7 +1,8 @@
 """Encoder-only regressions; no PDE experiments are executed."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import copy
 import json
@@ -11,9 +12,9 @@ import unittest
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime
-from joint_controller_build import make_setup_obs_encoder
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime
+from experiments.joint.solve_control.joint_controller_build import make_setup_obs_encoder
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
 from solve.controllers.common import SolveStateSpec
 

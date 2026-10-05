@@ -1,11 +1,14 @@
 """Render the reviewed schedule derivation as a compact four-page PDF."""
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 from pathlib import Path
 import argparse
 import io
-import os
 import subprocess
-for key in ("OMP_NUM_THREADS","OPENBLAS_NUM_THREADS","MKL_NUM_THREADS","VECLIB_MAXIMUM_THREADS"):
-    os.environ[key]="1"
 
 
 def build(path,math_python=None):

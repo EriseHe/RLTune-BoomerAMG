@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 from types import SimpleNamespace
 import unittest
 
-from run_solve_controller_calibration import (
+from experiments.diagnostics.solve_control.run_solve_controller_calibration import (
     MODEL_METHOD,
     V2_CALIBRATION_BASELINE,
     _apply_v3_calibration_gates,

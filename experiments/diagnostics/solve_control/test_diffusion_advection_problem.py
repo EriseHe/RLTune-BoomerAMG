@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import json
 from pathlib import Path
@@ -8,9 +9,9 @@ import unittest
 
 import numpy as np
 
-import run_joint_experiment as high_level
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import (
+import experiments.joint.solve_control.run_joint_experiment as high_level
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import (
     _build_paired_instance_stream,
     _problem_stream_spec,
     _sampled_advection_range,
@@ -37,7 +38,7 @@ from setup.learners.linucb.SharedLinUCB_AMG_v5 import (
 )
 from solve.controllers.common import SolveStateEncoder
 from setup.space import SetupConfigurationSpace
-from setup_aware_compare_common import build_online_linucb_branch
+from experiments.joint.solve_control.setup_aware_compare_common import build_online_linucb_branch
 
 
 class DiffusionAdvectionProblemTests(unittest.TestCase):

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 
-from joint_reporting import _action_summary
+from experiments.joint.solve_control.joint_reporting import _action_summary
 
 
 class JointReportingUncertaintyTests(unittest.TestCase):

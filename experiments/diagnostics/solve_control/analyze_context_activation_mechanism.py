@@ -6,7 +6,8 @@ not counterfactual retraining or off-policy estimates of solver performance.
 """
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 from collections import Counter
@@ -17,11 +18,11 @@ import tempfile
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime, resolve_composable_study
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from online_td_experiment_common import _json_ready, _write_json
-from run_lstdq_v3_shadow_replay import _features_for_row
-from setup_aware_compare_common import build_online_linucb_branch
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime, resolve_composable_study
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.diagnostics.solve_control.run_lstdq_v3_shadow_replay import _features_for_row
+from experiments.joint.solve_control.setup_aware_compare_common import build_online_linucb_branch
 from solve.controllers.common.linear_lcb import _greedy_cost_index
 
 

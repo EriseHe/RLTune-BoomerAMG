@@ -1,7 +1,8 @@
 """Paper context/activation regressions using features and mocked solves only."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 from dataclasses import asdict, replace
 import json
@@ -14,17 +15,17 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-import joint_4k_execution as execution
-from composable_joint_4k import (
+import experiments.joint.solve_control.joint_4k_execution as execution
+from experiments.joint.solve_control.composable_joint_4k import (
     build_composable_solve_runtime,
     build_named_setup_branches,
     resolve_composable_study,
 )
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_experiment_plotting import _compact_method_labels
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import report_online_outcome, validate_recovery_stream
-from joint_rl_activation import ReliabilityActivationGate, ReliabilityActivationSpec
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_experiment_plotting import _compact_method_labels
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import report_online_outcome, validate_recovery_stream
+from experiments.joint.solve_control.joint_rl_activation import ReliabilityActivationGate, ReliabilityActivationSpec
 from problems.amg import compact_diffusion_context
 from problems.registry import context_for_setup_method, learning_context_for_setup
 from setup.space import DEFAULT_SETUP_PARAMS

@@ -1,7 +1,8 @@
 """Audit and summarize the two-method composite activation pilot (no solves)."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 from collections import Counter
@@ -11,11 +12,11 @@ from pathlib import Path
 
 import numpy as np
 
-from joint_experiment_plotting import _read_json_lines
-from joint_online_common import method_stream_summary, validate_recovery_stream
-from joint_reporting import _action_summary
-from joint_rl_activation import ReliabilityActivationGate, ReliabilityActivationSpec
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.joint_experiment_plotting import _read_json_lines
+from experiments.joint.solve_control.joint_online_common import method_stream_summary, validate_recovery_stream
+from experiments.joint.solve_control.joint_reporting import _action_summary
+from experiments.joint.solve_control.joint_rl_activation import ReliabilityActivationGate, ReliabilityActivationSpec
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 
 
 METHODS = ('fixed_start', 'composite_start')

@@ -13,7 +13,7 @@ from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 
-from joint_controller_build import (
+from experiments.joint.solve_control.joint_controller_build import (
     build_lsvi_controller_bundle,
     build_recalibrated_lsvi_controller_bundle,
     build_recursive_lstdq_controller_bundle,

@@ -5,7 +5,11 @@ Lambda = 2 * (median setup time + H * median time per cycle), rounded up
 to the next millisecond. The factor two represents a primary budget and
 one restarted fallback budget, not an estimate of eventual completion time.
 """
-from experiments.diagnostics.solve_control import _project_paths  # noqa: F401
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
 
 import argparse
 import copy
@@ -20,10 +24,10 @@ import time
 from hypre.bindings import create_env
 from hypre.bindings.config import augment_setup_params
 from hypre.bindings.recovery import validate_runtime_cost
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_online_common import _build_paired_instance_stream, configure_paired_environment
-from online_td_experiment_common import _write_json
-from run_paper_final import ROOT, file_hash, source_state
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_online_common import _build_paired_instance_stream, configure_paired_environment
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_paper_final import ROOT, file_hash, source_state
 from setup.space import DEFAULT_SETUP_PARAMS
 
 

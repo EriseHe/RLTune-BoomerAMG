@@ -1,5 +1,11 @@
 """Fresh frozen complete-method comparison and the periodic/RL 2x2 cross."""
-from experiments.paper_final import run_05_policy as base  # pin native threads first
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
+from experiments.paper_final import run_05_policy as base
 from experiments.paper_final import run_05_checkpoint_training as training
 
 import argparse
@@ -20,11 +26,11 @@ import numpy as np
 
 from hypre.bindings import create_env, run_with_default_fallback
 from hypre.bindings.config import configure_smoother_profile
-from joint_online_common import report_online_outcome
+from experiments.joint.solve_control.joint_online_common import report_online_outcome
 from problems.registry import context_for_setup_method
 from problems.streams import generate_scalar_anisotropic_diffusion_instances
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params, build_online_linucb_branch, solve_fixed_w_case,
     solve_no_rl_case, solve_schedule_case,
 )

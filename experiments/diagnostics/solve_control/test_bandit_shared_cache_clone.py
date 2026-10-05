@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 import tempfile
@@ -10,7 +11,7 @@ import numpy as np
 
 from setup.learners import SharedLinUCB_AMG_v4
 from setup.learners.common import ParameterSpaceSpec, ParameterSpec
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     BranchRun,
     GenericBanditPolicy,
     clone_branch_for_independent_updates,

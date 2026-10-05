@@ -12,13 +12,13 @@ from typing import Any, Dict, Sequence
 import numpy as np
 
 from hypre.bindings.config import configure_smoother_profile
-from online_td_experiment_common import _summarize
+from experiments.joint.solve_control.online_td_experiment_common import _summarize
 from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION,
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
     normalize_problem_kind,
 )
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     EXP44_SETUP_PARAM_RESOLUTION,
     EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
     generate_difconv_instances,

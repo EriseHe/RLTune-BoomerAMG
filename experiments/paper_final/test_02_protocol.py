@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 from experiments.paper_final import run_02_diagnostics as diagnostic
 from experiments.paper_final.run_02_diagnostics import run_schedule, audit_outcome, np
-from run_lstdq_v3_stability import _run_case
+from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
 from hypre.bindings import SolveStatus
-from setup_aware_compare_common import solve_schedule_case
+from experiments.joint.solve_control.setup_aware_compare_common import solve_schedule_case
 
 
 class ScheduleTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class ScheduleTests(unittest.TestCase):
             return (1e-7 if terminal else .1, .01)
 
         env.step_rl = step
-        with patch("setup_aware_compare_common.create_env", return_value=nullcontext(env)):
+        with patch("experiments.joint.solve_control.setup_aware_compare_common.create_env", return_value=nullcontext(env)):
             result = run_schedule({}, {}, [2.9, 1.])
         self.assertEqual(calls, [2.9, 1., 2.9])
         self.assertEqual(result["cycle_actions"], calls)
@@ -70,8 +70,8 @@ class ScheduleTests(unittest.TestCase):
                     "solve_runtime": .2, "native_solve_runtime": .2, "infer_runtime": 0.,
                     "failed": False, "fallback_used": True, "residual_norm": .01}
 
-        with patch("run_lstdq_v3_stability.solve_no_rl_case", return_value=fallback), \
-                patch("run_lstdq_v3_stability._as_feedback", side_effect=lambda value, **kw: value):
+        with patch("experiments.diagnostics.solve_control.run_lstdq_v3_stability.solve_no_rl_case", return_value=fallback), \
+                patch("experiments.diagnostics.solve_control.run_lstdq_v3_stability._as_feedback", side_effect=lambda value, **kw: value):
             result = _run_case(bundle=SimpleNamespace(run_case=run_case),
                                setup_row={"mkw": {}, "params": {}}, args=diagnostic.NATIVE_ARGS,
                                learn=False, explore=False)

@@ -1,6 +1,13 @@
 """Repeat Module 04 seeds 4/5/6, preserving originals, then run the queued Module 05."""
 from __future__ import annotations
 
+from experiments.runtime import (
+    configure_single_thread, prevent_sleep, stop_sleep_prevention, single_thread_environment,
+)
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 import argparse
 from datetime import datetime, timezone
 import fcntl
@@ -17,7 +24,6 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 OLD = ROOT / "results/paper_final/04_online/20260926_macmini_module04_seeds4to6"
 DEFAULT = ROOT / "results/paper_final/04_online/20260927_diffusion60_repeat_seeds4to6"
-THREADS = {k: "1" for k in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS")}
 
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -37,7 +43,6 @@ def prepare(output):
     original = read(OLD / "provenance/source_manifest.json")["source"]["files"]
     differences = [name for name, digest in original.items() if sha(ROOT/name) != digest]
     if differences: raise RuntimeError(f"Original execution sources changed: {differences}")
-    # Import only after pinning numerical library threads.
     from experiments.paper_final.run_05_policy import environment_check
     environment_check(output)
     configs = {}
@@ -106,8 +111,8 @@ def supervise(output):
             if sha(ROOT/name) != digest: raise RuntimeError(f"Original execution source changed: {name}")
         start = time.monotonic(); children=[]; logs=[]
         state={"status":"running","phase":"module04","started_at":now(),"at":now(),"pid":os.getpid()}
-        awake=subprocess.Popen(["/usr/bin/caffeinate","-is","-w",str(os.getpid())])
-        state["awake_pid"]=awake.pid
+        awake = prevent_sleep()
+        state["awake_pid"]=(awake.pid if awake is not None else None)
         def stop(signum,frame): raise KeyboardInterrupt(f"Signal {signum}")
         signal.signal(signal.SIGTERM,stop); signal.signal(signal.SIGINT,stop)
         try:
@@ -115,7 +120,7 @@ def supervise(output):
                 dest=output/f"seed_{seed}"; dest.mkdir(exist_ok=True)
                 handle=(dest/"supervisor.log").open("a",buffering=1); logs.append(handle)
                 command=[sys.executable,"-u","-m","experiments.paper_final.run_04_online","--run","--suite",str(output/"protocol"/f"suite_seed_{seed}.json"),"--output-root",str(dest)]
-                child=subprocess.Popen(command,cwd=ROOT,env=dict(os.environ,**THREADS,MPLBACKEND="Agg",PYTHONUNBUFFERED="1"),stdout=handle,stderr=subprocess.STDOUT,start_new_session=True)
+                child=subprocess.Popen(command,cwd=ROOT,env=dict(single_thread_environment(),MPLBACKEND="Agg",PYTHONUNBUFFERED="1"),stdout=handle,stderr=subprocess.STDOUT,start_new_session=True)
                 children.append(child)
             state["worker_pids"]=[p.pid for p in children]
             print(f"[{now()}] Started Module 04 seeds 4,5,6, one thread each",flush=True)
@@ -144,7 +149,7 @@ def supervise(output):
             state.update(phase="module05",at=now(),module05_output=queued["output"])
             write(output/"status.json",state)
             handle=(output/"module05.log").open("a",buffering=1);logs.append(handle)
-            child=subprocess.Popen(queued["command"],cwd=ROOT,env=dict(os.environ,**THREADS,MPLBACKEND="Agg",PYTHONUNBUFFERED="1"),stdout=handle,stderr=subprocess.STDOUT,start_new_session=True)
+            child=subprocess.Popen(queued["command"],cwd=ROOT,env=dict(single_thread_environment(),MPLBACKEND="Agg",PYTHONUNBUFFERED="1"),stdout=handle,stderr=subprocess.STDOUT,start_new_session=True)
             children.append(child); state["module05_pid"]=child.pid;write(output/"status.json",state)
             while child.poll() is None:
                 p=Path(queued["output"])/"status.json"
@@ -164,7 +169,7 @@ def supervise(output):
             for child in children:
                 if child.poll() is None: os.killpg(child.pid,signal.SIGTERM)
             for handle in logs: handle.close()
-            if awake.poll() is None: awake.terminate()
+            stop_sleep_prevention(awake)
 
 
 def watch(output):
@@ -184,7 +189,6 @@ def watch(output):
 
 
 if __name__ == "__main__":
-    os.environ.update(THREADS)
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command",choices=("prepare","run","watch"))
     parser.add_argument("--output",type=Path,default=DEFAULT)

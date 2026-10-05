@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import math
 import json
@@ -17,8 +18,8 @@ from stable_baselines3.common.callbacks import StopTrainingOnMaxEpisodes
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 from sb3_contrib import RecurrentPPO
 
-from frozen_bandit_step_env import FrozenBanditStepEnv
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.frozen_bandit_step_env import FrozenBanditStepEnv
+from experiments.joint.solve_control.setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,

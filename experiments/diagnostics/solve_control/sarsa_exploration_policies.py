@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
 
 from typing import Any
 

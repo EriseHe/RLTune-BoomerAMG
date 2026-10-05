@@ -6,15 +6,16 @@ This module reads existing result artifacts and writes visualization artifacts.
 It never constructs learners, generates problem instances, or runs a solver.
 """
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
 from pathlib import Path
 from typing import Any, Dict
 
-from online_td_experiment_common import _json_ready, _write_json
-from joint_experiment_plotting import generate_plots
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.joint_experiment_plotting import generate_plots
 
 
 def generate_experiment_plots(

@@ -1,6 +1,11 @@
 """Select Module 05's constant on separate Default-setup development inputs."""
 from __future__ import annotations
 
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 from experiments.paper_final import run_05_policy as base
 
 import argparse

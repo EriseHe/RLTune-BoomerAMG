@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import ast
 from dataclasses import fields
@@ -9,8 +10,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-import joint_4k_runner as canonical
-import run_joint_online_sarsa_4k as legacy
+import experiments.joint.solve_control.joint_4k_runner as canonical
+import experiments.joint.solve_control.run_joint_online_sarsa_4k as legacy
 
 
 class Joint4KRunnerFacadeTests(unittest.TestCase):

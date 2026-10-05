@@ -1,6 +1,11 @@
 """Paired serial timing of (2.85,1.10) and (2.90,1.10) on frozen Run 04 jobs."""
 from __future__ import annotations
 
+from experiments.runtime import configure_single_thread, prevent_sleep, stop_sleep_prevention
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 # Import first: the established runner sets all numerical library thread counts.
 from experiments.paper_final import run_05_policy as base
 
@@ -254,7 +259,7 @@ def run(output):
         if (output / "raw.jsonl").exists():
             raise ValueError("Partial comparison exists; refusing to mix timing sessions")
         start = time.monotonic()
-        awake = subprocess.Popen(["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())])
+        awake = prevent_sleep()
         try:
             verify(output)
             environment = base.environment_check(output)
@@ -298,8 +303,7 @@ def run(output):
             base.dump(output / "status.json", {"status": "failed", "at": base.now(), "error": repr(exc)})
             raise
         finally:
-            if awake.poll() is None:
-                awake.terminate()
+            stop_sleep_prevention(awake)
 
 
 if __name__ == "__main__":

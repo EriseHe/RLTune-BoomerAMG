@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -9,7 +10,7 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from setup_aware_compare_common import solve_schedule_case
+from experiments.joint.solve_control.setup_aware_compare_common import solve_schedule_case
 
 
 def _parse_values(raw: str, cast: Any) -> tuple[Any, ...]:

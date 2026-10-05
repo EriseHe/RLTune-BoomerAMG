@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import csv
@@ -15,10 +16,10 @@ from typing import Any, Dict, Iterable, Sequence
 import numpy as np
 
 from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder, run_td_episode
-from run_exp44_online_rl import make_controller
-from online_td_experiment_common import _json_ready, _write_json
-from run_mature_bandit_rl_pipeline import _frozen_trace
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.run_exp44_online_rl import make_controller
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.run_mature_bandit_rl_pipeline import _frozen_trace
+from experiments.joint.solve_control.setup_aware_compare_common import (
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,
     EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,

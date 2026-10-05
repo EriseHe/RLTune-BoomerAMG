@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import json
 import tempfile
@@ -10,8 +11,8 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-import joint_4k_execution as execution
-from joint_method_spec import ComposableMethodSpec
+import experiments.joint.solve_control.joint_4k_execution as execution
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
 
 
 class Joint4KExecutionTest(unittest.TestCase):

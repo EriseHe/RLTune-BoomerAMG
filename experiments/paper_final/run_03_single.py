@@ -1,4 +1,9 @@
 """Run one explicit activation configuration, with artifacts inside its run folder."""
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
 from experiments.paper_final.run_03_activation import OUTPUT, ROOT, audit_run
 
 import argparse
@@ -12,8 +17,8 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from online_td_experiment_common import _write_json
-from run_paper_final import THREAD_ENV, file_hash, require_disk_space, source_state
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_paper_final import THREAD_ENV, file_hash, require_disk_space, source_state
 
 
 def main():

@@ -6,13 +6,12 @@ This is not the stage 3 activation study or the stage 5 final policy evaluation.
 """
 from __future__ import annotations
 
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 import os
-
-for _key in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
-             "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS"):
-    os.environ[_key] = "1"
-
-from experiments.diagnostics.solve_control import _project_paths  # noqa: E402,F401
 
 import argparse
 from collections import Counter, defaultdict
@@ -26,18 +25,18 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime
 from hypre.bindings import run_with_default_fallback
 from hypre.bindings.config import configure_smoother_profile
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_online_common import report_online_outcome
-from online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_online_common import report_online_outcome
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 from problems.streams import (generate_scalar_anisotropic_diffusion_instances,
                              generate_scalar_anisotropic_diffusion_advection_instances)
-from run_lstdq_v3_stability import _run_case
-from run_paper_final import file_hash, source_state
+from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
+from experiments.joint.solve_control.run_paper_final import file_hash, source_state
 from setup.space import DEFAULT_SETUP_PARAMS
-from setup_aware_compare_common import augment_setup_params, solve_no_rl_case, solve_schedule_case
+from experiments.joint.solve_control.setup_aware_compare_common import augment_setup_params, solve_no_rl_case, solve_schedule_case
 
 
 ROOT = Path(__file__).resolve().parents[2]

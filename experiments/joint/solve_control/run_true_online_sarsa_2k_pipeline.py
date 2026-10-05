@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -8,10 +9,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Dict
 
-from plot_online_methods_2k import generate_plots
-from online_td_experiment_common import _write_json
-from run_online_methods_2k import run as run_final_2k
-from run_true_online_sarsa_tuning import run as run_tuning
+from experiments.joint.solve_control.plot_online_methods_2k import generate_plots
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_online_methods_2k import run as run_final_2k
+from experiments.joint.solve_control.run_true_online_sarsa_tuning import run as run_tuning
 
 
 def _tuning_args(args: argparse.Namespace) -> SimpleNamespace:

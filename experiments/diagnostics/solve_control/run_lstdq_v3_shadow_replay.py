@@ -7,7 +7,8 @@ from native setup/solve timing variation.
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -17,8 +18,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
-from online_td_experiment_common import _json_ready, _write_json
-from run_solve_controller_calibration import _build_bundle
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.diagnostics.solve_control.run_solve_controller_calibration import _build_bundle
 from solve.controllers.recursive_lstdq import RecursiveLstdqV3LcbSpec
 
 

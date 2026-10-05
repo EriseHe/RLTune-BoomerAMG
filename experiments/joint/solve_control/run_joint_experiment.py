@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -8,7 +9,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, Mapping, Sequence
 
-from joint_experiment_config import (
+from experiments.joint.solve_control.joint_experiment_config import (
     JointExperimentSpec,
     JointExperimentRuntimeConfig,
     expand_grid as _expand_grid,
@@ -16,12 +17,12 @@ from joint_experiment_config import (
     parse_joint_experiment_config,
     runtime_config_from_spec,
 )
-from joint_online_common import (
+from experiments.joint.solve_control.joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
 )
-from online_td_experiment_common import _json_ready, _write_json
-from joint_4k_runner import (
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.joint_4k_runner import (
     _validate_composable_protocol,
     run,
 )
@@ -55,7 +56,7 @@ def _generate_requested_plots(
 
     if not spec.reporting.generate_plots:
         return None
-    from generate_joint_experiment_plots import generate_experiment_plots
+    from experiments.joint.solve_control.generate_joint_experiment_plots import generate_experiment_plots
 
     return generate_experiment_plots(
         result_dir=Path(result_dir),

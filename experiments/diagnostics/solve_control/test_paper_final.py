@@ -1,7 +1,8 @@
 """PAPER_FINAL contract and reporting tests; no native experiments."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import copy
 from dataclasses import asdict, replace
@@ -15,15 +16,15 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-import joint_4k_execution as execution
-import run_paper_final as suite
-from analyze_paper_final import audit_run, aggregate_runs, WINDOWS
-from composable_joint_4k import build_composable_solve_runtime, build_named_setup_branches, resolve_composable_study
-from joint_4k_execution import make_method_solver, SolveExecutionConfig
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_experiment_plotting import _compact_method_labels
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import method_stream_summary, report_online_outcome, validate_recovery_stream
+import experiments.joint.solve_control.joint_4k_execution as execution
+import experiments.joint.solve_control.run_paper_final as suite
+from experiments.joint.solve_control.analyze_paper_final import audit_run, aggregate_runs, WINDOWS
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime, build_named_setup_branches, resolve_composable_study
+from experiments.joint.solve_control.joint_4k_execution import make_method_solver, SolveExecutionConfig
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_experiment_plotting import _compact_method_labels
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import method_stream_summary, report_online_outcome, validate_recovery_stream
 from problems.amg import build_context_diffusion_advection_from_matrix_kwargs
 from problems.registry import context_for_setup_method
 from setup.space import DEFAULT_SETUP_PARAMS
@@ -164,8 +165,8 @@ class PaperFinalTests(unittest.TestCase):
             self.assertEqual(labels, suite.METHOD_LABELS)
             bundle = Mock()
             bundle.run_case.return_value = {"controlled": True}
-            with patch("joint_4k_execution.solve_no_rl_case", return_value={"controlled": False}), \
-                    patch("joint_4k_execution._as_feedback", side_effect=lambda native, **kw: native):
+            with patch("experiments.joint.solve_control.joint_4k_execution.solve_no_rl_case", return_value={"controlled": False}), \
+                    patch("experiments.joint.solve_control.joint_4k_execution._as_feedback", side_effect=lambda native, **kw: native):
                 for index, expected in ((0, False), (999, False), (1000, True), (4999, True)):
                     solver = make_method_solver(
                         "bandit_lstdq", solve=SolveExecutionConfig(1e-6, 50), mkw={},
@@ -326,8 +327,8 @@ class PaperFinalTests(unittest.TestCase):
                 patch.object(suite, "source_state", return_value={"sha256": "test", "files": {}}) as source, \
                 patch.object(suite, "require_disk_space"), \
                 patch.object(suite.subprocess, "run", side_effect=dispatch), \
-                patch("analyze_paper_final.audit_run", return_value={"unrecovered_failures": 0}), \
-                patch("analyze_paper_final.write_reports"), patch("sys.stdout", new_callable=io.StringIO):
+                patch("experiments.joint.solve_control.analyze_paper_final.audit_run", return_value={"unrecovered_failures": 0}), \
+                patch("experiments.joint.solve_control.analyze_paper_final.write_reports"), patch("sys.stdout", new_callable=io.StringIO):
             output = Path(tmp)
             suite.run_suite(suite.SUITE, output)
             self.assertEqual(len(commands), 18)

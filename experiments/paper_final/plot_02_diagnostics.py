@@ -1,7 +1,6 @@
 """Plot saved stage-02 diagnostics; no training or native solver execution."""
 from __future__ import annotations
 
-from experiments.diagnostics.solve_control import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -10,7 +9,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from plot_shared_action_rl_study import _read_json_lines, plot_action_trajectory_grid
+from experiments.diagnostics.solve_control.plot_shared_action_rl_study import _read_json_lines, plot_action_trajectory_grid
 
 
 ROOT = Path(__file__).resolve().parents[2]

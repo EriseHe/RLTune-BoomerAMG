@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -11,20 +12,20 @@ from typing import Any, Dict, Mapping, Sequence
 
 import numpy as np
 
-from joint_online_common import (
+from experiments.joint.solve_control.joint_online_common import (
     _method_stream_summary,
     _report_online_outcome,
 )
-from online_td_experiment_common import _write_json
-from run_online_methods_2k import _as_feedback
-from run_solve_controller_calibration import (
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.diagnostics.solve_control.run_solve_controller_calibration import (
     V2_CALIBRATION_BASELINE,
     _build_bundle,
     _controller_is_finite,
     _write_json_line,
 )
 from setup.space import DEFAULT_SETUP_PARAMS
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params,
     solve_no_rl_case,
 )

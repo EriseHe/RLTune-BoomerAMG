@@ -1,6 +1,13 @@
 """Historical Module 05 Run 05: six frozen checkpoints and free pair (2.85,1.10)."""
 from __future__ import annotations
 
+from experiments.runtime import (
+    configure_single_thread, prevent_sleep, stop_sleep_prevention, single_thread_environment,
+)
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 from experiments.paper_final import run_05_policy as first
 from experiments.paper_final import run_05_policy_repeat as repeat
 import argparse
@@ -168,7 +175,7 @@ def run(output):
     with (output/"supervisor.lock").open("a") as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         start=time.monotonic()
-        awake=subprocess.Popen(["/usr/bin/caffeinate","-is","-w",str(os.getpid())])
+        awake = prevent_sleep()
         def stop(signum,frame):raise KeyboardInterrupt(f"Signal {signum}")
         signal.signal(signal.SIGTERM,stop);signal.signal(signal.SIGINT,stop)
         try:
@@ -185,7 +192,7 @@ def run(output):
             first.dump(output/"status.json",{"status":"failed","phase":"stopped","run_number":5,"at":first.now(),"error":str(exc)})
             raise
         finally:
-            if awake.poll() is None:awake.terminate()
+            stop_sleep_prevention(awake)
 
 
 # The durable worker and phase supervisor below retain Run 04's execution,
@@ -229,7 +236,7 @@ def run_phase(output,phase,workers=3):
     try:
         for i in range(workers):
             log=(output/"raw"/phase/f"worker_{i}.log").open("a",buffering=1);logs.append(log)
-            children.append(subprocess.Popen([sys.executable,"-u","-m",__spec__.name,"worker","--output",str(output),"--phase",phase,"--worker",str(i)],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT))
+            children.append(subprocess.Popen([sys.executable,"-u","-m",__spec__.name,"worker","--output",str(output),"--phase",phase,"--worker",str(i)],cwd=ROOT,env=single_thread_environment(),stdout=log,stderr=subprocess.STDOUT))
         while True:
             codes=[c.poll() for c in children]
             if any(c not in (None,0) for c in codes):raise RuntimeError(f"{phase} worker stopped: {codes}")

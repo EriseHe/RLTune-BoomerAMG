@@ -21,7 +21,7 @@ REPO = _repo_root()
 TEST_DIR = REPO / "experiments" / "joint" / "solve_control"
 sys.path.insert(0, str(TEST_DIR))
 
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     SetupAwareRLConfig,
     SetupAwareSolvePolicyRunner,

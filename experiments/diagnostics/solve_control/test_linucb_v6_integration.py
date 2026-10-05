@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 
-from joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
 from setup.learners import SharedLinUCB_AMG_v6
 from setup.learners.linucb.SharedLinUCB_AMG_v6 import (
     LINUCB_V6_CONTEXT_DIM,
@@ -14,7 +15,7 @@ from setup.learners.linucb.SharedLinUCB_AMG_v6 import (
     LINUCB_V6_RECOMMENDED_INTERP_TYPES,
 )
 from setup.space import SetupConfigurationSpace
-from setup_aware_compare_common import build_online_linucb_branch
+from experiments.joint.solve_control.setup_aware_compare_common import build_online_linucb_branch
 
 
 class LinUCBV6IntegrationTests(unittest.TestCase):

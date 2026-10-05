@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-import run_online_methods_2k as legacy_factory
-import setup_aware_compare_common as legacy_runtime
+import experiments.joint.solve_control.run_online_methods_2k as legacy_factory
+import experiments.joint.solve_control.setup_aware_compare_common as legacy_runtime
 from solve.controllers import ppo
 
 

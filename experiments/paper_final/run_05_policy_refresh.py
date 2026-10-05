@@ -1,6 +1,11 @@
 """Module 05 Run 03: new seed-4 Joint checkpoint, original other five replicas."""
 from __future__ import annotations
 
+from experiments.runtime import configure_single_thread, single_thread_environment
+
+if __name__ == "__main__":
+    configure_single_thread()
+
 from experiments.paper_final import run_05_policy as first
 from experiments.paper_final import run_05_policy_repeat as repeat
 
@@ -196,7 +201,7 @@ def run_phase(output,phase,workers=3):
     try:
         for i in range(workers):
             log=(output/"raw"/phase/f"worker_{i}.log").open("a",buffering=1);logs.append(log)
-            children.append(subprocess.Popen([sys.executable,"-u","-m",__spec__.name,"worker","--output",str(output),"--phase",phase,"--worker",str(i)],cwd=ROOT,stdout=log,stderr=subprocess.STDOUT))
+            children.append(subprocess.Popen([sys.executable,"-u","-m",__spec__.name,"worker","--output",str(output),"--phase",phase,"--worker",str(i)],cwd=ROOT,env=single_thread_environment(),stdout=log,stderr=subprocess.STDOUT))
         while True:
             codes=[c.poll() for c in children]
             if any(c not in (None,0) for c in codes):raise RuntimeError(f"{phase} worker stopped: {codes}")

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 """Reusable plotting implementation for completed joint AMG experiments."""
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import csv
@@ -13,11 +14,11 @@ from typing import Any, Dict, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
-from plot_shared_action_rl_study import plot_action_trajectory_grid
-from online_td_experiment_common import _write_json
-from run_online_methods_2k import _method_comparison
-from joint_method_spec import CONTEXT_DISPLAY_LABELS
-from joint_reporting import (
+from experiments.diagnostics.solve_control.plot_shared_action_rl_study import plot_action_trajectory_grid
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_online_methods_2k import _method_comparison
+from experiments.joint.solve_control.joint_method_spec import CONTEXT_DISPLAY_LABELS
+from experiments.joint.solve_control.joint_reporting import (
     _action_summary,
     _comparison_windows,
     _window_result,

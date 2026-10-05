@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import copy
@@ -23,9 +24,9 @@ from solve.controllers.ppo import (
     SetupAwareSolvePolicyRunner,
     build_frozen_ppo_runner,
 )
-from online_td_experiment_common import _action_diagnostics, _json_ready, _write_json
-from run_exp44_online_rl import make_controller
-from joint_online_common import (
+from experiments.joint.solve_control.online_td_experiment_common import _action_diagnostics, _json_ready, _write_json
+from experiments.joint.solve_control.run_exp44_online_rl import make_controller
+from experiments.joint.solve_control.joint_online_common import (
     _build_paired_instance_stream,
     _configure_paired_environment,
     _git_revision,
@@ -34,7 +35,7 @@ from joint_online_common import (
     _report_online_outcome,
     _validate_recovery_stream,
 )
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     DEFAULT_SETUP_PARAMS,
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,

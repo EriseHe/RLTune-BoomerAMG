@@ -1,7 +1,8 @@
 """Continuous evidence, shared-prefix state, and activation boundary checks."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import copy
 from dataclasses import replace
@@ -17,12 +18,12 @@ import mpmath as mp
 import numpy as np
 from scipy.integrate import quad
 
-import joint_4k_execution as execution
-from composable_joint_4k import build_named_setup_branches, resolve_composable_study
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import report_online_outcome
-from joint_rl_activation import (
+import experiments.joint.solve_control.joint_4k_execution as execution
+from experiments.joint.solve_control.composable_joint_4k import build_named_setup_branches, resolve_composable_study
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import report_online_outcome
+from experiments.joint.solve_control.joint_rl_activation import (
     ReliabilityActivationGate, ReliabilityActivationSpec,
     _log_uniform_bernoulli_evalues,
 )

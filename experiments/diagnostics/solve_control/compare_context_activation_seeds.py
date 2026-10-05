@@ -6,7 +6,8 @@ confidence intervals over independently sampled training seeds.
 """
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import copy
@@ -15,8 +16,8 @@ import json
 import math
 from pathlib import Path
 
-from analyze_context_activation_mechanism import METHODS, summarize, trajectory_audit
-from online_td_experiment_common import _json_ready, _write_json
+from experiments.diagnostics.solve_control.analyze_context_activation_mechanism import METHODS, summarize, trajectory_audit
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 
 
 DEFAULT = "default_setup_default_solve"

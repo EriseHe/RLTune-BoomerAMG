@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -10,7 +11,7 @@ from typing import Any, Callable, Dict, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 
 
 METHOD_LABELS = {

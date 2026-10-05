@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 from types import SimpleNamespace
 
 import torch
 
-from run_mature_bandit_rl_pipeline import (
+from experiments.joint.solve_control.run_mature_bandit_rl_pipeline import (
     _initialize_continuous_policy_weight,
 )
 

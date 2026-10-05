@@ -6,7 +6,8 @@ the causal effect of changing only the activation time.
 """
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 from collections import defaultdict
@@ -17,12 +18,12 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from composable_joint_4k import build_composable_solve_runtime
+from experiments.joint.solve_control.composable_joint_4k import build_composable_solve_runtime
 from hypre.bindings.config import configure_smoother_profile
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from online_td_experiment_common import _json_ready, _write_json
-from run_lstdq_v3_stability import _run_case
-from setup_aware_compare_common import augment_setup_params, solve_no_rl_case
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
+from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
+from experiments.joint.solve_control.setup_aware_compare_common import augment_setup_params, solve_no_rl_case
 
 
 def main():

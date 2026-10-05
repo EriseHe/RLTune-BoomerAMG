@@ -6,7 +6,12 @@ Use --prepare, then --check; --run explicitly launches the full training run.
 """
 from __future__ import annotations
 
-from experiments.paper_final import run_05_policy as base  # pins library threads
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
+
+from experiments.paper_final import run_05_policy as base
 
 import argparse
 import copy
@@ -19,27 +24,27 @@ import time
 
 import numpy as np
 
-import joint_4k_execution as execution
-from composable_joint_4k import (
+import experiments.joint.solve_control.joint_4k_execution as execution
+from experiments.joint.solve_control.composable_joint_4k import (
     SETUP_BANDIT_KINDS, build_composable_solve_runtime, build_named_setup_branches,
     resolve_composable_study, validate_setup_branch_independence,
 )
-from joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import (
+from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import (
     _build_paired_instance_stream, _configure_paired_environment, _git_revision,
     _report_online_outcome,
 )
-from joint_protocol import build_joint_protocol
-from legacy_joint_studies import (
+from experiments.joint.solve_control.joint_protocol import build_joint_protocol
+from experiments.joint.solve_control.legacy_joint_studies import (
     BATCHED_LSVI_METHOD, BEHAVIOR_MODES, DEFAULT_SETUP_METHOD,
     RECURSIVE_LSTDQ_METHOD, RECURSIVE_MC_METHOD,
 )
 from problems.registry import context_for_setup_method
-from run_online_methods_2k import _as_feedback
-from run_paper_final import source_state
+from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.run_paper_final import source_state
 from setup.learners.linucb.SharedLinUCB_AMG_v4 import SharedLinUCBv4Step
-from setup_aware_compare_common import solve_schedule_case
+from experiments.joint.solve_control.setup_aware_compare_common import solve_schedule_case
 
 ROOT = base.ROOT
 OUTPUT = ROOT / "results/paper_final/05_online_policies/20260928_shared_prefix"

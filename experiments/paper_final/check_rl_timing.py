@@ -4,7 +4,11 @@ No learning: replay saved matrices, setups and actions, alternating binary order
 Outer-minus-native time measures omitted work within the same call; differences
 in raw solve speed between runs are not used as evidence of timer coverage.
 """
-from experiments.diagnostics.solve_control import _project_paths  # noqa: F401
+
+from experiments.runtime import configure_single_thread
+
+if __name__ == "__main__":
+    configure_single_thread()
 
 import argparse
 import ctypes
@@ -14,10 +18,10 @@ import time
 
 import numpy as np
 
-from diagnose_native_timing_outlier import _trace_row
+from experiments.diagnostics.solve_control.diagnose_native_timing_outlier import _trace_row
 from hypre.bindings import boomeramg, create_env
 from hypre.bindings.config import augment_setup_params, configure_smoother_profile
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 
 
 def main():

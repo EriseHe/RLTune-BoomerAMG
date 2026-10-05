@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import hashlib
 import json
@@ -17,8 +18,8 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor
 
 from solve.core.amg_gym_env import build_policy_obs
-from frozen_bandit_step_env import FrozenBanditStepEnv
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.frozen_bandit_step_env import FrozenBanditStepEnv
+from experiments.joint.solve_control.setup_aware_compare_common import (
     SetupAwareRLConfig,
     SetupAwareSolvePolicyRunner,
     augment_setup_params,

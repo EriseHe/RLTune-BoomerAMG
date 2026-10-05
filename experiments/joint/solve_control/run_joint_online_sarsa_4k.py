@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 from typing import Any, Dict, Sequence
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
-import joint_4k_runner as _runner
+import experiments.joint.solve_control.joint_4k_runner as _runner
 
 
 # CLI and canonical execution.

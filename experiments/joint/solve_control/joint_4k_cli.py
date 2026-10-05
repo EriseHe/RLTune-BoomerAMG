@@ -5,9 +5,9 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from legacy_joint_studies import SHARED_ACTION_PROFILES
+from experiments.joint.solve_control.legacy_joint_studies import SHARED_ACTION_PROFILES
 from problems.registry import SUPPORTED_PROBLEM_KINDS
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     EXP44_MATRIX_GRID_N,
     EXP44_SETUP_PARAM_RESOLUTION,
 )

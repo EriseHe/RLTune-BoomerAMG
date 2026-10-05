@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import os
 import tempfile
@@ -25,7 +26,7 @@ from setup.space import (
     build_setup_parameter_spec,
     build_setup_param_space,
 )
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     EXP44_SETUP_PARAM_RESOLUTION,
     EXP44_TUNE7_CATEGORICAL_ACTION_COUNT,
     build_grids_from_env,

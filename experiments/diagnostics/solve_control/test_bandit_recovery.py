@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 
 import numpy as np
 
-from joint_online_common import report_online_outcome
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.joint_online_common import report_online_outcome
+from experiments.joint.solve_control.setup_aware_compare_common import (
     run_bandit_step_test_final,
 )
 

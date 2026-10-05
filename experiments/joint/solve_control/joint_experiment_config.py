@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable, Mapping, Sequence, cast
 
 import numpy as np
 
-from joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
 from hypre.bindings.config import SMOOTHER_PROFILES
 from hypre.bindings.recovery import validate_failure_penalty
 from problems.registry import (

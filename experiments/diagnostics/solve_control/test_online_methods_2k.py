@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import json
 import unittest
@@ -8,13 +9,13 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from joint_online_common import _build_paired_instance_stream
-from run_online_methods_2k import (
+from experiments.joint.solve_control.joint_online_common import _build_paired_instance_stream
+from experiments.joint.solve_control.run_online_methods_2k import (
     _as_feedback,
     _continuous_action_diagnostics,
     _paired_metric,
 )
-from setup_aware_compare_common import generate_difconv_instances
+from experiments.joint.solve_control.setup_aware_compare_common import generate_difconv_instances
 
 
 class OnlineMethods2KTests(unittest.TestCase):

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 
-from bench_recursive_lstdq_v3 import benchmark
+from experiments.diagnostics.solve_control.bench_recursive_lstdq_v3 import benchmark
 
 
 class RecursiveLstdqV3BenchmarkTests(unittest.TestCase):

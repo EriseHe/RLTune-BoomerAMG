@@ -7,7 +7,8 @@ trajectory.  Native HYPRE timings are paired with process CPU time and
 
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import ctypes
@@ -22,7 +23,7 @@ from typing import Any
 import numpy as np
 
 from hypre.bindings import create_env
-from online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 
 
 _RESOURCE_FIELDS = (

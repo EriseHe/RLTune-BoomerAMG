@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import unittest
 from pathlib import Path
@@ -19,7 +20,7 @@ from solve.controllers.common import (
     LEGACY_DIFFUSION_ONLY_CONTEXT,
     PHYSICS_LINEAR_PROBLEM_CONTEXT,
 )
-from run_exp44_online_rl import _average_repeated_rows
+from experiments.joint.solve_control.run_exp44_online_rl import _average_repeated_rows
 
 
 class OnlineTDLambdaTests(unittest.TestCase):

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from joint_online_common import _validate_recovery_stream
+from experiments.joint.solve_control.joint_online_common import _validate_recovery_stream
 
 METHODS = ("bandit_default", "bandit_fixed", "bandit_fixed_prior", "bandit_periodic", "bandit_lstdq")
 

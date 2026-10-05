@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 from pathlib import Path
 import tempfile
@@ -10,8 +11,8 @@ from unittest.mock import Mock, patch
 
 import numpy as np
 
-import legacy_joint_studies as legacy_studies
-from run_joint_online_sarsa_4k import (
+import experiments.joint.solve_control.legacy_joint_studies as legacy_studies
+from experiments.joint.solve_control.run_joint_online_sarsa_4k import (
     BEHAVIOR_MODES,
     BATCHED_LSVI_METHOD,
     LSVI_METHOD,
@@ -38,7 +39,7 @@ from run_joint_online_sarsa_4k import (
     _write_solve_screen_report,
     candidate_grid,
 )
-from joint_online_common import _build_paired_instance_stream
+from experiments.joint.solve_control.joint_online_common import _build_paired_instance_stream
 
 
 class JointOnlineSarsa4KTests(unittest.TestCase):

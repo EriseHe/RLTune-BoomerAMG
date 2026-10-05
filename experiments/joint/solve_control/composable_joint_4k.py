@@ -16,7 +16,7 @@ from typing import Any, Dict, Mapping, Sequence
 
 import numpy as np
 
-from joint_controller_build import (
+from experiments.joint.solve_control.joint_controller_build import (
     build_lsvi_controller_bundle,
     build_recalibrated_lsvi_controller_bundle,
     build_recursive_blstdq_controller_bundle,
@@ -28,15 +28,15 @@ from joint_controller_build import (
     make_setup_obs_encoder,
     parse_csv_values,
 )
-from joint_method_spec import ComposableMethodSpec
-from joint_artifacts import _write_json_line
-from joint_online_common import (
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_artifacts import _write_json_line
+from experiments.joint.solve_control.joint_online_common import (
     _method_stream_summary,
     _policy_last_arm,
     _report_online_outcome,
 )
-from joint_reporting import _empty_stream_summary
-from online_td_experiment_common import _write_json
+from experiments.joint.solve_control.joint_reporting import _empty_stream_summary
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
 from problems.amg import COMPACT_DIFFUSION_CONTEXT_INDICES
 from problems.registry import (
     context_for_setup_method,
@@ -44,13 +44,13 @@ from problems.registry import (
 )
 from setup.registry import ONLINE_SETUP_KINDS
 from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params,
     build_online_linucb_branch,
     run_bandit_step_test_final,
     solve_no_rl_case,
 )
-from run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from solve.controllers.common import ControllerBundle
 from solve.controllers.ppo import (
     FrozenPpoConfig,

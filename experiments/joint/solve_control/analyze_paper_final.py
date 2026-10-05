@@ -1,7 +1,8 @@
 """Audit PAPER_FINAL logs and report Modules 1 and 2; never run PDE solves."""
 from __future__ import annotations
 
-import _project_paths  # noqa: F401
+if __package__ in {None, ""}:
+    import _project_paths  # noqa: F401
 
 import argparse
 import json
@@ -9,9 +10,9 @@ import math
 from pathlib import Path
 import statistics
 
-from joint_online_common import method_stream_summary, validate_recovery_stream
-from online_td_experiment_common import _write_json
-from run_paper_final import DEFAULT_OUTPUT, METHOD_LABELS, SUITE, load_suite
+from experiments.joint.solve_control.joint_online_common import method_stream_summary, validate_recovery_stream
+from experiments.joint.solve_control.online_td_experiment_common import _write_json
+from experiments.joint.solve_control.run_paper_final import DEFAULT_OUTPUT, METHOD_LABELS, SUITE, load_suite
 
 
 COMPONENTS = ("setup_runtime", "solve_runtime", "infer_runtime", "bandit_overhead_runtime")

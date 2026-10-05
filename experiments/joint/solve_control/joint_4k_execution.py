@@ -20,26 +20,26 @@ import numpy as np
 
 from hypre.bindings import execute_attempt, run_with_default_fallback
 from hypre.bindings.recovery import InvalidObservationError, validate_failure_penalty
-from joint_artifacts import _write_json_line
-from joint_method_spec import ComposableMethodSpec
-from joint_online_common import (
+from experiments.joint.solve_control.joint_artifacts import _write_json_line
+from experiments.joint.solve_control.joint_method_spec import ComposableMethodSpec
+from experiments.joint.solve_control.joint_online_common import (
     _method_stream_summary,
     _report_online_outcome,
     _validate_recovery_stream,
 )
-from joint_reporting import (
+from experiments.joint.solve_control.joint_reporting import (
     _action_summary,
     _comparison_windows,
     _window_result,
     _write_solve_screen_report,
     _write_summary_csv,
 )
-from joint_rl_activation import ReliabilityActivationGate
-from online_td_experiment_common import _json_ready, _write_json
+from experiments.joint.solve_control.joint_rl_activation import ReliabilityActivationGate
+from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 from problems.amg import normalize_diffusion_advection_context
-from run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
-from setup_aware_compare_common import (
+from experiments.joint.solve_control.setup_aware_compare_common import (
     augment_setup_params,
     classify_rl_failure,
     run_bandit_step_test_final,
