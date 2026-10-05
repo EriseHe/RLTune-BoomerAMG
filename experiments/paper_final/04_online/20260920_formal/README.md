@@ -1,72 +1,82 @@
-# Module 04 — final six-group run
+# Module 04 — formal six-group design
 
-User-approved protocol on September 20: one seed, both PDE families, all three
-grid sizes, and cap 50 throughout. All six groups start fresh using the current
-original-policy implementation. Previous results remain separate.
+This is the frozen September 20 single-seed design for both PDE families, all
+three grid sizes, and a 50-cycle cap. Its configurations are preserved unchanged.
+The later accepted six-seed batches are indexed in the
+[reproduction guide](../../../../docs/reproduction.md).
 
-## Frozen design
+## Frozen protocol
 
-- Order: diffusion 40³, advection 40³, diffusion 60³, advection 60³,
-  diffusion 80³, advection 80³. Groups and native solves run serially.
-- 5000 paired problems per group and method: Default, LinUCB v4 setup-only,
-  and LinUCB–LSTDQ v3. Method order is randomized per problem with a fixed seed.
-- Setup learns from problem 1; RL starts at problem 1001. No imported
-  checkpoints, shared learned prefixes, or additional training problems.
-- Both families use cap 50, relative residual tolerance 1e-6, and the 18/18/9
-  smoother profile. Preserve the forward DifConv discretization for advection.
-- Setup contexts include the intercept: diffusion 4D, advection 7D. All action
-  grids, candidate generation, exploration and LSTDQ settings are unchanged.
-- `failure_feedback.mode = rollback_unrecovered`. Primary failures followed
-  by successful fallback remain learned. Final unrecovered failures roll back
-  both learners; there is no failure penalty. All failed work, fallback cost
-  and measured overhead remain in the reported time.
+- Group order: diffusion 40³, advection 40³, diffusion 60³, advection 60³,
+  diffusion 80³, advection 80³. Groups run serially.
+- Each group uses 5000 paired problems and three methods: Default,
+  LinUCB V4 with default solve, and LinUCB V4 with recursive LSTDQ V3.
+  Method order is randomized per problem with its recorded seed.
+- Setup learning starts on problem 1; solve learning starts on problem 1001.
+  There are no imported checkpoints or additional training problems.
+- Both families use relative residual tolerance `1e-6`, cap 50, and the 18/18/9
+  smoother profile. Advection uses the prescribed forward DifConv discretization.
+- Setup contexts include the intercept: four features for diffusion and seven
+  for advection. Action grids, candidates, exploration and LSTDQ settings are
+  pinned by the JSON files.
+- Construction failure allows up to three learned attempts, then one default
+  fallback. Solve nonconvergence invokes default recovery directly. The
+  `rollback_unrecovered` mode rolls provisional observations back if recovery
+  also fails. All attempted work and recovery cost remain charged.
 
-## Remembered seed and provenance
+## Seeds and evidence
 
-| RNG | Seed |
+| RNG | Recorded base seed |
 |---|---:|
-| Base | 56700120 |
+| Problem stream | 56700120 |
 | Bandit | 56760120 |
 | Controller | 56766120 |
 | Method order | 56772120 |
 
-The eight input seeds are `56700120 + 6000*k`, for k = 0,...,7; the stream
-shuffle seed is 56748120. Configs and `suite.json` preserve the six established
-matrix/RHS stream hashes. The six groups reuse the same seed tuple and are
-different problem settings, not six independent seeds.
+The V3 method retains its controller seed offset of 2018. The eight input seeds
+are `56700120 + 6000*k`, for `k=0,...,7`; the stream shuffle seed is 56748120.
+The six groups share this seed tuple and are different problem settings, not six
+independent training seeds. This seed was examined in preceding development
+work; the design is not an untouched holdout.
 
-The user explicitly chose this seed after the completed cap 50/100/200/500
-development comparison. These are final-paper runs on an already examined
-seed, not an untouched holdout or an additional independent replicate of the
-development results. Report that provenance when describing the experiments.
+The [exact input captures](../../reproduction/online/streams/README.md) preserve
+matrix arguments, RHS seeds, order and normalized contexts under the original
+stream hashes. Replay avoids platform rounding differences in logarithms.
+The original sampler remains available for other configurations.
 
-The learning, solver, native-library and timing implementations are unchanged
-from the completed original-policy cap comparison. Launch records the actual
-commit and all source/config/native hashes; no source changes are made while
-the suite runs. There are no machine-specific cross-clock stop checks.
+## Validate and run
 
-## Launch and outputs
+From the repository root in the active environment, validate without solving:
 
-```bash
-experiments/paper_final/04_online/20260920_formal/run.command
+```sh
+python -m experiments.paper_final.run_04_online --suite experiments/paper_final/04_online/20260920_formal/suite.json --validate-only
 ```
 
-The existing suite runner executes the six groups, audits each completed run,
-and updates the combined report. The local launcher uses one compute thread,
-requires AC power and keeps the machine awake. It runs independently of Codex.
+Run into a fresh directory and then analyze the completed measurements:
 
-Results: `results/paper_final/04_online/20260920_formal/`.
-Each named group contains its plots, trajectories, learner snapshots and
-reports; all launch and group logs are under `logs/`. The combined report is
-`analysis/module04.md`, updated after each group completes.
+```sh
+python -m experiments.paper_final.run_04_online --suite experiments/paper_final/04_online/20260920_formal/suite.json --output-root results/paper_final/04_online/formal_retiming --run
+python -m experiments.paper_final.analyze_04_online --suite experiments/paper_final/04_online/20260920_formal/suite.json --output-root results/paper_final/04_online/formal_retiming
+```
 
-Primary reporting includes overhead and all 5000 attempted problems, alongside
-the last 1000 and final failure counts. Also report setup + native solve without
-learning overhead. The time metric excludes one-time initialization, AOT
-preparation, matrix/RHS assembly and output I/O; subprocess elapsed time is
-recorded separately. When failures remain, this is attempted-solve cost under
-the fixed budget, not the cost of successfully solving every input.
+The optional `run.command` invokes the same suite with one compute thread.
+It uses the active `python`; `PYTHON_BIN` and `OUTPUT_ROOT` can override its
+interpreter and output directory. It has no host-specific power checks or paths.
 
-Previous matching runs total approximately 10.6 hours across the six groups.
-Allow roughly 11–13 hours for this launch; realized learning paths and machine
-conditions can change that estimate.
+The suite records source/configuration/native provenance, audits completed
+groups, and writes combined `analysis/module04.json` and `.md` reports.
+Group folders contain trajectories, summaries, plots and final checkpoints.
+The runner refuses changed provenance or automatic restart of an incomplete group.
+
+## Cost accounting
+
+Report all 5000 attempted problems, the final 1000, and final failure counts.
+Native cost includes attempted setup, solve and recovery work. Total cost adds
+recurring learner/controller work. One-time initialization, candidate preparation,
+matrix/RHS assembly and output I/O are outside these component timers;
+subprocess elapsed time is recorded separately. When unrecovered failures remain,
+attempted cost does not establish that every input was successfully solved.
+
+Fresh runs record current binaries, packages and source. They preserve the
+protocol and inputs but do not replace accepted September measurements or claim
+identical wall-clock times. The complete suite is a substantial native run.
