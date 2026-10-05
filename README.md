@@ -1,5 +1,8 @@
 # RLTune-BoomerAMG
 
+Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandits
+and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
+
 Code and frozen protocols for the SISC studies of online BoomerAMG autotuning:
 shared context-action LinUCB V4 selects hierarchy parameters, and recursive
 LSTDQ V3 selects relaxation weights during the solve.
