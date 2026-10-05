@@ -4,7 +4,6 @@ from typing import Any, Callable, Dict, Sequence, Tuple
 
 import numpy as np
 
-from .amg import stencil_0_difconv_rl
 from .scalar_anisotropic_diffusion import (
     stencil_0_scalar_anisotropic_diffusion_rl,
 )
@@ -53,35 +52,8 @@ def _generate_stencil_0_instances(
             c_max=float(c_max),
             **sampler_kwargs,
         )
-        instances.append(
-            (matrix_kwargs, np.asarray(context, dtype=float))
-        )
+        instances.append((matrix_kwargs, np.asarray(context, dtype=float)))
     return instances
-
-
-def generate_difconv_instances(
-    *,
-    count: int,
-    seed: int,
-    grid_choices: Sequence[Tuple[int, int, int]],
-    c_min: float,
-    c_max: float,
-    advection: Tuple[float, float, float] = (0.0, 0.0, 0.0),
-) -> Sequence[Tuple[Dict[str, Any], np.ndarray]]:
-    """Generate the deterministic DifConv stream shared by all phases."""
-    return _generate_stencil_0_instances(
-        count=count,
-        seed=seed,
-        grid_choices=grid_choices,
-        c_min=c_min,
-        c_max=c_max,
-        sampler=stencil_0_difconv_rl,
-        sampler_kwargs={
-            "ax": float(advection[0]),
-            "ay": float(advection[1]),
-            "az": float(advection[2]),
-        },
-    )
 
 
 def generate_scalar_anisotropic_diffusion_instances(

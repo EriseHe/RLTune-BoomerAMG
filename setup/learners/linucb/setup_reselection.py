@@ -14,6 +14,7 @@ from hypre.bindings import (
     RecoveryOutcome,
     execute_attempt,
 )
+from hypre.bindings.recovery import validate_failure_penalty
 
 
 @dataclass(frozen=True)
@@ -98,8 +99,12 @@ def _run_reselection(
 def _typed_solver_result(
     solver_fn: Callable[[Dict[str, Any]], Mapping[str, Any] | AttemptOutcome],
     params: Dict[str, Any],
+    *,
+    require_valid_observation: bool = False,
 ) -> tuple[AttemptOutcome, RecoveryOutcome | None]:
-    attempted = execute_attempt(lambda: solver_fn(dict(params)))
+    attempted = execute_attempt(
+        lambda: solver_fn(dict(params)), require_valid_observation=require_valid_observation,
+    )
     if bool(attempted.result.get("recovery_protocol_applied", False)):
         recovery = RecoveryOutcome.from_mapping(attempted.result)
         return recovery.primary, recovery
@@ -117,13 +122,17 @@ def _legacy_single_attempt(
     default_params: Mapping[str, Any],
     prev_update_est: float,
     primary_is_default: bool,
+    failure_penalty_sec: float | None,
 ) -> SetupReselectionResult:
-    params, _info, select_sec = _run_selection(
+    params, info, select_sec = _run_selection(
         policy,
         context=context,
         parameter_space=parameter_space,
     )
-    primary, embedded = _typed_solver_result(solver_fn, params)
+    selected_arm = _pending_arm(_policy_model(policy), info)
+    primary, embedded = _typed_solver_result(
+        solver_fn, params, require_valid_observation=failure_penalty_sec is not None,
+    )
     if embedded is not None:
         recovery = embedded
     else:
@@ -134,18 +143,18 @@ def _legacy_single_attempt(
             and fallback_solver_fn is not None
         ):
             fallback = execute_attempt(
-                lambda: fallback_solver_fn(dict(default_params))
+                lambda: fallback_solver_fn(dict(default_params)),
+                require_valid_observation=failure_penalty_sec is not None,
             )
         recovery = RecoveryOutcome(primary=primary, fallback=fallback)
 
     loss_started = time.perf_counter_ns()
-    loss = float(
-        recovery.end_to_end_runtime_sec + select_sec + float(prev_update_est)
-    )
+    penalty = float(failure_penalty_sec or 0.0) if recovery.unrecovered_failure else 0.0
+    loss = float(recovery.end_to_end_runtime_sec + select_sec + float(prev_update_est) + penalty)
     loss_eval_sec = (time.perf_counter_ns() - loss_started) / 1.0e9
     update_committed = bool(
         not primary_is_default
-        and not recovery.unrecovered_failure
+        and (not recovery.unrecovered_failure or failure_penalty_sec is not None)
         and callable(getattr(policy, "update", None))
     )
     update_sec = 0.0
@@ -166,6 +175,10 @@ def _legacy_single_attempt(
     outcome = recovery.to_result()
     outcome.update(
         {
+            "selected_arm_index": selected_arm,
+            "failure_feedback_mode": "rollback_unrecovered" if failure_penalty_sec is None else "budgeted_penalty",
+            "failure_penalty_sec": penalty,
+            "bandit_learning_cost": float(loss + loss_eval_sec) if update_committed else None,
             "bandit_update_committed": update_committed,
             "bandit_observation_count": int(update_committed),
             "controller_update_committed": bool(
@@ -200,6 +213,7 @@ def run_same_context_setup_reselection(
     prev_update_est: float,
     primary_is_default: bool = False,
     max_learned_attempts: int = 3,
+    failure_penalty_sec: float | None = None,
 ) -> SetupReselectionResult:
     """Run up to three learned setup attempts and one default fallback.
 
@@ -210,6 +224,7 @@ def run_same_context_setup_reselection(
 
     if int(max_learned_attempts) < 1:
         raise ValueError("max_learned_attempts must be at least one")
+    failure_penalty_sec = validate_failure_penalty(failure_penalty_sec)
     model = _policy_model(policy)
     if primary_is_default or not _supports_reselection_transaction(model):
         return _legacy_single_attempt(
@@ -221,6 +236,7 @@ def run_same_context_setup_reselection(
             default_params=default_params,
             prev_update_est=float(prev_update_est),
             primary_is_default=bool(primary_is_default),
+            failure_penalty_sec=failure_penalty_sec,
         )
 
     attempts: list[SetupAttemptRecord] = []
@@ -237,7 +253,16 @@ def run_same_context_setup_reselection(
 
     while True:
         arm = _pending_arm(model, info)
-        primary, embedded = _typed_solver_result(solver_fn, params)
+        try:
+            primary, embedded = _typed_solver_result(
+                solver_fn, params, require_valid_observation=failure_penalty_sec is not None,
+            )
+        except Exception:
+            if transaction_started:
+                model.rollback_recovery_transaction()
+            else:
+                model.cancel_pending()
+            raise
         attempts.append(
             SetupAttemptRecord(
                 params=dict(params),
@@ -263,6 +288,10 @@ def run_same_context_setup_reselection(
             outcome = recovery.to_result()
             outcome.update(
                 {
+                    "selected_arm_index": int(arm),
+                    "failure_feedback_mode": "rollback_unrecovered" if failure_penalty_sec is None else "budgeted_penalty",
+                    "failure_penalty_sec": 0.0,
+                    "bandit_learning_cost": float(loss + loss_eval_sec),
                     "bandit_update_committed": True,
                     "bandit_observation_count": 1,
                     "controller_update_committed": bool(
@@ -320,15 +349,21 @@ def run_same_context_setup_reselection(
         and embedded_fallback is None
         and fallback_solver_fn is not None
     ):
-        fallback = execute_attempt(
-            lambda: fallback_solver_fn(dict(default_params))
-        )
+        try:
+            fallback = execute_attempt(
+                lambda: fallback_solver_fn(dict(default_params)),
+                require_valid_observation=failure_penalty_sec is not None,
+            )
+        except Exception:
+            model.rollback_recovery_transaction()
+            raise
     recovery = RecoveryOutcome(
         primary_attempts=tuple(record.outcome for record in attempts),
         fallback=fallback,
     )
 
     loss_started = time.perf_counter_ns()
+    penalty = float(failure_penalty_sec or 0.0) if recovery.unrecovered_failure else 0.0
     suffix = 0.0 if fallback is None else float(fallback.end_to_end_runtime_sec)
     suffix_costs = [0.0] * len(attempts)
     for index in range(len(attempts) - 1, -1, -1):
@@ -342,13 +377,13 @@ def run_same_context_setup_reselection(
     loss_eval_sec = (time.perf_counter_ns() - loss_started) / 1.0e9
 
     update_sec = float(observation_update_total_sec)
-    update_committed = not recovery.unrecovered_failure
+    update_committed = not recovery.unrecovered_failure or failure_penalty_sec is not None
     if update_committed:
         update_started = time.perf_counter_ns()
         for observation, suffix_cost in zip(deferred, suffix_costs):
             model.commit_deferred_observation(
                 observation,
-                loss=float(suffix_cost + loss_eval_sec),
+                loss=float(suffix_cost + loss_eval_sec + penalty),
             )
         model.commit_recovery_transaction()
         update_sec += (time.perf_counter_ns() - update_started) / 1.0e9
@@ -365,10 +400,15 @@ def run_same_context_setup_reselection(
                 "selection_info": dict(record.selection_info),
                 "selection_runtime": float(record.selection_runtime_sec),
                 "suffix_cost": float(suffix_cost + loss_eval_sec),
+                "suffix_learning_cost": float(suffix_cost + loss_eval_sec + penalty) if update_committed else None,
             }
         )
     outcome.update(
         {
+            "selected_arm_index": int(attempts[-1].arm_index),
+            "failure_feedback_mode": "rollback_unrecovered" if failure_penalty_sec is None else "budgeted_penalty",
+            "failure_penalty_sec": penalty,
+            "bandit_learning_cost": float(suffix_costs[-1] + loss_eval_sec + penalty) if update_committed else None,
             "primary_attempts": attempt_rows,
             "bandit_update_committed": bool(update_committed),
             "bandit_observation_count": (

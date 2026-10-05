@@ -14,11 +14,12 @@ from solve.controllers.common import (
     _rank_one_inverse_accumulate,
     _sandwich_quadratic,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .config import RecursiveLstdqLcbSpec
 
-_RECURSIVE_LSTDQ_CHECKPOINT_VERSION = 2
+_RECURSIVE_LSTDQ_CHECKPOINT_VERSION = 3
+_INVERSE_DENOMINATOR_CEILING = 1.0 / np.sqrt(np.finfo(float).eps)
 
 
 class RecursiveLstdqLcbController(_SharedActionLcbController):
@@ -65,6 +66,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self._difference_work = np.empty(self.joint_dim, dtype=float)
         self.sample_count = 0
         self.inverse_rebuild_count = 0
+        self.inverse_is_valid = True
         self.last_postfit_td_error = 0.0
 
     @property
@@ -76,8 +78,57 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         if initial_environment_weight is not None:
             self._initial_environment_weight = float(initial_environment_weight)
 
-    def _resync_theta(self) -> None:
-        """Restore the exact normal-equation solution at an episode boundary."""
+    def _inverse_residual_is_small(self, inverse: np.ndarray) -> bool:
+        """Audit a rebuilt/legacy inverse, never on the normal update path."""
+
+        if not np.all(np.isfinite(inverse)):
+            return False
+        identity = np.eye(self.joint_dim)
+        return bool(
+            np.linalg.norm(self.a_matrix @ inverse - identity, ord=np.inf) <= 1.0e-8
+            and np.linalg.norm(inverse @ self.a_matrix - identity, ord=np.inf) <= 1.0e-8
+        )
+
+    def _rebuild_inverse(self) -> None:
+        """Keep a singular-prefix pseudoinverse out of inverse recursions."""
+
+        if not np.all(np.isfinite(self.a_matrix)):
+            raise FloatingPointError("LSTDQ estimating matrix became non-finite")
+        self.inverse_is_valid = False
+        try:
+            inverse = np.linalg.inv(self.a_matrix)
+            self.inverse_is_valid = self._inverse_residual_is_small(inverse)
+        except np.linalg.LinAlgError:
+            pass
+        if not self.inverse_is_valid:
+            inverse = np.linalg.pinv(self.a_matrix)
+        if not np.all(np.isfinite(inverse)):
+            raise FloatingPointError("LSTDQ rebuilt inverse became non-finite")
+        # Preserve the Fortran layout used by v2/v3's BLAS updates.
+        self.a_inverse[:] = inverse
+        self.inverse_rebuild_count += 1
+
+    def _restore_inverse_validity(self, state: Any) -> None:
+        """Read the validity flag, or audit a checkpoint predating the flag."""
+
+        validity = state.get("inverse_is_valid")
+        if validity is not None:
+            self.inverse_is_valid = bool(np.asarray(validity).item())
+            return
+        self.inverse_is_valid = self._inverse_residual_is_small(self.a_inverse)
+        if not self.inverse_is_valid:
+            self._rebuild_inverse()
+            self._resync_theta()
+
+    def _resync_theta(self, *, require_inverse: bool = False) -> None:
+        """Use the stored prefix solve, requiring a true inverse at termination."""
+
+        if require_inverse and not self.inverse_is_valid:
+            self._rebuild_inverse()
+            if not self.inverse_is_valid:
+                raise FloatingPointError(
+                    "Could not restore a valid LSTDQ inverse at episode boundary"
+                )
 
         self.theta[:] = self.a_inverse @ self.b
         if not np.all(np.isfinite(self.theta)):
@@ -140,18 +191,22 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             out=self.trace,
         )
         self.trace += joint
-        projected_trace = self.a_inverse @ self.trace
-        projected_difference = difference @ self.a_inverse
-        denominator = 1.0 + float(difference @ projected_trace)
+        denominator = float("nan")
+        if self.inverse_is_valid:
+            projected_trace = self.a_inverse @ self.trace
+            projected_difference = difference @ self.a_inverse
+            denominator = 1.0 + float(difference @ projected_trace)
         _rank_one_accumulate(self.a_matrix, self.trace, difference)
         self.b += float(cost) * self.trace
         if (
             not np.isfinite(denominator)
             or abs(denominator) < float(self.spec.inverse_denominator_floor)
+            # Leaving a nearly singular prefix can subtract two huge inverse
+            # entries to obtain a small one. Rebuild instead of losing digits.
+            or abs(denominator) > _INVERSE_DENOMINATOR_CEILING
         ):
-            self.a_inverse = np.linalg.pinv(self.a_matrix)
-            self.inverse_rebuild_count += 1
-            self._resync_theta()
+            self._rebuild_inverse()
+            self._resync_theta(require_inverse=terminal)
         else:
             _rank_one_inverse_accumulate(
                 self.a_inverse,
@@ -163,7 +218,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             # dense matrix-vector product on every cycle.
             self.theta += projected_trace * (td_error / denominator)
             if terminal:
-                self._resync_theta()
+                self._resync_theta(require_inverse=True)
         if not np.all(np.isfinite(self.theta)):
             raise FloatingPointError("recursive LSTDQ parameters became non-finite")
         self.last_postfit_td_error = float(cost - difference @ self.theta)
@@ -204,7 +259,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
 
     def finish_episode(self, *, learned: bool) -> None:
         if learned:
-            self._resync_theta()
+            self._resync_theta(require_inverse=True)
             self.episodes += 1
         self.trace.fill(0.0)
 
@@ -220,6 +275,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
                 "trace": self.trace.copy(),
                 "sample_count": int(self.sample_count),
                 "inverse_rebuild_count": int(self.inverse_rebuild_count),
+                "inverse_is_valid": bool(self.inverse_is_valid),
                 "last_postfit_td_error": float(self.last_postfit_td_error),
             }
         )
@@ -238,6 +294,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
         self.sample_count = int(state["sample_count"])
         self.inverse_rebuild_count = int(state["inverse_rebuild_count"])
         self.last_postfit_td_error = float(state["last_postfit_td_error"])
+        self._restore_inverse_validity(state)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -252,6 +309,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             inverse_rebuild_count=np.asarray(
                 self.inverse_rebuild_count, dtype=np.int64
             ),
+            inverse_is_valid=np.asarray(self.inverse_is_valid, dtype=bool),
             last_postfit_td_error=np.asarray(
                 self.last_postfit_td_error, dtype=float
             ),
@@ -265,7 +323,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
     def load(self, path: Path, *, restore_counters: bool = True) -> Dict[str, Any]:
         with np.load(path, allow_pickle=False) as payload:
             version = int(payload.get("checkpoint_version", np.asarray(1)).item())
-            if version != _RECURSIVE_LSTDQ_CHECKPOINT_VERSION:
+            if version not in (2, _RECURSIVE_LSTDQ_CHECKPOINT_VERSION):
                 raise ValueError(
                     "Legacy recursive LSTDQ checkpoint is incompatible with "
                     "post-fit covariance"
@@ -289,6 +347,7 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
                 payload["last_postfit_td_error"].item()
             )
             self._load_common(payload, restore_counters=restore_counters)
+            self._restore_inverse_validity(payload)
         self.trace.fill(0.0)
         return {
             "path": str(path),
@@ -304,5 +363,6 @@ class RecursiveLstdqLcbController(_SharedActionLcbController):
             "lcb_lower_bound_sec": self.spec.lcb_lower_bound_sec,
             "covariance_residual": "postfit_unclipped",
             "inverse_rebuild_count": int(self.inverse_rebuild_count),
+            "inverse_is_valid": bool(self.inverse_is_valid),
             "stored_transition_count": 0,
         }

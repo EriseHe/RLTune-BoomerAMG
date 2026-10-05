@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260926_macmini_seeds4to6_seed_6",
+  "checkpoint": "007bd195b9aa976f6b640bd0de861669e3dcde7f",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    3
+  ],
+  "seed_offsets": [
+    212487867,
+    287223730,
+    651764678
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion": 50,
+    "diffusion_advection": 50
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "Three concurrent single-thread seed processes. Within each seed, diffusion then advection at grids 40, 60, 80 run serially. Methods remain paired and randomized per problem.",
+  "seed_provenance": "Drawn once with SystemRandom before any new outcomes; over 1,000,000 from existing recorded experiment seed values and each other. Three concurrent workers, fresh learners for every group. Global seeds 4/5/6 use unchanged runner local labels 1/2/3 in a separate batch.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "diffusion_40_s6",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_40_s6.json",
+      "config_sha256": "14d6dd53c006af196090a5bf400cc2b8e222afc27d410ae4106bd302169bd18c",
+      "stream_sha256": "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed"
+    },
+    {
+      "name": "advection_40_s6",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_40_s6.json",
+      "config_sha256": "52dd7731591db75d4aa08b64588066ce6d3df3ba3108eb15bdb6142b609a4c1b",
+      "stream_sha256": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55"
+    },
+    {
+      "name": "diffusion_60_s6",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_60_s6.json",
+      "config_sha256": "71ff84a0f4bae6428f23ce7744482616e252e3cf61091eb686c6be5e9be6d3a7",
+      "stream_sha256": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66"
+    },
+    {
+      "name": "advection_60_s6",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_60_s6.json",
+      "config_sha256": "34655dfea73075fab422366009a2189a8fcd8f4a9ab9191477a19da5f7acf906",
+      "stream_sha256": "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9"
+    },
+    {
+      "name": "diffusion_80_s6",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "diffusion_80_s6.json",
+      "config_sha256": "8cce806a2d442840d0f8ee2ecbce8ee20bb36ad7b72b75475d4e53561586c875",
+      "stream_sha256": "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d"
+    },
+    {
+      "name": "advection_80_s6",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 3,
+      "global_seed": 6,
+      "base_seed": 704464735,
+      "config": "advection_80_s6.json",
+      "config_sha256": "a3c4d066f0cbea1f03e7152f6e8626177734ebd5a00ae73ff7ae25097c945236",
+      "stream_sha256": "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3"
+    }
+  ],
+  "families": [
+    "diffusion",
+    "diffusion_advection"
+  ],
+  "grids": [
+    40,
+    60,
+    80
+  ],
+  "failure_feedback": {
+    "mode": "rollback_unrecovered"
+  },
+  "purpose": "Additional three fresh seeds, global labels 4/5/6, full Module 04 with unchanged numerical and learning settings.",
+  "concurrency": {
+    "workers": 3,
+    "unit": "complete_seed",
+    "threads_per_worker": 1,
+    "pinned_cores": false
+  },
+  "global_seed_mapping": {
+    "1": 4,
+    "2": 5,
+    "3": 6
+  }
+}

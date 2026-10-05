@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict
-from typing import Any, Dict, Iterable, Sequence
+from typing import Any, Dict
 
 import numpy as np
 
@@ -12,7 +12,7 @@ try:
 except ImportError:  # pragma: no cover - NumPy fallback keeps SciPy optional.
     _blas_dger = None
 
-from solve.controllers.sarsa.config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 from .action_space import build_action_basis, joint_action_features
 
@@ -32,9 +32,7 @@ def _greedy_cost_index(
     if allowed.size == 0:
         raise ValueError("At least one action must be allowed")
     best_value = float(np.min(np.asarray(values, dtype=float)[allowed]))
-    tied = allowed[
-        np.isclose(values[allowed], best_value, atol=1.0e-12, rtol=0.0)
-    ]
+    tied = allowed[np.isclose(values[allowed], best_value, atol=1.0e-12, rtol=0.0)]
     if secondary_values is not None and tied.size > 1:
         secondary = np.asarray(secondary_values, dtype=float)
         best_secondary = float(np.min(secondary[tied]))
@@ -60,107 +58,6 @@ def _sandwich_quadratic(
     projected = np.asarray(projected_features, dtype=float)
     covariance = np.asarray(moment_covariance, dtype=float)
     return np.sum((projected @ covariance) * projected, axis=1)
-
-
-class _RollingFloatWindow:
-    """Fixed-size numeric rolling window with allocation-free appends."""
-
-    def __init__(self, maxlen: int) -> None:
-        if int(maxlen) <= 0:
-            raise ValueError("rolling window length must be positive")
-        self.maxlen = int(maxlen)
-        self._values = np.empty(self.maxlen, dtype=float)
-        self._size = 0
-        self._cursor = 0
-
-    def __len__(self) -> int:
-        return int(self._size)
-
-    def __iter__(self):
-        if self._size < self.maxlen:
-            yield from self._values[: self._size]
-            return
-        yield from self._values[self._cursor :]
-        yield from self._values[: self._cursor]
-
-    def append(self, value: float) -> None:
-        self._values[self._cursor] = float(value)
-        self._cursor = (self._cursor + 1) % self.maxlen
-        self._size = min(self._size + 1, self.maxlen)
-
-    def extend(self, values: Iterable[float]) -> None:
-        for value in values:
-            self.append(float(value))
-
-    def clear(self) -> None:
-        self._size = 0
-        self._cursor = 0
-
-    def as_array(self, *, chronological: bool) -> np.ndarray:
-        """Expose current values; order is optional for symmetric statistics."""
-
-        if not chronological or self._size < self.maxlen:
-            return self._values[: self._size]
-        if self._cursor == 0:
-            return self._values
-        return np.concatenate(
-            (self._values[self._cursor :], self._values[: self._cursor])
-        )
-
-
-def _partition_median(values: np.ndarray) -> float:
-    """Compute NumPy's finite-sample median with one partial ordering."""
-
-    size = int(values.size)
-    if size == 0:
-        raise ValueError("median requires at least one value")
-    middle = size // 2
-    if size % 2:
-        return float(np.partition(values, middle)[middle])
-    partitioned = np.partition(values, (middle - 1, middle))
-    return float((partitioned[middle - 1] + partitioned[middle]) / 2.0)
-
-
-def _mad_scale(values: Sequence[float], *, floor: float) -> float:
-    """Return a Gaussian-consistent MAD scale with a physical lower floor."""
-
-    samples = np.asarray(values, dtype=float)
-    if samples.size == 0:
-        return float(floor)
-    center = _partition_median(samples)
-    mad = _partition_median(np.abs(samples - center))
-    return max(1.4826 * mad, float(floor))
-
-
-def _rank_one_inverse_update(
-    inverse: np.ndarray,
-    feature: np.ndarray,
-    *,
-    denominator_floor: float,
-) -> bool:
-    """Apply a symmetric Sherman-Morrison update in place.
-
-    Returns ``False`` if the denominator is invalid so the caller can rebuild
-    from its explicitly maintained design matrix.
-    """
-
-    projected = inverse @ feature
-    denominator = 1.0 + float(feature @ projected)
-    if not np.isfinite(denominator) or denominator <= float(denominator_floor):
-        return False
-    if _blas_dger is not None and inverse.flags.f_contiguous:
-        updated = _blas_dger(
-            -1.0 / denominator,
-            projected,
-            projected,
-            a=inverse,
-            overwrite_a=1,
-        )
-        if not np.shares_memory(updated, inverse):
-            inverse[:] = updated
-    else:
-        inverse -= np.outer(projected, projected) / denominator
-    return True
 
 
 def _rank_one_accumulate(
@@ -320,9 +217,7 @@ class _SharedActionLcbController:
             scores,
             allowed_indices=self._all_action_indices,
             anchor_index=self.anchor_index,
-            secondary_values=(
-                means if self.prefer_mean_on_score_ties else None
-            ),
+            secondary_values=(means if self.prefer_mean_on_score_ties else None),
         )
         effective_epsilon = (
             (self.epsilon if epsilon is None else float(epsilon)) if explore else 0.0
@@ -330,9 +225,7 @@ class _SharedActionLcbController:
         forced = bool(explore and self._default_first_action_pending)
         if forced:
             action_index = int(
-                np.argmin(
-                    np.abs(self.weights - float(self.initial_environment_weight))
-                )
+                np.argmin(np.abs(self.weights - float(self.initial_environment_weight)))
             )
             if not np.isclose(
                 self.weights[action_index],
@@ -347,13 +240,10 @@ class _SharedActionLcbController:
             effective_epsilon = 0.0
         else:
             explored = bool(
-                effective_epsilon > 0.0
-                and float(self.rng.random()) < effective_epsilon
+                effective_epsilon > 0.0 and float(self.rng.random()) < effective_epsilon
             )
             action_index = int(
-                self.rng.choice(self._all_action_indices)
-                if explored
-                else greedy_index
+                self.rng.choice(self._all_action_indices) if explored else greedy_index
             )
         metadata: Dict[str, Any] = {}
         if include_metadata:
@@ -408,12 +298,6 @@ class _SharedActionLcbController:
     def _restore_common_learning_state(self, state: Dict[str, Any]) -> None:
         self.steps = int(state["steps"])
         self.episodes = int(state["episodes"])
-        self._initial_environment_weight = float(
-            state["initial_environment_weight"]
-        )
-        self._default_first_action_pending = bool(
-            state["default_first_action_pending"]
-        )
-        self.forced_initial_action_count = int(
-            state["forced_initial_action_count"]
-        )
+        self._initial_environment_weight = float(state["initial_environment_weight"])
+        self._default_first_action_pending = bool(state["default_first_action_pending"])
+        self.forced_initial_action_count = int(state["forced_initial_action_count"])

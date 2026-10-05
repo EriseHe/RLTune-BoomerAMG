@@ -1,35 +1,17 @@
-# Setup Learners
+# Setup learner
 
-Setup algorithms are grouped by bandit family:
+`linucb/SharedLinUCB_AMG_v4.py` is the setup learner used by both official SISC
+studies. It shares a linear context-action model across configurations and
+preserves its original numerical updates, RNG state, and NPZ checkpoint format.
+`linucb/setup_reselection.py` handles setup failure and same-instance reselection
+without moving experiment policy into the learner.
 
-- `linucb/`: independent and shared LinUCB variants, including the retained
-  v4, paper-final diffusion-advection v5, and internal quadratic-context v6
-- `bayesian/`: Bayesian linear bandit variants
-- `thompson/`: linear, bootstrap, and random-feature Thompson sampling
-- `tsallis/`: Tsallis-INF
-- `common/`: action features and candidate selection shared across families
+`common/` supplies the mixed-type parameter specification, generic action
+features, compact catalogs, cached factorized features, and ahead-of-time
+candidate schedules. `common/config.py` holds the shared construction inputs;
+`linucb/config.py` and `linucb/factory.py` own the V4-specific construction.
 
-New experiment code should select and build active learners through
-`setup.registry`. Direct learner imports remain supported for
-implementation-level tests.
-
-For active families, `config.py` owns the algorithm-specific typed spec and
-`factory.py` translates the shared typed factory request into the concrete
-learner constructor. Shared action/context configuration remains in
-`common/config.py`; its historical algorithm-spec imports are compatibility
-reexports only.
-
-`SharedLinUCB_AMG_v5` reuses the v4 update and selection algorithm without
-modifying v4. It freezes the paper experiment contract to the 8-D
-diffusion-advection context and the named Tune-7 `recommended` setup space.
-
-`SharedLinUCB_AMG_v5_RBF` is an experimental comparison variant. It keeps
-that v5 contract and update rule, but adds five local Gaussian basis features
-for each of `strong_threshold`, `max_row_sum`, and `trunc_factor`. The frozen
-paper v5 action encoding is not changed.
-
-`SharedLinUCB_AMG_v6` is an internal experiment that also leaves v5 unchanged.
-It builds six non-redundant physical PDE coordinates (three diffusion
-scale/contrast coordinates and three directional cell Péclet coordinates),
-lifts them to a complete 28-D quadratic basis, and crosses that basis with the
-same recommended Tune-7 action features used by v5.
+Use `setup.registry.make_setup_learner_spec` and
+`setup.registry.build_online_setup_learner` from an experiment runner. Canonical
+class paths remain under `setup.learners.linucb`; official checkpoints use NPZ
+with `allow_pickle=False` and do not require historical pickle module aliases.

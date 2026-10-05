@@ -17,6 +17,7 @@ HYPRE_Real amg_rl_compute_residual_norm(HYPRE_ParCSRMatrix A,
 
 int amg_rl_default_relax_type(void);
 int amg_rl_default_cycle_type(void);
+void amg_rl_set_relax_type(HYPRE_Solver solver, int relax_type);
 
 int amg_rl_prepare_solver(HYPRE_Solver solver,
                           HYPRE_ParCSRMatrix A,

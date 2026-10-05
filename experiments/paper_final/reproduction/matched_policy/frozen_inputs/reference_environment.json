@@ -1,0 +1,194 @@
+{
+  "at": "2026-09-29T05:44:22.181029+00:00",
+  "executable": "/Users/erisehe/Library/Science/miniforge3/envs/rl/bin/python",
+  "mpi": "Open MPI v5.0.10, package: Open MPI runner@sjc20-av647-db3ce1ac-0006-43d3-8969-390c10a63297-12DDBC26DBF0.local Distribution, ident: 5.0.10, repo rev: v5.0.10, Feb 23, 2026",
+  "mpi_identical": true,
+  "mpi_world_size": 1,
+  "native_hashes": {
+    "hypre/install/lib/libHYPRE.3.0.0.dylib": "f8d44dae1a8b692b9fdc8fe6c5e059dd81c5ed4900f622fae75441e89fee3c5a",
+    "hypre/interfaces/libamg_runtime.dylib": "d6983c993f49dae9df9f2b8716a9c2bbadb951f87e75c282cabee748c26366c1"
+  },
+  "native_identical": true,
+  "package_differences": {},
+  "packages": {
+    "cloudpickle": "3.1.2",
+    "contourpy": "1.3.2",
+    "cycler": "0.12.1",
+    "farama-notifications": "0.0.6",
+    "filelock": "4.0.3",
+    "fonttools": "4.65.0",
+    "fsspec": "2026.9.0",
+    "gymnasium": "1.2.3",
+    "jinja2": "3.1.6",
+    "kiwisolver": "1.5.1",
+    "markupsafe": "3.0.3",
+    "matplotlib": "3.10.9",
+    "mpi4py": "4.1.2",
+    "mpmath": "1.3.0",
+    "networkx": "3.4.2",
+    "numpy": "2.2.6",
+    "packaging": "26.3",
+    "pandas": "2.3.3",
+    "pillow": "12.3.0",
+    "pip": "26.2.1",
+    "pyparsing": "3.3.3",
+    "python-dateutil": "2.9.0.post0",
+    "pytz": "2026.4",
+    "sb3-contrib": "2.7.1",
+    "scipy": "1.15.3",
+    "setuptools": "84.0.0",
+    "six": "1.17.0",
+    "stable-baselines3": "2.7.1",
+    "sympy": "1.14.0",
+    "torch": "2.9.1",
+    "typing-extensions": "4.16.0",
+    "tzdata": "2026.4",
+    "wheel": "0.48.0"
+  },
+  "parallelism": "At most three independent processes, one MPI rank and one library thread each; no claimed core affinity",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.10.21 | packaged by conda-forge | (main, Aug 21 2026, 22:37:53) [Clang 19.1.7 ]",
+  "python_identical": true,
+  "reference_packages": [
+    {
+      "name": "cloudpickle",
+      "version": "3.1.2"
+    },
+    {
+      "name": "contourpy",
+      "version": "1.3.2"
+    },
+    {
+      "name": "cycler",
+      "version": "0.12.1"
+    },
+    {
+      "name": "Farama-Notifications",
+      "version": "0.0.6"
+    },
+    {
+      "name": "filelock",
+      "version": "4.0.3"
+    },
+    {
+      "name": "fonttools",
+      "version": "4.65.0"
+    },
+    {
+      "name": "fsspec",
+      "version": "2026.9.0"
+    },
+    {
+      "name": "gymnasium",
+      "version": "1.2.3"
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6"
+    },
+    {
+      "name": "kiwisolver",
+      "version": "1.5.1"
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.3"
+    },
+    {
+      "name": "matplotlib",
+      "version": "3.10.9"
+    },
+    {
+      "name": "mpi4py",
+      "version": "4.1.2"
+    },
+    {
+      "name": "mpmath",
+      "version": "1.3.0"
+    },
+    {
+      "name": "networkx",
+      "version": "3.4.2"
+    },
+    {
+      "name": "numpy",
+      "version": "2.2.6"
+    },
+    {
+      "name": "packaging",
+      "version": "26.3"
+    },
+    {
+      "name": "pandas",
+      "version": "2.3.3"
+    },
+    {
+      "name": "pillow",
+      "version": "12.3.0"
+    },
+    {
+      "name": "pip",
+      "version": "26.2.1"
+    },
+    {
+      "name": "pyparsing",
+      "version": "3.3.3"
+    },
+    {
+      "name": "python-dateutil",
+      "version": "2.9.0.post0"
+    },
+    {
+      "name": "pytz",
+      "version": "2026.4"
+    },
+    {
+      "name": "sb3_contrib",
+      "version": "2.7.1"
+    },
+    {
+      "name": "scipy",
+      "version": "1.15.3"
+    },
+    {
+      "name": "setuptools",
+      "version": "84.0.0"
+    },
+    {
+      "name": "six",
+      "version": "1.17.0"
+    },
+    {
+      "name": "stable_baselines3",
+      "version": "2.7.1"
+    },
+    {
+      "name": "sympy",
+      "version": "1.14.0"
+    },
+    {
+      "name": "torch",
+      "version": "2.9.1"
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.4"
+    },
+    {
+      "name": "wheel",
+      "version": "0.48.0"
+    }
+  ],
+  "thread_environment": {
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1"
+  },
+  "unexpected_setup_overrides": {}
+}

@@ -1,0 +1,188 @@
+{
+  "encoding_version": "space_aware_v2",
+  "weight_bounds": [
+    1.0,
+    3.0
+  ],
+  "setup_observed_keys": [
+    "strong_threshold",
+    "max_row_sum",
+    "trunc_factor",
+    "P_max_elmts",
+    "agg_num_levels",
+    "coarsen_type",
+    "interp_type"
+  ],
+  "setup_parameter_spec": {
+    "parameters": [
+      {
+        "name": "strong_threshold",
+        "kind": "continuous",
+        "values": [
+          0.0,
+          0.049999999999999996,
+          0.09999999999999999,
+          0.15,
+          0.19999999999999998,
+          0.24999999999999997,
+          0.3,
+          0.35,
+          0.39999999999999997,
+          0.44999999999999996,
+          0.49999999999999994,
+          0.5499999999999999,
+          0.6,
+          0.6499999999999999,
+          0.7,
+          0.7499999999999999,
+          0.7999999999999999,
+          0.85,
+          0.8999999999999999,
+          0.95
+        ],
+        "default": 0.25,
+        "center": 0.25,
+        "scale": 0.25,
+        "active_if": []
+      },
+      {
+        "name": "max_row_sum",
+        "kind": "continuous",
+        "values": [
+          1e-06,
+          0.049999999999999996,
+          0.09999999999999999,
+          0.15,
+          0.19999999999999998,
+          0.24999999999999997,
+          0.3,
+          0.35,
+          0.39999999999999997,
+          0.44999999999999996,
+          0.49999999999999994,
+          0.5499999999999999,
+          0.6,
+          0.6499999999999999,
+          0.7,
+          0.7499999999999999,
+          0.7999999999999999,
+          0.85,
+          0.8999999999999999,
+          0.95
+        ],
+        "default": 0.9,
+        "center": 0.9,
+        "scale": 0.1,
+        "active_if": []
+      },
+      {
+        "name": "trunc_factor",
+        "kind": "continuous",
+        "values": [
+          0.0,
+          0.049999999999999996,
+          0.09999999999999999,
+          0.15,
+          0.19999999999999998,
+          0.24999999999999997,
+          0.3,
+          0.35,
+          0.39999999999999997,
+          0.44999999999999996,
+          0.49999999999999994,
+          0.5499999999999999,
+          0.6,
+          0.6499999999999999,
+          0.7,
+          0.7499999999999999,
+          0.7999999999999999,
+          0.85,
+          0.8999999999999999,
+          0.95
+        ],
+        "default": 0.0,
+        "center": 0.0,
+        "scale": 0.2,
+        "active_if": []
+      },
+      {
+        "name": "P_max_elmts",
+        "kind": "integer",
+        "values": [
+          2.0,
+          4.0,
+          6.0,
+          8.0,
+          12.0,
+          16.0
+        ],
+        "default": 4.0,
+        "center": 4.0,
+        "scale": 4.0,
+        "active_if": []
+      },
+      {
+        "name": "agg_num_levels",
+        "kind": "integer",
+        "values": [
+          0.0,
+          1.0,
+          2.0,
+          3.0,
+          4.0,
+          5.0
+        ],
+        "default": 0.0,
+        "center": 0.0,
+        "scale": 1.0,
+        "active_if": []
+      },
+      {
+        "name": "coarsen_type",
+        "kind": "categorical",
+        "values": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          10
+        ],
+        "default": 10,
+        "center": null,
+        "scale": null,
+        "active_if": []
+      },
+      {
+        "name": "interp_type",
+        "kind": "categorical",
+        "values": [
+          0,
+          2,
+          3,
+          6,
+          8,
+          17
+        ],
+        "default": 6,
+        "center": null,
+        "scale": null,
+        "active_if": []
+      }
+    ]
+  },
+  "strict_setup_categories": true,
+  "tol": 1e-06,
+  "max_cycles": 50,
+  "c_max": 1000.0,
+  "time_scale_sec": 0.002,
+  "feature_dim": 31,
+  "problem_context_mode": "diffusion3d",
+  "problem_context_fields": [
+    "bias",
+    "c_x",
+    "c_y",
+    "c_z"
+  ],
+  "problem_context_source": "shared three log diffusion coefficients; intercept retained separately"
+}

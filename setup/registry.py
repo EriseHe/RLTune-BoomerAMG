@@ -3,47 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable, Literal, Mapping, cast
 
-from .learners.common import (
-    SetupLearnerFactoryRequest,
-    SharedSetupLearnerSpec,
-)
-from .learners.linucb.config import (
-    LinUCBV4Spec,
-    LinUCBV5RBFSpec,
-    LinUCBV5Spec,
-    LinUCBV6Spec,
-)
-from .learners.linucb.factory import (
-    LINUCB_V4_LEARNER_TYPE,
-    LINUCB_V5_LEARNER_TYPE,
-    LINUCB_V5_RBF_LEARNER_TYPE,
-    LINUCB_V6_LEARNER_TYPE,
-    build_linucb_v4_learner,
-    build_linucb_v5_learner,
-    build_linucb_v5_rbf_learner,
-    build_linucb_v6_learner,
-)
-from .learners.thompson.config import LinTSV2Spec
-from .learners.thompson.factory import (
-    LINTS_V2_LEARNER_TYPE,
-    build_lints_v2_learner,
-)
+from .learners.common import SetupLearnerFactoryRequest, SharedSetupLearnerSpec
+from .learners.linucb.config import LinUCBV4Spec
+from .learners.linucb.factory import LINUCB_V4_LEARNER_TYPE, build_linucb_v4_learner
 
-
-OnlineSetupKind = Literal[
-    "linucb",
-    "linucb_v5",
-    "linucb_v5_rbf",
-    "linucb_v6",
-    "lints",
-]
-SetupAlgorithmSpec = (
-    LinUCBV4Spec
-    | LinUCBV5Spec
-    | LinUCBV5RBFSpec
-    | LinUCBV6Spec
-    | LinTSV2Spec
-)
+OnlineSetupKind = Literal["linucb"]
+SetupAlgorithmSpec = LinUCBV4Spec
 
 
 @dataclass(frozen=True)
@@ -53,9 +18,7 @@ class SetupKindRegistration:
     backend: str
     learner_type: type[Any] | None = None
     spec_type: type[Any] | None = None
-    factory: (
-        Callable[[SetupLearnerFactoryRequest[Any]], Any] | None
-    ) = None
+    factory: Callable[[SetupLearnerFactoryRequest[Any]], Any] | None = None
 
     @property
     def online(self) -> bool:
@@ -68,11 +31,6 @@ SETUP_KIND_REGISTRY: dict[str, SetupKindRegistration] = {
         family="default",
         backend="fixed_parameters",
     ),
-    "random": SetupKindRegistration(
-        kind="random",
-        family="random",
-        backend="random_policy",
-    ),
     "linucb": SetupKindRegistration(
         kind="linucb",
         family="linucb",
@@ -81,59 +39,12 @@ SETUP_KIND_REGISTRY: dict[str, SetupKindRegistration] = {
         spec_type=LinUCBV4Spec,
         factory=build_linucb_v4_learner,
     ),
-    "linucb_v5": SetupKindRegistration(
-        kind="linucb_v5",
-        family="linucb",
-        backend="online_learner",
-        learner_type=LINUCB_V5_LEARNER_TYPE,
-        spec_type=LinUCBV5Spec,
-        factory=build_linucb_v5_learner,
-    ),
-    "linucb_v5_rbf": SetupKindRegistration(
-        kind="linucb_v5_rbf",
-        family="linucb",
-        backend="online_learner",
-        learner_type=LINUCB_V5_RBF_LEARNER_TYPE,
-        spec_type=LinUCBV5RBFSpec,
-        factory=build_linucb_v5_rbf_learner,
-    ),
-    "linucb_v6": SetupKindRegistration(
-        kind="linucb_v6",
-        family="linucb",
-        backend="online_learner",
-        learner_type=LINUCB_V6_LEARNER_TYPE,
-        spec_type=LinUCBV6Spec,
-        factory=build_linucb_v6_learner,
-    ),
-    "lints": SetupKindRegistration(
-        kind="lints",
-        family="thompson",
-        backend="online_learner",
-        learner_type=LINTS_V2_LEARNER_TYPE,
-        spec_type=LinTSV2Spec,
-        factory=build_lints_v2_learner,
-    ),
 }
-
 ONLINE_SETUP_KINDS = tuple(
-    kind
-    for kind, registration in SETUP_KIND_REGISTRY.items()
-    if registration.online
+    kind for kind, registration in SETUP_KIND_REGISTRY.items() if registration.online
 )
 COMPOSABLE_SETUP_KINDS = ("default", *ONLINE_SETUP_KINDS)
-
-_SETUP_KIND_ALIASES = {
-    "linucbv4": "linucb",
-    "sharedlinucbv4": "linucb",
-    "linucbv5": "linucb_v5",
-    "sharedlinucbv5": "linucb_v5",
-    "linucbv5rbf": "linucb_v5_rbf",
-    "sharedlinucbv5rbf": "linucb_v5_rbf",
-    "linucbv6": "linucb_v6",
-    "sharedlinucbv6": "linucb_v6",
-    "lintsv2": "lints",
-    "sharedlintsv2": "lints",
-}
+_SETUP_KIND_ALIASES = {"linucbv4": "linucb", "sharedlinucbv4": "linucb"}
 
 
 @dataclass(frozen=True)
@@ -144,14 +55,7 @@ class SetupLearnerBuildSpec:
 
 
 def normalize_setup_kind(kind: str) -> str:
-    token = (
-        str(kind)
-        .strip()
-        .lower()
-        .replace("-", "")
-        .replace("_", "")
-        .replace(" ", "")
-    )
+    token = str(kind).strip().lower().replace("-", "").replace("_", "").replace(" ", "")
     return _SETUP_KIND_ALIASES.get(token, token)
 
 
@@ -204,9 +108,7 @@ def setup_kind_registration(kind: str) -> SetupKindRegistration:
 def _online_registration(kind: str) -> SetupKindRegistration:
     registration = setup_kind_registration(kind)
     if not registration.online:
-        raise ValueError(
-            f"Setup kind {kind!r} is not an online setup learner"
-        )
+        raise ValueError(f"Setup kind {kind!r} is not an online setup learner")
     return registration
 
 

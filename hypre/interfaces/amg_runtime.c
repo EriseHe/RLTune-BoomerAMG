@@ -287,13 +287,7 @@ static int apply_setup_params(
     if (coarsen_type >= 0)       HYPRE_BoomerAMGSetCoarsenType(solver, coarsen_type);
     if (interp_type >= 0)        HYPRE_BoomerAMGSetInterpType(solver, interp_type);
     if (max_row_sum >= 0.0)      HYPRE_BoomerAMGSetMaxRowSum(solver, max_row_sum);
-    if (relax_type >= 0)
-    {
-        HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 3);
-    }
+    amg_rl_set_relax_type(solver, relax_type);
     if (num_sweeps >= 0)         HYPRE_BoomerAMGSetNumSweeps(solver, num_sweeps);
     if (cycle_type >= 0)         HYPRE_BoomerAMGSetCycleType(solver, cycle_type);
     if (max_levels >= 0)         HYPRE_BoomerAMGSetMaxLevels(solver, max_levels);
@@ -775,6 +769,14 @@ AMG_API int amg_runtime_get_cycle(AMGRuntime *e) { return e ? e->cycles_done : 0
 AMG_API double amg_runtime_get_setup_time(AMGRuntime *e) { return e ? e->setup_time : 0.0; }
 AMG_API int amg_runtime_get_cycle_type(AMGRuntime *e) { return e ? e->cycle_type : -1; }
 AMG_API int amg_runtime_get_relax_type(AMGRuntime *e) { return e ? e->relax_type : -1; }
+
+AMG_API int amg_runtime_get_cycle_relax_type(AMGRuntime *e, int stage)
+{
+    HYPRE_Int relax_type = -1;
+    if (!e || !e->solver || stage < 1 || stage > 3) return -1;
+    if (HYPRE_BoomerAMGGetCycleRelaxType(e->solver, &relax_type, stage) != 0) return -1;
+    return (int) relax_type;
+}
 
 AMG_API int amg_runtime_get_relax_weight(AMGRuntime *e, int level, double *out_weight)
 {

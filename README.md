@@ -1,81 +1,79 @@
 # RLTune-BoomerAMG
 
-Research code for online setup tuning and per-cycle solve control in HYPRE
-BoomerAMG.
+Code and frozen protocols for the SISC studies of online BoomerAMG autotuning:
+shared context-action LinUCB V4 selects hierarchy parameters, and recursive
+LSTDQ V3 selects relaxation weights during the solve.
 
-## Repository layout
+This submission tree contains Module 04 online comparison and the accepted
+Module 05 matched-hierarchy Run 05. It includes 42 exact online configurations,
+compact accepted results, 20 MB of exact online inputs, and a verified 14 MB
+Run 05 frozen-input bundle.
+Original raw measurement logs and generated figure releases are not included.
+The bundle is sufficient for new matched retiming without earlier result folders.
 
-- `hypre/source/`: unmodified shared HYPRE fork.
-- `hypre/interfaces/`: the single project-owned native runtime.
-- `hypre/bindings/`: Python binding and shared failure recovery protocol.
-- `hypre/build/`, `hypre/install/`: ignored out-of-source build products.
-- `problems/`: PDE definitions and deterministic instance streams.
-- `setup/`: setup learners, their registry, and setup-only entry points.
-- `solve/`: solve controllers, their registry, and solve-only entry points.
-- `experiments/`: workflows that combine setup and solve learning.
-- `experiments/archive/`: historical protocols excluded from active runs.
-- `docs/`: design and implementation notes.
-- `results/`: generated experiment outputs and reproducibility records.
+- [Reproduction guide](docs/reproduction.md): protocols, commands, evidence and timing.
+- [Repository layout](docs/repository_layout.md): source responsibilities and dependencies.
+- [Paper experiments](experiments/paper_final/README.md): the two official studies.
+- [Theory checks](docs/theory/README.md): the prescribed period-two smoothing rule.
 
-Setup and solve code both use `hypre.bindings` and the same
-`hypre/interfaces/libamg_runtime` library. No project interface or experiment
-code is built inside the HYPRE source fork.
+## Install and build
 
-## Build
+Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and
+`mpicxx`. From the repository root, install into an activated Python environment:
 
-Create the Python environment:
-
-```bash
-conda env create -f environment.yml
+```sh
+python -m pip install -e '.[dev,artifacts]'
+make -C hypre JOBS=4
 ```
 
-Build the unchanged HYPRE fork out of source, install it under `hypre/install/`,
-and build the shared runtime:
+Core Python dependencies are NumPy, SciPy, mpi4py, Matplotlib and mpmath. The
+`dev` extra provides Ruff; `artifacts` provides ReportLab and pypdf for PDF release
+packaging. `python -m pip install -e .` installs the computational dependencies.
+Conda users can create the supplied environment with `conda env create -f
+environment.yml`, activate `rl`, then install the extras above.
 
-```bash
-make -C hypre
+The build writes to `hypre/build/`, `hypre/install/` and `hypre/interfaces/`.
+The HYPRE implementation under `hypre/source/` is preserved unchanged; our native
+and Python wiring lives in `hypre/interfaces/` and `hypre/bindings/`.
+
+## Check the checkout
+
+```sh
+python scripts/check_repository.py --static-only
+python scripts/check_repository.py --tests-only
+python -m unittest solve.tests.test_amg_runtime_binding
 ```
 
-## Learning architecture
+The static check runs fatal source checks. The test check covers five groups:
+setup, PDE problems, solve control, experiment utilities and paper studies.
+Build first for native status/timing tests. The last command runs the native
+binding integration tests directly. These checks do not launch the full paper
+experiments. The validation record is in the
+[organization report](docs/sisc_repository_cleanup.md).
 
-- Setup phase: Shared LinUCB v4 selects one Tune7 setup action per instance.
-- Solve phase: PPO, SARSA, and shared-action linear LCB controllers may select
-  a relaxation action at each AMG cycle.
-- Joint experiments: each method owns an independently updating LinUCB branch
-  after any configured common warmup snapshot.
+Validate the formal online protocol without solving PDEs:
 
-The active Exp44 protocol and commands are documented in
-`experiments/joint/exp44/README.md`.
-
-## Failure protocol
-
-Every external instance starts with one learned setup attempt. A setup
-construction failure may trigger same-context reselection, up to three learned
-setup attempts in total. A solve failure, non-finite evaluation, max-cycle
-nonconvergence, or exhaustion of the learned setup attempts triggers one
-default setup + default solve fallback from a zero initial solution.
-
-- A recovered failure is charged its measured primary and fallback time.
-- LinUCB commits at most one transaction per external instance; a recovered
-  setup-reselection transaction may contain multiple measured observations.
-- A solve controller commits at most one episode per external instance.
-- If fallback also fails, pending learning updates are rolled back and the
-  instance is recorded as unrecovered.
-- No retry loops, artificial failure penalties, fake runtimes, or residual
-  potential shaping are used by active experiments.
-
-Historical retry, shaping, and old online-Gym workflows are retained only under
-`experiments/archive/`.
-
-## Tests
-
-The main active test groups are:
-
-```bash
-python -m unittest discover -s setup/tests -p 'test_*.py' -v
-python -m unittest discover -s solve/tests -p 'test_*.py' -v
-python -m unittest discover -s experiments/diagnostics/solve_control -p 'test_*.py' -v
+```sh
+python -m experiments.paper_final.run_04_online --validate-only
 ```
 
-Repository ownership and dependency rules are documented in
-`docs/repository_layout.md`.
+Verify the accepted Run 05 input bundle without native solves:
+
+```sh
+python -c 'from experiments.paper_final.common.frozen_inputs import DEFAULT_BUNDLE, verify_bundle; print(verify_bundle(DEFAULT_BUNDLE))'
+```
+
+Use the [reproduction guide](docs/reproduction.md) to launch fresh runs. New runs
+record current source and environment provenance; their measured times are
+separate from the accepted September measurements.
+
+## Development history and licensing
+
+The full development and archive trees remain on
+[`online-bandit-rl`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/online-bandit-rl)
+and [`cleanup/sisc-repository-20261004`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/cleanup/sisc-repository-20261004).
+They are outside this submission tree.
+
+A license for the project-owned code has not yet been selected. HYPRE retains
+its [copyright](hypre/source/COPYRIGHT), [license files](hypre/source/LICENSE-MIT)
+and [notices](hypre/source/NOTICE).

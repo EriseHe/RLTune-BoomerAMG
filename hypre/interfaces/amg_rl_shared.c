@@ -35,7 +35,8 @@ HYPRE_Real amg_rl_compute_residual_norm(HYPRE_ParCSRMatrix A,
 int amg_rl_default_relax_type(void)
 {
     const char *env = getenv("AMG_RELAX_TYPE");
-    if (!env || !env[0]) return 18;
+    /* An omitted smoother means HYPRE's own per-stage defaults, not Jacobi. */
+    if (!env || !env[0]) return -1;
 
     char *end = NULL;
     long v = strtol(env, &end, 10);
@@ -54,16 +55,36 @@ int amg_rl_default_cycle_type(void)
     return (int) v;
 }
 
+void amg_rl_set_relax_type(HYPRE_Solver solver, int relax_type)
+{
+    if (relax_type < 0) return;
+
+    int coarse_relax_type = relax_type;
+    const char *env = getenv("AMG_COARSE_RELAX_TYPE");
+    if (env && env[0])
+    {
+        char *end = NULL;
+        long value = strtol(env, &end, 10);
+        if (end == env || *end != '\0' || value < 0 || value > 199)
+        {
+            hypre_error_w_msg(HYPRE_ERROR_ARG, "Invalid AMG_COARSE_RELAX_TYPE");
+            return;
+        }
+        coarse_relax_type = (int) value;
+    }
+    HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
+    HYPRE_BoomerAMGSetCycleRelaxType(solver, coarse_relax_type, 3);
+}
+
 static void amg_rl_configure_single_cycle_solver(HYPRE_Solver solver, int relax_type, int cycle_type)
 {
-    HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
+    amg_rl_set_relax_type(solver, relax_type);
     HYPRE_BoomerAMGSetCycleType(solver, cycle_type);
     HYPRE_BoomerAMGSetTol(solver, 0.0);
     HYPRE_BoomerAMGSetMaxIter(solver, 1);
     HYPRE_BoomerAMGSetNumSweeps(solver, 1);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
-    HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 3);
 }
 
 int amg_rl_prepare_solver(HYPRE_Solver solver,
@@ -76,20 +97,23 @@ int amg_rl_prepare_solver(HYPRE_Solver solver,
                           double *out_setup_time,
                           double *out_r0)
 {
+    double t0 = amg_rl_wall_time_sec();
     HYPRE_Int ierr;
     int relax_type = (relax_type_io && *relax_type_io >= 0) ? *relax_type_io : amg_rl_default_relax_type();
     int cycle_type = (cycle_type_io && *cycle_type_io >= 0) ? *cycle_type_io : amg_rl_default_cycle_type();
 
     amg_rl_configure_single_cycle_solver(solver, relax_type, cycle_type);
 
-    double t0 = amg_rl_wall_time_sec();
     ierr = HYPRE_BoomerAMGSetup(solver, A, b, x);
-    double t1 = amg_rl_wall_time_sec();
-
-    if (out_setup_time) *out_setup_time = (double) (t1 - t0);
-    if (ierr != 0 || HYPRE_GetError() != 0) return -1;
+    if (ierr != 0 || HYPRE_GetError() != 0)
+    {
+        if (out_setup_time) *out_setup_time = amg_rl_wall_time_sec() - t0;
+        return -1;
+    }
 
     if (out_r0) *out_r0 = (double) amg_rl_compute_residual_norm(A, b, x, r);
+    /* Prepared setup includes the initial residual used by the controller. */
+    if (out_setup_time) *out_setup_time = amg_rl_wall_time_sec() - t0;
     if (HYPRE_GetError() != 0 || (out_r0 && !isfinite(*out_r0))) return -1;
 
     if (relax_type_io) *relax_type_io = relax_type;
@@ -128,6 +152,8 @@ int amg_rl_step_solver(HYPRE_Solver solver,
 {
     HYPRE_Int ierr;
     if (!solver || !A || !b || !x || !r) return -1;
+    /* One controlled step includes parameter updates and residual monitoring. */
+    double t0 = amg_rl_wall_time_sec();
 
     if (sweeps_down < 1) sweeps_down = 1;
     if (sweeps_down > 10) sweeps_down = 10;
@@ -140,13 +166,7 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     {
         HYPRE_BoomerAMGSetCycleType(solver, cycle_type);
     }
-    if (relax_type >= 0)
-    {
-        HYPRE_BoomerAMGSetRelaxType(solver, relax_type);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 1);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 2);
-        HYPRE_BoomerAMGSetCycleRelaxType(solver, relax_type, 3);
-    }
+    amg_rl_set_relax_type(solver, relax_type);
     if (pre_relax_type >= 0)
     {
         HYPRE_BoomerAMGSetCycleRelaxType(solver, pre_relax_type, 1);
@@ -184,15 +204,19 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     HYPRE_BoomerAMGSetCycleNumSweeps(solver, sweeps_up, 2);
     HYPRE_BoomerAMGSetCycleNumSweeps(solver, coarse_sweeps, 3);
 
-    double t0 = amg_rl_wall_time_sec();
     ierr = HYPRE_BoomerAMGSolve(solver, A, b, x);
-    double t1 = amg_rl_wall_time_sec();
-
-    if (out_runtime) *out_runtime = (double) (t1 - t0);
-    if (ierr != 0 || HYPRE_GetError() != 0) return -1;
+    if (ierr != 0 || HYPRE_GetError() != 0)
+    {
+        if (out_runtime) *out_runtime = amg_rl_wall_time_sec() - t0;
+        return -1;
+    }
 
     double residual = (double) amg_rl_compute_residual_norm(A, b, x, r);
-    if (HYPRE_GetError() != 0 || !isfinite(residual)) return -1;
+    if (HYPRE_GetError() != 0 || !isfinite(residual))
+    {
+        if (out_runtime) *out_runtime = amg_rl_wall_time_sec() - t0;
+        return -1;
+    }
     double relative_residual = INFINITY;
     if (isfinite(initial_residual) && initial_residual > 0.0)
     {
@@ -204,11 +228,15 @@ int amg_rl_step_solver(HYPRE_Solver solver,
     }
     int cycles_done = cycles_done_io ? (*cycles_done_io + 1) : 0;
     int status = 0;
-    if (tol > 0.0 && relative_residual <= tol) status = 1;
-    else if (max_cycles > 0 && cycles_done_io && cycles_done >= max_cycles) status = 2;
+    /* For positive tol, match hypre_BoomerAMGSolve (par_amg_solve.c): reaching max_iter
+       reports nonconvergence even if the last cycle drops below tol.
+       Before the limit, its loop continues while relative_resid >= tol. */
+    if (max_cycles > 0 && cycles_done_io && cycles_done >= max_cycles) status = 2;
+    else if (tol > 0.0 && relative_residual < tol) status = 1;
 
     if (cycles_done_io) *cycles_done_io = cycles_done;
     if (out_residual) *out_residual = residual;
     if (out_status) *out_status = status;
+    if (out_runtime) *out_runtime = amg_rl_wall_time_sec() - t0;
     return 0;
 }

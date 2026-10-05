@@ -1,26 +1,23 @@
-# Solve
+# Solve phase
 
-Solve-phase policy code and solve-only tests belong here. Native project
-wrappers live in `hypre/interfaces/`; no project Python or interface code lives
-inside the HYPRE fork.
+The SISC studies use recursive LSTDQ V3 to select relaxation weights after each
+AMG cycle. `registry.py` accepts `default`, `fixed`, and `recursive_lstdq_v3`.
 
-Build the unchanged fork and the shared runtime with `make -C hypre`.
-All setup and solve environments use `hypre/interfaces/libamg_runtime.dylib`
-through `hypre.bindings`.
+- `controllers/recursive_lstdq/`: the V3 episode-cluster controller and the V1
+  numerical base it inherits.
+- `controllers/common/`: state and action encoders, construction inputs,
+  controller/checkpoint pairing, and linear numerical primitives.
+- `core/episode.py`: the cycle loop, completion-cost targets, recovery accounting,
+  and transactional commit or rollback of controller learning.
+- `core/outcomes.py`: failure classification shared with the native adapter.
+- `tests/`: native status and timing, numerical updates, recovery transactions,
+  controller construction, and checkpoint round trips.
 
-## Layout
+A `ControllerBundle` pairs a controller with its exact state encoder. It runs a
+case, reports a summary, and preserves checkpoint metadata. Setup selection,
+stream order, fallback choice, and reporting belong to the experiment layer.
 
-- `controllers/`: canonical solve-controller families.
-- `registry.py`: typed dispatch boundary for family-owned factories.
-- `core/`: solver environments and algorithm-independent outcome handling.
-- `scripts/`: solve-only training, evaluation, and smoke entry points.
-- `tests/`: solve-only tests.
-
-PDE definitions and deterministic instance streams live in the shared
-`problems/` package. Workflows that also use a setup learner belong in
-`experiments/`, not in this directory.
-
-Online construction returns a `ControllerBundle`. The bundle owns the paired
-state encoder and exposes `run_case()`, `summary()`, `save()`, and
-`protocol_metadata()`; setup selection, fallback choice, stream ordering, and
-reporting remain experiment responsibilities.
+Setup and solve use the same native interfaces in `hypre/interfaces/` and the
+same [PDE streams](../problems/README.md). Build the interfaces with
+`make -C hypre`; see [reproduction](../docs/reproduction.md) for prerequisites.
+Run solve tests with `python -m unittest discover -s solve/tests -p 'test_*.py'`.

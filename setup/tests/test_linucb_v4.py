@@ -3,8 +3,10 @@ from __future__ import annotations
 from setup.tests import _project_paths  # noqa: F401
 
 import tempfile
+import itertools
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -18,10 +20,163 @@ from setup.learners.common import (
     ParameterSpaceSpec,
     ParameterSpec,
 )
-from setup.utils.setup_amg import build_actions_from_spec
+from setup.space import build_actions_from_spec
+from hypre.bindings.recovery import InvalidObservationError
 
 
 class SharedLinUCBV4Tests(unittest.TestCase):
+    def test_budgeted_failure_updates_cost_and_risk_with_matching_precision(self):
+        model = self._model()
+        context = np.asarray([1.0, 0.5])
+        selected = {}
+
+        class Policy:
+            def __init__(self, learner):
+                self.model = learner
+
+            def select(self, *, context, **kwargs):
+                params = self.model.predict(context)
+                selected.update(
+                    arm=self.model._last_arm, phi=self.model._last_phi.copy()
+                )
+                return params, {}
+
+        failed = dict(
+            attempt_status="nonconvergence",
+            setup_runtime=0.01,
+            solve_runtime=0.04,
+            failed=True,
+            residual_norm=1.0,
+            iterations=50,
+        )
+        precision_before = np.linalg.inv(model.A_inv)
+        with patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
+            result = run_same_context_setup_reselection(
+                policy=Policy(model),
+                parameter_space={},
+                context=context,
+                solver_fn=lambda _: dict(failed),
+                fallback_solver_fn=lambda _: dict(failed),
+                default_params={"weight": 1.5},
+                prev_update_est=0.005,
+                failure_penalty_sec=0.5,
+            )
+        phi = selected["phi"]
+        loss = (
+            0.1
+            + result.timing["select_sec"]
+            + result.timing["loss_eval_sec"]
+            + 0.005
+            + 0.5
+        )
+        np.testing.assert_allclose(
+            model.A_inv, np.linalg.inv(precision_before + np.outer(phi, phi))
+        )
+        np.testing.assert_allclose(model.b, loss * phi)
+        np.testing.assert_allclose(model.failure_b, phi)
+        self.assertEqual(model.t, 1)
+        self.assertEqual(model.failure_observation_count, 1)
+        self.assertTrue(result.outcome["unrecovered_failure"])
+        self.assertTrue(result.outcome["bandit_update_committed"])
+        self.assertAlmostEqual(result.outcome["native_runtime"], 0.1)
+        self.assertAlmostEqual(result.outcome["bandit_learning_cost"], loss)
+        self.assertEqual(result.outcome["selected_arm_index"], selected["arm"])
+        # Verify the failure cost reaches the score used for ordinary choices.
+        _score, means, _width = model._selection_score_subset(
+            context,
+            arms=np.array([selected["arm"]]),
+            alpha=0.0,
+        )
+        self.assertAlmostEqual(means[0], float(phi @ model.A_inv @ (loss * phi)))
+        self.assertGreater(means[0], float(phi @ model.A_inv @ ((loss - 0.5) * phi)))
+
+    def test_zero_explicit_penalty_retains_bounded_cost_but_invalid_times_do_not(self):
+        for mode in (0.0, "invalid"):
+            with self.subTest(mode=mode):
+                model = self._model()
+
+                class Policy:
+                    def __init__(self, learner):
+                        self.model = learner
+
+                    def select(self, *, context, **kwargs):
+                        return self.model.predict(context), {}
+
+                failed = dict(
+                    attempt_status="nonconvergence",
+                    setup_runtime=0.01,
+                    solve_runtime=0.04,
+                    failed=True,
+                    residual_norm=1.0,
+                )
+                inverse = model.A_inv.copy()
+                with patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
+                    kwargs = dict(
+                        policy=Policy(model),
+                        parameter_space={},
+                        context=np.asarray([1.0, 0.5]),
+                        solver_fn=lambda _: dict(failed),
+                        fallback_solver_fn=lambda _: {
+                            **failed,
+                            "solve_runtime": float("nan")
+                            if mode == "invalid"
+                            else 0.04,
+                        },
+                        default_params={"weight": 1.5},
+                        prev_update_est=0.0,
+                        failure_penalty_sec=0.0,
+                    )
+                    if mode == "invalid":
+                        with self.assertRaises(InvalidObservationError):
+                            run_same_context_setup_reselection(**kwargs)
+                        np.testing.assert_array_equal(model.A_inv, inverse)
+                        self.assertEqual(model.t, 0)
+                        self.assertEqual(model.failure_observation_count, 0)
+                    else:
+                        result = run_same_context_setup_reselection(**kwargs)
+                        self.assertTrue(result.outcome["bandit_update_committed"])
+                        self.assertEqual(result.outcome["failure_penalty_sec"], 0.0)
+
+    def test_selected_arm_survives_legacy_rollback_after_a_previous_success(self):
+        model = self._model()
+        context = np.asarray([1.0, 0.5])
+        model.predict(context)
+        previous_arm = model._last_arm
+        model.update(0.1)
+        current_arm = (previous_arm + 1) % model.K
+        model._initial_guess_arm = current_arm
+        model.initial_guess_rounds = model.t + 1
+
+        class Policy:
+            def __init__(self, learner):
+                self.model = learner
+
+            def select(self, *, context, **kwargs):
+                return self.model.predict(context), {}
+
+        failed = dict(
+            attempt_status="nonconvergence",
+            setup_runtime=0.01,
+            solve_runtime=0.04,
+            failed=True,
+            residual_norm=1.0,
+        )
+        result = run_same_context_setup_reselection(
+            policy=Policy(model),
+            parameter_space={},
+            context=context,
+            solver_fn=lambda _: dict(failed),
+            fallback_solver_fn=lambda _: dict(failed),
+            default_params={"weight": 1.5},
+            prev_update_est=0.0,
+        )
+        self.assertEqual(model.history[-1].arm_index, previous_arm)
+        self.assertEqual(result.outcome["selected_arm_index"], current_arm)
+        self.assertEqual(
+            result.outcome["primary_attempts"][-1]["arm_index"], current_arm
+        )
+        self.assertEqual(result.params, dict(model.actions[current_arm]))
+
     def test_structured_aot_balances_agg_state_and_builds_local_neighbors(self) -> None:
         parameter_spec = ParameterSpaceSpec(
             parameters=(
@@ -297,9 +452,7 @@ class SharedLinUCBV4Tests(unittest.TestCase):
         self.assertEqual(result.outcome["primary_attempt_count"], 3)
         self.assertEqual(result.outcome["bandit_observation_count"], 3)
         self.assertTrue(result.outcome["fallback_used"])
-        suffixes = [
-            row["suffix_cost"] for row in result.outcome["primary_attempts"]
-        ]
+        suffixes = [row["suffix_cost"] for row in result.outcome["primary_attempts"]]
         self.assertGreater(suffixes[0], suffixes[1])
         self.assertGreater(suffixes[1], suffixes[2])
 

@@ -7,21 +7,17 @@ from .factory import (
     build_shared_action_controller_bundle,
 )
 from .linear_lcb import (
-    _RollingFloatWindow,
     _SharedActionLcbController,
     _blas_dger,
     _greedy_cost_index,
     _json_dataclass,
-    _mad_scale,
     _rank_one_accumulate,
     _rank_one_inverse_accumulate,
-    _rank_one_inverse_update,
     _sandwich_quadratic,
 )
 from .state_encoder import (
     CANONICAL_PROBLEM_CONTEXT,
     LEGACY_DIFFUSION_ONLY_CONTEXT,
-    PHYSICS_LINEAR_PROBLEM_CONTEXT,
     PROBLEM_CONTEXT_MODES,
     SolveStateEncoder,
 )
@@ -35,7 +31,6 @@ __all__ = [
     "LEGACY_DIFFUSION_ONLY_CONTEXT",
     "OnlineControllerFactoryRequest",
     "OnlineSolveCase",
-    "PHYSICS_LINEAR_PROBLEM_CONTEXT",
     "PROBLEM_CONTEXT_MODES",
     "SharedActionSpec",
     "SolveStateEncoder",

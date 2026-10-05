@@ -19,6 +19,27 @@ class AttemptStatus(str, Enum):
     NONCONVERGENCE = "nonconvergence"
 
 
+class InvalidObservationError(RuntimeError):
+    """An execution/measurement error that must not become solver feedback."""
+
+
+def validate_failure_penalty(value: float | None) -> float | None:
+    """None retains the historical rollback protocol; a number opts into C + Lambda F."""
+
+    if value is None:
+        return None
+    if isinstance(value, bool) or not math.isfinite(float(value)) or float(value) < 0.0:
+        raise ValueError("failure_penalty_sec must be finite and nonnegative")
+    return float(value)
+
+
+def validate_runtime_cost(runtime: float) -> None:
+    """A runtime learning target must be finite and nonnegative."""
+
+    if not math.isfinite(float(runtime)) or float(runtime) < 0.0:
+        raise InvalidObservationError(f"Invalid measured runtime: {runtime}")
+
+
 def _finite_nonnegative(value: Any, default: float = 0.0) -> float:
     try:
         result = float(value)
@@ -145,6 +166,7 @@ class AttemptOutcome:
             controller_runtime_sec=0.0,
             failure_reason=reason,
             result={
+                "failure_origin": "solver" if isinstance(exc, AMGNativeError) else "execution",
                 "runtime": float(setup + solve),
                 "setup_runtime": setup,
                 "solve_runtime": solve,
@@ -194,6 +216,7 @@ class RecoveryOutcome:
                 attempt_payload = dict(payload)
                 attempt_payload.update(
                     {
+                        "failure_origin": row.get("failure_origin", payload.get("failure_origin", "solver")),
                         "attempt_status": row.get("status", "solve_failure"),
                         "setup_runtime": row.get("setup_runtime", 0.0),
                         "native_solve_runtime": row.get("solve_runtime", 0.0),
@@ -206,6 +229,10 @@ class RecoveryOutcome:
                         "failed": row.get("status", "success") != "success",
                     }
                 )
+                # Do not inherit the whole procedure's runtime. A zero-cost
+                # failed attempt must not absorb and duplicate fallback work.
+                attempt_payload["native_runtime"] = float(attempt_payload["setup_runtime"]) + float(attempt_payload["native_solve_runtime"])
+                attempt_payload["runtime"] = attempt_payload["native_runtime"] + float(attempt_payload["infer_runtime"])
                 attempts.append(AttemptOutcome.from_mapping(attempt_payload))
         else:
             primary_payload = dict(payload)
@@ -252,11 +279,14 @@ class RecoveryOutcome:
                     != "success",
                 }
             )
+            primary_payload["native_runtime"] = float(primary_payload["setup_runtime"]) + float(primary_payload["native_solve_runtime"])
+            primary_payload["runtime"] = primary_payload["native_runtime"] + float(primary_payload["infer_runtime"])
             attempts.append(AttemptOutcome.from_mapping(primary_payload))
 
         fallback = None
         if bool(payload.get("fallback_used", False)):
             fallback_payload = {
+                "failure_origin": payload.get("fallback_failure_origin", "solver"),
                 "attempt_status": payload.get("fallback_status", "solve_failure"),
                 "setup_runtime": payload.get("fallback_setup_runtime", 0.0),
                 "native_solve_runtime": payload.get("fallback_solve_runtime", 0.0),
@@ -344,6 +374,7 @@ class RecoveryOutcome:
     def to_result(self) -> dict[str, Any]:
         result = dict(self.primary.result)
         fallback = self.fallback
+        completed = self.primary if fallback is None else fallback
         primary_setup_runtime = float(
             sum(attempt.setup_runtime_sec for attempt in self.primary_attempts)
         )
@@ -355,6 +386,7 @@ class RecoveryOutcome:
         )
         attempt_rows = [
             {
+                "failure_origin": attempt.result.get("failure_origin", "solver"),
                 "attempt_index": int(index),
                 "status": attempt.status.value,
                 "failure_stage": attempt.failure_stage,
@@ -405,9 +437,15 @@ class RecoveryOutcome:
                 "fallback_used": self.fallback_used,
                 "fallback_status": "not_run" if fallback is None else fallback.status.value,
                 "fallback_failure_reason": "" if fallback is None else fallback.failure_reason,
+                "fallback_failure_origin": "" if fallback is None else fallback.result.get("failure_origin", "solver"),
                 "fallback_setup_runtime": 0.0 if fallback is None else fallback.setup_runtime_sec,
                 "fallback_solve_runtime": 0.0 if fallback is None else fallback.solve_runtime_sec,
                 "fallback_controller_runtime": 0.0 if fallback is None else fallback.controller_runtime_sec,
+                "fallback_residual_norm": float("nan") if fallback is None else fallback.residual_norm,
+                "fallback_cycles": 0 if fallback is None else fallback.cycles,
+                "completed_residual_norm": completed.residual_norm,
+                "completed_cycles": completed.cycles,
+                "completed_status": completed.status.value,
                 "recovered": self.recovered,
                 "unrecovered_failure": self.unrecovered_failure,
             }
@@ -415,18 +453,50 @@ class RecoveryOutcome:
         return result
 
 
-def execute_attempt(attempt: Callable[[], Mapping[str, Any] | AttemptOutcome]) -> AttemptOutcome:
+def execute_attempt(
+    attempt: Callable[[], Mapping[str, Any] | AttemptOutcome],
+    *,
+    require_valid_observation: bool = False,
+) -> AttemptOutcome:
     started = time.perf_counter()
     try:
         result = attempt()
+    except InvalidObservationError:
+        raise
     except Exception as exc:
-        return AttemptOutcome.from_exception(
+        if require_valid_observation and not isinstance(exc, AMGNativeError):
+            raise
+        result = AttemptOutcome.from_exception(
             exc,
             elapsed_sec=float(time.perf_counter() - started),
         )
-    if isinstance(result, AttemptOutcome):
-        return result
-    return AttemptOutcome.from_mapping(result)
+    outcome = result if isinstance(result, AttemptOutcome) else AttemptOutcome.from_mapping(result)
+    if require_valid_observation:
+        origins = [outcome.result.get("failure_origin"), outcome.result.get("fallback_failure_origin")]
+        origins.extend(row.get("failure_origin") for row in outcome.result.get("primary_attempts", []))
+        if "execution" in origins:
+            reason = outcome.result.get("fallback_failure_reason") or outcome.failure_reason
+            raise InvalidObservationError(f"Execution error in primary/recovery procedure: {reason}")
+        # Inspect original fields too: the legacy adapter may sanitize invalid
+        # times to zero, which is not a valid label for the new objective.
+        for key in ("runtime", "native_runtime", "setup_runtime", "solve_runtime",
+                    "native_solve_runtime", "infer_runtime"):
+            if key in outcome.result:
+                try:
+                    value = float(outcome.result[key])
+                except (TypeError, ValueError) as exc:
+                    raise InvalidObservationError(f"Invalid {key}") from exc
+                if not math.isfinite(value) or value < 0.0:
+                    raise InvalidObservationError(f"Invalid {key}: {value}")
+        for value in (outcome.setup_runtime_sec, outcome.solve_runtime_sec, outcome.controller_runtime_sec):
+            if not math.isfinite(value) or value < 0.0:
+                raise InvalidObservationError(f"Invalid attempt runtime component: {value}")
+        validate_runtime_cost(outcome.end_to_end_runtime_sec)
+        succeeded = outcome.result.get("completed_status", outcome.status.value) == "success"
+        residual = outcome.result.get("completed_residual_norm", outcome.residual_norm)
+        if succeeded and (residual is None or not math.isfinite(float(residual))):
+            raise InvalidObservationError("Successful procedure has no finite final residual")
+    return outcome
 
 
 def run_with_default_fallback(

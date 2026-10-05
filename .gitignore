@@ -1,50 +1,30 @@
+# Local working files and Python build caches
 .DS_Store
 .idea/
-
-# Python bytecode / caches
+/tmp/
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Common tooling caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
 .ipynb_checkpoints/
-
-# Virtual environments
+*.egg-info/
+/build/
+/dist/
 .venv/
 venv/
 .env/
 
-# RL experiment artifacts
-results/**/run_logs/
-/results/invalid/
+# Generated experiment outputs (accepted evidence lives under reproduction/)
+/results/
 /plots/
-/ppo_logs/
 /output/
-*.jsonl
-*.pkl
-*.zip
 *.log
+*.zip
 
-# Generated result policy: keep raw runs local and track only the compact,
-# reproducible evidence bundle for paper experiments.
-/results/**
-!/results/README.md
-!/results/joint/
-!/results/joint/paper_*/
-!/results/joint/paper_*/README.md
-!/results/joint/paper_*/experiment_config.json
-!/results/joint/paper_*/stream_manifest.json
-!/results/joint/paper_*/summary_*.csv
-!/results/joint/paper_*/summary_*.md
-!/results/joint/paper_*/screen_report.md
-!/results/joint/paper_*/reproduce.sh
-!/results/joint/paper_*/figures/
-!/results/joint/paper_*/figures/last_1000_runtime_breakdown.png
-!/results/joint/paper_*/figures/learned_per_cycle_action_trajectories.png
-
-# Out-of-source HYPRE build and install trees
+# Out-of-source HYPRE and project-interface outputs
 /hypre/build/
 /hypre/install/
+/hypre/interfaces/build/
+/hypre/interfaces/libamg_runtime.dylib
+/hypre/interfaces/libamg_runtime.so

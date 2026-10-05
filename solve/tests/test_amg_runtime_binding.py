@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import tempfile
 import unittest
+from unittest.mock import patch
 
 from hypre.bindings import (
     AMGNativeError,
@@ -13,9 +19,27 @@ from hypre.bindings import (
     run_with_default_fallback,
     solve,
 )
+from hypre.bindings.config import configure_smoother_profile
+from solve.core.outcomes import classify_rl_failure
 
 
 class AMGRuntimeBindingTests(unittest.TestCase):
+    def test_native_timers_cover_completed_work_on_success_and_failure(self):
+        root = Path(__file__).resolve().parents[2]
+        compiler = shutil.which("mpicc")
+        self.assertIsNotNone(compiler, "The native timing regression requires the MPI compiler")
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "test_rl_timing"
+            subprocess.run([
+                compiler, "-O2", "-I" + str(root / "hypre/install/include"),
+                "-I" + str(root / "hypre/interfaces"),
+                str(root / "hypre/interfaces/tests/test_rl_timing.c"),
+                str(root / "hypre/interfaces/amg_rl_shared.c"),
+                "-lm", "-o", str(executable),
+            ], check=True, capture_output=True, text=True)
+            result = subprocess.run([str(executable)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_full_solve_reports_typed_status_and_timing_identity(self):
         result = solve(
             nx=8,
@@ -59,6 +83,7 @@ class AMGRuntimeBindingTests(unittest.TestCase):
         )
         self.assertIs(recovered.status, SolveStatus.CONVERGED)
 
+    @patch.dict(os.environ, {"AMG_RELAX_TYPE": "18", "AMG_COARSE_RELAX_TYPE": "9"})
     def test_prepare_and_step_share_typed_status_across_matrix_families(self):
         cases = (
             dict(nx=7, ny=7, nz=7, stencil=27, rhs_type=0, rhs_seed=23),
@@ -131,7 +156,7 @@ class AMGRuntimeBindingTests(unittest.TestCase):
 
             expected_status = (
                 SolveStatus.CONVERGED
-                if residual <= tolerance
+                if residual < tolerance
                 else SolveStatus.CONTINUE
             )
             self.assertIs(env.last_step.status, expected_status)
@@ -183,6 +208,63 @@ class AMGRuntimeBindingTests(unittest.TestCase):
 
         result = solve(nx=6, ny=6, nz=6, tol=1.0e-6, max_iter=50)
         self.assertIs(result.status, SolveStatus.CONVERGED)
+
+    def test_cycle_limit_matches_linked_boomeramg_before_at_and_after_target(self):
+        matrix = dict(nx=8, ny=8, nz=8, stencil=7, rhs_type=1, rhs_seed=73)
+        tolerance = 1.0e-6
+        with patch.dict(os.environ):
+            for profile in ("hypre_default", "legacy_l1_jacobi", "l1_jacobi_direct_coarse"):
+                configure_smoother_profile(profile)
+                reference = solve(tol=tolerance, max_iter=100, **matrix)
+                self.assertIs(reference.status, SolveStatus.CONVERGED)
+                hit = reference.iterations
+                self.assertGreater(hit, 1)
+                for limit in (hit-1, hit, hit+1):
+                    with self.subTest(profile=profile, first_target_cycle=hit, limit=limit):
+                        native = solve(tol=tolerance, max_iter=limit, **matrix)
+                        with create_env(**matrix) as env:
+                            prepared = env.prepare_rl({})
+                            for cycles in range(1, limit+1):
+                                residual, _ = env.step_rl(
+                                    relax_weight=prepared.initial_relax_weight,
+                                    sweeps_down=1, sweeps_up=1,
+                                    tol=tolerance, max_cycles=limit,
+                                )
+                                if env.last_step.status is not SolveStatus.CONTINUE:
+                                    break
+                        # Use the actual linked full-solve result as the oracle.
+                        self.assertIs(env.last_step.status, native.status)
+                        self.assertEqual(cycles, native.iterations)
+                        self.assertAlmostEqual(residual, native.residual_norm, delta=1e-12)
+                        reason = classify_rl_failure(
+                            residual_norm=residual, iterations=cycles,
+                            solve_tol=tolerance, solve_max_cycles=limit,
+                        )
+                        self.assertEqual(bool(reason), native.status is SolveStatus.MAX_CYCLES)
+                        if limit == hit:
+                            self.assertLess(native.residual_norm, tolerance)
+                            self.assertIs(native.status, SolveStatus.MAX_CYCLES)
+                            self.assertNotIn("residual_above_solve_tol", reason)
+
+    def test_step_equality_with_tolerance_continues_as_boomeramg_loop_does(self):
+        with patch.dict(os.environ):
+            configure_smoother_profile("l1_jacobi_direct_coarse")
+            with create_env(nx=8, ny=8, nz=8, stencil=7, rhs_type=1, rhs_seed=73) as env:
+                env.prepare_rl({})
+                tolerance, _ = env.step_rl(relax_weight=1.0, sweeps_down=1, sweeps_up=1)
+                self.assertGreater(tolerance, 0.0)
+                self.assertLess(tolerance, 1.0)
+                env.prepare_rl({})
+                residual, _ = env.step_rl(
+                    relax_weight=1.0, sweeps_down=1, sweeps_up=1,
+                    tol=tolerance, max_cycles=50,
+                )
+                self.assertEqual(residual, tolerance)
+                self.assertIs(env.last_step.status, SolveStatus.CONTINUE)
+                self.assertTrue(classify_rl_failure(
+                    residual_norm=residual, iterations=1,
+                    solve_tol=tolerance, solve_max_cycles=50,
+                ))
 
     def test_real_setup_failure_runs_exactly_one_successful_fallback(self):
         fallback_calls = 0

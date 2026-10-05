@@ -17,7 +17,7 @@ from problems.scalar_anisotropic_diffusion_advection import (
     stencil_0_scalar_anisotropic_diffusion_advection_rl,
 )
 from problems.streams import (
-    generate_difconv_instances,
+    generate_scalar_anisotropic_diffusion_instances,
     generate_scalar_anisotropic_diffusion_advection_instances,
 )
 
@@ -38,9 +38,7 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
             "rhs_type": 1,
         }
         self.assertEqual(
-            build_matrix_kwargs_scalar_anisotropic_diffusion_advection(
-                **kwargs
-            ),
+            build_matrix_kwargs_scalar_anisotropic_diffusion_advection(**kwargs),
             build_matrix_kwargs_difconv(**kwargs),
         )
 
@@ -72,19 +70,17 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
         self.assertEqual(context[5:].shape, (3,))
 
     def test_context_is_derived_from_the_exact_matrix_kwargs(self) -> None:
-        matrix_kwargs = (
-            build_matrix_kwargs_scalar_anisotropic_diffusion_advection(
-                nx=60,
-                ny=60,
-                nz=60,
-                cx=2.0,
-                cy=3.0,
-                cz=4.0,
-                ax=5.0,
-                ay=6.0,
-                az=7.0,
-                rhs_seed=123,
-            )
+        matrix_kwargs = build_matrix_kwargs_scalar_anisotropic_diffusion_advection(
+            nx=60,
+            ny=60,
+            nz=60,
+            cx=2.0,
+            cy=3.0,
+            cz=4.0,
+            ax=5.0,
+            ay=6.0,
+            az=7.0,
+            rhs_seed=123,
         )
         expected = build_context_scalar_anisotropic_diffusion_advection(
             cx=2.0,
@@ -149,13 +145,9 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
             "advection_min": 2.0,
             "advection_max": 20.0,
         }
-        first = generate_scalar_anisotropic_diffusion_advection_instances(
-            **kwargs
-        )
-        second = generate_scalar_anisotropic_diffusion_advection_instances(
-            **kwargs
-        )
-        diffusion_only = generate_difconv_instances(
+        first = generate_scalar_anisotropic_diffusion_advection_instances(**kwargs)
+        second = generate_scalar_anisotropic_diffusion_advection_instances(**kwargs)
+        diffusion_only = generate_scalar_anisotropic_diffusion_instances(
             count=kwargs["count"],
             seed=kwargs["seed"],
             grid_choices=kwargs["grid_choices"],
@@ -199,8 +191,7 @@ class ScalarAnisotropicDiffusionAdvectionTests(unittest.TestCase):
                 self.assertEqual(matrix_kwargs[key], diffusion_kwargs[key])
         self.assertTrue(
             all(
-                context.size
-                == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_DIM
+                context.size == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_DIM
                 for _matrix_kwargs, context in first
             )
         )

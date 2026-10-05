@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any, Dict, Mapping, Sequence, Tuple
+from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
 import numpy as np
 
@@ -10,14 +10,10 @@ from setup.learners.common import (
     CompactActionCatalog,
     ParameterSpaceSpec,
     ParameterSpec,
-    SharedSetupLearnerSpec,
+    action_key_from_parameter_space_spec,
+    default_action_from_parameter_space_spec,
+    iter_actions_from_parameter_space_spec,
 )
-from setup.registry import (
-    build_online_setup_learner,
-    make_setup_learner_spec,
-)
-from problems.amg import DIFCONV_CONTEXT_DIM
-from setup.utils.setup_amg import build_actions_from_spec
 
 DEFAULT_SETUP_PARAMS = {
     "strong_threshold": 0.25,
@@ -54,17 +50,95 @@ ALL_SETUP_PARAM_KEYS = (
 SETUP_OBS_KEYS = ALL_SETUP_PARAM_KEYS
 
 _MANUAL_SETUP_BOUNDS = {
-    "strong_threshold": ("continuous", float(DEFAULT_SETUP_PARAMS["strong_threshold"]), 0.25, None),
-    "max_row_sum": ("continuous", float(DEFAULT_SETUP_PARAMS["max_row_sum"]), 0.10, None),
-    "trunc_factor": ("continuous", float(DEFAULT_SETUP_PARAMS["trunc_factor"]), 0.20, None),
-    "P_max_elmts": ("integer", float(DEFAULT_SETUP_PARAMS["P_max_elmts"]), 4.0, tuple(int(v) for v in DEFAULT_P_MAX_ELMTS_VALUES)),
-    "agg_num_levels": ("integer", float(DEFAULT_SETUP_PARAMS["agg_num_levels"]), 1.0, tuple(int(v) for v in DEFAULT_AGG_NUM_LEVELS_VALUES)),
-    "coarsen_type": ("categorical", float(DEFAULT_SETUP_PARAMS["coarsen_type"]), 1.0, tuple(int(v) for v in DEFAULT_COARSEN_TYPE_VALUES)),
-    "interp_type": ("categorical", float(DEFAULT_SETUP_PARAMS["interp_type"]), 1.0, tuple(int(v) for v in DEFAULT_TUNE7_INTERP_TYPES)),
-    "agg_interp_type": ("categorical", float(DEFAULT_SETUP_PARAMS["agg_interp_type"]), 1.0, (4, 6)),
+    "strong_threshold": (
+        "continuous",
+        float(DEFAULT_SETUP_PARAMS["strong_threshold"]),
+        0.25,
+        None,
+    ),
+    "max_row_sum": (
+        "continuous",
+        float(DEFAULT_SETUP_PARAMS["max_row_sum"]),
+        0.10,
+        None,
+    ),
+    "trunc_factor": (
+        "continuous",
+        float(DEFAULT_SETUP_PARAMS["trunc_factor"]),
+        0.20,
+        None,
+    ),
+    "P_max_elmts": (
+        "integer",
+        float(DEFAULT_SETUP_PARAMS["P_max_elmts"]),
+        4.0,
+        tuple(int(v) for v in DEFAULT_P_MAX_ELMTS_VALUES),
+    ),
+    "agg_num_levels": (
+        "integer",
+        float(DEFAULT_SETUP_PARAMS["agg_num_levels"]),
+        1.0,
+        tuple(int(v) for v in DEFAULT_AGG_NUM_LEVELS_VALUES),
+    ),
+    "coarsen_type": (
+        "categorical",
+        float(DEFAULT_SETUP_PARAMS["coarsen_type"]),
+        1.0,
+        tuple(int(v) for v in DEFAULT_COARSEN_TYPE_VALUES),
+    ),
+    "interp_type": (
+        "categorical",
+        float(DEFAULT_SETUP_PARAMS["interp_type"]),
+        1.0,
+        tuple(int(v) for v in DEFAULT_TUNE7_INTERP_TYPES),
+    ),
+    "agg_interp_type": (
+        "categorical",
+        float(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
+        1.0,
+        (4, 6),
+    ),
     "agg_tr": ("continuous", float(DEFAULT_SETUP_PARAMS["agg_tr"]), 0.10, None),
-    "agg_Pmx": ("integer", float(DEFAULT_SETUP_PARAMS["agg_Pmx"]), 4.0, tuple(int(v) for v in DEFAULT_TUNE7_AGG_PMX_VALUES)),
+    "agg_Pmx": (
+        "integer",
+        float(DEFAULT_SETUP_PARAMS["agg_Pmx"]),
+        4.0,
+        tuple(int(v) for v in DEFAULT_TUNE7_AGG_PMX_VALUES),
+    ),
 }
+
+
+def build_actions_from_spec(
+    parameter_spec: ParameterSpaceSpec,
+    *,
+    fixed_params: Dict[str, Any] | None = None,
+) -> List[Dict[str, Any]]:
+    """
+    Build a stable action list from a generic parameter spec.
+
+    Parameter enumeration follows the spec order. Conditional inactive knobs
+    are pinned to defaults. The spec-implied default action is appended if the
+    enumerated grid misses it.
+    """
+    fixed = dict(fixed_params or {})
+    actions = []
+    seen = set()
+    for tuned_action in iter_actions_from_parameter_space_spec(parameter_spec):
+        key = action_key_from_parameter_space_spec(tuned_action, parameter_spec)
+        if key in seen:
+            continue
+        seen.add(key)
+        out = dict(fixed)
+        out.update(tuned_action)
+        actions.append(out)
+
+    default_tuned = default_action_from_parameter_space_spec(parameter_spec)
+    default_key = action_key_from_parameter_space_spec(default_tuned, parameter_spec)
+    if default_key not in seen:
+        out = dict(fixed)
+        out.update(default_tuned)
+        actions.append(out)
+    return actions
 
 
 @dataclass(frozen=True)
@@ -81,9 +155,7 @@ class SetupConfigurationSpace:
     name: str
     coarsen_types: Tuple[int, ...]
     interp_types: Tuple[int, ...]
-    agg_interp_types: Tuple[int, ...] = (
-        int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
-    )
+    agg_interp_types: Tuple[int, ...] = (int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),)
 
     def __post_init__(self) -> None:
         name = str(self.name).strip()
@@ -115,14 +187,12 @@ class SetupConfigurationSpace:
         unknown = set(raw) - allowed
         if unknown:
             raise ValueError(
-                f"Unknown keys in setup configuration space {name!r}: "
-                f"{sorted(unknown)}"
+                f"Unknown keys in setup configuration space {name!r}: {sorted(unknown)}"
             )
         missing = {"coarsen_types", "interp_types"} - set(raw)
         if missing:
             raise ValueError(
-                f"Setup configuration space {name!r} is missing "
-                f"{sorted(missing)}"
+                f"Setup configuration space {name!r} is missing {sorted(missing)}"
             )
         return cls(
             name=str(name),
@@ -141,9 +211,7 @@ class SetupConfigurationSpace:
         return {
             "coarsen_types": [int(value) for value in self.coarsen_types],
             "interp_types": [int(value) for value in self.interp_types],
-            "agg_interp_types": [
-                int(value) for value in self.agg_interp_types
-            ],
+            "agg_interp_types": [int(value) for value in self.agg_interp_types],
         }
 
 
@@ -153,16 +221,21 @@ class SetupObsEncoder:
         parameter_spec: ParameterSpaceSpec,
         defaults: Dict[str, Any],
         observed_keys: Sequence[str],
+        *,
+        strict_categories: bool = False,
     ) -> None:
         self.parameter_spec = parameter_spec
         self.defaults = dict(defaults)
         self.spec_by_name = {param.name: param for param in parameter_spec.parameters}
         self.observed_keys = tuple(str(key) for key in observed_keys)
+        self.strict_categories = bool(strict_categories)
 
     def encode(self, params: Dict[str, Any]) -> np.ndarray:
         encoded = []
         for key in self.observed_keys:
-            encoded.append(self._encode_one(key, params.get(key, self.defaults.get(key, 0.0))))
+            encoded.append(
+                self._encode_one(key, params.get(key, self.defaults.get(key, 0.0)))
+            )
         arr = np.asarray(encoded, dtype=np.float32)
         return np.nan_to_num(arr, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
 
@@ -170,19 +243,31 @@ class SetupObsEncoder:
         param = self.spec_by_name.get(key)
         if param is not None:
             if param.kind in {"continuous", "integer"}:
-                center = float(param.center if param.center is not None else param.default)
+                center = float(
+                    param.center if param.center is not None else param.default
+                )
                 scale = float(param.scale if param.scale is not None else 1.0)
                 return float((float(value) - center) / max(scale, 1e-12))
             levels = tuple(param.values)
-            return self._encode_categorical(value=value, default=param.default, levels=levels)
+            if self.strict_categories and value not in levels:
+                raise ValueError(
+                    f"Unknown setup category {key}={value!r}; expected {levels}"
+                )
+            return self._encode_categorical(
+                value=value, default=param.default, levels=levels
+            )
 
         kind, center, scale, levels = _MANUAL_SETUP_BOUNDS[key]
         if kind in {"continuous", "integer"}:
             return float((float(value) - float(center)) / max(float(scale), 1e-12))
-        return self._encode_categorical(value=value, default=center, levels=levels or ())
+        return self._encode_categorical(
+            value=value, default=center, levels=levels or ()
+        )
 
     @staticmethod
-    def _encode_categorical(*, value: Any, default: Any, levels: Sequence[Any]) -> float:
+    def _encode_categorical(
+        *, value: Any, default: Any, levels: Sequence[Any]
+    ) -> float:
         levels = tuple(levels)
         if not levels:
             return 0.0
@@ -200,116 +285,15 @@ class SetupObsEncoder:
         return float(idx - default_idx) / float(denom)
 
 
-class FixedPolicy:
-    def __init__(self, params: Dict[str, Any]) -> None:
-        self._params = dict(params)
-
-    def select(self, context: np.ndarray, **_: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        return dict(self._params), {}
-
-    def update(self, loss: float, **_: Any) -> None:
-        return None
-
-
-class SetupBanditPolicy:
-    def __init__(
-        self,
-        *,
-        actions: Sequence[Dict[str, Any]],
-        context_dim: int,
-        tune_dim: int,
-        parameter_spec: ParameterSpaceSpec,
-        seed: int,
-        alpha: float,
-        l2: float,
-        method: str,
-        default_arm_index: int,
-        candidate_pool_size: int,
-        elite_cache_size: int,
-    ) -> None:
-        self.tune_dim = int(tune_dim)
-        self.parameter_spec = parameter_spec
-        self.method = str(method).strip().lower()
-        if self.tune_dim == 7:
-            self.model = build_online_setup_learner(
-                make_setup_learner_spec(
-                    kind="linucb",
-                    shared=SharedSetupLearnerSpec(
-                        actions=actions,
-                        context_dim=int(context_dim),
-                        alpha=float(alpha),
-                        l2_reg=float(l2),
-                        seed=int(seed),
-                        parameter_spec=parameter_spec,
-                        context_interaction_indices=(1, 2, 3, 4),
-                        always_include_arms=(int(default_arm_index),),
-                        elite_cache_size=int(elite_cache_size),
-                        initial_guess=[
-                            DEFAULT_SETUP_PARAMS[param.name]
-                            for param in parameter_spec.parameters
-                        ],
-                        initial_guess_rounds=1,
-                        alpha_decay=True,
-                        candidate_pool_size=int(candidate_pool_size),
-                    ),
-                )
-            )
-        else:
-            raise ValueError(
-                "The retained Exp44 active path only supports tune_dim=7 with SharedLinUCB_AMG_v4"
-            )
-
-    def select(self, context: np.ndarray, **_: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        params = self.model.predict(np.asarray(context, dtype=float))
-        return dict(params), {}
-
-    def update(self, loss: float, **_: Any) -> None:
-        self.model.update(float(loss))
-
-
-class RandomSetupParamProvider:
-    def __init__(self, *, action_space: SetupParamSpace, seed: int) -> None:
-        self.action_space = action_space
-        self.rng = np.random.default_rng(seed)
-
-    def select(self, *, context: np.ndarray) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        idx = int(self.rng.integers(0, len(self.action_space.actions)))
-        return dict(self.action_space.actions[idx]), {"arm_index": idx}
-
-    def update(self, *, loss: float, context: np.ndarray, params: Dict[str, Any], outcome: Dict[str, Any]) -> None:
-        return None
-
-
-class BanditSetupParamProvider:
-    def __init__(self, *, policy: Any) -> None:
-        self.policy = policy
-
-    def select(self, *, context: np.ndarray) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        return self.policy.select(context=context)
-
-    def update(self, *, loss: float, context: np.ndarray, params: Dict[str, Any], outcome: Dict[str, Any]) -> None:
-        self.policy.update(loss=float(loss), context=context, params=params, outcome=outcome)
-
-
-def _default_bandit_seed_like_test10(*, seed: int, tune_dim: int, method: str) -> int:
-    method_key = str(method).strip().lower()
-    tune_key = int(tune_dim)
-    tune_offset = {3: 10_000, 5: 20_000, 7: 30_000}.get(tune_key, 20_000)
-    method_offset = {
-        "linucbv2": 11_003,
-        "linucbv3": 12_003,
-        "linucbv4": 13_003,
-    }.get(method_key, 12_003)
-    return int(seed + tune_offset + method_offset)
-
-
 def _parse_int_list_env(name: str, default_values: Sequence[int]) -> Tuple[int, ...]:
     raw = os.environ.get(name, ",".join(str(v) for v in default_values))
     vals = [int(x.strip()) for x in raw.split(",") if x.strip()]
     return tuple(vals) if vals else tuple(int(v) for v in default_values)
 
 
-def _parse_float_list_env(name: str, default_values: Sequence[float]) -> Tuple[float, ...]:
+def _parse_float_list_env(
+    name: str, default_values: Sequence[float]
+) -> Tuple[float, ...]:
     raw = os.environ.get(name, ",".join(str(v) for v in default_values))
     vals = [float(x.strip()) for x in raw.split(",") if x.strip()]
     return tuple(vals) if vals else tuple(float(v) for v in default_values)
@@ -329,7 +313,9 @@ def _same_action(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     return True
 
 
-def _ensure_default_arm(actions: Sequence[Dict[str, Any]]) -> Tuple[Tuple[Dict[str, Any], ...], int]:
+def _ensure_default_arm(
+    actions: Sequence[Dict[str, Any]],
+) -> Tuple[Tuple[Dict[str, Any], ...], int]:
     for idx, action in enumerate(actions):
         if _same_action(action, DEFAULT_SETUP_PARAMS):
             return tuple(dict(a) for a in actions), int(idx)
@@ -353,14 +339,18 @@ def build_setup_parameter_spec(
     )
     if param_resolution <= 0:
         raise ValueError("parameter_resolution must be positive")
-    grid_max = float(os.environ.get("SETUP_GRID_MAX", os.environ.get("GRID_MAX", "0.95")))
+    grid_max = float(
+        os.environ.get("SETUP_GRID_MAX", os.environ.get("GRID_MAX", "0.95"))
+    )
     th_grid = np.linspace(0.0, grid_max, param_resolution)
     mxrs_grid = np.linspace(0.0, grid_max, param_resolution)
     if len(mxrs_grid) > 0:
         mxrs_grid[0] = 1e-6
     tr_grid = np.linspace(0.0, grid_max, param_resolution)
     p_max_values = _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = _parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
+    agg_nl_values = _parse_int_list_env(
+        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES
+    )
     coarsen_values = (
         _parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)
         if coarsen_type_values is None
@@ -383,8 +373,12 @@ def build_setup_parameter_spec(
     ):
         if values is not None and not values:
             raise ValueError(f"{name} cannot be empty")
-    agg_tr_values = _parse_float_list_env("TUNE7_AGG_TR_VALUES", DEFAULT_TUNE7_AGG_TR_VALUES)
-    agg_pmx_values = _parse_int_list_env("TUNE7_AGG_PMX_VALUES", DEFAULT_TUNE7_AGG_PMX_VALUES)
+    agg_tr_values = _parse_float_list_env(
+        "TUNE7_AGG_TR_VALUES", DEFAULT_TUNE7_AGG_TR_VALUES
+    )
+    agg_pmx_values = _parse_int_list_env(
+        "TUNE7_AGG_PMX_VALUES", DEFAULT_TUNE7_AGG_PMX_VALUES
+    )
 
     base_specs = [
         ParameterSpec(
@@ -449,7 +443,11 @@ def build_setup_parameter_spec(
 
     if int(tune_dim) == 7:
         if str(tune7_variant).strip().lower() == "agg_conditional":
-            active_agg_levels = tuple(int(v) for v in agg_nl_values if int(v) != int(DEFAULT_SETUP_PARAMS["agg_num_levels"]))
+            active_agg_levels = tuple(
+                int(v)
+                for v in agg_nl_values
+                if int(v) != int(DEFAULT_SETUP_PARAMS["agg_num_levels"])
+            )
             base_specs.extend(
                 [
                     ParameterSpec(
@@ -500,8 +498,7 @@ def build_setup_parameter_spec(
                 active_agg_levels = tuple(
                     int(value)
                     for value in agg_nl_values
-                    if int(value)
-                    != int(DEFAULT_SETUP_PARAMS["agg_num_levels"])
+                    if int(value) != int(DEFAULT_SETUP_PARAMS["agg_num_levels"])
                 )
                 base_specs.append(
                     ParameterSpec(
@@ -530,14 +527,10 @@ def build_setup_param_space(
         tune7_variant=tune7_variant,
         parameter_resolution=parameter_resolution,
         coarsen_type_values=(
-            None
-            if configuration_space is None
-            else configuration_space.coarsen_types
+            None if configuration_space is None else configuration_space.coarsen_types
         ),
         interp_type_values=(
-            None
-            if configuration_space is None
-            else configuration_space.interp_types
+            None if configuration_space is None else configuration_space.interp_types
         ),
         agg_interp_type_values=(
             None
@@ -546,51 +539,13 @@ def build_setup_param_space(
         ),
     )
     if materialize:
-        actions = build_actions_from_spec(
-            parameter_spec, fixed_params=fixed_params
-        )
+        actions = build_actions_from_spec(parameter_spec, fixed_params=fixed_params)
         actions, default_arm_index = _ensure_default_arm(actions)
     else:
-        actions = CompactActionCatalog(
-            parameter_spec, fixed_params=fixed_params
-        )
+        actions = CompactActionCatalog(parameter_spec, fixed_params=fixed_params)
         default_arm_index = int(actions.default_arm_index)
-    return SetupParamSpace(actions=actions, parameter_spec=parameter_spec, default_arm_index=default_arm_index)
-
-
-def build_setup_param_provider(*, mode: str, seed: int, tune_dim: int, tune7_variant: str = "categorical"):
-    action_space = build_setup_param_space(tune_dim=tune_dim, tune7_variant=tune7_variant)
-    if str(mode).strip().lower() == "random":
-        provider = RandomSetupParamProvider(action_space=action_space, seed=seed)
-    elif str(mode).strip().lower() == "bandit":
-        method = os.environ.get("SETUP_BANDIT_METHOD", "").strip().lower()
-        if not method:
-            method = "linucbv4" if int(tune_dim) == 7 else "linucbv3"
-        bandit_seed = int(
-            os.environ.get(
-                "SETUP_BANDIT_SEED",
-                str(_default_bandit_seed_like_test10(seed=int(seed), tune_dim=int(tune_dim), method=method)),
-            )
-        )
-        provider = BanditSetupParamProvider(
-            policy=SetupBanditPolicy(
-                actions=action_space.actions,
-                context_dim=int(DIFCONV_CONTEXT_DIM),
-                tune_dim=int(tune_dim),
-                parameter_spec=action_space.parameter_spec,
-                seed=int(bandit_seed),
-                alpha=float(os.environ.get("SETUP_BANDIT_ALPHA", os.environ.get("ALPHA", "1.0"))),
-                l2=float(os.environ.get("SETUP_BANDIT_L2", os.environ.get("L2", "1.0"))),
-                method=method,
-                default_arm_index=int(action_space.default_arm_index),
-                candidate_pool_size=int(
-                    os.environ.get("SETUP_BANDIT_CANDIDATE_POOL_SIZE", os.environ.get("CANDIDATE_POOL_SIZE", "512"))
-                ),
-                elite_cache_size=int(
-                    os.environ.get("SETUP_BANDIT_ELITE_CACHE_SIZE", os.environ.get("ELITE_CACHE_SIZE", "64"))
-                ),
-            )
-        )
-    else:
-        raise ValueError(f"Unsupported setup mode: {mode}")
-    return provider, action_space
+    return SetupParamSpace(
+        actions=actions,
+        parameter_spec=parameter_spec,
+        default_arm_index=default_arm_index,
+    )

@@ -1,0 +1,322 @@
+{
+  "at": "2026-09-28T03:07:10.171596+00:00",
+  "implementation": {
+    "all_inputs_positive_diffusion_zero_advection": true,
+    "audited_jobs": 600,
+    "denominator_evidence": "par_amg_setup.c uses ComputeL1Norms option 1 with NULL CF marker; ams.c computes the full absolute row sum.",
+    "native_checks": [
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 1,
+        "two_cycle_residuals": [
+          0.40847575588322677,
+          0.017514113637269513
+        ]
+      },
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 2,
+        "two_cycle_residuals": [
+          0.41816556841300084,
+          0.03508139137758002
+        ]
+      },
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 3,
+        "two_cycle_residuals": [
+          0.3476379626998855,
+          0.0149200644585646
+        ]
+      },
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 4,
+        "two_cycle_residuals": [
+          0.38833418885780846,
+          0.028756573595101174
+        ]
+      },
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 5,
+        "two_cycle_residuals": [
+          0.38576273553851936,
+          0.03292131821336427
+        ]
+      },
+      {
+        "action_grid": {
+          "start": 1,
+          "step": 0.05,
+          "stop": 3
+        },
+        "cycle_relax_types": [
+          18,
+          18,
+          9
+        ],
+        "cycle_type": 1,
+        "initial_weight": 1.0,
+        "seed": 6,
+        "two_cycle_residuals": [
+          0.6132948802435533,
+          0.028537853907486258
+        ]
+      }
+    ],
+    "passed": true,
+    "profile": "l1_jacobi_direct_coarse",
+    "relax_order_evidence": "Native default 0 in par_amg.c; no parameter override in any job or schedule step.",
+    "scope": "Native profile plus source audit; no assertion that the multilevel coarse correction is an exact projection."
+  },
+  "math": {
+    "coarse_grid_minimizer": 2.5,
+    "continuous_minimizer": 2.618033988749895,
+    "eta_continuous": 0.044222912360003364,
+    "fine_grid_minimizer": 2.6,
+    "grid": [
+      {
+        "a": 1.0,
+        "eta": 0.08192000000000003
+      },
+      {
+        "a": 1.05,
+        "eta": 0.07991600939821239
+      },
+      {
+        "a": 1.1,
+        "eta": 0.07799695059414172
+      },
+      {
+        "a": 1.15,
+        "eta": 0.07615836282070038
+      },
+      {
+        "a": 1.2,
+        "eta": 0.07439601028255768
+      },
+      {
+        "a": 1.25,
+        "eta": 0.07270587856872122
+      },
+      {
+        "a": 1.3,
+        "eta": 0.07108416921210967
+      },
+      {
+        "a": 1.35,
+        "eta": 0.06952729285511537
+      },
+      {
+        "a": 1.4,
+        "eta": 0.06803186141015265
+      },
+      {
+        "a": 1.45,
+        "eta": 0.06659467953903954
+      },
+      {
+        "a": 1.5,
+        "eta": 0.06521273571631875
+      },
+      {
+        "a": 1.55,
+        "eta": 0.06388319308993894
+      },
+      {
+        "a": 1.6,
+        "eta": 0.06260338030814626
+      },
+      {
+        "a": 1.65,
+        "eta": 0.06137078244363222
+      },
+      {
+        "a": 1.7,
+        "eta": 0.060183032114386414
+      },
+      {
+        "a": 1.75,
+        "eta": 0.05903790087463557
+      },
+      {
+        "a": 1.8,
+        "eta": 0.057933290928008044
+      },
+      {
+        "a": 1.85,
+        "eta": 0.05686722719795691
+      },
+      {
+        "a": 1.9,
+        "eta": 0.05583784977686586
+      },
+      {
+        "a": 1.95,
+        "eta": 0.05484340676457375
+      },
+      {
+        "a": 2.0,
+        "eta": 0.05388224749877973
+      },
+      {
+        "a": 2.05,
+        "eta": 0.05295281617349218
+      },
+      {
+        "a": 2.1,
+        "eta": 0.05205364583698833
+      },
+      {
+        "a": 2.15,
+        "eta": 0.051183352757346194
+      },
+      {
+        "a": 2.2,
+        "eta": 0.05034063114123069
+      },
+      {
+        "a": 2.25,
+        "eta": 0.049524248190049504
+      },
+      {
+        "a": 2.3,
+        "eta": 0.04873303947666266
+      },
+      {
+        "a": 2.35,
+        "eta": 0.04796590462538907
+      },
+      {
+        "a": 2.4,
+        "eta": 0.04722180327798734
+      },
+      {
+        "a": 2.45,
+        "eta": 0.04649975132850384
+      },
+      {
+        "a": 2.5,
+        "eta": 0.04579881741030227
+      },
+      {
+        "a": 2.55,
+        "eta": 0.045118119619159146
+      },
+      {
+        "a": 2.6,
+        "eta": 0.04445682245697864
+      },
+      {
+        "a": 2.65,
+        "eta": 0.046542947604053586
+      },
+      {
+        "a": 2.7,
+        "eta": 0.05030349465774264
+      },
+      {
+        "a": 2.75,
+        "eta": 0.054225294768283534
+      },
+      {
+        "a": 2.8,
+        "eta": 0.05830903790087461
+      },
+      {
+        "a": 2.85,
+        "eta": 0.0625553615928579
+      },
+      {
+        "a": 2.9,
+        "eta": 0.06696485570869577
+      },
+      {
+        "a": 2.95,
+        "eta": 0.07153806670092433
+      },
+      {
+        "a": 3.0,
+        "eta": 0.07627550143413525
+      }
+    ],
+    "interpretation": "Numerical checks supplement the written proof; they do not prove a multilevel runtime optimum.",
+    "max_identity_error": 1.1657341758564144e-15,
+    "passed": true,
+    "row_l1_spd_checks": [
+      {
+        "max_eigenvalue": 1.0,
+        "min_eigenvalue": 0.11593330746990077,
+        "n": 3
+      },
+      {
+        "max_eigenvalue": 0.8846006029931262,
+        "min_eigenvalue": 0.03901442525548725,
+        "n": 8
+      },
+      {
+        "max_eigenvalue": 0.7139235984555642,
+        "min_eigenvalue": 0.012000017139401476,
+        "n": 20
+      }
+    ],
+    "symbolic_peaks_verified": true,
+    "two_grid_checks": 500
+  }
+}

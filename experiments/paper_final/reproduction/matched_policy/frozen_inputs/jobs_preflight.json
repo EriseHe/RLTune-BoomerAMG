@@ -1,0 +1,1178 @@
+[
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "d4f00bb502568393f30799e559312f004857656c6f19b5a5babd8ba4c7b2129f",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 5,
+    "setup_selection": {
+      "arm_index": 10366714,
+      "pred_mean": 0.15746987488300476,
+      "pred_uncert": 0.034276326498565844
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "cc7078f91f58aba774f8e27a46fa888c695bc60f93df91505cfef2ca69795fc4",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 3,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.1494450077578689,
+      "pred_uncert": 0.04924276581076374
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "777637a38a7f0c3312d6da525335b80337391e290434118303c70bb666e8f50a",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 2,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.14522079618907605,
+      "pred_uncert": 0.01959606683957728
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "cc7078f91f58aba774f8e27a46fa888c695bc60f93df91505cfef2ca69795fc4",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 6,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.14953663887855784,
+      "pred_uncert": 0.04228837927417877
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "5eed6a632a3513b93becaa6e998bccf8d725f71fc7adde28397f6ceb9b1a0058",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 3,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.1491617518848402,
+      "pred_uncert": 0.019519034229245433
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "0694268c6c164967a70fc8ea2618911a55ffa026bf1350af04c1f972e683e360",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 6,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.1563602746196811,
+      "pred_uncert": 0.029346488777139072
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "6bd2dfe1e616815439ac8186617a5f262043205f7d2185fe71c358851d53b509",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 5,
+    "setup_selection": {
+      "arm_index": 10366714,
+      "pred_mean": 0.15149567412768195,
+      "pred_uncert": 0.051097541125908155
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "630b124b03ba53411364fd35d883f3c8e886b4a1782ccf5d770ea295a8dfc415",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 16,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 3,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 1,
+    "setup_selection": {
+      "arm_index": 10367800,
+      "pred_mean": 0.16548223625911745,
+      "pred_uncert": 0.028383734983007388
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "5c6922bf7794cf65d6f87a7d66cd1a752c6171aafca58647365cb814acc2a0a6",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 3,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.15140315606678903,
+      "pred_uncert": 0.029636213446632316
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "5c6922bf7794cf65d6f87a7d66cd1a752c6171aafca58647365cb814acc2a0a6",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 6,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.15615029814381728,
+      "pred_uncert": 0.030214799578136897
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "0c85fdeb93a89b3bc25d832881b92cc4ee71a618be7efedf74f719e5c5c4e1e7",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 5,
+    "setup_selection": {
+      "arm_index": 10366714,
+      "pred_mean": 0.15426141144199906,
+      "pred_uncert": 0.02219545242391436
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "2222c8438fa05c3f3b8a2532146993c7432d62964dd166c59e680bd63809e12d",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 16,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 3,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 1,
+    "setup_selection": {
+      "arm_index": 10367800,
+      "pred_mean": 0.15813625283045502,
+      "pred_uncert": 0.01945825431554672
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "f7b6fe69d73d5ad74b4e03e39e4b8c5491ad2410c0b6d830b42ba0d5aecfe501",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 6,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 5,
+    "setup_selection": {
+      "arm_index": 10366726,
+      "pred_mean": 0.1553903666448751,
+      "pred_uncert": 0.08522641452103118
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "e875abdfa3c5662bc4edfb26eb8e3a6952b9949a19194d7eb0df4183ebdd17f8",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 2,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.14918525656253678,
+      "pred_uncert": 0.028612883162882817
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "0694268c6c164967a70fc8ea2618911a55ffa026bf1350af04c1f972e683e360",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 3,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.15187861882358872,
+      "pred_uncert": 0.028344210299134264
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "8cd4972b12b0d0de396a5ed9e6206c2e447ef6d35c5a5b439ab2020be313cfcd",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.049999999999999996
+    },
+    "seed": 2,
+    "setup_selection": {
+      "arm_index": 10343410,
+      "pred_mean": 0.14364879835229863,
+      "pred_uncert": 0.04158087292620506
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "bc7dfbd8e222df73fefcf6a6201ad696f331d5a4bedafb8631d89ab29b997c57",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 2,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.14933044608647705,
+      "pred_uncert": 0.027477833881817043
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "63e1983c4c1a42d824795ad2c07808a953e7cc921feb6d58095c0308bd95f3a3",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 16,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 3,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 1,
+    "setup_selection": {
+      "arm_index": 10367800,
+      "pred_mean": 0.1651363432996411,
+      "pred_uncert": 0.027761848165456085
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "03eea4463cb62f3f87f5ec8244edb830ed50ff93c73b7d12a43f35f5085f4cec",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 16,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 3,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.95
+    },
+    "seed": 1,
+    "setup_selection": {
+      "arm_index": 10367800,
+      "pred_mean": 0.15124372287690024,
+      "pred_uncert": 0.0420446947817458
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "5eed6a632a3513b93becaa6e998bccf8d725f71fc7adde28397f6ceb9b1a0058",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 2,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 6,
+    "setup_selection": {
+      "arm_index": 10342090,
+      "pred_mean": 0.15273009514055358,
+      "pred_uncert": 0.019766855936084016
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 200,
+    "case_id": 0,
+    "context": [
+      1.0,
+      0.9725779011079309,
+      0.9770673900885124,
+      0.9454230946853919,
+      0.9650227952939451,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "bc7dfbd8e222df73fefcf6a6201ad696f331d5a4bedafb8631d89ab29b997c57",
+    "input_id": "6d780fcbcea1073a84c818f6531f146a4a9ecc048d34c9f832f7670e5ef2cdce",
+    "mkw": {
+      "a0": 685.9133948519706,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 853.4973367177693,
+      "k": 827.4346494014686,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 3031480722752863562,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 4,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.15021828717530006,
+      "pred_uncert": 0.03073008579825355
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 201,
+    "case_id": 1,
+    "context": [
+      1.0,
+      0.9908786239992822,
+      0.6026462863482026,
+      0.9430488908381115,
+      0.8455246003951987,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "d9241ca12bd99de6d58994b0ec835b12d9d8168839efff81dc69a6eb4a38c73f",
+    "input_id": "df31e94fcfdd4639ec2e6ba2bdb5646901ee30150bfea6d89ae57766a8cfbde2",
+    "mkw": {
+      "a0": 674.7558717858093,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 64.25972446611708,
+      "k": 938.9357431922631,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 9169155098048927557,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 4,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.14192744376374578,
+      "pred_uncert": 0.04357270964327312
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 202,
+    "case_id": 2,
+    "context": [
+      1.0,
+      0.9464158114558802,
+      0.9998983231128055,
+      0.9579589892131679,
+      0.9680910412606178,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "e875abdfa3c5662bc4edfb26eb8e3a6952b9949a19194d7eb0df4183ebdd17f8",
+    "input_id": "c6fc5a642d2775dcf813ed0b9930700a9eddbd243e41edae3ff9499dfce63bc5",
+    "mkw": {
+      "a0": 747.9575797376649,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 999.2978875421155,
+      "k": 690.6331722073469,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 7762409755145514311,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 4,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.15043557752229117,
+      "pred_uncert": 0.031388997939169244
+    },
+    "source": "bandit_lstdq"
+  },
+  {
+    "candidate_row": 203,
+    "case_id": 3,
+    "context": [
+      1.0,
+      0.9438573592164226,
+      0.880248820132836,
+      0.8762278879426846,
+      0.9001113557639812,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "hierarchy_id": "777637a38a7f0c3312d6da525335b80337391e290434118303c70bb666e8f50a",
+    "input_id": "a5cfc76d6db887eadc318027cf47b8b47a674088cbec47afa8f049f8dd3f4735",
+    "mkw": {
+      "a0": 425.2885239735546,
+      "a1": 0.0,
+      "a2": 0.0,
+      "a3": 0.0,
+      "c": 437.26675582485484,
+      "k": 678.5347241155849,
+      "nx": 60,
+      "ny": 60,
+      "nz": 60,
+      "rhs_seed": 664702734693414111,
+      "rhs_type": 1,
+      "stencil": 0
+    },
+    "params": {
+      "P_max_elmts": 2,
+      "agg_Pmx": 0,
+      "agg_interp_type": 4,
+      "agg_num_levels": 0,
+      "agg_tr": 0.0,
+      "coarsen_type": 10,
+      "interp_type": 8,
+      "max_row_sum": 0.95,
+      "strong_threshold": 0.95,
+      "trunc_factor": 0.0
+    },
+    "seed": 4,
+    "setup_selection": {
+      "arm_index": 10342114,
+      "pred_mean": 0.1461028134459147,
+      "pred_uncert": 0.02106223571593638
+    },
+    "source": "bandit_lstdq"
+  }
+]

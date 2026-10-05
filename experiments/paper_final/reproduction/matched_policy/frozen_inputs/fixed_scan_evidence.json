@@ -1,0 +1,73 @@
+{
+  "derivation": "Select exactly the listed fields from every original JSONL record in its original order. JSON number serialization round-trips each recorded floating-point value. Compress UTF-8 JSONL with gzip mtime=0.",
+  "description": "Derived evidence for reconstructing the unchanged accepted fixed-grid choices; cycle traces and other unused raw fields are omitted.",
+  "fields": [
+    "seed",
+    "source",
+    "case_id",
+    "input_id",
+    "hierarchy_id",
+    "policy",
+    "repeat",
+    "kind",
+    "native_continuation_sec",
+    "success"
+  ],
+  "format": "retained-fixed-grid-selection-evidence-v1",
+  "scan_extra_repeat_case_ids": [
+    1,
+    13,
+    14,
+    37,
+    45,
+    63,
+    66,
+    82,
+    87,
+    96
+  ],
+  "sources": {
+    "seed_1": {
+      "derived_path": "fixed_scans/seed_1.jsonl.gz",
+      "derived_sha256": "ba7090b67f7fdff733240fe700b9bd46ff73e58b5427cc9141b47d9960e9eba0",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_1/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "880a53de16ee0ea5c5f4e5b59562e5026403ec7e9d33cd1e99fe317f35005b30",
+      "records": 4920
+    },
+    "seed_2": {
+      "derived_path": "fixed_scans/seed_2.jsonl.gz",
+      "derived_sha256": "c1f060942b148cb2854c7c85dcc31db6e50a907a51286f43092082233978ea5a",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_2/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "a0ea39e0d50db177a7f46f37950b31faa4fb15ec54a3eae30a293f94968cc923",
+      "records": 4920
+    },
+    "seed_3": {
+      "derived_path": "fixed_scans/seed_3.jsonl.gz",
+      "derived_sha256": "5f3343599828e92c3e00c52811df4a25610d8309ff6c79b9cec09a4c3f365f19",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_3/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "b81ed48aecc3cc680b87c6316e928f69645e085dc3adce2acb54fca317372bd5",
+      "records": 4920
+    },
+    "seed_4": {
+      "derived_path": "fixed_scans/seed_4.jsonl.gz",
+      "derived_sha256": "387d5509354a2738017214037452362cdf57aa123556b418d7c7a7cc1c084766",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_4/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "3bf27deb26e97cd8a7145709661a6e4a78e62ddc70ee243c5fd5ddbf8c217ca2",
+      "records": 4920
+    },
+    "seed_5": {
+      "derived_path": "fixed_scans/seed_5.jsonl.gz",
+      "derived_sha256": "ac069824136b3dda8cc55678618247587db6c9aa92f5ed65fffa818cb5b10b2f",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_5/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "166793c89258261309c839a0b7e920700f1f1f3212b4da6e7f823336e53c7f9c",
+      "records": 4920
+    },
+    "seed_6": {
+      "derived_path": "fixed_scans/seed_6.jsonl.gz",
+      "derived_sha256": "dcb55e61d54caa0bffe4402af3a751a9e1a711634a311248ba41c775b6234dfe",
+      "original_path": "releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/data/seeds/seed_6/fixed_weight_scan.jsonl",
+      "original_raw_sha256": "d99f2a1164822edfe6999d832891f2f755a3c391856832c323436c4061590d88",
+      "records": 4920
+    }
+  }
+}

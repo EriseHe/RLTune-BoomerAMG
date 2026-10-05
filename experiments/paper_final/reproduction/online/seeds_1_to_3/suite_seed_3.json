@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260925_macmini_3seeds_seed_3",
+  "checkpoint": "007bd195b9aa976f6b640bd0de861669e3dcde7f",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    3
+  ],
+  "seed_offsets": [
+    4000063,
+    120625745,
+    610786425
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion": 50,
+    "diffusion_advection": 50
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "Three concurrent single-thread seed processes. Within each seed, diffusion then advection at grids 40, 60, 80 run serially. Methods remain paired and randomized per problem.",
+  "seed_provenance": "Replicate 1 repeats base 56700120, including the exact completed Mac mini 60-cubed configs, for serial-versus-concurrent comparison. Replicates 2 and 3 were drawn once using SystemRandom before new outcomes, excluding seed values recorded in repository experiment configs. No outcome-based seed selection.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "diffusion_40_s3",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 3,
+      "config": "diffusion_40_s3.json",
+      "config_sha256": "734efdcc81293de5c8972480b834232ade30af3fc436602c3476d843f27285f5",
+      "stream_sha256": "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c"
+    },
+    {
+      "name": "advection_40_s3",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 3,
+      "config": "advection_40_s3.json",
+      "config_sha256": "790a1c6fddb248abfa2547afe5504d68a58bb23a92628703cf00d9134a4db69b",
+      "stream_sha256": "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4"
+    },
+    {
+      "name": "diffusion_60_s3",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 3,
+      "config": "diffusion_60_s3.json",
+      "config_sha256": "a58cd1313544bcf31b9e0ae26c4523fa13b5fe5ba98370587c4e86d9e2489ef6",
+      "stream_sha256": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353"
+    },
+    {
+      "name": "advection_60_s3",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 3,
+      "config": "advection_60_s3.json",
+      "config_sha256": "cc7bad187f00cb8d8d64c34d2422a501bb9f9dbcb806f97fdb5e0513854cefae",
+      "stream_sha256": "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc"
+    },
+    {
+      "name": "diffusion_80_s3",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 3,
+      "config": "diffusion_80_s3.json",
+      "config_sha256": "b8272b9203512cfef1c969bbb3e3831af9dae3216afa0f50926abf332e30e12e",
+      "stream_sha256": "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4"
+    },
+    {
+      "name": "advection_80_s3",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 3,
+      "config": "advection_80_s3.json",
+      "config_sha256": "22d2ae612a00e5ae67c00934b62415e57f65d0fbdf685f619123d3237ce64efc",
+      "stream_sha256": "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e"
+    }
+  ],
+  "families": [
+    "diffusion",
+    "diffusion_advection"
+  ],
+  "grids": [
+    40,
+    60,
+    80
+  ],
+  "failure_feedback": {
+    "mode": "rollback_unrecovered"
+  },
+  "purpose": "Full Module 04: three seeds, both PDE families, grids 40/60/80, 5000 paired problems and three methods per group. Concurrent-seed execution is recorded explicitly.",
+  "concurrency": {
+    "workers": 3,
+    "unit": "complete_seed",
+    "threads_per_worker": 1,
+    "pinned_cores": false
+  },
+  "serial_comparison": {
+    "output_root": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/results/paper_final/04_online/20260925_macmini_n60",
+    "replicate": 1,
+    "intentional_difference": "two other seed workers run concurrently; realized timing rewards and learned paths may differ"
+  }
+}

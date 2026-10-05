@@ -1,22 +1,17 @@
-# Solve Controllers
+# Solve controller
 
-This is the canonical home of solve-phase controller code. Each
-registry-managed online controller family owns its typed `config.py`,
-construction `factory.py`, implementation, protocol metadata, and checkpoint
-logic:
+`recursive_lstdq/v3.py` implements the episode-cluster recursive LSTDQ controller
+used by the SISC studies. `v1.py` remains as its required mean-update, inverse,
+checkpoint, and behavior-policy base. It is not a separately selectable
+experiment algorithm. `common.py` factorizes the shared state-action scoring.
 
-- `bootstrap/`: bootstrap SARSA-LCB
-- `common/`: shared state/action encoding, controller configuration, types, and
-  linear primitives
-- `lsvi/`: stagewise and hierarchical LSVI-LCB
-- `model_based/`: structured cycle-cost/progress control
-- `ppo/`: frozen setup-aware PPO config, checkpoint runner, and factory
-- `rblspi/`: recursive Bayesian LSTDQ / RBLSPI
-- `recursive_lstdq/`: versioned recursive LSTDQ-LCB controllers
-- `recursive_mc/`: recursive Monte Carlo LCB
-- `sarsa/`: online SARSA(lambda) and behavior policies
-- `registry.py`: compatibility re-export of the public solve registry
+`recursive_lstdq/config.py` defines the numerical specs; its factory constructs
+V3 with the encoder and action configuration supplied by `solve.registry`.
+`common/` contains the shared encoders, controller bundle, TD configuration, and
+linear primitives. The retained TD configuration keeps its historical class
+name because checkpoint configuration fields remain unchanged.
 
-New code should import from `solve.controllers` and construct controllers
-through `solve.registry`. The registry dispatches typed requests to family
-factories; it does not call concrete controller constructors.
+V3 commits one cluster covariance update per successfully committed episode.
+The episode runner owns recovery and rollback, while the controller owns its
+numerical state and NPZ checkpoint. Canonical V1/V3 class paths and checkpoint
+schemas remain stable.

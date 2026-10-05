@@ -15,7 +15,11 @@ def _as_tuple(values: Sequence[Any]) -> Tuple[Any, ...]:
     return tuple(values) if not isinstance(values, tuple) else values
 
 
-def _normalize_active_if(active_if: Optional[Mapping[str, Sequence[Any]] | Sequence[Tuple[str, Sequence[Any]]]]) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
+def _normalize_active_if(
+    active_if: Optional[
+        Mapping[str, Sequence[Any]] | Sequence[Tuple[str, Sequence[Any]]]
+    ],
+) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
     if active_if is None:
         return ()
     if isinstance(active_if, Mapping):
@@ -29,7 +33,9 @@ def _normalize_active_if(active_if: Optional[Mapping[str, Sequence[Any]] | Seque
         if not dep:
             raise ValueError("active_if dependency names must be non-empty")
         if not vals:
-            raise ValueError(f"active_if[{dep!r}] must contain at least one allowed value")
+            raise ValueError(
+                f"active_if[{dep!r}] must contain at least one allowed value"
+            )
         out.append((dep, vals))
     return tuple(out)
 
@@ -59,14 +65,18 @@ class ParameterSpec:
 
         values = _as_tuple(self.values)
         if not values:
-            raise ValueError(f"ParameterSpec[{name!r}] must define at least one candidate value")
+            raise ValueError(
+                f"ParameterSpec[{name!r}] must define at least one candidate value"
+            )
 
         active_if = _normalize_active_if(self.active_if)
 
         if kind in _NUMERIC_KINDS:
             norm_vals = tuple(float(v) for v in values)
             if not np.all(np.isfinite(np.asarray(norm_vals, dtype=float))):
-                raise ValueError(f"ParameterSpec[{name!r}] numeric values must be finite")
+                raise ValueError(
+                    f"ParameterSpec[{name!r}] numeric values must be finite"
+                )
             default = float(self.default)
             if not np.isfinite(default):
                 raise ValueError(f"ParameterSpec[{name!r}] default must be finite")
@@ -75,7 +85,9 @@ class ParameterSpec:
             if not np.isfinite(center):
                 raise ValueError(f"ParameterSpec[{name!r}] center must be finite")
             if not np.isfinite(scale) or scale <= 0.0:
-                raise ValueError(f"ParameterSpec[{name!r}] scale must be finite and > 0")
+                raise ValueError(
+                    f"ParameterSpec[{name!r}] scale must be finite and > 0"
+                )
 
             object.__setattr__(self, "values", norm_vals)
             object.__setattr__(self, "default", default)
@@ -98,7 +110,11 @@ class ParameterSpaceSpec:
     parameters: Tuple[ParameterSpec, ...]
 
     def __post_init__(self) -> None:
-        params = tuple(self.parameters) if not isinstance(self.parameters, tuple) else self.parameters
+        params = (
+            tuple(self.parameters)
+            if not isinstance(self.parameters, tuple)
+            else self.parameters
+        )
         if not params:
             raise ValueError("ParameterSpaceSpec.parameters must be non-empty")
         names = [param.name for param in params]
@@ -121,7 +137,9 @@ class ParameterSpaceSpec:
         return tuple(param.name for param in self.parameters)
 
 
-def _is_parameter_active(param: ParameterSpec, effective_action: Mapping[str, Any]) -> bool:
+def _is_parameter_active(
+    param: ParameterSpec, effective_action: Mapping[str, Any]
+) -> bool:
     for dep_name, allowed in param.active_if:
         if effective_action.get(dep_name, None) not in allowed:
             return False
@@ -156,7 +174,9 @@ def canonicalize_action_from_spec(
     return out
 
 
-def default_action_from_parameter_space_spec(parameter_spec: ParameterSpaceSpec) -> Dict[str, Any]:
+def default_action_from_parameter_space_spec(
+    parameter_spec: ParameterSpaceSpec,
+) -> Dict[str, Any]:
     raw = {param.name: param.default for param in parameter_spec.parameters}
     return canonicalize_action_from_spec(raw, parameter_spec)
 
@@ -240,10 +260,14 @@ class GenericActionFeatureEncoder:
     def __init__(self, parameter_spec: ParameterSpaceSpec) -> None:
         self.parameter_spec = parameter_spec
         self.numeric_params = tuple(
-            param for param in self.parameter_spec.parameters if param.kind in _NUMERIC_KINDS
+            param
+            for param in self.parameter_spec.parameters
+            if param.kind in _NUMERIC_KINDS
         )
         self.categorical_params = tuple(
-            param for param in self.parameter_spec.parameters if param.kind == _CATEGORICAL_KIND
+            param
+            for param in self.parameter_spec.parameters
+            if param.kind == _CATEGORICAL_KIND
         )
         self.numeric_names = tuple(param.name for param in self.numeric_params)
         self.categorical_levels = {
@@ -251,7 +275,9 @@ class GenericActionFeatureEncoder:
             for param in self.categorical_params
         }
         self.numeric_dim = len(self.numeric_params)
-        self.categorical_dim = sum(len(levels) for levels in self.categorical_levels.values())
+        self.categorical_dim = sum(
+            len(levels) for levels in self.categorical_levels.values()
+        )
         self.mixed_dim = self.numeric_dim * self.categorical_dim
         self.numeric_feature_dim = (
             self.numeric_dim
@@ -338,7 +364,10 @@ class GenericActionFeatureEncoder:
                 else:
                     value = action[param.name]
                     categorical_blocks.append(
-                        np.asarray([1.0 if value == level else 0.0 for level in levels], dtype=float)
+                        np.asarray(
+                            [1.0 if value == level else 0.0 for level in levels],
+                            dtype=float,
+                        )
                     )
 
         numeric_features = self.encode_numeric_table(
@@ -356,7 +385,11 @@ class GenericActionFeatureEncoder:
         for cat_block in categorical_blocks:
             for indicator in cat_block:
                 mixed_blocks.append(float(indicator) * normalized_numeric)
-        mixed = np.concatenate(mixed_blocks, axis=0) if mixed_blocks else np.zeros(0, dtype=float)
+        mixed = (
+            np.concatenate(mixed_blocks, axis=0)
+            if mixed_blocks
+            else np.zeros(0, dtype=float)
+        )
 
         return np.concatenate(
             [numeric_features, categorical, mixed],
@@ -370,386 +403,3 @@ class GenericActionFeatureEncoder:
         for index, action in enumerate(actions):
             encoded[index] = self.encode_action(action)
         return encoded
-
-
-class RBFActionFeatureEncoder(GenericActionFeatureEncoder):
-    """Hybrid local RBF encoding for continuous setup parameters.
-
-    The original normalized linear coordinates, pairwise interactions, and
-    categorical interactions are retained. Gaussian basis blocks replace the
-    continuous squared terms, while integer squared terms remain explicit.
-    """
-
-    DEFAULT_RBF_PARAMETERS = (
-        "strong_threshold",
-        "max_row_sum",
-        "trunc_factor",
-    )
-
-    def __init__(
-        self,
-        parameter_spec: ParameterSpaceSpec,
-        *,
-        rbf_parameter_names: Sequence[str] = DEFAULT_RBF_PARAMETERS,
-        centers_per_parameter: int = 5,
-        sigma_spacing: float = 0.8,
-        cutoff_sigma: float = 2.5,
-    ) -> None:
-        super().__init__(parameter_spec)
-        if int(centers_per_parameter) < 2:
-            raise ValueError("centers_per_parameter must be at least 2")
-        if not np.isfinite(sigma_spacing) or float(sigma_spacing) <= 0.0:
-            raise ValueError("sigma_spacing must be finite and > 0")
-        if not np.isfinite(cutoff_sigma) or float(cutoff_sigma) <= 0.0:
-            raise ValueError("cutoff_sigma must be finite and > 0")
-
-        requested_names = tuple(str(name) for name in rbf_parameter_names)
-        if len(requested_names) != len(set(requested_names)):
-            raise ValueError("rbf_parameter_names must be unique")
-        numeric_by_name = {
-            param.name: (index, param)
-            for index, param in enumerate(self.numeric_params)
-        }
-        missing = tuple(
-            name for name in requested_names if name not in numeric_by_name
-        )
-        if missing:
-            raise ValueError(
-                f"RBF parameters are not present in the numeric space: {missing}"
-            )
-        noncontinuous = tuple(
-            name
-            for name in requested_names
-            if numeric_by_name[name][1].kind != "continuous"
-        )
-        if noncontinuous:
-            raise ValueError(
-                f"RBF parameters must be continuous: {noncontinuous}"
-            )
-
-        self.rbf_parameter_names = requested_names
-        self.rbf_parameter_indices = tuple(
-            numeric_by_name[name][0] for name in requested_names
-        )
-        self.integer_parameter_indices = tuple(
-            index
-            for index, param in enumerate(self.numeric_params)
-            if param.kind == "integer"
-        )
-        self.centers_per_parameter = int(centers_per_parameter)
-        self.sigma_spacing = float(sigma_spacing)
-        self.cutoff_sigma = float(cutoff_sigma)
-
-        centers = []
-        sigmas = []
-        for name in requested_names:
-            _index, param = numeric_by_name[name]
-            lower = float(min(param.values))
-            upper = float(max(param.values))
-            if not upper > lower:
-                raise ValueError(
-                    f"RBF parameter {name!r} must span at least two values"
-                )
-            parameter_centers = np.linspace(
-                lower,
-                upper,
-                self.centers_per_parameter,
-                dtype=float,
-            )
-            spacing = float(parameter_centers[1] - parameter_centers[0])
-            centers.append(parameter_centers)
-            sigmas.append(self.sigma_spacing * spacing)
-        self.rbf_centers = tuple(centers)
-        self.rbf_sigmas = tuple(sigmas)
-
-        pairwise_dim = (
-            self.numeric_dim * (self.numeric_dim - 1)
-        ) // 2
-        self.rbf_dim = (
-            len(self.rbf_parameter_indices) * self.centers_per_parameter
-        )
-        self.numeric_feature_dim = (
-            self.numeric_dim
-            + self.rbf_dim
-            + len(self.integer_parameter_indices)
-            + pairwise_dim
-        )
-        self.feature_dim = (
-            self.numeric_feature_dim + self.categorical_dim + self.mixed_dim
-        )
-
-    def encode_numeric_table(
-        self,
-        values: np.ndarray,
-        *,
-        active: Optional[np.ndarray] = None,
-    ) -> np.ndarray:
-        numeric_values = np.asarray(values, dtype=float)
-        if numeric_values.ndim == 1:
-            numeric_values = numeric_values.reshape(1, -1)
-        normalized = self._normalized_numeric_table(
-            numeric_values,
-            active=active,
-        )
-        active_mask = (
-            np.ones_like(numeric_values, dtype=bool)
-            if active is None
-            else np.asarray(active, dtype=bool)
-        )
-
-        rbf_blocks = []
-        for parameter_index, centers, sigma in zip(
-            self.rbf_parameter_indices,
-            self.rbf_centers,
-            self.rbf_sigmas,
-        ):
-            distance = (
-                numeric_values[:, parameter_index, None]
-                - centers[None, :]
-            ) / float(sigma)
-            weights = np.exp(-0.5 * distance * distance)
-            weights[np.abs(distance) > self.cutoff_sigma] = 0.0
-            row_sums = np.sum(weights, axis=1, keepdims=True)
-            empty_rows = row_sums[:, 0] <= 0.0
-            if np.any(empty_rows):
-                nearest = np.argmin(
-                    np.abs(distance[empty_rows]),
-                    axis=1,
-                )
-                weights[empty_rows] = 0.0
-                weights[np.flatnonzero(empty_rows), nearest] = 1.0
-                row_sums = np.sum(weights, axis=1, keepdims=True)
-            weights /= row_sums
-            weights[~active_mask[:, parameter_index]] = 0.0
-            rbf_blocks.append(weights)
-        rbf = (
-            np.concatenate(rbf_blocks, axis=1)
-            if rbf_blocks
-            else np.zeros((numeric_values.shape[0], 0), dtype=float)
-        )
-        integer_squared = (
-            normalized[:, self.integer_parameter_indices] ** 2
-            if self.integer_parameter_indices
-            else np.zeros((numeric_values.shape[0], 0), dtype=float)
-        )
-        pairwise = (
-            np.column_stack(
-                [
-                    normalized[:, i] * normalized[:, j]
-                    for i in range(self.numeric_dim)
-                    for j in range(i + 1, self.numeric_dim)
-                ]
-            )
-            if self.numeric_dim > 1
-            else np.zeros((numeric_values.shape[0], 0), dtype=float)
-        )
-        return np.concatenate(
-            [normalized, rbf, integer_squared, pairwise],
-            axis=1,
-        )
-
-
-def action_feature_dimension_from_spec(parameter_spec: ParameterSpaceSpec) -> int:
-    return int(GenericActionFeatureEncoder(parameter_spec).feature_dim)
-
-
-def make_tune3_parameter_space_spec(
-    *,
-    thresholds: Sequence[float],
-    max_row_sums: Sequence[float],
-    trunc_factors: Sequence[float],
-    default_params: Optional[Dict[str, Any]] = None,
-    scales: Sequence[float] = (0.25, 0.10, 0.20),
-) -> ParameterSpaceSpec:
-    defaults = dict(default_params or {})
-    scale_vals = tuple(float(v) for v in scales)
-    if len(scale_vals) != 3:
-        raise ValueError("tune3 scales must have length 3")
-    return ParameterSpaceSpec(
-        (
-            ParameterSpec(
-                name="strong_threshold",
-                kind="continuous",
-                values=tuple(float(v) for v in thresholds),
-                default=float(defaults.get("strong_threshold", 0.25)),
-                center=float(defaults.get("strong_threshold", 0.25)),
-                scale=float(scale_vals[0]),
-            ),
-            ParameterSpec(
-                name="max_row_sum",
-                kind="continuous",
-                values=tuple(float(v) for v in max_row_sums),
-                default=float(defaults.get("max_row_sum", 0.90)),
-                center=float(defaults.get("max_row_sum", 0.90)),
-                scale=float(scale_vals[1]),
-            ),
-            ParameterSpec(
-                name="trunc_factor",
-                kind="continuous",
-                values=tuple(float(v) for v in trunc_factors),
-                default=float(defaults.get("trunc_factor", 0.00)),
-                center=float(defaults.get("trunc_factor", 0.00)),
-                scale=float(scale_vals[2]),
-            ),
-        )
-    )
-
-
-def make_tune5_parameter_space_spec(
-    *,
-    thresholds: Sequence[float],
-    max_row_sums: Sequence[float],
-    trunc_factors: Sequence[float],
-    p_max_elmts_values: Sequence[int],
-    agg_num_levels_values: Sequence[int],
-    default_params: Optional[Dict[str, Any]] = None,
-    scales: Sequence[float] = (0.25, 0.10, 0.20, 4.0, 1.0),
-) -> ParameterSpaceSpec:
-    defaults = dict(default_params or {})
-    scale_vals = tuple(float(v) for v in scales)
-    if len(scale_vals) != 5:
-        raise ValueError("tune5 scales must have length 5")
-    return ParameterSpaceSpec(
-        (
-            ParameterSpec(
-                name="strong_threshold",
-                kind="continuous",
-                values=tuple(float(v) for v in thresholds),
-                default=float(defaults.get("strong_threshold", 0.25)),
-                center=float(defaults.get("strong_threshold", 0.25)),
-                scale=float(scale_vals[0]),
-            ),
-            ParameterSpec(
-                name="max_row_sum",
-                kind="continuous",
-                values=tuple(float(v) for v in max_row_sums),
-                default=float(defaults.get("max_row_sum", 0.90)),
-                center=float(defaults.get("max_row_sum", 0.90)),
-                scale=float(scale_vals[1]),
-            ),
-            ParameterSpec(
-                name="trunc_factor",
-                kind="continuous",
-                values=tuple(float(v) for v in trunc_factors),
-                default=float(defaults.get("trunc_factor", 0.00)),
-                center=float(defaults.get("trunc_factor", 0.00)),
-                scale=float(scale_vals[2]),
-            ),
-            ParameterSpec(
-                name="P_max_elmts",
-                kind="integer",
-                values=tuple(int(v) for v in p_max_elmts_values),
-                default=int(defaults.get("P_max_elmts", 4)),
-                center=float(defaults.get("P_max_elmts", 4)),
-                scale=float(scale_vals[3]),
-            ),
-            ParameterSpec(
-                name="agg_num_levels",
-                kind="integer",
-                values=tuple(int(v) for v in agg_num_levels_values),
-                default=int(defaults.get("agg_num_levels", 0)),
-                center=float(defaults.get("agg_num_levels", 0)),
-                scale=float(scale_vals[4]),
-            ),
-        )
-    )
-ACTION_FEATURE_KEYS = (
-    "strong_threshold",
-    "max_row_sum",
-    "trunc_factor",
-    "P_max_elmts",
-    "agg_num_levels",
-)
-
-ACTION_FEATURE_DEFAULTS = {
-    "P_max_elmts": 4.0,
-    "agg_num_levels": 0.0,
-}
-
-# The original learners used scales for the first 3 continuous knobs.
-# For backward compatibility, callers may still pass only those 3 values;
-# the last 2 discrete knobs will use these defaults.
-ACTION_FEATURE_DEFAULT_SCALES = (0.25, 0.10, 0.20, 4.0, 1.0)
-
-ACTION_FEATURE_DIM = (
-    len(ACTION_FEATURE_KEYS)  # linear
-    + len(ACTION_FEATURE_KEYS)  # squares
-    + (len(ACTION_FEATURE_KEYS) * (len(ACTION_FEATURE_KEYS) - 1)) // 2  # pairwise products
-)
-
-
-def normalize_action_scales(action_scales: Sequence[float]) -> np.ndarray:
-    scales = np.asarray(list(action_scales), dtype=float).reshape(-1)
-    if scales.size == 3:
-        scales = np.concatenate(
-            [scales, np.asarray(ACTION_FEATURE_DEFAULT_SCALES[3:], dtype=float)],
-            axis=0,
-        )
-    if scales.size != len(ACTION_FEATURE_KEYS):
-        raise ValueError(
-            f"action_scales must have length 3 or {len(ACTION_FEATURE_KEYS)}"
-        )
-    if not np.all(np.isfinite(scales)) or np.any(scales <= 0.0):
-        raise ValueError("action_scales must be finite and > 0")
-    return scales
-
-
-def action_center_from_actions(
-    actions: Sequence[Dict[str, Any]],
-    action_center: Optional[Dict[str, Any]],
-) -> np.ndarray:
-    means: Dict[str, float] = {}
-    for key in ACTION_FEATURE_KEYS:
-        vals = [float(a[key]) for a in actions if key in a]
-        if vals:
-            m = float(np.mean(np.asarray(vals, dtype=float)))
-            if not np.isfinite(m):
-                raise ValueError(f"non-finite mean for action key {key}")
-            means[key] = m
-
-    out = []
-    for key in ACTION_FEATURE_KEYS:
-        if action_center is not None and key in action_center:
-            v = float(action_center[key])
-        elif key in means:
-            v = float(means[key])
-        elif key in ACTION_FEATURE_DEFAULTS:
-            v = float(ACTION_FEATURE_DEFAULTS[key])
-        else:
-            raise KeyError(f"Missing required action-center key: {key}")
-
-        if not np.isfinite(v):
-            raise ValueError(f"action_center[{key!r}] must be finite")
-        out.append(v)
-
-    return np.asarray(out, dtype=float)
-
-
-def action_param_vector(params: Dict[str, Any], *, err_prefix: str) -> np.ndarray:
-    try:
-        th = float(params["strong_threshold"])
-        mxrs = float(params["max_row_sum"])
-        tr = float(params["trunc_factor"])
-    except KeyError as e:
-        raise KeyError(f"{err_prefix} action missing required key: {e}") from e
-
-    p_max = float(params.get("P_max_elmts", ACTION_FEATURE_DEFAULTS["P_max_elmts"]))
-    agg_nl = float(params.get("agg_num_levels", ACTION_FEATURE_DEFAULTS["agg_num_levels"]))
-    out = np.asarray([th, mxrs, tr, p_max, agg_nl], dtype=float)
-    if not np.all(np.isfinite(out)):
-        raise ValueError("action parameters must be finite")
-    return out
-
-
-def poly2_features(values: Sequence[float]) -> np.ndarray:
-    x = np.asarray(list(values), dtype=float).reshape(-1)
-    if x.size != len(ACTION_FEATURE_KEYS):
-        raise ValueError(f"expected {len(ACTION_FEATURE_KEYS)} action values, got {x.size}")
-
-    feats = [x, x * x]
-    cross_terms = []
-    for i in range(x.size):
-        for j in range(i + 1, x.size):
-            cross_terms.append(x[i] * x[j])
-    feats.append(np.asarray(cross_terms, dtype=float))
-    return np.concatenate(feats, axis=0)

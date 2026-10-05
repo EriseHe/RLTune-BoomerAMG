@@ -1,47 +1,23 @@
-# Setup Phase
+# Setup phase
 
-Setup-only learning and evaluation for BoomerAMG. These experiments choose one
-AMG setup configuration per problem instance and use the default or a fixed
-solve policy.
+The SISC studies select BoomerAMG hierarchy parameters with shared context-action
+LinUCB V4. `registry.py` accepts `default` and `linucb`; it constructs the learner
+through the LinUCB factory. The native solver defaults remain in `space.py`.
 
-## Layout
+- `space.py`: named categorical configuration spaces, parameter grids, and the
+  setup observation encoder used by the solve controller, and stable action
+  enumeration.
+- `learners/linucb/`: V4 learning, checkpoint persistence, and same-instance setup
+  reselection.
+- `learners/common/`: mixed-type action features, compact action catalogs,
+  candidate schedules, and shared constructor inputs.
+- `tests/`: numerical, candidate-schedule, failure-feedback, and registry checks.
 
-- `learners/`: contextual bandits grouped into `linucb/`, `bayesian/`,
-  `thompson/`, and `tsallis/` families. Active families own their typed
-  algorithm config, factory, implementation, and checkpoint format.
-- `registry.py`: typed learner selection and family-factory dispatch shared by
-  setup-only and joint experiments; it does not construct concrete learners.
-- `scripts/`: setup-only experiment and benchmark entry points.
-- `utils/`: setup action spaces, output paths, plotting, and experiment helpers.
-- `tests/`: setup-only unit and integration tests.
+The setup and solve phases share [PDE streams](../problems/README.md) and
+[HYPRE bindings](../hypre/bindings/README.md). The selected setup and its recovery
+attempts are evaluated by the joint experiment runner, which supplies the
+completion cost used by LinUCB.
 
-Shared PDE streams live in `problems/`. Historical setup plots live in
-`results/archive/setup_phase/legacy_plots/`, and reference implementations live
-in `docs/archive/setup_phase_reference/`.
-
-The canonical Python package and command paths are lowercase `setup/`.
-Checkpoint-only module aliases are installed internally for historical pickle
-payloads; new code must import through `setup`.
-
-## Native Solver
-
-Both setup and solve experiments use the same unmodified fork in
-`hypre/source/` and the project wrappers in `hypre/interfaces/`. Build HYPRE
-and both wrappers with:
-
-```bash
-make -C hypre
-```
-
-The shared Python binding lives in `hypre/bindings/`; setup and solve code import
-the same module and link to the same native installation.
-
-## Environment
-
-From the repository root:
-
-```bash
-conda env create -f environment.yml
-```
-
-Setup-specific Python requirements are also listed in `requirements.txt`.
+From the repository root, install the environment and native interfaces using
+[the reproduction guide](../docs/reproduction.md). Run the setup tests with
+`python -m unittest discover -s setup/tests -p 'test_*.py'`.

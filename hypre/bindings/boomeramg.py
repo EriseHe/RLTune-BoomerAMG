@@ -28,104 +28,117 @@ _LIB_SUFFIX = ".dylib" if sys.platform == "darwin" else ".so"
 _LIB_PATH = _REPO_ROOT / "hypre" / "interfaces" / f"libamg_runtime{_LIB_SUFFIX}"
 AMG_RUNTIME_LIBRARY = _LIB_PATH
 _BUILD_SCRIPT = _SOLVER_DIR / "build_libamg_runtime.sh"
-if not _LIB_PATH.exists():
-    raise RuntimeError(
-        f"Compiled library not found at {_LIB_PATH}.\n"
-        f"Build it from this directory with:\n"
-        f"  bash {_BUILD_SCRIPT}\n"
-        "or run:\n"
-        "  make"
-    )
-try:
-    _lib = ctypes.CDLL(str(_LIB_PATH))
-except OSError as exc:
-    raise RuntimeError(
-        f"Failed to load {_LIB_PATH}.\n"
-        "Rebuild the AMG runtime with the portable wrapper:\n"
-        f"  bash {_BUILD_SCRIPT}\n"
-        "Then inspect the linked HYPRE path with:\n"
-        f"  otool -L {_LIB_PATH}\n"
-        f"  otool -l {_LIB_PATH} | rg 'LC_RPATH|path'\n"
-        f"Original loader error: {exc}"
-    ) from exc
-
 _VP = ctypes.c_void_p
 _I = ctypes.c_int
 _D = ctypes.c_double
 _ULL = ctypes.c_ulonglong
 
-_lib.amg_runtime_create.restype = _VP
-_lib.amg_runtime_create.argtypes = [
-    _I, _I, _I,       # nx, ny, nz
-    _I,               # stencil_type (0=difconv, 7 or 27=laplacian)
-    _I, _ULL,         # rhs_type, rhs_seed
-    _D, _D,           # k, c         (7pt coeffs)
-    _D, _D, _D, _D,   # a0, a1, a2, a3  (27pt coeffs)
-]
+_lib = None
 
-_lib.amg_runtime_solve.restype = _I
-_lib.amg_runtime_solve.argtypes = [
-    _VP,                              # env
-    _D, _I, _I, _D, _I, _I, _I, _I,  # strong_threshold..max_levels (incl. max_row_sum)
-    _D, _I, _I, _I, _D, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
-    _D, _I,                           # tol, max_iter
-    ctypes.POINTER(_I),               # out_iters
-    ctypes.POINTER(_D),               # out_complexity
-    ctypes.POINTER(_D),               # out_residual
-    ctypes.POINTER(_D),               # out_runtime_sec (hypre_MPI_Wtime around Setup+Solve)
-    ctypes.POINTER(_D),               # out_setup_runtime_sec
-    ctypes.POINTER(_D),               # out_solve_runtime_sec
-    ctypes.POINTER(_I),               # out_status
-]
 
-_lib.amg_runtime_destroy.restype = None
-_lib.amg_runtime_destroy.argtypes = [_VP]
+def _load_native_library() -> None:
+    """Load the native runtime on the first solver use, not on import."""
+    global _lib
+    if _lib is not None:
+        return
+    if not _LIB_PATH.exists():
+        raise RuntimeError(
+            f"Compiled library not found at {_LIB_PATH}.\n"
+            f"Build it from this directory with:\n"
+            f"  bash {_BUILD_SCRIPT}\n"
+            "or run:\n"
+            f"  make -C {_REPO_ROOT / 'hypre'}"
+        )
+    try:
+        library = ctypes.CDLL(str(_LIB_PATH))
+    except OSError as exc:
+        inspect_command = "otool -L" if sys.platform == "darwin" else "ldd"
+        raise RuntimeError(
+            f"Failed to load {_LIB_PATH}.\n"
+            "Rebuild the AMG runtime with the portable wrapper:\n"
+            f"  bash {_BUILD_SCRIPT}\n"
+            "Then inspect the linked HYPRE path with:\n"
+            f"  {inspect_command} {_LIB_PATH}\n"
+            f"Original loader error: {exc}"
+        ) from exc
 
-_lib.amg_runtime_get_n.restype = _I
-_lib.amg_runtime_get_n.argtypes = [_VP]
+    library.amg_runtime_create.restype = _VP
+    library.amg_runtime_create.argtypes = [
+        _I, _I, _I,       # nx, ny, nz
+        _I,               # stencil_type (0=difconv, 7 or 27=laplacian)
+        _I, _ULL,         # rhs_type, rhs_seed
+        _D, _D,           # k, c         (7pt coeffs)
+        _D, _D, _D, _D,   # a0, a1, a2, a3  (27pt coeffs)
+    ]
 
-_lib.amg_runtime_get_nnz.restype = _I
-_lib.amg_runtime_get_nnz.argtypes = [_VP]
+    library.amg_runtime_solve.restype = _I
+    library.amg_runtime_solve.argtypes = [
+        _VP,                              # env
+        _D, _I, _I, _D, _I, _I, _I, _I,  # strong_threshold..max_levels (incl. max_row_sum)
+        _D, _I, _I, _I, _D, _I, _D, _I, _I,      # trunc_factor..max_coarse_size
+        _D, _I,                           # tol, max_iter
+        ctypes.POINTER(_I),               # out_iters
+        ctypes.POINTER(_D),               # out_complexity
+        ctypes.POINTER(_D),               # out_residual
+        ctypes.POINTER(_D),               # out_runtime_sec (hypre_MPI_Wtime around Setup+Solve)
+        ctypes.POINTER(_D),               # out_setup_runtime_sec
+        ctypes.POINTER(_D),               # out_solve_runtime_sec
+        ctypes.POINTER(_I),               # out_status
+    ]
 
-_lib.amg_runtime_prepare.restype = _I
-_lib.amg_runtime_prepare.argtypes = [
-    _VP,
-    _D, _I, _I, _D, _I, _I, _I, _I,
-    _D, _I, _I, _I, _D, _I, _D, _I, _I,
-    ctypes.POINTER(_D),
-    ctypes.POINTER(_D),
-]
+    library.amg_runtime_destroy.restype = None
+    library.amg_runtime_destroy.argtypes = [_VP]
 
-_lib.amg_runtime_step.restype = _I
-_lib.amg_runtime_step.argtypes = [
-    _VP,
-    _D, _I, _I, _I, _I, _I, _I, _I, _I, _I, _D, _D, _D, _I, _D, _I,
-    _D, _I,
-    ctypes.POINTER(_D),
-    ctypes.POINTER(_D),
-    ctypes.POINTER(_I),
-]
+    library.amg_runtime_get_n.restype = _I
+    library.amg_runtime_get_n.argtypes = [_VP]
 
-_lib.amg_runtime_get_r0.restype = _D
-_lib.amg_runtime_get_r0.argtypes = [_VP]
+    library.amg_runtime_get_nnz.restype = _I
+    library.amg_runtime_get_nnz.argtypes = [_VP]
 
-_lib.amg_runtime_get_r.restype = _D
-_lib.amg_runtime_get_r.argtypes = [_VP]
+    library.amg_runtime_prepare.restype = _I
+    library.amg_runtime_prepare.argtypes = [
+        _VP,
+        _D, _I, _I, _D, _I, _I, _I, _I,
+        _D, _I, _I, _I, _D, _I, _D, _I, _I,
+        ctypes.POINTER(_D),
+        ctypes.POINTER(_D),
+    ]
 
-_lib.amg_runtime_get_cycle.restype = _I
-_lib.amg_runtime_get_cycle.argtypes = [_VP]
+    library.amg_runtime_step.restype = _I
+    library.amg_runtime_step.argtypes = [
+        _VP,
+        _D, _I, _I, _I, _I, _I, _I, _I, _I, _I, _D, _D, _D, _I, _D, _I,
+        _D, _I,
+        ctypes.POINTER(_D),
+        ctypes.POINTER(_D),
+        ctypes.POINTER(_I),
+    ]
 
-_lib.amg_runtime_get_setup_time.restype = _D
-_lib.amg_runtime_get_setup_time.argtypes = [_VP]
+    library.amg_runtime_get_r0.restype = _D
+    library.amg_runtime_get_r0.argtypes = [_VP]
 
-_lib.amg_runtime_get_cycle_type.restype = _I
-_lib.amg_runtime_get_cycle_type.argtypes = [_VP]
+    library.amg_runtime_get_r.restype = _D
+    library.amg_runtime_get_r.argtypes = [_VP]
 
-_lib.amg_runtime_get_relax_type.restype = _I
-_lib.amg_runtime_get_relax_type.argtypes = [_VP]
+    library.amg_runtime_get_cycle.restype = _I
+    library.amg_runtime_get_cycle.argtypes = [_VP]
 
-_lib.amg_runtime_get_relax_weight.restype = _I
-_lib.amg_runtime_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
+    library.amg_runtime_get_setup_time.restype = _D
+    library.amg_runtime_get_setup_time.argtypes = [_VP]
+
+    library.amg_runtime_get_cycle_type.restype = _I
+    library.amg_runtime_get_cycle_type.argtypes = [_VP]
+
+    library.amg_runtime_get_relax_type.restype = _I
+    library.amg_runtime_get_relax_type.argtypes = [_VP]
+    library.amg_runtime_get_cycle_relax_type.restype = _I
+    library.amg_runtime_get_cycle_relax_type.argtypes = [_VP, _I]
+
+    library.amg_runtime_get_relax_weight.restype = _I
+    library.amg_runtime_get_relax_weight.argtypes = [_VP, _I, ctypes.POINTER(_D)]
+
+    _lib = library
+
 
 # ---- tunable params ---------------------------------------------------------
 
@@ -232,6 +245,7 @@ class SolveResult:
 
 @dataclass
 class PrepareResult:
+    # Prepared setup/configuration plus the initial residual computation.
     setup_runtime_sec: float
     # Prepared and full-solve paths now expose the same residual convention:
     # ||r|| / ||r0||, so the initial relative residual is one.
@@ -277,6 +291,7 @@ class PreparedAMGEnv:
         )
 
     def prepare_rl(self, params: Optional[Dict[str, Any]] = None) -> PrepareResult:
+        """Prepare AMG and its initial residual, charging both to setup time."""
         _, c_args = _encode_params(params)
 
         out_setup = _D()
@@ -343,7 +358,15 @@ class PreparedAMGEnv:
 
         ``tol`` has the same relative-residual meaning as the tolerance passed
         to :func:`solve`, so native default and controlled solve paths stop at
-        the same accuracy target.
+        the same accuracy target. With positive tolerance, success requires
+        a residual strictly below ``tol`` before ``max_cycles`` is reached.
+        At the limit the status is ``MAX_CYCLES``, even if that final cycle
+        reaches the target, matching the linked BoomerAMG full-solve status.
+
+        ``runtime_sec`` covers native parameter updates, the AMG cycle,
+        external residual monitoring and the stopping check. The initial
+        residual belongs to :meth:`prepare_rl` and is charged there once.
+        On native failure, the exception retains the completed step time.
         """
 
         out_r = _D()
@@ -475,6 +498,14 @@ class PreparedAMGEnv:
         return int(_lib.amg_runtime_get_relax_type(self._env))
 
     @property
+    def cycle_relax_types(self) -> tuple[int, int, int]:
+        """Effective down/up/coarse smoothers, including native defaults."""
+        return tuple(
+            int(_lib.amg_runtime_get_cycle_relax_type(self._env, stage))
+            for stage in (1, 2, 3)
+        )
+
+    @property
     def n(self) -> int:
         return int(_lib.amg_runtime_get_n(self._env))
 
@@ -560,6 +591,7 @@ def create_env(
     k: float = 1.0, c: float = 0.0,
     a0: float = 1.0, a1: float = 1.0, a2: float = 1.0, a3: float = 0.0,
 ) -> PreparedAMGEnv:
+    _load_native_library()
     env = _lib.amg_runtime_create(
         nx, ny, nz, stencil, rhs_type, rhs_seed,
         k, c, a0, a1, a2, a3,

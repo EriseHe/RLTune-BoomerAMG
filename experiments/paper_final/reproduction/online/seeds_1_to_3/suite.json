@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "name": "04_online_20260925_macmini_3seeds",
+  "checkpoint": "007bd195b9aa976f6b640bd0de861669e3dcde7f",
+  "modules": [
+    1,
+    2
+  ],
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "seed_offsets": [
+    4000063,
+    120625745,
+    610786425
+  ],
+  "cases": 5000,
+  "rl_first_problem": 1001,
+  "cycle_caps": {
+    "diffusion": 50,
+    "diffusion_advection": 50
+  },
+  "allow_unrecovered_families": [
+    "diffusion_advection"
+  ],
+  "timing_schema_version": 2,
+  "execution": "Three concurrent single-thread seed processes. Within each seed, diffusion then advection at grids 40, 60, 80 run serially. Methods remain paired and randomized per problem.",
+  "seed_provenance": "Replicate 1 repeats base 56700120, including the exact completed Mac mini 60-cubed configs, for serial-versus-concurrent comparison. Replicates 2 and 3 were drawn once using SystemRandom before new outcomes, excluding seed values recorded in repository experiment configs. No outcome-based seed selection.",
+  "advection_discretization": "Retain HYPRE BuildParDifConv forward scheme (atype=0), including difficult inputs; record unrecovered failures and continue.",
+  "runs": [
+    {
+      "name": "diffusion_40",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 1,
+      "config": "diffusion_40.json",
+      "config_sha256": "959a51d2132f4979f02a563fe926e7dccd8299fa83a942545f6c470a80a02c3e",
+      "stream_sha256": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882"
+    },
+    {
+      "name": "advection_40",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 1,
+      "config": "advection_40.json",
+      "config_sha256": "136ea592c58249d11b57fd0d5703bafa9f9265e5d32e000c2028b0f4497bf860",
+      "stream_sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f"
+    },
+    {
+      "name": "diffusion_60",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 1,
+      "config": "diffusion_60.json",
+      "config_sha256": "27e234e77a72e8c820f9d7a4941171bafa4e83027e028181a9e70b79a7bcac04",
+      "stream_sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823"
+    },
+    {
+      "name": "advection_60",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 1,
+      "config": "advection_60.json",
+      "config_sha256": "e9f81e8c1df675a7899be1ffd65169facbda52b1e5fd7d033f59ef85cb1726e2",
+      "stream_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+    },
+    {
+      "name": "diffusion_80",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 1,
+      "config": "diffusion_80.json",
+      "config_sha256": "86d6799d7573a4e39981b1a76c84ee3b51c565bc611ac23e5a40d24766ec369a",
+      "stream_sha256": "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e"
+    },
+    {
+      "name": "advection_80",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 1,
+      "config": "advection_80.json",
+      "config_sha256": "7864654a9e43ec141cf9741fbadf68b0854568c816b7cf1e3db875b7f0dd52f1",
+      "stream_sha256": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b"
+    },
+    {
+      "name": "diffusion_40_s2",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 2,
+      "config": "diffusion_40_s2.json",
+      "config_sha256": "9b651b04b24134609579b1d9ec254373baf331072bc0b7a9cecaec90eb8c6ab5",
+      "stream_sha256": "be7cae93b254edc13b53ed16a3cce25135edaa040a6276b792c2d3ff54edc73f"
+    },
+    {
+      "name": "advection_40_s2",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 2,
+      "config": "advection_40_s2.json",
+      "config_sha256": "457d3ce19e3ef263f5688494eb45ce8027924504df1c49d8be422bf36345db6d",
+      "stream_sha256": "9eda411989204395e875a41cd2da934815b18045f7b5a72d7a4a6f9db114d8c9"
+    },
+    {
+      "name": "diffusion_60_s2",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 2,
+      "config": "diffusion_60_s2.json",
+      "config_sha256": "af0e23b72dd6088784f7c6192315cabe2377969010a31870ddb82fad25fec853",
+      "stream_sha256": "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789"
+    },
+    {
+      "name": "advection_60_s2",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 2,
+      "config": "advection_60_s2.json",
+      "config_sha256": "a779ce88e4ddad8970c6d10c4d58a0766dd3c47abbdba20b5d8c0834fe0cf339",
+      "stream_sha256": "36c6c1a417d9b38f5d1cad4bcf8c0852673923a725aafb4d3b75205372b30608"
+    },
+    {
+      "name": "diffusion_80_s2",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 2,
+      "config": "diffusion_80_s2.json",
+      "config_sha256": "27cb5b6d4932689b02f681dacfe3dd0cfe109a98c7bb3b4d5a557722afb32355",
+      "stream_sha256": "74ab3efbf832366ec9deb3e9f2b029aed2ab2cf9f9952ee940caeb80bc72c6d0"
+    },
+    {
+      "name": "advection_80_s2",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 2,
+      "config": "advection_80_s2.json",
+      "config_sha256": "de628fb804208413040b5dca4608c41651f5f11c6190659c94abd85bc84dfccb",
+      "stream_sha256": "1815f54aefb744f31d093b4467f1bbfbbfd3b73e81c70d7859825058a934fcf1"
+    },
+    {
+      "name": "diffusion_40_s3",
+      "family": "diffusion",
+      "grid": 40,
+      "seed": 3,
+      "config": "diffusion_40_s3.json",
+      "config_sha256": "734efdcc81293de5c8972480b834232ade30af3fc436602c3476d843f27285f5",
+      "stream_sha256": "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c"
+    },
+    {
+      "name": "advection_40_s3",
+      "family": "diffusion_advection",
+      "grid": 40,
+      "seed": 3,
+      "config": "advection_40_s3.json",
+      "config_sha256": "790a1c6fddb248abfa2547afe5504d68a58bb23a92628703cf00d9134a4db69b",
+      "stream_sha256": "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4"
+    },
+    {
+      "name": "diffusion_60_s3",
+      "family": "diffusion",
+      "grid": 60,
+      "seed": 3,
+      "config": "diffusion_60_s3.json",
+      "config_sha256": "a58cd1313544bcf31b9e0ae26c4523fa13b5fe5ba98370587c4e86d9e2489ef6",
+      "stream_sha256": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353"
+    },
+    {
+      "name": "advection_60_s3",
+      "family": "diffusion_advection",
+      "grid": 60,
+      "seed": 3,
+      "config": "advection_60_s3.json",
+      "config_sha256": "cc7bad187f00cb8d8d64c34d2422a501bb9f9dbcb806f97fdb5e0513854cefae",
+      "stream_sha256": "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc"
+    },
+    {
+      "name": "diffusion_80_s3",
+      "family": "diffusion",
+      "grid": 80,
+      "seed": 3,
+      "config": "diffusion_80_s3.json",
+      "config_sha256": "b8272b9203512cfef1c969bbb3e3831af9dae3216afa0f50926abf332e30e12e",
+      "stream_sha256": "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4"
+    },
+    {
+      "name": "advection_80_s3",
+      "family": "diffusion_advection",
+      "grid": 80,
+      "seed": 3,
+      "config": "advection_80_s3.json",
+      "config_sha256": "22d2ae612a00e5ae67c00934b62415e57f65d0fbdf685f619123d3237ce64efc",
+      "stream_sha256": "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e"
+    }
+  ],
+  "families": [
+    "diffusion",
+    "diffusion_advection"
+  ],
+  "grids": [
+    40,
+    60,
+    80
+  ],
+  "failure_feedback": {
+    "mode": "rollback_unrecovered"
+  },
+  "purpose": "Full Module 04: three seeds, both PDE families, grids 40/60/80, 5000 paired problems and three methods per group. Concurrent-seed execution is recorded explicitly.",
+  "concurrency": {
+    "workers": 3,
+    "unit": "complete_seed",
+    "threads_per_worker": 1,
+    "pinned_cores": false
+  },
+  "serial_comparison": {
+    "output_root": "/Users/erisehe/Documents/GitHub/RLTune-BoomerAMG/results/paper_final/04_online/20260925_macmini_n60",
+    "replicate": 1,
+    "intentional_difference": "two other seed workers run concurrently; realized timing rewards and learned paths may differ"
+  }
+}

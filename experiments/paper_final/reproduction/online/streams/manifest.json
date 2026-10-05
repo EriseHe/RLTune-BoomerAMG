@@ -1,0 +1,3251 @@
+{
+  "format_version": 1,
+  "description": "Exact Module 04 inputs generated from the recorded protocol on the reference host; not raw solver measurements.",
+  "reference_capture": {
+    "captured_at_utc": "2026-10-05T01:25:59.638837+00:00",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "python": "3.10.21",
+    "numpy": "2.2.6",
+    "checkout_head": "459455404ad35ecfbfe598faaeaa844901e9f6ec",
+    "identity": "Each canonical SHA-256 equals the pre-existing accepted configuration expected_sha256.",
+    "sampling_sources_sha256": {
+      "problems/amg.py": "75fb3933b557324f5c1b75785dfa3a5902ad14c10c291bec2134acc0adbe19b8",
+      "problems/streams.py": "45387bdbaf260d779ed6154bdf528f289369829f1a6d903d9b72bf3ba83889b0",
+      "problems/scalar_anisotropic_diffusion.py": "28ce0909ae226740b83fd16cfa019481bf7156315cec00cb1647ca52779f3c53",
+      "problems/scalar_anisotropic_diffusion_advection.py": "6b6842c31d0ffb93ff37cc088022238788b3741e5f29953d5f9808489af2cd09",
+      "experiments/paper_final/online/problem_stream.py": "528a5f39a3e974d47ada62f4035ee8a93aa478ac2e034762575fe3a9581ec98d"
+    }
+  },
+  "configuration_count": 42,
+  "streams": {
+    "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f": {
+      "file": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f.jsonl.gz",
+      "compressed_sha256": "c2316d517aa5dc9ac7c3a3645caa80a1777b0ede931c1a794b19515947d34571",
+      "canonical_sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "05abc1324ecade29d4215a4f7047a80621411502be0a396022dd39fbb973412f"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/advection_60.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_60.json"
+      ],
+      "canonical_bytes": 1875177,
+      "compressed_bytes": 701377
+    },
+    "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66": {
+      "file": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66.jsonl.gz",
+      "compressed_sha256": "edaa6a243b1ad819249a776c800f732b3b4accc6bd6b67e86c34d552afd72f8a",
+      "canonical_sha256": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_60_s6.json"
+      ],
+      "canonical_bytes": 1439602,
+      "compressed_bytes": 415011
+    },
+    "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11": {
+      "file": "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11.jsonl.gz",
+      "compressed_sha256": "4cef55cff4d77afe7f990cd89c4072d0d2601a1cdbbc11e390f7e6b906ec7e29",
+      "canonical_sha256": "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_40_s4.json"
+      ],
+      "canonical_bytes": 1875445,
+      "compressed_bytes": 701563
+    },
+    "1518149a9ca8cc2615206b7b581678b3267f371524829f9da2ec5f21323f88e4": {
+      "file": "1518149a9ca8cc2615206b7b581678b3267f371524829f9da2ec5f21323f88e4.jsonl.gz",
+      "compressed_sha256": "bdd92f6bc7694dba2133083576661e1965f356e31cd803c56a9b8c32e3056589",
+      "canonical_sha256": "1518149a9ca8cc2615206b7b581678b3267f371524829f9da2ec5f21323f88e4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "1518149a9ca8cc2615206b7b581678b3267f371524829f9da2ec5f21323f88e4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_80_s4.json"
+      ],
+      "canonical_bytes": 1875445,
+      "compressed_bytes": 701569
+    },
+    "1815f54aefb744f31d093b4467f1bbfbbfd3b73e81c70d7859825058a934fcf1": {
+      "file": "1815f54aefb744f31d093b4467f1bbfbbfd3b73e81c70d7859825058a934fcf1.jsonl.gz",
+      "compressed_sha256": "1d260cdfd4c0b12152dab178d170e7f4716a8d36d0ad5fba55d7726753cf87ce",
+      "canonical_sha256": "1815f54aefb744f31d093b4467f1bbfbbfd3b73e81c70d7859825058a934fcf1",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "1815f54aefb744f31d093b4467f1bbfbbfd3b73e81c70d7859825058a934fcf1"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_80_s2.json"
+      ],
+      "canonical_bytes": 1875282,
+      "compressed_bytes": 701279
+    },
+    "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4": {
+      "file": "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4.jsonl.gz",
+      "compressed_sha256": "100ce074b97d2e36c92052afa37f6a2ff49f587697940cf1510d1932bdeb94c9",
+      "canonical_sha256": "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "29f5525c24fee7b5f9d14507ca2e5ea33fcbb088093ce7ae8e33cacd49e7e8a4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_40_s3.json"
+      ],
+      "canonical_bytes": 1875170,
+      "compressed_bytes": 701300
+    },
+    "32400cecb4ed27a69bdb63a156bce699d2c9138669b718a0b6783a8c36712568": {
+      "file": "32400cecb4ed27a69bdb63a156bce699d2c9138669b718a0b6783a8c36712568.jsonl.gz",
+      "compressed_sha256": "f911fd011c1a5a3ea47f40cf5de8e6a47d1d8ead947b28e9b868b4872dce4d7c",
+      "canonical_sha256": "32400cecb4ed27a69bdb63a156bce699d2c9138669b718a0b6783a8c36712568",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "32400cecb4ed27a69bdb63a156bce699d2c9138669b718a0b6783a8c36712568"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_80_s4.json"
+      ],
+      "canonical_bytes": 1439613,
+      "compressed_bytes": 414850
+    },
+    "336d6c5d021e2702cecf32444af85ec0efdf8d232a0249dd50c8d3e68ae5aab0": {
+      "file": "336d6c5d021e2702cecf32444af85ec0efdf8d232a0249dd50c8d3e68ae5aab0.jsonl.gz",
+      "compressed_sha256": "991ba6ff9cebe67958e74b646c6bfc6f1160f353ed76c57d9f5a7ced44b424a1",
+      "canonical_sha256": "336d6c5d021e2702cecf32444af85ec0efdf8d232a0249dd50c8d3e68ae5aab0",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "336d6c5d021e2702cecf32444af85ec0efdf8d232a0249dd50c8d3e68ae5aab0"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_40_s5.json"
+      ],
+      "canonical_bytes": 1439761,
+      "compressed_bytes": 415026
+    },
+    "36c6c1a417d9b38f5d1cad4bcf8c0852673923a725aafb4d3b75205372b30608": {
+      "file": "36c6c1a417d9b38f5d1cad4bcf8c0852673923a725aafb4d3b75205372b30608.jsonl.gz",
+      "compressed_sha256": "2e43ec422b445eb78c613f803d2d8c58c97637d237fd100c0a680ea38d94ed55",
+      "canonical_sha256": "36c6c1a417d9b38f5d1cad4bcf8c0852673923a725aafb4d3b75205372b30608",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "36c6c1a417d9b38f5d1cad4bcf8c0852673923a725aafb4d3b75205372b30608"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_60_s2.json"
+      ],
+      "canonical_bytes": 1875282,
+      "compressed_bytes": 701284
+    },
+    "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4": {
+      "file": "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4.jsonl.gz",
+      "compressed_sha256": "8393ba7b71c96e84ccd16dd9462b1ba5eb0d9b52fe95656a2d336f576bba33f2",
+      "canonical_sha256": "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_60_s5.json"
+      ],
+      "canonical_bytes": 1439761,
+      "compressed_bytes": 415022
+    },
+    "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e": {
+      "file": "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e.jsonl.gz",
+      "compressed_sha256": "c319d0fa7c7439f0767276485b668dfbfaaa67c5c4b16d03c6fe38e80a82131c",
+      "canonical_sha256": "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "4a68b2778ff180c556b67599d6a803aaaa348ac849f694784b04bfdb5a9f996e"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/diffusion_80.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_80.json"
+      ],
+      "canonical_bytes": 1439494,
+      "compressed_bytes": 414977
+    },
+    "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d": {
+      "file": "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d.jsonl.gz",
+      "compressed_sha256": "ece23bf72ab0279ef673d125e7e214d82d22f8471ac116621a0d86fe5babfe6d",
+      "canonical_sha256": "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "626df9a16771dc85a2804ab0dfe84c6e5d2a42134d6cc9a6572aac066cbe590d"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_80_s6.json"
+      ],
+      "canonical_bytes": 1439602,
+      "compressed_bytes": 415015
+    },
+    "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e": {
+      "file": "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e.jsonl.gz",
+      "compressed_sha256": "4d99faeac6f013a3ca83991db2b76e65e9b8462f9cf0c39c3f77a3f600d1a07b",
+      "canonical_sha256": "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "6f75a0e2f3db274deacbab17aea08b822d829ee79552705fb10ade9e1ff8788e"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_80_s3.json"
+      ],
+      "canonical_bytes": 1875170,
+      "compressed_bytes": 701302
+    },
+    "707f2312f5d4c0d510622bbee6584a4ee2f26bef4b128c63a985fa697e623476": {
+      "file": "707f2312f5d4c0d510622bbee6584a4ee2f26bef4b128c63a985fa697e623476.jsonl.gz",
+      "compressed_sha256": "98ff3167b4f4c261229fd5ed960b1bf160c9722f07dbe39a614fd7c78787f94e",
+      "canonical_sha256": "707f2312f5d4c0d510622bbee6584a4ee2f26bef4b128c63a985fa697e623476",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "707f2312f5d4c0d510622bbee6584a4ee2f26bef4b128c63a985fa697e623476"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_80_s5.json"
+      ],
+      "canonical_bytes": 1875589,
+      "compressed_bytes": 701764
+    },
+    "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3": {
+      "file": "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3.jsonl.gz",
+      "compressed_sha256": "407cf7511d5f1eaf2fdac8c07ebcaabdecae4f5ac3731c060173405b59d3e32d",
+      "canonical_sha256": "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "70c15eca5ef630575f2b3bb63568d6b44c6ccbe675e36a8c02af47690079acc3"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_80_s6.json"
+      ],
+      "canonical_bytes": 1875324,
+      "compressed_bytes": 701635
+    },
+    "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b": {
+      "file": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b.jsonl.gz",
+      "compressed_sha256": "81981b9b573445f67dd2e61e4404a452ee3b4e76244dcf41b26084028404b478",
+      "canonical_sha256": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "7285b6958bf0355c6fd225799311e318677440d85117070e296ca22ce5a9612b"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/advection_80.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_80.json"
+      ],
+      "canonical_bytes": 1875177,
+      "compressed_bytes": 701379
+    },
+    "744e2ae71c2c6a65663b088c94ba665e48b3d79d1674e93b73620488232740e1": {
+      "file": "744e2ae71c2c6a65663b088c94ba665e48b3d79d1674e93b73620488232740e1.jsonl.gz",
+      "compressed_sha256": "964a9bceea377594b873fa3edba0fb26cf20d88168c2cd5ce03d74d505b1ca59",
+      "canonical_sha256": "744e2ae71c2c6a65663b088c94ba665e48b3d79d1674e93b73620488232740e1",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "744e2ae71c2c6a65663b088c94ba665e48b3d79d1674e93b73620488232740e1"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_40_s4.json"
+      ],
+      "canonical_bytes": 1439613,
+      "compressed_bytes": 414849
+    },
+    "74ab3efbf832366ec9deb3e9f2b029aed2ab2cf9f9952ee940caeb80bc72c6d0": {
+      "file": "74ab3efbf832366ec9deb3e9f2b029aed2ab2cf9f9952ee940caeb80bc72c6d0.jsonl.gz",
+      "compressed_sha256": "0b0dc7f7252c7aa1347cf224a12c76b652246ccca220b89364110081392e7e2d",
+      "canonical_sha256": "74ab3efbf832366ec9deb3e9f2b029aed2ab2cf9f9952ee940caeb80bc72c6d0",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "74ab3efbf832366ec9deb3e9f2b029aed2ab2cf9f9952ee940caeb80bc72c6d0"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_80_s2.json"
+      ],
+      "canonical_bytes": 1439633,
+      "compressed_bytes": 415063
+    },
+    "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789": {
+      "file": "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789.jsonl.gz",
+      "compressed_sha256": "e8fc0ac9fb216b7b486f5f297013eaedb2819b0af966443158271e4198124cfc",
+      "canonical_sha256": "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_60_s2.json"
+      ],
+      "canonical_bytes": 1439633,
+      "compressed_bytes": 415065
+    },
+    "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f": {
+      "file": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f.jsonl.gz",
+      "compressed_sha256": "9008be683581a80230dfa0d97aeda356231852ad450c68895efedd4e1e08ea05",
+      "canonical_sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "89f1594faef61990e65c0ac37bddfc2fc01cfa9cfaab32a05b2708cfdeced56f"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/advection_40.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_40.json"
+      ],
+      "canonical_bytes": 1875177,
+      "compressed_bytes": 701379
+    },
+    "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55": {
+      "file": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55.jsonl.gz",
+      "compressed_sha256": "6d4516952a93a65f4babe04a0b56e1a8542fdf2b0b9007f779e2cec5a8145e66",
+      "canonical_sha256": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_40_s6.json"
+      ],
+      "canonical_bytes": 1875324,
+      "compressed_bytes": 701633
+    },
+    "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353": {
+      "file": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353.jsonl.gz",
+      "compressed_sha256": "a4258dbe72a3678377b2b147c1da9a3b1eab60dba81632be988800419da7bf95",
+      "canonical_sha256": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_60_s3.json"
+      ],
+      "canonical_bytes": 1439535,
+      "compressed_bytes": 414786
+    },
+    "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed": {
+      "file": "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed.jsonl.gz",
+      "compressed_sha256": "6b13ecc6cb923be28479ac2a56b8d2a25a059ae37386522b52c4ed91f0e567a9",
+      "canonical_sha256": "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "9c26211598e9f2cfc5c3dbae513204a9f8c379bde7866299f9f97806432b12ed"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_40_s6.json"
+      ],
+      "canonical_bytes": 1439602,
+      "compressed_bytes": 415010
+    },
+    "9eda411989204395e875a41cd2da934815b18045f7b5a72d7a4a6f9db114d8c9": {
+      "file": "9eda411989204395e875a41cd2da934815b18045f7b5a72d7a4a6f9db114d8c9.jsonl.gz",
+      "compressed_sha256": "600e53a223d77a8fb307c6a6c7f6d67b6e9b9c652c9fbece69779ba8dd5738c0",
+      "canonical_sha256": "9eda411989204395e875a41cd2da934815b18045f7b5a72d7a4a6f9db114d8c9",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "9eda411989204395e875a41cd2da934815b18045f7b5a72d7a4a6f9db114d8c9"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_40_s2.json"
+      ],
+      "canonical_bytes": 1875282,
+      "compressed_bytes": 701282
+    },
+    "b5c8c80e6438dbf208fad5894af9cf6bb420622d9800f7ba79250298fb2791d4": {
+      "file": "b5c8c80e6438dbf208fad5894af9cf6bb420622d9800f7ba79250298fb2791d4.jsonl.gz",
+      "compressed_sha256": "872d1386f55490710c3ded3bb015898878739b682a19d9755a67372051fdf78c",
+      "canonical_sha256": "b5c8c80e6438dbf208fad5894af9cf6bb420622d9800f7ba79250298fb2791d4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "b5c8c80e6438dbf208fad5894af9cf6bb420622d9800f7ba79250298fb2791d4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_60_s5.json"
+      ],
+      "canonical_bytes": 1875589,
+      "compressed_bytes": 701763
+    },
+    "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc": {
+      "file": "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc.jsonl.gz",
+      "compressed_sha256": "bcfaba576b7b8a2254051a04de09434a2ac984b7bc33b7354c049241ae11dc3a",
+      "canonical_sha256": "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "b8605b0e697b06ca3b08510416c2fd4be161e101f8c519fe9a65b12f791a19fc"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/advection_60_s3.json"
+      ],
+      "canonical_bytes": 1875170,
+      "compressed_bytes": 701295
+    },
+    "be7cae93b254edc13b53ed16a3cce25135edaa040a6276b792c2d3ff54edc73f": {
+      "file": "be7cae93b254edc13b53ed16a3cce25135edaa040a6276b792c2d3ff54edc73f.jsonl.gz",
+      "compressed_sha256": "01fdde51c812c93292cb38a69f37bb3e68de94c0555300adb3531db19c048beb",
+      "canonical_sha256": "be7cae93b254edc13b53ed16a3cce25135edaa040a6276b792c2d3ff54edc73f",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 173325802,
+        "seed_groups": [
+          [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ]
+        ],
+        "shuffle_seeds": [
+          173373802
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              173325802,
+              173331802,
+              173337802,
+              173343802,
+              173349802,
+              173355802,
+              173361802,
+              173367802
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 173373802,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "be7cae93b254edc13b53ed16a3cce25135edaa040a6276b792c2d3ff54edc73f"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_40_s2.json"
+      ],
+      "canonical_bytes": 1439633,
+      "compressed_bytes": 415062
+    },
+    "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4": {
+      "file": "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4.jsonl.gz",
+      "compressed_sha256": "ea8b04f41d8de1a61388eb9e3250c88c6532461cac9a71fd455ad5584fe4a930",
+      "canonical_sha256": "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "c03c59b0c067522b773f3eaf805e2afd00e2cd364472eafe3f39408db83469e4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_80_s3.json"
+      ],
+      "canonical_bytes": 1439535,
+      "compressed_bytes": 414789
+    },
+    "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c": {
+      "file": "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c.jsonl.gz",
+      "compressed_sha256": "d703ab7015788d6c0e9a6598c5ab4ee7ff33db94b5c702a82b1ff277eb6abf1d",
+      "canonical_sha256": "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 663486482,
+        "seed_groups": [
+          [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ]
+        ],
+        "shuffle_seeds": [
+          663534482
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              663486482,
+              663492482,
+              663498482,
+              663504482,
+              663510482,
+              663516482,
+              663522482,
+              663528482
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 663534482,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "c3394f7faf661614e5b7a777b839cdf97f8884a24f2221155cd6d3b4a908ff2c"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_40_s3.json"
+      ],
+      "canonical_bytes": 1439535,
+      "compressed_bytes": 414787
+    },
+    "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4": {
+      "file": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4.jsonl.gz",
+      "compressed_sha256": "77d08bbaf924af3b8bfdfea5012c191097b65d87b3004acd109ef10cc76949f2",
+      "canonical_sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_40_s5.json"
+      ],
+      "canonical_bytes": 1875589,
+      "compressed_bytes": 701768
+    },
+    "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882": {
+      "file": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882.jsonl.gz",
+      "compressed_sha256": "1ed625783242b3f4a775f87705601675c2239f3f181d60c1fdf00062cc8896f2",
+      "canonical_sha256": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          40,
+          40,
+          40
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "d69b8bc7bbdaa446cfac1fde2ffba11b55e44b7734bdb6c09049e700f8ed6882"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/diffusion_40.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_40.json"
+      ],
+      "canonical_bytes": 1439494,
+      "compressed_bytes": 414973
+    },
+    "d9187b5e5a02dcf1bc8527e22e9f07363f393c98a9d2c7b34e3222b5f619a19b": {
+      "file": "d9187b5e5a02dcf1bc8527e22e9f07363f393c98a9d2c7b34e3222b5f619a19b.jsonl.gz",
+      "compressed_sha256": "5004bc92ee8d8c8a65e69c0eaf2b73865893653b6ec74c43f65cab36dddd04f2",
+      "canonical_sha256": "d9187b5e5a02dcf1bc8527e22e9f07363f393c98a9d2c7b34e3222b5f619a19b",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "d9187b5e5a02dcf1bc8527e22e9f07363f393c98a9d2c7b34e3222b5f619a19b"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_60_s4.json"
+      ],
+      "canonical_bytes": 1875445,
+      "compressed_bytes": 701568
+    },
+    "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b": {
+      "file": "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b.jsonl.gz",
+      "compressed_sha256": "e3b26220eaf194d95871780b480f9839e31263d20f74e9b97900bf3a9b5d6102",
+      "canonical_sha256": "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 265187924,
+        "seed_groups": [
+          [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ]
+        ],
+        "shuffle_seeds": [
+          265235924
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              265187924,
+              265193924,
+              265199924,
+              265205924,
+              265211924,
+              265217924,
+              265223924,
+              265229924
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 265235924,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_60_s4.json"
+      ],
+      "canonical_bytes": 1439613,
+      "compressed_bytes": 414850
+    },
+    "e53481fe3f0c8c6be90f0e1e2c125cd3bdbc66f42f2f266e03371d17bab4148e": {
+      "file": "e53481fe3f0c8c6be90f0e1e2c125cd3bdbc66f42f2f266e03371d17bab4148e.jsonl.gz",
+      "compressed_sha256": "98a0eff78e5a4516f4b824c0aab158051877a2401b61f1a06948d4638a1e388f",
+      "canonical_sha256": "e53481fe3f0c8c6be90f0e1e2c125cd3bdbc66f42f2f266e03371d17bab4148e",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 339923787,
+        "seed_groups": [
+          [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ]
+        ],
+        "shuffle_seeds": [
+          339971787
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          80,
+          80,
+          80
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              339923787,
+              339929787,
+              339935787,
+              339941787,
+              339947787,
+              339953787,
+              339959787,
+              339965787
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 339971787,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "e53481fe3f0c8c6be90f0e1e2c125cd3bdbc66f42f2f266e03371d17bab4148e"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/diffusion_80_s5.json"
+      ],
+      "canonical_bytes": 1439761,
+      "compressed_bytes": 415025
+    },
+    "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823": {
+      "file": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823.jsonl.gz",
+      "compressed_sha256": "5e4376979adbba75bdb1da3ee036bd56a30f07762dc55f47076d0af55b9ad9c5",
+      "canonical_sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": null,
+        "seed": 56700120,
+        "seed_groups": [
+          [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ]
+        ],
+        "shuffle_seeds": [
+          56748120
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              56700120,
+              56706120,
+              56712120,
+              56718120,
+              56724120,
+              56730120,
+              56736120,
+              56742120
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 56748120,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823"
+      },
+      "configurations": [
+        "experiments/paper_final/04_online/20260920_formal/diffusion_60.json",
+        "experiments/paper_final/reproduction/online/seeds_1_to_3/diffusion_60.json"
+      ],
+      "canonical_bytes": 1439494,
+      "compressed_bytes": 414974
+    },
+    "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9": {
+      "file": "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9.jsonl.gz",
+      "compressed_sha256": "d37d153eb8432b1be0b11bb4a580c49cdc17e9394b3be574ec7c4a45d04691c7",
+      "canonical_sha256": "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9",
+      "cases": 5000,
+      "sampling_signature": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "diffusion_range": [
+          1.0,
+          1000.0
+        ],
+        "advection": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "sampled_advection_range": [
+          1.0,
+          1000.0
+        ],
+        "seed": 704464735,
+        "seed_groups": [
+          [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ]
+        ],
+        "shuffle_seeds": [
+          704512735
+        ],
+        "instance_offset": 0,
+        "train_cases": 5000,
+        "cases_per_seed": 625,
+        "group_take": 5000
+      },
+      "stream_manifest": {
+        "problem": "scalar_anisotropic_diffusion_advection",
+        "grid": [
+          60,
+          60,
+          60
+        ],
+        "advection": {
+          "mode": "independent_uniform_per_component",
+          "range": [
+            1.0,
+            1000.0
+          ]
+        },
+        "mode": "grouped_shuffled_segments",
+        "segments": [
+          {
+            "segment": 0,
+            "seeds": [
+              704464735,
+              704470735,
+              704476735,
+              704482735,
+              704488735,
+              704494735,
+              704500735,
+              704506735
+            ],
+            "cases_per_seed": 625,
+            "window": [
+              0,
+              625
+            ],
+            "candidate_cases": 5000,
+            "shuffle_seed": 704512735,
+            "selected_cases": 5000
+          }
+        ],
+        "sha256": "ea078d8de9584bf2122174ee1fbb57e8b4a3928d4e3c7ba4c5921a8824d18ae9"
+      },
+      "configurations": [
+        "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_60_s6.json"
+      ],
+      "canonical_bytes": 1875324,
+      "compressed_bytes": 701631
+    }
+  }
+}
