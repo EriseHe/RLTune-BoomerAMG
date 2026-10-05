@@ -38,10 +38,24 @@ Use package-qualified imports and run entry points from the repository root with
 entry points and reporting code can both import. Importing a utility should not
 start a run or set process/thread configuration.
 
-Numbered `experiments/paper_final/` stage directories hold protocols and source
-documentation. Outputs belong under `results/paper_final/<stage>/<run>/`.
+Only Module 04 online autotuning and Module 05 matched-hierarchy Run 05 are
+official paper experiments. Their protocols, commands, and shared study helpers
+live under `experiments/paper_final/`. Other paper development studies live in
+`experiments/archive/paper_development/`. General diagnostic tools are labeled
+development utilities and remain separate from the paper entry points.
+
+Outputs belong under `results/paper_final/<stage>/<run>/`.
 Recorded run names and captured manifests are provenance identifiers; keep them
 when moving reusable source into clearer modules.
+
+Shared online episode execution belongs in `solve/core/episode.py`; controller
+families own their learning updates under `solve/controllers/`. Shared TD
+configuration lives in `solve/controllers/common/td_config.py`. The former
+SARSA imports retain compatibility aliases.
+
+Joint study helpers have explicit responsibilities: `action_spaces.py`,
+`setup_branches.py`, `native_evaluation.py`, and `evaluation.py`. Historical
+`setup_aware_compare_common.py` imports re-export those implementations.
 
 The [reproduction index](reproduction.md) lists accepted evidence separately from
 development runs. Large logs/checkpoints are ignored by default. A reference to

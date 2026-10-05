@@ -98,7 +98,7 @@ it must not be conflated with this constrained objective.
 
 ## Reproducible checks and Run 04 scope
 
-`experiments/paper_final/verify_anchored_schedule.py` verifies the symbolic
+`experiments/archive/paper_development/verify_anchored_schedule.py` verifies the symbolic
 peaks, all grid points, 500 random small SPD/projection identities and bounds,
 row-ℓ₁ domination examples with mixed off-diagonal signs, all 600 frozen
 input/setup jobs, and native 18/18/9 V-cycle behavior for each checkpoint.

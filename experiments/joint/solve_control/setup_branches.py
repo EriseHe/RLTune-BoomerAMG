@@ -8,14 +8,46 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
-from setup.space import SetupConfigurationSpace, build_setup_parameter_spec, build_setup_param_space
-from setup.learners.linucb import run_same_context_setup_reselection, validate_linucb_v5_paper_contract, validate_linucb_v6_experimental_contract
-from setup.learners.common import AOTCandidateSchedule, FactorizedActionFeatureCache, GenericActionFeatureEncoder, ParameterSpaceSpec, RBFActionFeatureEncoder, SharedSetupLearnerSpec, resolve_tune7_candidate_strategy
-from setup.registry import build_online_setup_learner, make_setup_learner_spec, normalize_setup_kind
+from setup.space import (
+    SetupConfigurationSpace,
+    build_setup_parameter_spec,
+    build_setup_param_space,
+)
+from setup.learners.linucb import (
+    run_same_context_setup_reselection,
+    validate_linucb_v5_paper_contract,
+    validate_linucb_v6_experimental_contract,
+)
+from setup.learners.common import (
+    AOTCandidateSchedule,
+    FactorizedActionFeatureCache,
+    GenericActionFeatureEncoder,
+    ParameterSpaceSpec,
+    RBFActionFeatureEncoder,
+    SharedSetupLearnerSpec,
+    resolve_tune7_candidate_strategy,
+)
+from setup.registry import (
+    build_online_setup_learner,
+    make_setup_learner_spec,
+    normalize_setup_kind,
+)
 from problems.amg import DIFCONV_CONTEXT_DIM
-from problems.registry import SCALAR_ANISOTROPIC_DIFFUSION, SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION, normalize_problem_kind
-from problems.streams import generate_difconv_instances as _generate_difconv_instances, generate_scalar_anisotropic_diffusion_instances, generate_scalar_anisotropic_diffusion_advection_instances
-from .action_spaces import ActionSpaceBundle, DEFAULT_SETUP_PARAMS, build_action_space_bundle
+from problems.registry import (
+    SCALAR_ANISOTROPIC_DIFFUSION,
+    SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
+    normalize_problem_kind,
+)
+from problems.streams import (
+    generate_difconv_instances as _generate_difconv_instances,
+    generate_scalar_anisotropic_diffusion_instances,
+    generate_scalar_anisotropic_diffusion_advection_instances,
+)
+from .action_spaces import (
+    ActionSpaceBundle,
+    DEFAULT_SETUP_PARAMS,
+    build_action_space_bundle,
+)
 
 
 @dataclass(frozen=True)
@@ -28,6 +60,7 @@ class BranchRun:
     parameter_space: Dict[str, Any]
     solver_tol: float
     solver_max_iter: int
+
 
 def clone_branch_for_independent_updates(branch: BranchRun) -> BranchRun:
     """Clone online learner state while sharing immutable action-space storage."""
@@ -52,6 +85,7 @@ def clone_branch_for_independent_updates(branch: BranchRun) -> BranchRun:
         solver_max_iter=int(branch.solver_max_iter),
     )
 
+
 def validate_expected_setup_action_count(branch: BranchRun) -> int:
     model = getattr(branch.policy, "model", branch.policy)
     observed = int(model.K)
@@ -65,6 +99,7 @@ def validate_expected_setup_action_count(branch: BranchRun) -> int:
                 "MATRIX_GRID_N and SETUP_PARAM_RESOLUTION must remain independent."
             )
     return observed
+
 
 @dataclass(frozen=True)
 class TestFinalBanditConfig:
@@ -81,24 +116,43 @@ class TestFinalBanditConfig:
     tune7_candidate_local_fraction: float
     tune7_candidate_elite_fraction: float
 
+
 def default_test_final_bandit_config_from_env() -> TestFinalBanditConfig:
     return TestFinalBanditConfig(
         alpha=float(os.environ.get("ALPHA", "1.0")),
         l2=float(os.environ.get("L2", "1.0")),
         candidate_pool_size=int(os.environ.get("CANDIDATE_POOL_SIZE", "512")),
         elite_cache_size=int(os.environ.get("ELITE_CACHE_SIZE", "64")),
-        tune7_candidate_pool_size=int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE", "1024")),
-        tune7_candidate_pool_size_burnin=int(os.environ.get("TUNE7_CANDIDATE_POOL_SIZE_BURNIN", "4096")),
-        tune7_candidate_pool_burnin_rounds=int(os.environ.get("TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS", "200")),
-        tune7_alpha_decay_burnin_rounds=int(os.environ.get("TUNE7_ALPHA_DECAY_BURNIN_ROUNDS", "250")),
-        tune7_candidate_strategy=os.environ.get("TUNE7_CANDIDATE_STRATEGY", "").strip().lower(),
-        tune7_local_neighbor_radius=int(os.environ.get("TUNE7_LOCAL_NEIGHBOR_RADIUS", "1")),
-        tune7_candidate_local_fraction=float(os.environ.get("TUNE7_CANDIDATE_LOCAL_FRACTION", "0.60")),
-        tune7_candidate_elite_fraction=float(os.environ.get("TUNE7_CANDIDATE_ELITE_FRACTION", "0.20")),
+        tune7_candidate_pool_size=int(
+            os.environ.get("TUNE7_CANDIDATE_POOL_SIZE", "1024")
+        ),
+        tune7_candidate_pool_size_burnin=int(
+            os.environ.get("TUNE7_CANDIDATE_POOL_SIZE_BURNIN", "4096")
+        ),
+        tune7_candidate_pool_burnin_rounds=int(
+            os.environ.get("TUNE7_CANDIDATE_POOL_BURNIN_ROUNDS", "200")
+        ),
+        tune7_alpha_decay_burnin_rounds=int(
+            os.environ.get("TUNE7_ALPHA_DECAY_BURNIN_ROUNDS", "250")
+        ),
+        tune7_candidate_strategy=os.environ.get("TUNE7_CANDIDATE_STRATEGY", "")
+        .strip()
+        .lower(),
+        tune7_local_neighbor_radius=int(
+            os.environ.get("TUNE7_LOCAL_NEIGHBOR_RADIUS", "1")
+        ),
+        tune7_candidate_local_fraction=float(
+            os.environ.get("TUNE7_CANDIDATE_LOCAL_FRACTION", "0.60")
+        ),
+        tune7_candidate_elite_fraction=float(
+            os.environ.get("TUNE7_CANDIDATE_ELITE_FRACTION", "0.20")
+        ),
     )
+
 
 def normalize_method_name(name: str) -> str:
     return "".join(ch for ch in str(name).lower() if ch.isalnum())
+
 
 class RandomPolicy:
     def __init__(self, actions: Sequence[Dict[str, Any]], seed: int) -> None:
@@ -111,6 +165,7 @@ class RandomPolicy:
 
     def update(self, loss, **_):
         return None
+
 
 def family_seed_map(*, seed: int) -> Dict[str, int]:
     return {
@@ -125,6 +180,7 @@ def family_seed_map(*, seed: int) -> Dict[str, int]:
         "Shared LinTS v2": int(seed + 13003),
     }
 
+
 def default_branch_label(*, method: str, tune_dim: int, tune7_variant: str) -> str:
     if str(method).strip().lower() == "default":
         return "default (fixed)"
@@ -136,9 +192,14 @@ def default_branch_label(*, method: str, tune_dim: int, tune7_variant: str) -> s
         "lints_v2": "Shared LinTS v2",
     }.get(str(method).strip().lower(), str(method))
     if int(tune_dim) == 7:
-        suffix = "tune7" if str(tune7_variant).strip().lower() == "agg_conditional" else "tune7-categorical"
+        suffix = (
+            "tune7"
+            if str(tune7_variant).strip().lower() == "agg_conditional"
+            else "tune7-categorical"
+        )
         return f"{family} | {suffix}"
     return f"{family} | tune{int(tune_dim)}"
+
 
 def build_single_branch(
     *,
@@ -153,10 +214,18 @@ def build_single_branch(
     context_interaction_indices: Sequence[int] = (1, 2, 3, 4),
 ) -> BranchRun:
     method_key = str(method).strip().lower()
-    label = default_branch_label(method=method_key, tune_dim=int(tune_dim), tune7_variant=str(tune7_variant))
+    label = default_branch_label(
+        method=method_key, tune_dim=int(tune_dim), tune7_variant=str(tune7_variant)
+    )
     if method_key == "default":
-        parameter_space = bundle.parameter_space_tune3 if int(tune_dim) in {3, 0} else (
-            bundle.parameter_space_tune5 if int(tune_dim) == 5 else bundle.parameter_space_tune7
+        parameter_space = (
+            bundle.parameter_space_tune3
+            if int(tune_dim) in {3, 0}
+            else (
+                bundle.parameter_space_tune5
+                if int(tune_dim) == 5
+                else bundle.parameter_space_tune7
+            )
         )
         if parameter_space is None:
             raise ValueError(f"No parameter space available for tune_dim={tune_dim}")
@@ -226,6 +295,7 @@ def build_single_branch(
         solver_max_iter=int(solver_max_iter),
     )
 
+
 def generate_difconv_instances(
     *,
     T: int,
@@ -257,18 +327,12 @@ def generate_difconv_instances(
             grid_choices=grid_choices,
             c_min=float(c_min),
             c_max=float(c_max),
-            advection_min=float(
-                c_min if advection_min is None else advection_min
-            ),
-            advection_max=float(
-                c_max if advection_max is None else advection_max
-            ),
+            advection_min=float(c_min if advection_min is None else advection_min),
+            advection_max=float(c_max if advection_max is None else advection_max),
         )
     if problem_kind == SCALAR_ANISOTROPIC_DIFFUSION:
         if any(float(value) != 0.0 for value in difconv_a):
-            raise ValueError(
-                "scalar_anisotropic_diffusion requires zero advection"
-            )
+            raise ValueError("scalar_anisotropic_diffusion requires zero advection")
         return generate_scalar_anisotropic_diffusion_instances(
             count=int(T),
             seed=int(seed),
@@ -285,6 +349,7 @@ def generate_difconv_instances(
         advection=difconv_a,
     )
 
+
 class FixedPolicy:
     def __init__(self, params: Dict[str, Any]):
         self._params = dict(params)
@@ -294,6 +359,7 @@ class FixedPolicy:
 
     def update(self, loss, **_):
         return None
+
 
 class GenericBanditPolicy:
     def __init__(self, model):
@@ -323,6 +389,7 @@ class GenericBanditPolicy:
             candidate_arms=candidate_arms,
             alpha=float(alpha),
         )
+
 
 def build_test10_branches(
     *,
@@ -391,7 +458,11 @@ def build_test10_branches(
             raise ValueError(f"METHOD_FILTER={method_filter!r} matched no branches")
 
     if str(branch_filter).strip():
-        filters = [normalize_method_name(part) for part in str(branch_filter).split(",") if part.strip()]
+        filters = [
+            normalize_method_name(part)
+            for part in str(branch_filter).split(",")
+            if part.strip()
+        ]
         branches = [
             branch
             for branch in branches
@@ -401,10 +472,13 @@ def build_test10_branches(
             raise ValueError(f"BRANCH_FILTER={branch_filter!r} matched no branches")
 
     for branch in branches:
-        if normalize_method_name(branch.family) == normalize_method_name("Shared LinUCB v4"):
+        if normalize_method_name(branch.family) == normalize_method_name(
+            "Shared LinUCB v4"
+        ):
             validate_expected_setup_action_count(branch)
 
     return branches, bundle
+
 
 def build_test_final_bandit_policy(
     *,
@@ -436,8 +510,12 @@ def build_test_final_bandit_policy(
             ),
             "always_include_arms": [int(default_arm_index)],
             "elite_cache_size": int(cfg.elite_cache_size),
-            "initial_guess": [default_params[param.name] for param in parameter_spec.parameters],
-            "initial_guess_rounds": int(os.environ.get("SETUP_INITIAL_GUESS_ROUNDS", "1")),
+            "initial_guess": [
+                default_params[param.name] for param in parameter_spec.parameters
+            ],
+            "initial_guess_rounds": int(
+                os.environ.get("SETUP_INITIAL_GUESS_ROUNDS", "1")
+            ),
         }
         strategy = resolve_tune7_candidate_strategy(
             tune7_variant=tune7_variant,
@@ -445,9 +523,7 @@ def build_test_final_bandit_policy(
         )
         sampling = str(candidate_sampling).strip().lower().replace("-", "")
         if sampling not in AOTCandidateSchedule.SAMPLING_METHODS:
-            raise ValueError(
-                "candidate_sampling must be uniform512 or structured512"
-            )
+            raise ValueError("candidate_sampling must be uniform512 or structured512")
         if sampling == "structured512":
             if candidate_schedule is None:
                 raise ValueError("structured512 requires an AOT candidate schedule")
@@ -466,13 +542,23 @@ def build_test_final_bandit_policy(
                     "alpha_decay": True,
                     "candidate_pool_size": int(cfg.tune7_candidate_pool_size),
                     "candidate_strategy": "adaptive_local",
-                    "candidate_pool_size_burnin": int(cfg.tune7_candidate_pool_size_burnin),
-                    "candidate_pool_burnin_rounds": int(cfg.tune7_candidate_pool_burnin_rounds),
-                    "alpha_decay_burnin_rounds": int(cfg.tune7_alpha_decay_burnin_rounds),
+                    "candidate_pool_size_burnin": int(
+                        cfg.tune7_candidate_pool_size_burnin
+                    ),
+                    "candidate_pool_burnin_rounds": int(
+                        cfg.tune7_candidate_pool_burnin_rounds
+                    ),
+                    "alpha_decay_burnin_rounds": int(
+                        cfg.tune7_alpha_decay_burnin_rounds
+                    ),
                     "elite_rank_metric": "mean_loss",
                     "local_neighbor_radius": int(cfg.tune7_local_neighbor_radius),
-                    "candidate_local_fraction": float(cfg.tune7_candidate_local_fraction),
-                    "candidate_elite_fraction": float(cfg.tune7_candidate_elite_fraction),
+                    "candidate_local_fraction": float(
+                        cfg.tune7_candidate_local_fraction
+                    ),
+                    "candidate_elite_fraction": float(
+                        cfg.tune7_candidate_elite_fraction
+                    ),
                 }
             )
         else:
@@ -486,9 +572,7 @@ def build_test_final_bandit_policy(
         if method_key == "lints_v2":
             learner_kwargs.update(
                 {
-                    "relative_sampling_scale": float(
-                        lin_ts_relative_sampling_scale
-                    ),
+                    "relative_sampling_scale": float(lin_ts_relative_sampling_scale),
                     "loss_scale_prior": float(lin_ts_loss_scale_prior),
                 }
             )
@@ -514,6 +598,7 @@ def build_test_final_bandit_policy(
         "The retained Exp44 active path only supports generic tune7 setup "
         f"learners, got method={method!r}"
     )
+
 
 def _safe_one_at_a_time_actions(parameter_spec: Any) -> list[Dict[str, Any]]:
     values = {
@@ -548,6 +633,7 @@ def _safe_one_at_a_time_actions(parameter_spec: Any) -> list[Dict[str, Any]]:
                 actions.append(params)
                 seen.add(key)
     return actions
+
 
 def build_online_linucb_branch(
     *,
@@ -601,14 +687,16 @@ def build_online_linucb_branch(
         index < 0 or index >= resolved_context_dim
         for index in resolved_interaction_indices
     ):
-        raise ValueError(
-            "context_interaction_indices must lie within context_dim"
+        raise ValueError("context_interaction_indices must lie within context_dim")
+    mode = (
+        str(
+            os.environ.get("SETUP_ACTION_SPACE", "safe_one_at_a_time")
+            if action_space_mode is None
+            else action_space_mode
         )
-    mode = str(
-        os.environ.get("SETUP_ACTION_SPACE", "safe_one_at_a_time")
-        if action_space_mode is None
-        else action_space_mode
-    ).strip().lower()
+        .strip()
+        .lower()
+    )
     if learner_token in {"linucb_v5", "linucb_v5_rbf", "linucb_v6"}:
         contract_kwargs = dict(
             context_dim=resolved_context_dim,
@@ -617,9 +705,7 @@ def build_online_linucb_branch(
             tune7_variant=tune7_variant,
             action_space_mode=mode,
             setup_space_name=(
-                None
-                if configuration_space is None
-                else configuration_space.name
+                None if configuration_space is None else configuration_space.name
             ),
             coarsen_types=(
                 None
@@ -642,9 +728,7 @@ def build_online_linucb_branch(
         else:
             validate_linucb_v5_paper_contract(**contract_kwargs)
     resolved_tol = float(
-        os.environ.get("SOLVE_TOL", "1e-6")
-        if solver_tol is None
-        else solver_tol
+        os.environ.get("SOLVE_TOL", "1e-6") if solver_tol is None else solver_tol
     )
     resolved_max_iter = int(
         os.environ.get("SOLVE_MAX_CYCLES", "50")
@@ -711,17 +795,14 @@ def build_online_linucb_branch(
             cfg=cfg,
             candidate_schedule=candidate_schedule,
             action_feature_cache=action_feature_cache,
-            lin_ts_relative_sampling_scale=float(
-                lin_ts_relative_sampling_scale
-            ),
+            lin_ts_relative_sampling_scale=float(lin_ts_relative_sampling_scale),
             lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
             candidate_sampling=str(candidate_sampling),
             context_interaction_indices=resolved_interaction_indices,
         )
         branch = BranchRun(
             label=(
-                f"{family} | {configuration_space.name} | "
-                f"{str(candidate_sampling)}"
+                f"{family} | {configuration_space.name} | {str(candidate_sampling)}"
             ),
             family=family,
             tune_set=configuration_space.name,
@@ -770,9 +851,7 @@ def build_online_linucb_branch(
             parameter_spec=parameter_spec,
             tune7_variant=tune7_variant,
             cfg=cfg,
-            lin_ts_relative_sampling_scale=float(
-                lin_ts_relative_sampling_scale
-            ),
+            lin_ts_relative_sampling_scale=float(lin_ts_relative_sampling_scale),
             lin_ts_loss_scale_prior=float(lin_ts_loss_scale_prior),
             context_interaction_indices=resolved_interaction_indices,
         )
@@ -798,6 +877,7 @@ def build_online_linucb_branch(
         validate_expected_setup_action_count(branch)
     return branch, cfg
 
+
 def run_bandit_step_test_final(
     *,
     policy: Any,
@@ -818,12 +898,8 @@ def run_bandit_step_test_final(
     """
 
     if problem_context is not None and context is not None:
-        raise ValueError(
-            "pass exactly one of problem_context or legacy context"
-        )
-    resolved_context = (
-        problem_context if problem_context is not None else context
-    )
+        raise ValueError("pass exactly one of problem_context or legacy context")
+    resolved_context = problem_context if problem_context is not None else context
     if resolved_context is None:
         raise ValueError("problem_context is required")
     result = run_same_context_setup_reselection(

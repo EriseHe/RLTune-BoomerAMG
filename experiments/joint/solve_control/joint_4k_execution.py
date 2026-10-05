@@ -37,7 +37,7 @@ from experiments.joint.solve_control.joint_reporting import (
 from experiments.joint.solve_control.joint_rl_activation import ReliabilityActivationGate
 from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
 from problems.amg import normalize_diffusion_advection_context
-from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.feedback import as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
 from hypre.bindings import augment_setup_params
 from solve.core.outcomes import classify_rl_failure
@@ -188,7 +188,7 @@ def make_method_solver(
                 solver_max_iter=int(solve.max_cycles),
                 augment_params=augment_setup_params,
             )
-            return _as_feedback(native, include_controller=False)
+            return as_feedback(native, include_controller=False)
 
         return solve_default
     if (spec is None and method == "bandit_fixed_w1.6") or solve_kind == "fixed":
@@ -204,7 +204,7 @@ def make_method_solver(
                 solve_tol=solve_tolerance,
                 solve_max_cycles=int(solve.max_cycles),
             )
-            return _as_feedback(native, include_controller=False)
+            return as_feedback(native, include_controller=False)
 
         return solve_fixed
     if (spec is None and method == "bandit_ppo") or solve_kind == "ppo":
@@ -226,7 +226,7 @@ def make_method_solver(
                 solve_max_cycles=int(solve.max_cycles),
                 case_progress=float(case_progress),
             )
-            return _as_feedback(native, include_controller=True)
+            return as_feedback(native, include_controller=True)
 
         return solve_ppo
     if method in controller_bundles:
@@ -254,7 +254,7 @@ def make_method_solver(
                     ),
                 )
             )
-            return _as_feedback(native, include_controller=True)
+            return as_feedback(native, include_controller=True)
 
         return solve_online_controller
     raise ValueError(f"Unsupported method: {method}")
@@ -279,7 +279,7 @@ def run_default_setup_method(
             solver_max_iter=int(solve.max_cycles),
             augment_params=augment_setup_params,
         )
-        feedback = _as_feedback(native, include_controller=False)
+        feedback = as_feedback(native, include_controller=False)
     elif spec.name in controller_methods:
         # Online controllers own their transaction and fallback so an
         # unrecovered failure can roll back controller state atomically.
@@ -304,7 +304,7 @@ def run_default_setup_method(
                 "controller_update_committed": False,
             }
         )
-        feedback = _as_feedback(
+        feedback = as_feedback(
             native,
             include_controller=spec.solve_kind == "ppo",
         )
@@ -329,7 +329,7 @@ def _default_setup_row(
         augment_params=augment_setup_params,
     )
     outcome = hooks.report_online_outcome(
-        _as_feedback(native, include_controller=False),
+        as_feedback(native, include_controller=False),
         bandit_timing={},
     )
     return {
@@ -365,7 +365,7 @@ def _default_fallback_solver(
             solver_max_iter=int(plan.solve.max_cycles),
             augment_params=augment_setup_params,
         )
-        return _as_feedback(fallback_native, include_controller=False)
+        return as_feedback(fallback_native, include_controller=False)
 
     return fallback_solver
 

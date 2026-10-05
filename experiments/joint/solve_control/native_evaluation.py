@@ -6,7 +6,14 @@ import time
 from typing import Any, Callable, Dict, List, Sequence, Tuple
 import numpy as np
 from solve.controllers.ppo import SetupAwareSolvePolicyRunner
-from hypre.bindings import AMGNativeError, SolveStatus, augment_setup_params, create_env, run_with_default_fallback, solve
+from hypre.bindings import (
+    AMGNativeError,
+    SolveStatus,
+    augment_setup_params,
+    create_env,
+    run_with_default_fallback,
+    solve,
+)
 from solve.core.outcomes import classify_rl_failure
 from .action_spaces import DEFAULT_SETUP_PARAMS
 
@@ -51,6 +58,7 @@ def _actual_failure_result(
         "structural_fail": stage == "setup",
     }
 
+
 def solve_fixed_w_case(
     *,
     params: Dict[str, Any],
@@ -90,7 +98,8 @@ def solve_fixed_w_case(
                 if native_status is not SolveStatus.CONTINUE:
                     break
         failure_reason = (
-            "" if native_status is SolveStatus.CONVERGED
+            ""
+            if native_status is SolveStatus.CONVERGED
             else "max_cycles_reached_without_convergence"
         )
         return {
@@ -120,15 +129,18 @@ def solve_fixed_w_case(
             iterations=iterations,
             residual_norm=residual_norm,
         )
-        result.update({
-            "final_w": float(w),
-            "final_sweeps_down": int(sweeps_down),
-            "final_sweeps_up": int(sweeps_up),
-            "cycle_actions": [],
-            "cycle_residuals": [],
-            "cycle_times": [],
-        })
+        result.update(
+            {
+                "final_w": float(w),
+                "final_sweeps_down": int(sweeps_down),
+                "final_sweeps_up": int(sweeps_up),
+                "cycle_actions": [],
+                "cycle_residuals": [],
+                "cycle_times": [],
+            }
+        )
         return result
+
 
 def solve_schedule_case(
     *,
@@ -150,7 +162,9 @@ def solve_schedule_case(
     native_status = SolveStatus.CONTINUE
     try:
         params = augment_setup_params(params)
-        schedule_sorted = sorted((int(end), float(w), int(sd), int(su)) for end, w, sd, su in schedule)
+        schedule_sorted = sorted(
+            (int(end), float(w), int(sd), int(su)) for end, w, sd, su in schedule
+        )
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
             residual_norm = float(env.r0)
@@ -185,7 +199,8 @@ def solve_schedule_case(
                 if native_status is not SolveStatus.CONTINUE:
                     break
         failure_reason = (
-            "" if native_status is SolveStatus.CONVERGED
+            ""
+            if native_status is SolveStatus.CONVERGED
             else "max_cycles_reached_without_convergence"
         )
         return {
@@ -217,19 +232,22 @@ def solve_schedule_case(
             iterations=iterations,
             residual_norm=residual_norm,
         )
-        result.update({
-            "final_w": float("nan"),
-            "final_sweeps_down": -1,
-            "final_sweeps_up": -1,
-            "cycle_actions": cycle_actions,
-            "cycle_residuals": cycle_residuals,
-            "cycle_times": cycle_times,
-            "infer_runtime": float(decision_runtime),
-            "native_solve_runtime": float(result["solve_runtime"]),
-        })
+        result.update(
+            {
+                "final_w": float("nan"),
+                "final_sweeps_down": -1,
+                "final_sweeps_up": -1,
+                "cycle_actions": cycle_actions,
+                "cycle_residuals": cycle_residuals,
+                "cycle_times": cycle_times,
+                "infer_runtime": float(decision_runtime),
+                "native_solve_runtime": float(result["solve_runtime"]),
+            }
+        )
         result["runtime"] += decision_runtime
         result["solve_runtime"] += decision_runtime
         return result
+
 
 def solve_setup_aware_rl_case(
     *,
@@ -253,7 +271,9 @@ def solve_setup_aware_rl_case(
         params = augment_params(params)
         with create_env(**mkw) as env:
             prep = env.prepare_rl(params=params)
-            rl_out = solve_policy.run(env, mkw=mkw, setup_params=params, case_progress=float(case_progress))
+            rl_out = solve_policy.run(
+                env, mkw=mkw, setup_params=params, case_progress=float(case_progress)
+            )
         res_norm = float(rl_out["residual_norm"])
         iters = int(rl_out["iterations"])
         total_runtime = float(prep.setup_runtime_sec + rl_out["solve_runtime"])
@@ -286,26 +306,34 @@ def solve_setup_aware_rl_case(
             iterations=int(rl_out.get("iterations", 0)),
             residual_norm=float(rl_out.get("residual_norm", float("nan"))),
         )
-        result.update({
-            "final_w": float("nan"),
-            "final_sweeps_down": -1,
-            "final_sweeps_up": -1,
-            "action_counts": {},
-            "cycle_actions": [],
-            "cycle_residuals": [],
-            "cycle_times": [],
-        })
+        result.update(
+            {
+                "final_w": float("nan"),
+                "final_sweeps_down": -1,
+                "final_sweeps_up": -1,
+                "action_counts": {},
+                "cycle_actions": [],
+                "cycle_residuals": [],
+                "cycle_times": [],
+            }
+        )
         return result
 
-def classify_no_rl_failure(*, residual_norm: float, iterations: int, solver_tol: float, solver_max_iter: int) -> str:
+
+def classify_no_rl_failure(
+    *, residual_norm: float, iterations: int, solver_tol: float, solver_max_iter: int
+) -> str:
     reasons: List[str] = []
     if not np.isfinite(float(residual_norm)):
         reasons.append("non_finite_residual_norm")
     elif float(residual_norm) > float(solver_tol):
         reasons.append("residual_above_solver_tol")
-    if float(residual_norm) > float(solver_tol) and int(iterations) >= int(solver_max_iter):
+    if float(residual_norm) > float(solver_tol) and int(iterations) >= int(
+        solver_max_iter
+    ):
         reasons.append("max_iter_reached_without_convergence")
     return ";".join(reasons)
+
 
 def solve_no_rl_case(
     *,
@@ -326,7 +354,8 @@ def solve_no_rl_case(
         residual_norm = float(res.residual_norm)
         iterations = int(res.iterations)
         failure_reason = (
-            "" if res.status is SolveStatus.CONVERGED
+            ""
+            if res.status is SolveStatus.CONVERGED
             else "max_iter_reached_without_convergence"
         )
         return {
@@ -346,12 +375,15 @@ def solve_no_rl_case(
         }
     except Exception as exc:
         result = _actual_failure_result(exc, started_at=started_at)
-        result.update({
-            "final_w": float("nan"),
-            "final_sweeps_down": -1,
-            "final_sweeps_up": -1,
-        })
+        result.update(
+            {
+                "final_w": float("nan"),
+                "final_sweeps_down": -1,
+                "final_sweeps_up": -1,
+            }
+        )
         return result
+
 
 def solve_default_baseline_case(
     *,

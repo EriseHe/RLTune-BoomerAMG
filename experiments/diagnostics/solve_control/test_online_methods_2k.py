@@ -10,15 +10,21 @@ from types import SimpleNamespace
 import numpy as np
 
 from experiments.joint.solve_control.joint_online_common import _build_paired_instance_stream
-from experiments.joint.solve_control.run_online_methods_2k import (
-    _as_feedback,
-    _continuous_action_diagnostics,
-    _paired_metric,
-)
+from experiments.joint.solve_control.run_online_methods_2k import _continuous_action_diagnostics
+from experiments.joint.solve_control.feedback import as_feedback
+from experiments.joint.solve_control.comparison import paired_metric
 from experiments.joint.solve_control.setup_aware_compare_common import generate_difconv_instances
 
 
 class OnlineMethods2KTests(unittest.TestCase):
+    def test_legacy_helpers_alias_the_shared_implementations(self) -> None:
+        from experiments.joint.solve_control import run_online_methods_2k
+        from experiments.joint.solve_control.comparison import method_comparison
+
+        self.assertIs(run_online_methods_2k._as_feedback, as_feedback)
+        self.assertIs(run_online_methods_2k._paired_metric, paired_metric)
+        self.assertIs(run_online_methods_2k._method_comparison, method_comparison)
+
     def test_grouped_stream_applies_offset_to_each_seed(self) -> None:
         args = SimpleNamespace(
             train_seed_groups="101,102;103,104",
@@ -81,14 +87,14 @@ class OnlineMethods2KTests(unittest.TestCase):
             "solve_runtime": 0.05,
             "infer_runtime": 0.002,
         }
-        feedback = _as_feedback(native, include_controller=True)
+        feedback = as_feedback(native, include_controller=True)
         self.assertAlmostEqual(feedback["native_runtime"], 0.08)
         self.assertAlmostEqual(feedback["native_solve_runtime"], 0.05)
         self.assertAlmostEqual(feedback["runtime"], 0.082)
         self.assertAlmostEqual(feedback["solve_runtime"], 0.052)
 
     def test_paired_metric_positive_means_candidate_is_faster(self) -> None:
-        metric = _paired_metric(
+        metric = paired_metric(
             np.asarray([2.0, 2.0]),
             np.asarray([1.0, 1.0]),
             seed=7,
@@ -98,7 +104,7 @@ class OnlineMethods2KTests(unittest.TestCase):
         self.assertEqual(metric["candidate_improvement_95pct"], [50.0, 50.0])
 
     def test_paired_metric_handles_zero_baseline_without_division(self) -> None:
-        metric = _paired_metric(
+        metric = paired_metric(
             np.asarray([0.0, 0.0]),
             np.asarray([0.1, 0.2]),
             seed=8,

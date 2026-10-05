@@ -22,7 +22,7 @@ from experiments.joint.solve_control.composable_joint_4k import build_composable
 from hypre.bindings.config import configure_smoother_profile
 from experiments.joint.solve_control.joint_experiment_config import parse_joint_experiment_config, runtime_config_from_spec
 from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json
-from experiments.diagnostics.solve_control.run_lstdq_v3_stability import _run_case
+from experiments.joint.solve_control.native_case import run_case
 from hypre.bindings import augment_setup_params
 from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
 
@@ -82,7 +82,7 @@ def main():
                                                   solver_tol=1e-6, solver_max_iter=50,
                                                   augment_params=augment_setup_params)
                     else:
-                        outcome = _run_case(bundle=policies[policy], setup_row=row,
+                        outcome = run_case(bundle=policies[policy], setup_row=row,
                                             args=native_args, learn=False, explore=False)
                     item = {"checkpoint": checkpoint, "case": index+1, "setup_source": setup,
                             "policy": policy, "params": row["params"], "outcome": outcome}

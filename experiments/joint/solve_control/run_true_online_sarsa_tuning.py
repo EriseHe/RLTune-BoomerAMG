@@ -15,7 +15,8 @@ from typing import Any, Dict, Iterable, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder
+from solve.controllers.sarsa import ExpectedSarsaLambda
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from solve.core.episode import run_td_episode
 from experiments.joint.solve_control.run_exp44_online_rl import make_controller
 from experiments.joint.solve_control.online_td_experiment_common import _json_ready, _write_json

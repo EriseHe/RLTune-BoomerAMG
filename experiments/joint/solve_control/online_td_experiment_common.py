@@ -15,7 +15,9 @@ from typing import Any, Dict, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import ExpectedSarsaLambda, ExpectedSarsaLambdaConfig, SolveStateEncoder
+from solve.controllers.sarsa import ExpectedSarsaLambda
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from solve.core.episode import run_td_episode
 from setup.space import DEFAULT_SETUP_PARAMS
 from hypre.bindings import augment_setup_params

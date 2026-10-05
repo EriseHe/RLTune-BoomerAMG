@@ -34,7 +34,7 @@ from setup.space import DEFAULT_SETUP_PARAMS
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SUITE = ROOT / "experiments/paper_final/04_online/suite.json"
+SUITE = ROOT / "experiments/paper_final/04_online/20260920_formal/suite.json"
 DEFAULT_OUTPUT = ROOT / "results/paper_final/04_online"
 METHOD_LABELS = {
     "default_setup_default_solve": "Default",

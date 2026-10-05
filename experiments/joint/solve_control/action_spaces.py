@@ -41,6 +41,7 @@ TRACE_KEYS_FINAL = (
     "agg_Pmx",
 )
 
+
 @dataclass(frozen=True)
 class ActionSpaceBundle:
     param_resolution: int
@@ -61,21 +62,33 @@ class ActionSpaceBundle:
     default_arm_index_tune5: int
     default_arm_index_tune7: int
 
+
 def parse_int_list_env(name: str, default_values: Sequence[int]) -> List[int]:
     raw = os.environ.get(name, ",".join(str(v) for v in default_values))
     vals = [int(x.strip()) for x in raw.split(",") if x.strip()]
     return vals or [int(v) for v in default_values]
+
 
 def parse_float_list_env(name: str, default_values: Sequence[float]) -> List[float]:
     raw = os.environ.get(name, ",".join(str(v) for v in default_values))
     vals = [float(x.strip()) for x in raw.split(",") if x.strip()]
     return vals or [float(v) for v in default_values]
 
+
 def same_action(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
     return (
-        np.isclose(float(a["strong_threshold"]), float(b["strong_threshold"]), rtol=0.0, atol=1e-12)
-        and np.isclose(float(a["max_row_sum"]), float(b["max_row_sum"]), rtol=0.0, atol=1e-12)
-        and np.isclose(float(a["trunc_factor"]), float(b["trunc_factor"]), rtol=0.0, atol=1e-12)
+        np.isclose(
+            float(a["strong_threshold"]),
+            float(b["strong_threshold"]),
+            rtol=0.0,
+            atol=1e-12,
+        )
+        and np.isclose(
+            float(a["max_row_sum"]), float(b["max_row_sum"]), rtol=0.0, atol=1e-12
+        )
+        and np.isclose(
+            float(a["trunc_factor"]), float(b["trunc_factor"]), rtol=0.0, atol=1e-12
+        )
         and int(a["coarsen_type"]) == int(b["coarsen_type"])
         and int(a["interp_type"]) == int(b["interp_type"])
         and int(a["P_max_elmts"]) == int(b["P_max_elmts"])
@@ -84,6 +97,7 @@ def same_action(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
         and np.isclose(float(a["agg_tr"]), float(b["agg_tr"]), rtol=0.0, atol=1e-12)
         and int(a["agg_Pmx"]) == int(b["agg_Pmx"])
     )
+
 
 def build_grids_from_env() -> Tuple[int, np.ndarray, np.ndarray, np.ndarray]:
     param_resolution = int(
@@ -95,6 +109,7 @@ def build_grids_from_env() -> Tuple[int, np.ndarray, np.ndarray, np.ndarray]:
     mxrs_grid[0] = 1e-6
     tr_grid = np.linspace(0.0, grid_max, param_resolution)
     return param_resolution, th_grid, mxrs_grid, tr_grid
+
 
 def build_actions_tune3(*, th_grid, mxrs_grid, tr_grid) -> List[Dict[str, Any]]:
     base_actions = build_actions_th_mxrs_tr(
@@ -118,9 +133,14 @@ def build_actions_tune3(*, th_grid, mxrs_grid, tr_grid) -> List[Dict[str, Any]]:
         actions.append(params)
     return actions
 
-def build_actions_tune5(*, th_grid, mxrs_grid, tr_grid) -> Tuple[List[Dict[str, Any]], List[int], List[int]]:
+
+def build_actions_tune5(
+    *, th_grid, mxrs_grid, tr_grid
+) -> Tuple[List[Dict[str, Any]], List[int], List[int]]:
     p_max_values = parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
+    agg_nl_values = parse_int_list_env(
+        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES
+    )
 
     base_actions = build_actions_th_mxrs_tr(
         th_grid,
@@ -145,15 +165,22 @@ def build_actions_tune5(*, th_grid, mxrs_grid, tr_grid) -> Tuple[List[Dict[str, 
                 actions.append(params)
     return actions, p_max_values, agg_nl_values
 
+
 def build_actions_tune7_categorical(
     *,
     th_grid,
     mxrs_grid,
     tr_grid,
-) -> Tuple[List[Dict[str, Any]], List[int], List[int], List[int], List[int], ParameterSpaceSpec]:
+) -> Tuple[
+    List[Dict[str, Any]], List[int], List[int], List[int], List[int], ParameterSpaceSpec
+]:
     p_max_values = parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
-    coarsen_type_values = parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)
+    agg_nl_values = parse_int_list_env(
+        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES
+    )
+    coarsen_type_values = parse_int_list_env(
+        "COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES
+    )
     interp_values = parse_int_list_env("TUNE7_INTERP_TYPES", DEFAULT_TUNE7_INTERP_TYPES)
 
     parameter_spec = ParameterSpaceSpec(
@@ -221,20 +248,41 @@ def build_actions_tune7_categorical(
             "agg_Pmx": int(DEFAULT_SETUP_PARAMS["agg_Pmx"]),
         },
     )
-    return actions, p_max_values, agg_nl_values, coarsen_type_values, interp_values, parameter_spec
+    return (
+        actions,
+        p_max_values,
+        agg_nl_values,
+        coarsen_type_values,
+        interp_values,
+        parameter_spec,
+    )
+
 
 def build_actions_tune7_agg_conditional(
     *,
     th_grid,
     mxrs_grid,
     tr_grid,
-) -> Tuple[List[Dict[str, Any]], List[int], List[int], List[float], List[int], ParameterSpaceSpec]:
+) -> Tuple[
+    List[Dict[str, Any]],
+    List[int],
+    List[int],
+    List[float],
+    List[int],
+    ParameterSpaceSpec,
+]:
     p_max_values = parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = parse_int_list_env("AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
+    agg_nl_values = parse_int_list_env(
+        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES
+    )
     agg_tr_values = parse_float_list_env("TUNE7_AGG_TR_VALUES", DEFAULT_AGG_TR_VALUES)
     agg_pmx_values = parse_int_list_env("TUNE7_AGG_PMX_VALUES", DEFAULT_AGG_PMX_VALUES)
 
-    active_agg_levels = tuple(int(v) for v in agg_nl_values if int(v) != int(DEFAULT_SETUP_PARAMS["agg_num_levels"]))
+    active_agg_levels = tuple(
+        int(v)
+        for v in agg_nl_values
+        if int(v) != int(DEFAULT_SETUP_PARAMS["agg_num_levels"])
+    )
     parameter_spec = ParameterSpaceSpec(
         (
             ParameterSpec(
@@ -306,13 +354,26 @@ def build_actions_tune7_agg_conditional(
             "agg_interp_type": int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),
         },
     )
-    return actions, p_max_values, agg_nl_values, agg_tr_values, agg_pmx_values, parameter_spec
+    return (
+        actions,
+        p_max_values,
+        agg_nl_values,
+        agg_tr_values,
+        agg_pmx_values,
+        parameter_spec,
+    )
 
-def ensure_default_arm(actions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
-    default_arm_index = next((i for i, a in enumerate(actions) if same_action(a, DEFAULT_SETUP_PARAMS)), None)
+
+def ensure_default_arm(
+    actions: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], int]:
+    default_arm_index = next(
+        (i for i, a in enumerate(actions) if same_action(a, DEFAULT_SETUP_PARAMS)), None
+    )
     if default_arm_index is None:
         return [*actions, dict(DEFAULT_SETUP_PARAMS)], int(len(actions))
     return actions, int(default_arm_index)
+
 
 def build_action_space_bundle(
     *,
@@ -321,7 +382,9 @@ def build_action_space_bundle(
     context_dim: int = DIFCONV_CONTEXT_DIM,
 ) -> ActionSpaceBundle:
     param_resolution, th_grid, mxrs_grid, tr_grid = build_grids_from_env()
-    actions_tune3 = build_actions_tune3(th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid)
+    actions_tune3 = build_actions_tune3(
+        th_grid=th_grid, mxrs_grid=mxrs_grid, tr_grid=tr_grid
+    )
     actions_tune3, default_arm_index_tune3 = ensure_default_arm(actions_tune3)
 
     actions_tune5: List[Dict[str, Any]] = []

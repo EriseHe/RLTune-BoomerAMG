@@ -166,7 +166,7 @@ class PaperFinalTests(unittest.TestCase):
             bundle = Mock()
             bundle.run_case.return_value = {"controlled": True}
             with patch("experiments.joint.solve_control.joint_4k_execution.solve_no_rl_case", return_value={"controlled": False}), \
-                    patch("experiments.joint.solve_control.joint_4k_execution._as_feedback", side_effect=lambda native, **kw: native):
+                    patch("experiments.joint.solve_control.joint_4k_execution.as_feedback", side_effect=lambda native, **kw: native):
                 for index, expected in ((0, False), (999, False), (1000, True), (4999, True)):
                     solver = make_method_solver(
                         "bandit_lstdq", solve=SolveExecutionConfig(1e-6, 50), mkw={},

@@ -21,6 +21,12 @@ def _summary(runtime: float, failures: int = 0):
 
 
 class LstdqV3StabilityTests(unittest.TestCase):
+    def test_legacy_case_helper_aliases_shared_execution(self) -> None:
+        from experiments.diagnostics.solve_control import run_lstdq_v3_stability
+        from experiments.joint.solve_control.native_case import run_case
+
+        self.assertIs(run_lstdq_v3_stability._run_case, run_case)
+
     def test_stability_gate_uses_spread_and_failure_excess(self) -> None:
         repetitions = [
             {

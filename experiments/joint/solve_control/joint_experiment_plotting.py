@@ -16,7 +16,7 @@ import numpy as np
 
 from experiments.diagnostics.solve_control.plot_shared_action_rl_study import plot_action_trajectory_grid
 from experiments.joint.solve_control.online_td_experiment_common import _write_json
-from experiments.joint.solve_control.run_online_methods_2k import _method_comparison
+from experiments.joint.solve_control.comparison import method_comparison
 from experiments.joint.solve_control.joint_method_spec import CONTEXT_DISPLAY_LABELS
 from experiments.joint.solve_control.joint_reporting import (
     _action_summary,
@@ -472,7 +472,7 @@ def _same_setup_audit(
             audit[method][window_name] = {
                 "matching_cases": int(len(indices)),
                 "comparison": (
-                    _method_comparison(
+                    method_comparison(
                         candidate,
                         baseline,
                         seed=int(

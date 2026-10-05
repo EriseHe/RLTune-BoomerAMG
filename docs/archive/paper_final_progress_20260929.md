@@ -11,10 +11,10 @@ removed from the paper at the user's request. Its completed records below
 are historical archives, not evidence to reinsert into the current manuscript.
 
 **Module plan updated September 28, 2026:** Module 04 retains its accepted
-protocol and results. New [Module 05](../../experiments/paper_final/05_online_policies/README.md) prepares
+protocol and results. New [Module 05](../../experiments/archive/paper_development/05_online_policies/README.md) prepares
 solve-specific frozen checkpoints using one shared 1000-problem W1 prefix
 and five independent 4000-problem continuations.
-The former Module 05 frozen-policy study is now [Module 06](../../experiments/paper_final/06_policy/README.md);
+The former Module 05 frozen-policy study is now [Module 06](../../experiments/archive/paper_development/06_policy/README.md);
 the remaining planned stages shift to 07–11. At the user's request the initial
 four-branch run was discarded. The revised Module 05 includes both
 Default-development-selected w=1.40 and historical learned-hierarchy
@@ -48,7 +48,7 @@ successful solves, with no recovery. The unfinished attempt was discarded.
 RL's native reduction against Periodic is 0.63% ± 0.55 percentage points;
 including controller cost gives -3.65% ± 0.63. See the
 [Run 05 report, current atlas and verified archive](../../experiments/paper_final/05_policy/RUN05.md).
-The older [Run 04 completion record](../../experiments/paper_final/05_policy/COMPLETED.md) and archives
+The older [Run 04 completion record](../../experiments/archive/paper_development/05_policy/COMPLETED.md) and archives
 remain historical. The prescribed pair follows the
 [discrete weighted-minimax rule](../theory/period_two_weighted_minimax_20260928.md).
 
@@ -57,17 +57,17 @@ remain historical. The prescribed pair follows the
 The following overview records that date's progress. Current module numbers
 and the current checkpoint-preparation task are defined above and in the stage directory.
 
-Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04's September 17 diffusion replicate is complete at 40³, 60³ and 80³. The user-authorized [September 18 suite](../../experiments/paper_final/04_online/20260918/README.md) uses the earlier diagnosis seed across both families, adds controller lifecycle timing and per-method wall timing, and sets the advection cap to 100. Its source, protocol and outputs are kept separate from the September 17 results. The most useful reading order is:
+Stages **01, 02 and both 03 development runs are complete**. The second 03 seed tested only starts after 250/500/750. Stage 04's September 17 diffusion replicate is complete at 40³, 60³ and 80³. The user-authorized [September 18 suite](../../experiments/archive/paper_development/04_online/20260918/README.md) uses the earlier diagnosis seed across both families, adds controller lifecycle timing and per-method wall timing, and sets the advection cap to 100. Its source, protocol and outputs are kept separate from the September 17 results. The most useful reading order is:
 
 | Order | Read | What it answers |
 |---|---|---|
 | 1 | [03 activation report](../../results/paper_final/03_activation/REPORT.md) | Index of the completed s1 run and the fresh-seed 250/500/750 follow-up; each run links its own report and figures |
 | 1a | [03 timing and seed comparison](../../results/paper_final/03_activation/advection_80_s2/analysis/REPORT.md) | Branch/order audit, frozen native replay, why after 750 changed, and links to the subsequent timing/stopping fixes |
 | 2 | [02 diagnostics report](../../results/paper_final/02_diagnostics/REPORT.md) | How frozen RL compares with tuned fixed weights and short schedules on matched setups; includes all three diagnostic figures |
-| 3 | [01 numerical fixes](../../experiments/paper_final/01_numerics/README.md) | Inverse recovery, stopping semantics, timing coverage and their verification |
+| 3 | [01 numerical fixes](../../experiments/archive/paper_development/01_numerics/README.md) | Inverse recovery, stopping semantics, timing coverage and their verification |
 | 4 | [Paper completion plan](../theory/paper_completion_plan_20260915.md) | Remaining priorities; read §2 for the proposed proofs, §3 for status and §5 for formal experiment design |
 | 5 | [Detailed theory review](../theory/theory_review_and_revision_plan_20260915.md) | Two-grid calculations, observation aliasing, conditional policy quality, candidate-set accounting and payback; the newer completion plan adds the 3D example and episode coercivity |
-| 6 | [04 formal protocol](../../experiments/paper_final/04_online/README.md) | The planned Default / LinUCB / LinUCB–LSTDQ comparison, contexts, timing, seeds and reporting |
+| 6 | [04 formal protocol](../../experiments/archive/paper_development/04_online/README.md) | The planned Default / LinUCB / LinUCB–LSTDQ comparison, contexts, timing, seeds and reporting |
 
 ### Results in brief
 
@@ -133,7 +133,7 @@ belongs in the protocol, rather than in every method name.
 
 ### Reference material — read only for the relevant detail
 
-- Protocol details: [02](../../experiments/paper_final/02_diagnostics/README.md) and [03](../../experiments/paper_final/03_activation/README.md).
+- Protocol details: [02](../../experiments/archive/paper_development/02_diagnostics/README.md) and [03](../../experiments/archive/paper_development/03_activation/README.md).
 - Figure indexes: [02](../../results/paper_final/02_diagnostics/figures/README.md)
   and [03](../../results/paper_final/03_activation/advection_80_s1/figures/README.md).
 - Full per-window numbers: [03 screening tables](../../results/paper_final/03_activation/advection_80_s1/screen_report.md)
@@ -161,12 +161,12 @@ location and provenance.
 
 | Order | Directory | Purpose | State |
 |---|---|---|---|
-| 01 | [numerics](../../experiments/paper_final/01_numerics/README.md) | Inverse recovery, checkpoints, rollback, stopping and timing | Original 65 tests; subsequent stopping/timing checks passed |
-| 02 | [diagnostics](../../experiments/paper_final/02_diagnostics/README.md) | Matched setup fixed/schedule checks; harder advection functional checks | Complete: 1176 diffusion + 336 advection comparisons; 58 abandoned training rows retained |
-| 03 | [activation](../../experiments/paper_final/03_activation/README.md) | Advection activation-time diagnostics | s1 and s2 complete: six and three paths × 5000; original full s2/s3 suite remains unexecuted |
-| 04 | [online](../../experiments/paper_final/04_online/README.md) | Existing main three-method comparison and cost breakdown | Accepted scope and results retained |
-| 05 | [checkpoint preparation](../../experiments/paper_final/05_online_policies/README.md) | Shared 1000 W1 + five independent 4000 continuations; five setup selectors and LSTDQ checkpoint | Complete: 21,000 executions, zero unrecovered failures, frozen artifacts verified; original four-branch run discarded |
-| 06 | [policy](../../experiments/paper_final/06_policy/README.md) | Five frozen complete methods and periodic/RL 2×2 cross on 100 fresh inputs × three repetitions | Complete: 2,100 trials, zero failures/recoveries, audits passed; periodic lowest full cost on this checkpoint set; [historical accepted data](../../experiments/paper_final/05_policy/COMPLETED.md) preserved |
+| 01 | [numerics](../../experiments/archive/paper_development/01_numerics/README.md) | Inverse recovery, checkpoints, rollback, stopping and timing | Original 65 tests; subsequent stopping/timing checks passed |
+| 02 | [diagnostics](../../experiments/archive/paper_development/02_diagnostics/README.md) | Matched setup fixed/schedule checks; harder advection functional checks | Complete: 1176 diffusion + 336 advection comparisons; 58 abandoned training rows retained |
+| 03 | [activation](../../experiments/archive/paper_development/03_activation/README.md) | Advection activation-time diagnostics | s1 and s2 complete: six and three paths × 5000; original full s2/s3 suite remains unexecuted |
+| 04 | [online](../../experiments/archive/paper_development/04_online/README.md) | Existing main three-method comparison and cost breakdown | Accepted scope and results retained |
+| 05 | [checkpoint preparation](../../experiments/archive/paper_development/05_online_policies/README.md) | Shared 1000 W1 + five independent 4000 continuations; five setup selectors and LSTDQ checkpoint | Complete: 21,000 executions, zero unrecovered failures, frozen artifacts verified; original four-branch run discarded |
+| 06 | [policy](../../experiments/archive/paper_development/06_policy/README.md) | Five frozen complete methods and periodic/RL 2×2 cross on 100 fresh inputs × three repetitions | Complete: 2,100 trials, zero failures/recoveries, audits passed; periodic lowest full cost on this checkpoint set; [historical accepted data](../../experiments/archive/paper_development/05_policy/COMPLETED.md) preserved |
 | 07 | `07_theory` | Integrate mathematical results and deterministic proof checks | Paper editing stage |
 | 08 | `08_baselines` | Stronger native/polynomial baselines and problem breadth | Planned |
 | 09 | `09_feedback` | Matched feedback ablations, if needed for the claims | Conditional |
@@ -182,13 +182,13 @@ The general joint runner and native helpers remain in their existing modules.
 These entry points reuse them:
 
 ```bash
-python -m unittest experiments.paper_final.test_01_numerics
-python -m experiments.paper_final.run_02_diagnostics       # inspect protocol only
-python -m experiments.paper_final.run_02_diagnostics --run
-python -m experiments.paper_final.run_03_activation        # validation only
+python -m unittest experiments.archive.paper_development.test_01_numerics
+python -m experiments.archive.paper_development.run_02_diagnostics       # inspect protocol only
+python -m experiments.archive.paper_development.run_02_diagnostics --run
+python -m experiments.archive.paper_development.run_03_activation        # validation only
 python -m experiments.paper_final.run_04_online --validate-only
 python -m experiments.paper_final.analyze_04_online
-python -m experiments.paper_final.plot_05_policy          # completed logs only; no solver runs
+python -m experiments.archive.paper_development.plot_05_policy          # completed logs only; no solver runs
 ```
 
 Use the project's `rl` Python environment. Stage 03 and the remaining stage 02

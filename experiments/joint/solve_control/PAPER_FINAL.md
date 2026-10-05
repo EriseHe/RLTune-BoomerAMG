@@ -1,4 +1,6 @@
-# Paper final experiments
+# Paper experiment entry points
 
-The protocol and configurations now live in [paper_final/04_online](../../paper_final/04_online/README.md).
-The existing runner and analysis implementations remain here for reuse.
+Official Module 04 online autotuning and Module 05 matched-hierarchy evaluation
+are indexed in [paper_final](../../paper_final/README.md) and the
+[reproduction guide](../../../docs/reproduction.md). Shared online runner and
+analysis implementations remain here for reuse.

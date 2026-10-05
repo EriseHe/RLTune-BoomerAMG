@@ -7,7 +7,7 @@ from typing import Any, Dict, Sequence
 import numpy as np
 
 from experiments.joint.solve_control.joint_online_common import _method_stream_summary
-from experiments.joint.solve_control.run_online_methods_2k import _method_comparison
+from experiments.joint.solve_control.comparison import method_comparison
 
 
 _STRUCTURED_MODEL_BASED_METHOD = "bandit_structured_model_based"
@@ -99,7 +99,7 @@ def _window_result(
         },
         "comparisons": {
             label: {
-                method: _method_comparison(
+                method: method_comparison(
                     rows,
                     records[reference],
                     seed=int(seed + reference_index * 100_000 + method_index * 101),

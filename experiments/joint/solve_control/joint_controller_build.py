@@ -23,10 +23,8 @@ from solve.controllers.common import (
     SharedActionSpec,
     SolveStateSpec,
 )
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambdaConfig,
-    SolveStateEncoder,
-)
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from solve.registry import (
     build_online_solve_controller,
     make_online_controller_spec,

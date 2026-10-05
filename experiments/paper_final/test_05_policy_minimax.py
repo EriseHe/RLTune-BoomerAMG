@@ -1,70 +1,152 @@
-"""Guard the historical Run 05 protocol, mathematical choice and resume."""
+"""Guard the official Run 05 protocol, mathematical choice, and durable resume."""
+
 import copy
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+
 from experiments.paper_final import run_05_policy_minimax as run
-from experiments.paper_final import run_05_policy_anchored as parent
-from experiments.paper_final.test_05_policy_refresh import base_jobs, choices
 from experiments.paper_final.verify_period_two_minimax import evaluate
 
 
-def synthetic_jobs():
-    return parent.replace_schedule(run.repeat.plan_jobs(base_jobs()[:2], choices()))
+def parent_jobs():
+    """Small explicit parent roster with shared fixed/oracle execution cells."""
+    jobs = []
+    for repeat in range(3):
+        for seed in (1, 2):
+            for case in (0, 1):
+                methods = {
+                    "reference": "fixed_1.00",
+                    "fixed": "fixed_1.65",
+                    "oracle": "fixed_1.65" if case == 0 else "fixed_1.00",
+                    "periodic": "periodic_2.60_1.00",
+                    "periodic13": "periodic_1.00_3.00",
+                    "rl": "rl_frozen_lcb",
+                }
+                jobs.append(
+                    {
+                        "seed": seed,
+                        "source": "bandit_lstdq",
+                        "case_id": case,
+                        "repeat": repeat,
+                        "method_policies": methods,
+                        "policy_order": sorted(set(methods.values())),
+                        "mkw": {"rhs_seed": 100 + case},
+                        "params": {"coarsen_type": 10},
+                        "input_id": f"input-{case}",
+                        "hierarchy_id": f"hierarchy-{seed}-{case}",
+                    }
+                )
+    return jobs
 
 
 class MinimaxTests(unittest.TestCase):
-    def test_exact_delta_from_all_actual_parent_jobs(self):
-        old=run.first.read(run.PARENT/"jobs_test.json")
-        before=copy.deepcopy(old);new=run.replace_schedule(old)
-        self.assertEqual(old,before)
-        self.assertEqual(len(new),1800)
-        self.assertEqual(len(run.repeat.expected_cells(new)),8460)
-        self.assertEqual(len(run.repeat.expected_cells(old))-len(run.repeat.expected_cells(new)),1800)
-        for a,b in zip(old,new):
-            expected=copy.deepcopy(a)
+    def test_exact_delta_retains_case_order_fixed_choices_and_shared_cells(self):
+        old = parent_jobs()
+        before = copy.deepcopy(old)
+        new = run.replace_schedule(old)
+        self.assertEqual(old, before)
+        self.assertEqual(len(new), 12)
+        self.assertEqual(
+            len(run.analysis.expected_cells(old))
+            - len(run.analysis.expected_cells(new)),
+            12,
+        )
+        for original, updated in zip(old, new):
+            expected = copy.deepcopy(original)
             expected["method_policies"].pop("periodic13")
-            expected["method_policies"]["periodic"]=run.POLICY
-            expected["policy_order"]=[run.POLICY if p==run.OLD_POLICY else p
-                for p in a["policy_order"] if p!=run.REMOVED_POLICY]
-            self.assertEqual(b,expected)
-            self.assertEqual(set(b["method_policies"]),set(run.METHODS))
-            self.assertNotIn(run.OLD_POLICY,b["policy_order"])
-            self.assertNotIn(run.REMOVED_POLICY,b["policy_order"])
+            expected["method_policies"]["periodic"] = run.POLICY
+            expected["policy_order"] = [
+                run.POLICY if name == run.OLD_POLICY else name
+                for name in original["policy_order"]
+                if name != run.REMOVED_POLICY
+            ]
+            self.assertEqual(updated, expected)
+            self.assertEqual(set(updated["method_policies"]), set(run.METHODS))
+            self.assertEqual(
+                len(updated["policy_order"]),
+                len(set(updated["method_policies"].values())),
+            )
+
+    def test_tracked_accepted_protocol_has_original_constants(self):
+        protocol = run.artifacts.read(
+            Path(__file__).with_name("reproduction") / "matched_policy/protocol.json"
+        )
+        self.assertEqual(protocol["run_number"], 5)
+        self.assertEqual(protocol["training_seeds"], list(range(1, 7)))
+        self.assertEqual(protocol["test_cases"], 100)
+        self.assertEqual(protocol["repetitions_per_case"], 3)
+        self.assertEqual(protocol["execution_count"], 8460)
+        self.assertEqual(protocol["methods"], list(run.METHODS))
+        self.assertEqual(
+            protocol["policies"][run.POLICY],
+            {"kind": "periodic", "pattern": [2.85, 1.10]},
+        )
 
     def test_unexpected_parent_schedule_rejected(self):
-        jobs=synthetic_jobs()
-        jobs[0]["method_policies"]["periodic"]="periodic_3.00_1.00"
-        with self.assertRaises(ValueError):run.replace_schedule(jobs)
+        jobs = parent_jobs()
+        jobs[0]["method_policies"]["periodic"] = "periodic_3.00_1.00"
+        with self.assertRaises(ValueError):
+            run.replace_schedule(jobs)
 
     def test_analytic_extrema_select_joint_grid_minimum(self):
-        result=evaluate()
+        result = evaluate()
         self.assertTrue(result["passed"])
-        self.assertEqual(result["unordered_pairs_checked"],861)
-        self.assertEqual(result["grid_minimizers_ordered"],[["2.85","1.10"],["1.10","2.85"]])
+        self.assertEqual(result["unordered_pairs_checked"], 861)
+        self.assertEqual(
+            result["grid_minimizers_ordered"], [["2.85", "1.10"], ["1.10", "2.85"]]
+        )
         self.assertFalse(result["selection_uses_pde_timings"])
-        vals={r["name"]:float(r["eta"]) for r in result["comparisons"]}
-        self.assertAlmostEqual(vals["continuous_exact"],.04,places=14)
-        self.assertLess(vals["grid_minimizer"],vals["componentwise_rounded"])
+        values = {row["name"]: float(row["eta"]) for row in result["comparisons"]}
+        self.assertAlmostEqual(values["continuous_exact"], 0.04, places=14)
+        self.assertLess(values["grid_minimizer"], values["componentwise_rounded"])
 
     def test_resume_keeps_records_and_run_number(self):
         with tempfile.TemporaryDirectory() as name:
-            output=Path(name);(output/"progress").mkdir();(output/"raw/test").mkdir(parents=True)
-            jobs=run.replace_schedule(synthetic_jobs())
-            run.first.dump(output/"jobs_test.json",jobs)
-            run.first.dump(output/"protocol.json",{"policies":{n:{} for j in jobs for n in j["policy_order"]}})
-            calls=[]
-            def execute(job,policy,spec,bundle):
-                calls.append((job["case_id"],job["repeat"],policy))
-                return {k:job[k] for k in ("seed","source","case_id")}|{"policy":policy,"wall_sec":.1}
-            with patch.object(run,"verify"),patch.object(run.first,"load_bundle"),patch.object(run.first,"frozen_snapshot"),patch.object(run.first,"verify_frozen"),patch.object(run.first,"run_policy",side_effect=execute):
-                run.worker(output,"test",0,1)
-                before=(output/"raw/test/worker_0.jsonl").read_bytes()
-                run.worker(output,"test",0,1)
-                self.assertEqual(len(calls),len(run.repeat.expected_cells(jobs)))
-                self.assertEqual(before,(output/"raw/test/worker_0.jsonl").read_bytes())
-                self.assertTrue(all(r["run_number"]==5 for r in run.first.read_records(output/"raw/test/worker_0.jsonl")))
+            output = Path(name)
+            (output / "progress").mkdir()
+            (output / "raw/test").mkdir(parents=True)
+            jobs = run.replace_schedule(parent_jobs())
+            run.artifacts.dump(output / "jobs_test.json", jobs)
+            run.artifacts.dump(
+                output / "protocol.json",
+                {
+                    "policies": {
+                        name: {} for job in jobs for name in job["policy_order"]
+                    }
+                },
+            )
+            calls = []
+
+            def execute(job, policy, spec, bundle):
+                calls.append((job["seed"], job["case_id"], job["repeat"], policy))
+                return {key: job[key] for key in ("seed", "source", "case_id")} | {
+                    "policy": policy,
+                    "wall_sec": 0.1,
+                }
+
+            with (
+                patch.object(run, "verify"),
+                patch.object(run.policy, "load_bundle"),
+                patch.object(run.policy, "frozen_snapshot"),
+                patch.object(run.policy, "verify_frozen"),
+                patch.object(run.policy, "run_policy", side_effect=execute),
+            ):
+                run.worker(output, "test", 0, 1)
+                before = (output / "raw/test/worker_0.jsonl").read_bytes()
+                run.worker(output, "test", 0, 1)
+            self.assertEqual(len(calls), len(run.analysis.expected_cells(jobs)))
+            self.assertEqual(before, (output / "raw/test/worker_0.jsonl").read_bytes())
+            self.assertTrue(
+                all(
+                    row["run_number"] == 5
+                    for row in run.artifacts.read_records(
+                        output / "raw/test/worker_0.jsonl"
+                    )
+                )
+            )
 
 
-if __name__=="__main__":unittest.main()
+if __name__ == "__main__":
+    unittest.main()

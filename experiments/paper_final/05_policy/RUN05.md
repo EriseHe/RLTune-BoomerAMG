@@ -22,10 +22,10 @@ Run 04 is retained separately as historical evidence. All five current policy ro
 
 ## Current files and reproduction
 
-- [Results and eight main figures](../../../results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/RUN05_RESULTS.pdf)
-- [Eight-figure atlas](../../../results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/analysis/paper_figures_best_seed/main_figure_atlas.pdf)
-- [Complete data, checkpoint, figure and source archive](../../../results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929.zip)
-- [Independent archive verification](../../../results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/analysis/archive_verification.json)
+- [Results and eight main figures](../../../../results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/RUN05_RESULTS.pdf)
+- [Eight-figure atlas](../../../../results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/analysis/paper_figures_best_seed/main_figure_atlas.pdf)
+- [Complete data, checkpoint, figure and source archive](../../../../results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929.zip)
+- [Independent archive verification](../../../../results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/analysis/archive_verification.json)
 
 The unfinished first attempt was discarded without archiving, as requested.
 Every accepted measurement comes from the clean restart. The fresh run took
@@ -47,6 +47,13 @@ python -m experiments.paper_final.run_05_policy_minimax run --output NEW_DIRECTO
 python -m experiments.paper_final.plot_05_policy_minimax --output NEW_DIRECTORY
 ```
 
-The local manuscript uses this corrected matched-hierarchy result. Its
-separate solve-specific frozen-method study still uses the new Module 05
-checkpoint set; neither that study nor Module 04 is rerun here.
+The current paper uses only the official Module 04 online comparison and
+this accepted Module 05 matched-hierarchy result. The separate solve-specific
+checkpoint and frozen complete-method studies are archived development work
+and are outside the current submission. Their source is retained in
+[the development archive](../../archive/paper_development/README.md).
+
+Historical prepared runs retain strict source hashes. After repository
+reorganization, use their captured source snapshot to resume execution; use
+the independent archive verifier to check completed measurements. New prepared
+runs record the current shared helpers in their source manifests.

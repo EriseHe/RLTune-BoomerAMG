@@ -47,7 +47,7 @@ from setup.space import DEFAULT_SETUP_PARAMS, SetupConfigurationSpace
 from hypre.bindings import augment_setup_params
 from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, run_bandit_step_test_final
 from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
-from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.feedback import as_feedback
 from solve.controllers.common import ControllerBundle
 from solve.controllers.ppo import (
     FrozenPpoConfig,
@@ -528,7 +528,7 @@ def build_named_setup_branches(
                 )
 
                 def solve_selected(params: Dict[str, Any]) -> Dict[str, Any]:
-                    return _as_feedback(
+                    return as_feedback(
                         solve_no_rl_case(
                             params=dict(params),
                             mkw=dict(mkw),
@@ -540,7 +540,7 @@ def build_named_setup_branches(
                     )
 
                 def solve_fallback(_params: Dict[str, Any]) -> Dict[str, Any]:
-                    return _as_feedback(
+                    return as_feedback(
                         solve_no_rl_case(
                             params=dict(DEFAULT_SETUP_PARAMS),
                             mkw=dict(mkw),

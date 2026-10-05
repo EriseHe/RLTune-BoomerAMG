@@ -25,7 +25,7 @@ from experiments.joint.solve_control.joint_controller_build import (
     make_setup_obs_encoder,
 )
 from experiments.joint.solve_control.joint_reporting import _action_summary
-from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.feedback import as_feedback
 from setup.space import DEFAULT_SETUP_PARAMS
 from hypre.bindings import augment_setup_params
 from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, run_bandit_step_test_final, validate_expected_setup_action_count
@@ -208,7 +208,7 @@ def _generate_setup_trace(
                     solve_tol=float(args.tol),
                     solve_max_cycles=int(args.max_cycles),
                 )
-                return _as_feedback(native, include_controller=False)
+                return as_feedback(native, include_controller=False)
 
             def solve_fallback(_params: Dict[str, Any]) -> Dict[str, Any]:
                 native = solve_no_rl_case(
@@ -218,7 +218,7 @@ def _generate_setup_trace(
                     solver_max_iter=int(args.max_cycles),
                     augment_params=augment_setup_params,
                 )
-                return _as_feedback(native, include_controller=False)
+                return as_feedback(native, include_controller=False)
 
             params, outcome, timing, fallback_used, update_sec = (
                 run_bandit_step_test_final(
@@ -464,7 +464,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                     "arm_index": int(setup_row["arm_index"]),
                     "bandit_timing": dict(setup_row["bandit_timing"]),
                     "outcome": _report_online_outcome(
-                        _as_feedback(native, include_controller=True),
+                        as_feedback(native, include_controller=True),
                         bandit_timing=dict(setup_row["bandit_timing"]),
                     ),
                 }

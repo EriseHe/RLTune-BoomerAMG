@@ -14,7 +14,11 @@ from typing import Any, Callable, Dict, Sequence
 
 import numpy as np
 
-from solve.controllers.sarsa import ExpectedSarsaLambda, SolveStateEncoder
+from experiments.joint.solve_control.comparison import method_comparison, paired_metric
+from experiments.joint.solve_control.feedback import as_feedback
+
+from solve.controllers.sarsa import ExpectedSarsaLambda
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from solve.core.episode import run_td_episode
 from solve.controllers.ppo import (
     FrozenPpoConfig,
@@ -50,115 +54,10 @@ METHODS = (
 BANDIT_METHODS = METHODS[1:]
 BASELINE_METHOD = "bandit_default"
 
-
-def _as_feedback(native: Dict[str, Any], *, include_controller: bool) -> Dict[str, Any]:
-    feedback = dict(native)
-    controller_runtime = float(native.get("infer_runtime", 0.0)) if include_controller else 0.0
-    native_runtime = float(native.get("native_runtime", native["runtime"]))
-    reported_solve_runtime = float(native.get("solve_runtime", 0.0))
-    inferred_native_solve = reported_solve_runtime
-    if not np.isclose(
-        float(native.get("setup_runtime", 0.0)) + reported_solve_runtime,
-        native_runtime,
-        rtol=1e-9,
-        atol=1e-12,
-    ):
-        inferred_native_solve = reported_solve_runtime - controller_runtime
-    native_solve_runtime = float(
-        native.get("native_solve_runtime", inferred_native_solve)
-    )
-    feedback["native_runtime"] = native_runtime
-    feedback["native_solve_runtime"] = native_solve_runtime
-    feedback["infer_runtime"] = float(controller_runtime)
-    feedback["runtime"] = float(native_runtime + controller_runtime)
-    feedback["solve_runtime"] = float(native_solve_runtime + controller_runtime)
-    return feedback
-
-
-def _paired_metric(
-    baseline_values: np.ndarray,
-    candidate_values: np.ndarray,
-    *,
-    seed: int,
-) -> Dict[str, Any]:
-    baseline = np.asarray(baseline_values, dtype=float)
-    candidate = np.asarray(candidate_values, dtype=float)
-    if baseline.shape != candidate.shape or baseline.size == 0:
-        raise ValueError("Paired metric arrays must be non-empty and aligned")
-    difference = baseline - candidate
-    baseline_mean = float(np.mean(baseline))
-    candidate_mean = float(np.mean(candidate))
-    improvement = (
-        float(100.0 * (baseline_mean - candidate_mean) / baseline_mean)
-        if baseline_mean != 0.0
-        else float("nan")
-    )
-    rng = np.random.default_rng(int(seed))
-    boot = np.empty(2000, dtype=float)
-    for index in range(boot.size):
-        sample = rng.integers(0, baseline.size, size=baseline.size)
-        sampled_baseline = float(np.mean(baseline[sample]))
-        sampled_candidate = float(np.mean(candidate[sample]))
-        boot[index] = (
-            100.0 * (sampled_baseline - sampled_candidate) / sampled_baseline
-            if sampled_baseline != 0.0
-            else float("nan")
-        )
-    return {
-        "cases": int(baseline.size),
-        "baseline_mean_sec": baseline_mean,
-        "candidate_mean_sec": candidate_mean,
-        "baseline_total_sec": float(np.sum(baseline)),
-        "candidate_total_sec": float(np.sum(candidate)),
-        "candidate_savings_sec": float(np.sum(difference)),
-        "candidate_improvement_pct": improvement,
-        "candidate_improvement_95pct": [
-            float(np.nanpercentile(boot, 2.5)) if np.any(np.isfinite(boot)) else float("nan"),
-            float(np.nanpercentile(boot, 97.5)) if np.any(np.isfinite(boot)) else float("nan"),
-        ],
-        "candidate_win_rate": float(np.mean(difference > 0.0)),
-    }
-
-
-def _method_comparison(
-    candidate_records: Sequence[Dict[str, Any]],
-    baseline_records: Sequence[Dict[str, Any]],
-    *,
-    seed: int,
-) -> Dict[str, Any]:
-    if len(candidate_records) != len(baseline_records):
-        raise ValueError("Method streams must contain the same number of instances")
-    accessors: Dict[str, Callable[[Dict[str, Any]], float]] = {
-        "setup_runtime": lambda row: float(row["outcome"]["setup_runtime"]),
-        "native_solve_runtime": lambda row: float(row["outcome"]["solve_runtime"]),
-        "native_total_runtime": lambda row: float(row["outcome"]["runtime"]),
-        "controller_runtime": lambda row: float(row["outcome"].get("infer_runtime", 0.0)),
-        "setup_bandit_overhead": lambda row: float(
-            row["outcome"].get("bandit_overhead_runtime", 0.0)
-        ),
-        "solve_plus_controller": lambda row: float(
-            row["outcome"]["solve_runtime"]
-            + row["outcome"].get("infer_runtime", 0.0)
-        ),
-        "end_to_end_runtime": lambda row: float(row["outcome"]["end_to_end_runtime"]),
-    }
-    comparison = {
-        name: _paired_metric(
-            np.asarray([accessor(row) for row in baseline_records], dtype=float),
-            np.asarray([accessor(row) for row in candidate_records], dtype=float),
-            seed=int(seed + offset),
-        )
-        for offset, (name, accessor) in enumerate(accessors.items())
-    }
-    comparison["same_setup_rate"] = float(
-        np.mean(
-            [
-                candidate["params"] == baseline["params"]
-                for candidate, baseline in zip(candidate_records, baseline_records)
-            ]
-        )
-    )
-    return comparison
+# Compatibility names for historical scripts and result analysis.
+_as_feedback = as_feedback
+_method_comparison = method_comparison
+_paired_metric = paired_metric
 
 
 def _window_comparisons(
@@ -168,7 +67,7 @@ def _window_comparisons(
 ) -> Dict[str, Any]:
     baseline = records[BASELINE_METHOD]
     return {
-        method: _method_comparison(method_records, baseline, seed=int(seed + offset * 100))
+        method: method_comparison(method_records, baseline, seed=int(seed + offset * 100))
         for offset, (method, method_records) in enumerate(records.items())
         if method != BASELINE_METHOD
     }
@@ -285,7 +184,7 @@ def _solver_for_method(
                     augment_params=augment_setup_params,
                 ),
             )
-            return _as_feedback(native, include_controller=True)
+            return as_feedback(native, include_controller=True)
 
         return solve_td
     if method == "bandit_ppo":
@@ -304,7 +203,7 @@ def _solver_for_method(
                 solve_max_cycles=int(args.max_cycles),
                 case_progress=float(case_progress),
             )
-            return _as_feedback(native, include_controller=True)
+            return as_feedback(native, include_controller=True)
 
         return solve_ppo
     if method == "bandit_fixed_w1.6":
@@ -318,7 +217,7 @@ def _solver_for_method(
                 solve_tol=float(args.tol),
                 solve_max_cycles=int(args.max_cycles),
             )
-            return _as_feedback(native, include_controller=False)
+            return as_feedback(native, include_controller=False)
 
         return solve_fixed
 
@@ -331,7 +230,7 @@ def _solver_for_method(
                 solver_max_iter=int(args.max_cycles),
                 augment_params=augment_setup_params,
             )
-            return _as_feedback(native, include_controller=False)
+            return as_feedback(native, include_controller=False)
 
         return solve_default
     raise ValueError(f"Unsupported bandit method: {method}")
@@ -418,7 +317,7 @@ def run(args: argparse.Namespace) -> None:
                     augment_params=augment_setup_params,
                 )
                 outcome = _report_online_outcome(
-                    _as_feedback(native, include_controller=False),
+                    as_feedback(native, include_controller=False),
                     bandit_timing={},
                 )
                 case_records[method] = {
@@ -451,7 +350,7 @@ def run(args: argparse.Namespace) -> None:
                     solver_max_iter=int(args.max_cycles),
                     augment_params=augment_setup_params,
                 )
-                return _as_feedback(fallback_native, include_controller=False)
+                return as_feedback(fallback_native, include_controller=False)
             params, native, timing, fallback_used, update_sec = run_bandit_step_test_final(
                 policy=branch.policy,
                 parameter_space=branch.parameter_space,

@@ -26,10 +26,10 @@ from experiments.joint.solve_control.joint_controller_build import (
 from solve.controllers.common import ControllerBundle
 from solve.controllers.sarsa import (
     BehaviorPolicySarsaController,
-    ExpectedSarsaLambdaConfig,
     SarsaBehaviorSpec,
-    SolveStateEncoder,
 )
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.state_encoder import SolveStateEncoder
 
 
 REFERENCE_METHODS = (

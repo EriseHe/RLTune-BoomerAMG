@@ -12,7 +12,15 @@ from solve.core.outcomes import classify_rl_failure
 from setup.utils.setup_amg import init_param_trace, progress_bar, record_param_trace
 from .action_spaces import DEFAULT_SETUP_PARAMS, TRACE_KEYS_FINAL
 from .native_evaluation import solve_no_rl_case, solve_setup_aware_rl_case
-from .setup_branches import BranchRun, TestFinalBanditConfig, build_test10_branches, default_branch_label, default_test_final_bandit_config_from_env, generate_difconv_instances, run_bandit_step_test_final
+from .setup_branches import (
+    BranchRun,
+    TestFinalBanditConfig,
+    build_test10_branches,
+    default_branch_label,
+    default_test_final_bandit_config_from_env,
+    generate_difconv_instances,
+    run_bandit_step_test_final,
+)
 
 
 def fixed_trace(
@@ -49,7 +57,9 @@ def fixed_trace(
             default_branch_label(
                 method=str(bandit_method),
                 tune_dim=int(tune_dim),
-                tune7_variant=os.environ.get("TUNE7_VARIANT", "categorical").strip().lower(),
+                tune7_variant=os.environ.get("TUNE7_VARIANT", "categorical")
+                .strip()
+                .lower(),
             ),
         ),
         bandit_cfg=bandit_cfg,
@@ -62,6 +72,7 @@ def fixed_trace(
     trace: List[Tuple[Dict[str, Any], Dict[str, Any]]] = []
     for case_index, (mkw, context) in enumerate(instances):
         if str(solve_mode).strip().lower() == "no_rl":
+
             def solver_fn(selected_params: Dict[str, Any]) -> Dict[str, Any]:
                 return solve_no_rl_case(
                     params=selected_params,
@@ -80,7 +91,9 @@ def fixed_trace(
                     mkw=dict(mkw),
                     solve_policy=solve_policy,
                     augment_params=augment_setup_params,
-                    classify_rl_failure=lambda *, residual_norm, iterations: classify_rl_failure(
+                    classify_rl_failure=lambda *,
+                    residual_norm,
+                    iterations: classify_rl_failure(
                         residual_norm=float(residual_norm),
                         iterations=int(iterations),
                         solve_tol=float(solve_policy.cfg.solve_tol),
@@ -108,13 +121,15 @@ def fixed_trace(
                 augment_params=augment_setup_params,
             )
 
-        params, out, timing, fallback_used, prev_update_est = run_bandit_step_test_final(
-            policy=branch.policy,
-            parameter_space=branch.parameter_space,
-            problem_context=np.asarray(context, dtype=float),
-            solver_fn=solver_fn,
-            fallback_solver_fn=fallback_solver_fn,
-            prev_update_est=float(prev_update_est),
+        params, out, timing, fallback_used, prev_update_est = (
+            run_bandit_step_test_final(
+                policy=branch.policy,
+                parameter_space=branch.parameter_space,
+                problem_context=np.asarray(context, dtype=float),
+                solver_fn=solver_fn,
+                fallback_solver_fn=fallback_solver_fn,
+                prev_update_est=float(prev_update_est),
+            )
         )
         trace.append((dict(mkw), dict(params)))
         if trace_records is not None:
@@ -131,7 +146,11 @@ def fixed_trace(
             )
     return trace
 
-def eval_runner(runner: SetupAwareSolvePolicyRunner, trace: Sequence[Tuple[Dict[str, Any], Dict[str, Any]]]) -> Dict[str, Any]:
+
+def eval_runner(
+    runner: SetupAwareSolvePolicyRunner,
+    trace: Sequence[Tuple[Dict[str, Any], Dict[str, Any]]],
+) -> Dict[str, Any]:
     solve_tol = float(os.environ.get("SOLVE_TOL", "1e-6"))
     solve_max_cycles = int(os.environ.get("SOLVE_MAX_CYCLES", "50"))
     vals = []
@@ -144,7 +163,9 @@ def eval_runner(runner: SetupAwareSolvePolicyRunner, trace: Sequence[Tuple[Dict[
             mkw=dict(mkw),
             solve_policy=runner,
             augment_params=augment_setup_params,
-            classify_rl_failure=lambda *, residual_norm, iterations: classify_rl_failure(
+            classify_rl_failure=lambda *,
+            residual_norm,
+            iterations: classify_rl_failure(
                 residual_norm=float(residual_norm),
                 iterations=int(iterations),
                 solve_tol=float(solve_tol),
@@ -193,11 +214,14 @@ def eval_runner(runner: SetupAwareSolvePolicyRunner, trace: Sequence[Tuple[Dict[
         ),
         "failed_count": int(fails),
         "mean_iterations": float(np.mean([v["iterations"] for v in vals])),
-        "mean_final_w": float(np.mean([v["final_w"] for v in vals if np.isfinite(v["final_w"])])),
+        "mean_final_w": float(
+            np.mean([v["final_w"] for v in vals if np.isfinite(v["final_w"])])
+        ),
         "action_hist": {int(k): int(action_hist[k]) for k in sorted(action_hist)},
         "per_case_mean_w": per_case_mean_w,
         "mean_w_by_cycle": mean_w_by_cycle,
     }
+
 
 def alloc_branch_metrics(*, labels: Sequence[str], T: int) -> Dict[str, Any]:
     return {
@@ -219,6 +243,7 @@ def alloc_branch_metrics(*, labels: Sequence[str], T: int) -> Dict[str, Any]:
         "traces": {label: init_param_trace(TRACE_KEYS_FINAL, T) for label in labels},
         "prev_update_est": {label: 0.0 for label in labels},
     }
+
 
 def run_interleaved_branch_scenario(
     *,
@@ -314,31 +339,48 @@ def run_interleaved_branch_scenario(
                     augment_params=augment_params,
                 )
 
-            params, out, timing, _fallback_used, last_update_sec = run_bandit_step_test_final(
-                policy=branch.policy,
-                parameter_space=branch.parameter_space,
-                problem_context=np.asarray(context, dtype=float),
-                solver_fn=solver_fn,
-                fallback_solver_fn=fallback_solver_fn,
-                prev_update_est=float(metrics["prev_update_est"][label]),
+            params, out, timing, _fallback_used, last_update_sec = (
+                run_bandit_step_test_final(
+                    policy=branch.policy,
+                    parameter_space=branch.parameter_space,
+                    problem_context=np.asarray(context, dtype=float),
+                    solver_fn=solver_fn,
+                    fallback_solver_fn=fallback_solver_fn,
+                    prev_update_est=float(metrics["prev_update_est"][label]),
+                )
             )
 
             metrics["runtime_sec"][label][local_t] = float(out["runtime"])
             metrics["setup_runtime_sec"][label][local_t] = float(out["setup_runtime"])
             metrics["solve_runtime_sec"][label][local_t] = float(out["solve_runtime"])
-            metrics["infer_runtime_sec"][label][local_t] = float(out.get("infer_runtime", 0.0))
+            metrics["infer_runtime_sec"][label][local_t] = float(
+                out.get("infer_runtime", 0.0)
+            )
             metrics["overhead_sec"][label][local_t] = float(timing["overhead_sec"])
             metrics["select_sec"][label][local_t] = float(timing["select_sec"])
             metrics["loss_eval_sec"][label][local_t] = float(timing["loss_eval_sec"])
             metrics["update_sec"][label][local_t] = float(timing["update_sec"])
             metrics["failed_flags"][label][local_t] = bool(out.get("failed", False))
-            metrics["failure_reason"][label][local_t] = str(out.get("failure_reason", ""))
+            metrics["failure_reason"][label][local_t] = str(
+                out.get("failure_reason", "")
+            )
             metrics["iterations"][label][local_t] = int(out.get("iterations", 0))
-            metrics["residual_norm"][label][local_t] = float(out.get("residual_norm", np.nan))
+            metrics["residual_norm"][label][local_t] = float(
+                out.get("residual_norm", np.nan)
+            )
             metrics["final_w"][label][local_t] = float(out.get("final_w", np.nan))
-            metrics["final_sweeps_down"][label][local_t] = int(out.get("final_sweeps_down", -1))
-            metrics["final_sweeps_up"][label][local_t] = int(out.get("final_sweeps_up", -1))
-            record_param_trace(metrics["traces"][label], t=local_t, params=params, keys=TRACE_KEYS_FINAL)
+            metrics["final_sweeps_down"][label][local_t] = int(
+                out.get("final_sweeps_down", -1)
+            )
+            metrics["final_sweeps_up"][label][local_t] = int(
+                out.get("final_sweeps_up", -1)
+            )
+            record_param_trace(
+                metrics["traces"][label],
+                t=local_t,
+                params=params,
+                keys=TRACE_KEYS_FINAL,
+            )
             metrics["prev_update_est"][label] = float(last_update_sec)
 
             if bool(out.get("failed", False)):
@@ -360,12 +402,16 @@ def run_interleaved_branch_scenario(
                         "loss_eval_sec": float(timing["loss_eval_sec"]),
                         "update_sec": float(timing["update_sec"]),
                         "overhead_sec": float(timing["overhead_sec"]),
-                        "end_to_end_sec": float(out.get("runtime", np.nan) + timing["overhead_sec"]),
+                        "end_to_end_sec": float(
+                            out.get("runtime", np.nan) + timing["overhead_sec"]
+                        ),
                         "final_w": float(out.get("final_w", np.nan)),
                         "final_sweeps_down": int(out.get("final_sweeps_down", -1)),
                         "final_sweeps_up": int(out.get("final_sweeps_up", -1)),
                         "params": dict(params),
-                        "fixed_params": dict(branch_meta.get(label, {}).get("fixed_params", {})),
+                        "fixed_params": dict(
+                            branch_meta.get(label, {}).get("fixed_params", {})
+                        ),
                         "problem": {
                             "nx": int(mkw["nx"]),
                             "ny": int(mkw["ny"]),

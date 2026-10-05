@@ -14,20 +14,16 @@ import numpy as np
 
 from experiments.joint.solve_control.joint_online_common import (
     _method_stream_summary,
-    _report_online_outcome,
 )
 from experiments.joint.solve_control.online_td_experiment_common import _write_json
-from experiments.joint.solve_control.run_online_methods_2k import _as_feedback
+from experiments.joint.solve_control.native_case import run_case
 from experiments.diagnostics.solve_control.run_solve_controller_calibration import (
     V2_CALIBRATION_BASELINE,
     _build_bundle,
     _controller_is_finite,
     _write_json_line,
 )
-from setup.space import DEFAULT_SETUP_PARAMS
-from hypre.bindings import augment_setup_params
-from experiments.joint.solve_control.native_evaluation import solve_no_rl_case
-from solve.controllers.common import ControllerBundle, OnlineSolveCase
+from solve.controllers.common import ControllerBundle
 from solve.controllers.recursive_lstdq import (
     RecursiveLstdqV2LcbSpec,
     RecursiveLstdqV3LcbSpec,
@@ -39,6 +35,9 @@ V3_METHOD = "lstdq_v3_selected"
 TRAIN_CASES = 400
 HELD_OUT_CASES = 200
 REPETITIONS = 3
+
+# Compatibility name for historical experiment scripts.
+_run_case = run_case
 
 
 def _load_json_lines(path: Path) -> list[Dict[str, Any]]:
@@ -111,49 +110,6 @@ def _build_controllers(
             trace_lambda=0.8,
         ),
     }
-
-
-def _run_case(
-    *,
-    bundle: ControllerBundle,
-    setup_row: Mapping[str, Any],
-    args: argparse.Namespace,
-    learn: bool,
-    explore: bool,
-) -> Dict[str, Any]:
-    mkw = dict(setup_row["mkw"])
-    fallback_result: Dict[str, Any] = {}
-
-    def fallback_attempt():
-        result = solve_no_rl_case(
-            params=dict(DEFAULT_SETUP_PARAMS), mkw=mkw,
-            solver_tol=float(args.tol), solver_max_iter=int(args.max_cycles),
-            augment_params=augment_setup_params,
-        )
-        fallback_result.update(result)
-        return result
-
-    native = bundle.run_case(
-        OnlineSolveCase(
-            mkw=mkw,
-            params=dict(setup_row["params"]),
-            solve_tol=float(args.tol),
-            solve_max_cycles=int(args.max_cycles),
-            learn=bool(learn),
-            explore=bool(explore),
-            record_action_metadata=True,
-            fallback_attempt=fallback_attempt,
-        )
-    )
-    outcome = _report_online_outcome(
-        _as_feedback(native, include_controller=True),
-        bandit_timing={},
-    )
-    outcome["completed_residual_norm"] = (
-        fallback_result.get("residual_norm", float("nan"))
-        if outcome.get("fallback_used", False) else outcome["residual_norm"]
-    )
-    return outcome
 
 
 def _summarize_stability(
@@ -290,7 +246,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                             "execution_rank": int(rank),
                             "mkw": dict(setup_row["mkw"]),
                             "params": dict(setup_row["params"]),
-                            "outcome": _run_case(
+                            "outcome": run_case(
                                 bundle=bundles[name],
                                 setup_row=setup_row,
                                 args=args,

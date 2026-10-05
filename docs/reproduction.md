@@ -10,7 +10,7 @@ shown in the [README](../README.md).
 | Evidence | Protocol and compact numerical record | Runner / reporting |
 |---|---|---|
 | Module 04: online comparison and cost breakdown for 40³/60³/80³ diffusion and diffusion–advection | [September 20 design](../experiments/paper_final/04_online/20260920_formal/README.md), [single-seed suite](../experiments/paper_final/04_online/20260920_formal/suite.json), [six-seed aggregate](../experiments/paper_final/reproduction/online/six_seeds.json) | `run_04_online`, `analyze_04_online`; joint runner generates per-group plots |
-| Run 05: matched-hierarchy frozen policies and periodic smoothing comparison | [Run 05 record](../experiments/paper_final/05_policy/RUN05.md), [captured protocol](../experiments/paper_final/reproduction/matched_policy/protocol.json), [weighted-minimax derivation](theory/period_two_weighted_minimax_20260928.md) | `run_05_policy_minimax`, `analyze_05_policy_minimax`, `plot_05_policy_minimax` |
+| Module 05 / Run 05: matched-hierarchy frozen policies and periodic smoothing comparison | [Run 05 record](../experiments/paper_final/05_policy/RUN05.md), [captured protocol](../experiments/paper_final/reproduction/matched_policy/protocol.json), [weighted-minimax derivation](theory/period_two_weighted_minimax_20260928.md) | `run_05_policy_minimax`, `analyze_05_policy_minimax`, `plot_05_policy_minimax` |
 
 Compact records describe completed measurements. They do not replace raw logs
 for recomputing statistics, or frozen checkpoints for native retiming. No public
@@ -69,7 +69,7 @@ stream manifests, summaries, final bandit states, and solve checkpoints remain
 under their original run folders. The historical combined aggregate was stored
 under `20260926_macmini_module04_overnight/analysis/six_seeds.json`.
 
-## Run 05: artifacts and verification
+## Module 05 / Run 05: artifacts and verification
 
 The accepted corrected run is
 `results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/`.
@@ -98,7 +98,7 @@ To rebuild figures from an existing completed run with its `analysis/summary.jso
 and `trace_arrays.npz`, without fresh solves:
 
 ```bash
-python -m experiments.paper_final.plot_05_policy_minimax --output COMPLETED_RUN
+python -m experiments.archive.paper_development.plot_05_policy_minimax --output COMPLETED_RUN
 ```
 
 The runner calls the `analyze(output)` helper in `analyze_05_policy_minimax`
@@ -108,8 +108,8 @@ completed raw logs; it currently has no separate command-line entry point.
 The historical native retiming commands are:
 
 ```bash
-python -m experiments.paper_final.run_05_policy_minimax prepare --output NEW_RUN
-python -m experiments.paper_final.run_05_policy_minimax run --output NEW_RUN
+python -m experiments.archive.paper_development.run_05_policy_minimax prepare --output NEW_RUN
+python -m experiments.archive.paper_development.run_05_policy_minimax run --output NEW_RUN
 ```
 
 Preparation depends on the completed parent

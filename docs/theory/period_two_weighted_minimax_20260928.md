@@ -282,7 +282,7 @@ full-cycle baseline should be described at that scope.
 - [Paired experiment report](../../results/paper_final/05_policy/20260928_pair285_vs290_joint_6seeds_100cases/REPORT.md),
   with raw.jsonl, protocol.json, summary.json and independent_audit.json in
   the same directory.
-- [Paired timing runner](../../experiments/paper_final/compare_05_periodic_pairs.py).
+- [Paired timing runner](../../experiments/archive/paper_development/compare_05_periodic_pairs.py).
 - [Historical anchored derivation and implementation audit](anchored_schedule_review_20260927.md).
 - External supplied clarification:
   `/Users/erisehe/Downloads/module05_run04_review/optimality_clarification.tex`.

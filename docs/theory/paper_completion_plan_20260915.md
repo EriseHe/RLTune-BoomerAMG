@@ -6,7 +6,7 @@
 
 最新模块安排：2026-09-28。**04 保留现有在线累计性能协议与已接受结果。05 改为 checkpoint 准备：一次共享 1000 题 W1 前缀，再分支进行 4000 题 solve-specific setup 训练；06 在 fresh inputs 上比较各自配套的冻结完整方法，并可附小型 crossed-hierarchy 机制比较。原 06–10 顺延为 07–11。**
 本次按用户授权执行一个 diffusion 60³ 训练 replicate。Default setup hierarchy 的 100 个独立 development inputs × 41 weights 校准已完成，选定 w_dev=1.40。用户随后要求丢弃已启动的四分支 run，并额外加入历史 learned-hierarchy fixed-grid 最优常数 1.60：当前五分支从头开始，不复用旧训练状态。十项集成测试已通过；最新 native 检查与执行状态见 05 入口。训练胜负或 payback 不是 05 的通过条件。
-具体协议见 [05 checkpoint preparation](../../experiments/paper_final/05_online_policies/README.md)，冻结评价入口见 [06 policy](../../experiments/paper_final/06_policy/README.md)。
+具体协议见 [05 checkpoint preparation](../../experiments/archive/paper_development/05_online_policies/README.md)，冻结评价入口见 [06 policy](../../experiments/archive/paper_development/06_policy/README.md)。
 
 05 五分支训练已于 2026-09-28 纽约时间 06:10 完成，总耗时 54.81 分钟：21,000 次实际 method–problem 执行，无 unrecovered failure；五份 setup checkpoint 与 LSTDQ controller 均已保存并通过最终核验。训练成本仅作诊断。用户随后授权执行的 06 也已于纽约时间 09:55 完成：100 个 fresh diffusion 60³ inputs × 3 次计时，五个完整冻结方法加 periodic/RL 两个 crossed pairing，共 2,100 trials，耗时 4.997 分钟，无 failure 或 recovery，冻结状态及原始数据独立核验均通过。仅一个训练 checkpoint set，不能解释为多训练 seed 证据。
 
@@ -179,8 +179,8 @@ P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据�
 | 02_diagnostics | P0/P1 | 同 setup 的 fixed/schedule 开发筛查，加困难工况检查 | 已完成 1176 次 diffusion 与 336 次 advection 比较；另保留 58 条中止短训练记录；见完成报告 |
 | 03_activation | P1 | 80³ advection 的六线路启动敏感性 | 单 seed 的六路各 5000 题已完成、审核并出图；开发诊断，未运行 s2/s3 |
 | 04_online | P1 | 原正式在线比较及其组件分析 | 保留现有协议与已接受结果；新增比较不回写 04 |
-| [05_online_policies](../../experiments/paper_final/05_online_policies/README.md) | P1，checkpoint 准备 | 一次共享 1000 W1 前缀，再五条独立 4000 题 continuation；diffusion 60³ | W1、Default 校准 1.40、历史 learned-hierarchy 1.60、(2.85,1.10)、正常 RL；四分支旧 run 已丢弃 |
-| [06_policy](../../experiments/paper_final/06_policy/README.md) | P1，原 05 | 五个配套冻结完整方法与 periodic/RL 2×2 cross | 已完成 100 fresh inputs × 3 次，共 2,100 trials；periodic 完整成本最低，冻结与数据核验通过；历史记录保留 |
+| [05_online_policies](../../experiments/archive/paper_development/05_online_policies/README.md) | P1，checkpoint 准备 | 一次共享 1000 W1 前缀，再五条独立 4000 题 continuation；diffusion 60³ | W1、Default 校准 1.40、历史 learned-hierarchy 1.60、(2.85,1.10)、正常 RL；四分支旧 run 已丢弃 |
+| [06_policy](../../experiments/archive/paper_development/06_policy/README.md) | P1，原 05 | 五个配套冻结完整方法与 periodic/RL 2×2 cross | 已完成 100 fresh inputs × 3 次，共 2,100 trials；periodic 完整成本最低，冻结与数据核验通过；历史记录保留 |
 | 07_theory | P1，可与实验并行 | 整合 T1–T5 与 weighted-minimax schedule 依据，压缩 theory/appendix | 主张和证明范围一致；最终不超过 26 页 |
 | 08_baselines | P2 | 强 native/polynomial baseline，补问题结构或收窄外推 | 不把网格大小当作不同结构 |
 | 09_feedback | P2，取决于主张 | 匹配的反馈消融 | 相同预算重训有/无 feedback 模型，或降低因果主张 |
@@ -322,7 +322,7 @@ P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据�
 
 本次只执行一个指定训练 replicate，已先通过短功能检查；多 seed 或扩大问题族另行冻结协议。逐实例 fixed oracle 留在 06 的小型 matched-hierarchy 诊断，不作为 05 的训练分支。
 
-细节见 [05 协议](../../experiments/paper_final/05_online_policies/README.md)；数学依据见 [weighted minimax note](period_two_weighted_minimax_20260928.md)。
+细节见 [05 协议](../../experiments/archive/paper_development/05_online_policies/README.md)；数学依据见 [weighted minimax note](period_two_weighted_minimax_20260928.md)。
 
 ### E3 / 06：冻结完整方法比较与小型 hierarchy compatibility 诊断
 
@@ -338,7 +338,7 @@ P0 是正式实验前的必要修复/约定；P1 是本次投稿的核心证据�
 
 **2026-09-29 更正复测已完成：** 原 05 编号的 [Run 05](../../experiments/paper_final/05_policy/RUN05.md) 保留六份 Joint-trained setup/controller checkpoints、100 个输入、hierarchy 和 fixed-grid 选择，使用 (2.85,1.10) 作为唯一 periodic baseline，移除 (1,3) 与 (2.6,1)。丢弃未完成尝试后从零执行三次计时重复，共 8460 个不同 solve，全部成功且无需 recovery。RL 相对 stream-wide fixed / per-instance fixed 的 native 节省为 11.72% / 9.58%；相对 periodic 为 0.63% ± 0.55 pp，含 controller 后为 -3.65% ± 0.63 pp。所有五方法在每个 checkpoint/input 内共享 Joint-trained hierarchy。独立复算、完整 ZIP 解包验证、原八图系统与十张 seed 补图均已完成；论文 matched table 与相关数字使用该更正结果，04 与独立的新 05/06 数据不变。这补齐了当前 pair 的六 checkpoint 对照，不代表整个论文实验叙述与理论整合已全部完成。
 
-**历史 matched-hierarchy 证据与方案：** 原 05 的完成记录与现有数据仍保留在 [06 当前入口](../../experiments/paper_final/06_policy/README.md)。以下较宽的旧建议仅作历史参考，不因本次改号而成为新的必跑清单；当前 pair 锁定 (2.85,1.10)，不再自动搜索 pair/phase。
+**历史 matched-hierarchy 证据与方案：** 原 05 的完成记录与现有数据仍保留在 [06 当前入口](../../experiments/archive/paper_development/06_policy/README.md)。以下较宽的旧建议仅作历史参考，不因本次改号而成为新的必跑清单；当前 pair 锁定 (2.85,1.10)，不再自动搜索 pair/phase。
 
 **历史 matched-hierarchy 设计建议：**
 
@@ -414,7 +414,7 @@ C(\widehat w_{\rm dev}),\qquad
 
 若 1000 附近无一致劣势，保留为工程选择；若 seed 排序不一致，应报告敏感性；若困难工况显示系统性问题，先区分 setup、编码、探索和历史数据原因。该研究估计启动规则引起的完整联合路径差异，不把全部差异归因于相同 hierarchy 上的 RL 效果。
 
-[03 的具体协议](../../experiments/paper_final/03_activation/README.md)与[完成报告](../../results/paper_final/03_activation/REPORT.md)。五条 RL 路径的记录累计成本下降 14.09%–22.53%，各路仍有 28–30 个未恢复输入；不能由此声称全成功完成时间或启动点最优。03 随后已供给 02 的预定 checkpoint；[02 完成报告](../../results/paper_final/02_diagnostics/REPORT.md)显示必须保留强 fixed/schedule 对照。
+[03 的具体协议](../../experiments/archive/paper_development/03_activation/README.md)与[完成报告](../../results/paper_final/03_activation/REPORT.md)。五条 RL 路径的记录累计成本下降 14.09%–22.53%，各路仍有 28–30 个未恢复输入；不能由此声称全成功完成时间或启动点最优。03 随后已供给 02 的预定 checkpoint；[02 完成报告](../../results/paper_final/02_diagnostics/REPORT.md)显示必须保留强 fixed/schedule 对照。
 
 ### E5：更强的数值基线与问题广度——P2，高价值
 

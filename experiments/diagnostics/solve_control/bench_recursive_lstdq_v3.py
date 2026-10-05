@@ -18,7 +18,7 @@ from solve.controllers.recursive_lstdq import (
     RecursiveLstdqV3LcbController,
     RecursiveLstdqV3LcbSpec,
 )
-from solve.controllers.sarsa import ExpectedSarsaLambdaConfig
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
 
 
 FEATURE_DIM = 32

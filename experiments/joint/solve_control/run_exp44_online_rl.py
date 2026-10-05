@@ -20,10 +20,10 @@ from setup.space import (
 )
 from solve.controllers.sarsa import (
     ExpectedSarsaLambda,
-    ExpectedSarsaLambdaConfig,
     OnlineFixedWeightIncumbent,
-    SolveStateEncoder,
 )
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.controllers.common.state_encoder import SolveStateEncoder
 from experiments.joint.solve_control.online_td_experiment_common import (
     _action_diagnostics,
     _git_revision,

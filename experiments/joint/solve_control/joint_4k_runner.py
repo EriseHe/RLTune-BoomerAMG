@@ -109,9 +109,7 @@ from experiments.joint.solve_control.joint_reporting import (
     _write_summary_csv,
 )
 from experiments.joint.solve_control.joint_protocol import build_joint_protocol
-from experiments.joint.solve_control.run_online_methods_2k import (
-    _as_feedback,
-)
+from experiments.joint.solve_control.feedback import as_feedback
 from problems.registry import context_for_setup_method
 from hypre.bindings import augment_setup_params
 from experiments.joint.solve_control.setup_branches import build_online_linucb_branch, clone_branch_for_independent_updates, default_test_final_bandit_config_from_env, run_bandit_step_test_final, validate_expected_setup_action_count
@@ -279,7 +277,7 @@ def _warmup_bandit(
                     solver_max_iter=int(args.max_cycles),
                     augment_params=augment_setup_params,
                 )
-                return _as_feedback(native, include_controller=False)
+                return as_feedback(native, include_controller=False)
 
             def solve_fallback(_params: Dict[str, Any]) -> Dict[str, Any]:
                 native = solve_no_rl_case(
@@ -289,7 +287,7 @@ def _warmup_bandit(
                     solver_max_iter=int(args.max_cycles),
                     augment_params=augment_setup_params,
                 )
-                return _as_feedback(native, include_controller=False)
+                return as_feedback(native, include_controller=False)
 
             params, native, timing, fallback_used, update_sec = (
                 run_bandit_step_test_final(
