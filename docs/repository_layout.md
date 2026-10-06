@@ -5,6 +5,9 @@ needed for Module 04 online autotuning and accepted Module 05 matched-hierarchy
 Run 05. The official entry modules keep their names under
 `experiments/paper_final/`.
 
+The `experiments/module06-recovery` branch adds the exploratory Module 06
+recovery comparison. Its implementation is isolated from the official studies.
+
 Start with the [root guide](../README.md) for installation and input validation,
 or the [reproduction guide](reproduction.md) to run either official study. This page
 maps the source files and their responsibilities. Implementation details are in
@@ -20,6 +23,7 @@ the [setup guide](../setup/README.md), [solve guide](../solve/README.md), and
 | `hypre/interfaces/` | Project-owned C wiring into HYPRE and native regression tests |
 | `hypre/bindings/` | Python native adapter, typed statuses and bounded fallback |
 | `experiments/paper_final/online/` | Composition of setup and solve for the official online study; protocol loading, execution and reporting |
+| `experiments/paper_final/recovery/` | Module 06 variant definitions, stress-case selection, shared retry budgets and delayed LSTDQ targets |
 | `experiments/paper_final/common/` | Durable files, frozen evaluation, matched cost aggregation, worker supervision, input-bundle verification and rendering helpers |
 | `experiments/paper_final/reproduction/` | Exact captured configurations, compact accepted results and the verified Run 05 input bundle |
 | `experiments/runtime.py` | Explicit thread configuration and optional sleep prevention for command-line runs |

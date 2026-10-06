@@ -19,6 +19,8 @@ separately in the [repository layout](repository_layout.md).
   fresh retiming.
 - [Timing and recovery](#timing-and-recovery) — cost definitions, failure
   handling, fixed comparators, and interpretation limits shared by the studies.
+- [Module 06: recovery stress test](#module-06-recovery-stress-test) — exploratory
+  four-worker comparison on a failure-heavy recorded Module 04 stream.
 
 ## Included evidence
 
@@ -199,3 +201,75 @@ and seed 4 was refreshed in earlier development; this is a prescribed-policy
 follow-up. The `(2.85, 1.10)` pair is selected by the normalized SPD smoothing
 surrogate, not by current timing outcomes. Its multilevel runtime comparison is
 empirical. See the [theory index](theory/README.md).
+
+## Module 06: recovery stress test
+
+This exploratory module lives on `experiments/module06-recovery`. It reuses the
+existing learners and native solve engine, with its own retry coordination and
+analysis. Module 04/05 source and accepted records are unchanged.
+
+The selection ranks the 18 accepted diffusion-advection runs by full-stream
+LinUCB-LSTDQ unrecovered failures. Global seed **5**, base seed **339923787**, on
+the **40³** grid ranks first with **62/5000** failures (191 summed over the three
+original methods). The exact stream hash is
+`c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4`.
+The complete ranking and configuration hash are saved in each run's protocol.
+
+| Variant | Learned attempts | Retry trigger | RL target after a failed attempt |
+|---|---:|---|---|
+| `original` | Up to 3 | Construction failure only; solve failure goes directly to default | Native cycle cost plus default recovery |
+| `shared3_cost` | Up to 3 | Construction or solve failure | Native cycle cost plus all subsequent native recovery work |
+| `shared3_no_cost` | Up to 3 | Construction or solve failure | Native cycle cost only |
+| `shared5_no_cost` | Up to 5 | Construction or solve failure | Native cycle cost only |
+
+These counts include the initial attempt. One default attempt follows exhaustion
+of the learned budget. Each failed exact setup is excluded on that problem,
+with immediate bandit failure-risk feedback. Bandit runtime labels include the
+remaining work through completion. All variants keep the existing final-failure
+rollback rule, the 50-cycle cap, tolerance `1e-6`, fresh learner initialization,
+and RL activation at problem 1001.
+
+The unified variants provisionally learn cycle costs during each attempt. Once
+the whole problem is recovered, `shared3_cost` replaces those provisional updates
+by replaying the recorded transitions from the preproblem learning snapshot,
+adding the realized subsequent native setup/solve time at each failed terminal.
+This preserves the LSTDQ equations and episode covariance without duplicating
+samples, native solves, or random action draws. Replay overhead is measured and
+included in total time. No-recovery-cost variants retain their attempt-cost
+updates. Fully unrecovered problems roll back all provisional learning, while
+their attempted work remains in the reported costs.
+
+The original three candidate rows per problem are preserved in every variant.
+Attempts 4/5 use a separate two-row schedule with the original candidate seed
+plus 600006. Extra attempts do not shift later problems' original candidate rows.
+
+Launch all four workers with a new output directory:
+
+```sh
+python -m experiments.paper_final.run_06_recovery --output results/paper_final/06_recovery/seed5_advection40
+```
+
+The launcher verifies identical input streams, initial models and base candidate
+schedules before releasing all four workers. Each uses one numerical-library
+thread and one MPI rank; macOS workers request user-initiated QoS, which does not
+guarantee hard core affinity. Source snapshots, native-library hashes, environment
+metadata, per-attempt trajectories, progress and final checkpoints stay with the
+run. Existing outputs are never overwritten or automatically resumed.
+
+At completion, the command audits retry limits, failure feedback, target costs,
+and cost decomposition, then writes `comparison.md`, `.json`, `.csv`, `.png`,
+and `.pdf`. Analysis can be repeated with:
+
+```sh
+python -m experiments.paper_final.analyze_06_recovery --output results/paper_final/06_recovery/seed5_advection40
+```
+
+Full-stream totals retain failed work. Costs on the common successful input
+intersection and the final-1000/RL-active windows are also recorded. This single
+seed was deliberately selected using earlier failures; its results are diagnostic.
+
+`--smoke-cases 20` runs a shortened prefix and activates RL at problem 2 for
+native validation. Smoke outputs are marked and must not be pooled with the
+full experiment. The permanent `test_06_recovery.py` checks mixed failure
+triggers, three/five-attempt budgets, exclusions, rollback, candidate pairing,
+and delayed-target equivalence. Temporary smoke outputs are removed after use.

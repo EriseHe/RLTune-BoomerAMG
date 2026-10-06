@@ -14,6 +14,9 @@ Run 05 frozen-input bundle.
 Original raw measurement logs and generated figure releases are not included.
 The bundle is sufficient for new matched retiming without earlier result folders.
 
+The `experiments/module06-recovery` branch also contains an exploratory
+[Module 06 recovery comparison](docs/reproduction.md#module-06-recovery-stress-test).
+
 ## Start here
 
 | Task | Where to go |
@@ -21,6 +24,7 @@ The bundle is sufficient for new matched retiming without earlier result folders
 | Prepare the experiments | [Install and build](#install-and-build), then [validate the inputs](#validate-experiment-inputs) below |
 | Run Module 04 online autotuning | [Module 04 reproduction](docs/reproduction.md#module-04-exact-configurations) |
 | Run Module 05 matched-hierarchy comparison | [Module 05 reproduction](docs/reproduction.md#module-05-verify-and-retime-the-frozen-bundle) |
+| Compare recovery policies on the recorded stress case | [Module 06 experiment](docs/reproduction.md#module-06-recovery-stress-test) |
 | Understand or maintain the code | [Repository layout](docs/repository_layout.md), with setup, solve and native-binding details linked there |
 | Inspect the prescribed smoothing rule | [Theory references](docs/theory/README.md) |
 
