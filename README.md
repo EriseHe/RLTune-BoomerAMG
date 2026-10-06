@@ -3,16 +3,12 @@
 Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandits
 and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
 
-Code and frozen protocols for the SISC studies of online BoomerAMG autotuning:
+Code and frozen protocols for the studies of online BoomerAMG autotuning:
 shared context-action LinUCB selects hierarchy parameters, and recursive
 LSTDQ selects relaxation weights during the solve.
 
-This submission tree contains Module 04 online comparison and the accepted
-Module 05 matched-hierarchy Run 05. It includes 42 exact online configurations,
-compact accepted results, 20 MB of exact online inputs, and a verified 14 MB
-Run 05 frozen-input bundle.
-Original raw measurement logs and generated figure releases are not included.
-The bundle is sufficient for new matched retiming without earlier result folders.
+This submission tree contains online comparison and the matched-hierarchy. It includes 42 exact online configurations,
+compact accepted results, 20 MB of exact online inputs, and a verified 14 MB frozen-input bundle. Original raw measurement logs and generated figure releases are not included. The bundle is sufficient for new matched retiming without earlier result folders.
 
 ## Start here
 
@@ -59,7 +55,7 @@ Validate the formal online protocol without solving PDEs:
 python -m experiments.paper_final.run_04_online --validate-only
 ```
 
-Verify the accepted Run 05 input bundle without native solves:
+Verify the accepted input bundle without native solves:
 
 ```sh
 python -c 'from experiments.paper_final.common.frozen_inputs import DEFAULT_BUNDLE, verify_bundle; print(verify_bundle(DEFAULT_BUNDLE))'
