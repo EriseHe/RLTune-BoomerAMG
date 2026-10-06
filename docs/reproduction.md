@@ -273,3 +273,39 @@ native validation. Smoke outputs are marked and must not be pooled with the
 full experiment. The permanent `test_06_recovery.py` checks mixed failure
 triggers, three/five-attempt budgets, exclusions, rollback, candidate pairing,
 and delayed-target equivalence. Temporary smoke outputs are removed after use.
+
+### Recorded stress-test results
+
+The 2026-10-06 run completed all four 5000-problem streams concurrently using
+source commit `62e19b9`. Pairing, retry limits, target costs and timing accounting
+passed validation. The [compact capture](../experiments/paper_final/reproduction/recovery/20261006_seed5_advection40.json)
+contains the protocol, all analysis windows, attempt counts, failure indices and
+raw-output hashes. Full trajectories and checkpoints remain in
+`results/paper_final/06_recovery/20261006_seed5_advection40/` outside Git.
+
+| Variant | Unrecovered / 5000 | Default fallbacks | Native (s) | Total (s) |
+|---|---:|---:|---:|---:|
+| Original recovery | 61 | 381 | 502.774 | 591.982 |
+| Shared 3, with RL recovery cost | 60 | 61 | 528.159 | 623.558 |
+| Shared 3, without RL recovery cost | 60 | 60 | 524.611 | 618.368 |
+| Shared 5, without RL recovery cost | 59 | 59 | 545.290 | 642.217 |
+
+These full-stream totals include unsuccessful work. Relative to the original
+policy, total cost increased by 5.33%, 4.46% and 8.49%, respectively. On the 4937
+inputs completed by every variant, the corresponding total-cost changes were
++0.23%, -0.55% and -1.25%; repeated work on unsuccessful inputs accounts for most
+of the full-stream increase.
+
+The five-attempt policy reached attempts four and five on 59 problems, and all
+59 remained unrecovered. Thus no success directly required either extra attempt.
+Its one fewer failure than the three-attempt no-recovery-cost policy occurred
+under a different learned trajectory; it is not evidence that attempts four or
+five rescued that input.
+
+In the final 1000 problems, total costs were 105.741, 104.342, 105.464 and
+102.115 seconds, with 13, 12, 13 and 12 unrecovered failures in the same order.
+Neither RL target is consistently preferable across the reported windows.
+This selected single-seed concurrent run supports further investigation of the
+shared three-attempt rule, but establishes no broad performance advantage or
+reason to increase the budget to five. It does not replace the accepted paper
+experiments.

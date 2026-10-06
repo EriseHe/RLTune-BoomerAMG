@@ -1,0 +1,756 @@
+{
+  "attempt_and_cost_audit_passed": true,
+  "attempt_diagnostics": {
+    "original": {
+      "cases_reaching_attempt_four": 0,
+      "cases_recovered_after_reaching_attempt_four": 0,
+      "failures_avoided_vs_original": [],
+      "learned_attempt_histogram": {
+        "1": 5000
+      },
+      "learned_success_on_attempt": {
+        "1": 4619
+      },
+      "new_failures_vs_original": [],
+      "own_failed_native_sec": 23.82133799999967,
+      "own_failed_total_sec": 25.45662765656472,
+      "unrecovered_problem_indices": [
+        133,
+        198,
+        238,
+        381,
+        385,
+        386,
+        416,
+        496,
+        505,
+        662,
+        682,
+        738,
+        749,
+        802,
+        820,
+        887,
+        933,
+        1022,
+        1073,
+        1079,
+        1303,
+        1329,
+        1497,
+        1514,
+        1531,
+        1537,
+        1548,
+        1550,
+        1570,
+        1763,
+        1956,
+        2103,
+        2225,
+        2262,
+        2280,
+        2368,
+        2448,
+        2494,
+        2543,
+        2557,
+        2566,
+        2793,
+        2924,
+        3348,
+        3368,
+        3573,
+        3799,
+        3856,
+        4033,
+        4096,
+        4153,
+        4261,
+        4287,
+        4367,
+        4424,
+        4439,
+        4599,
+        4741,
+        4809,
+        4844,
+        4860
+      ]
+    },
+    "shared3_cost": {
+      "cases_reaching_attempt_four": 0,
+      "cases_recovered_after_reaching_attempt_four": 0,
+      "failures_avoided_vs_original": [
+        2448,
+        4096,
+        4860
+      ],
+      "learned_attempt_histogram": {
+        "1": 4635,
+        "2": 303,
+        "3": 62
+      },
+      "learned_success_on_attempt": {
+        "1": 4635,
+        "2": 303,
+        "3": 1
+      },
+      "new_failures_vs_original": [
+        1180,
+        4896
+      ],
+      "own_failed_native_sec": 50.470932,
+      "own_failed_total_sec": 55.50801549703811,
+      "unrecovered_problem_indices": [
+        133,
+        198,
+        238,
+        381,
+        385,
+        386,
+        416,
+        496,
+        505,
+        662,
+        682,
+        738,
+        749,
+        802,
+        820,
+        887,
+        933,
+        1022,
+        1073,
+        1079,
+        1180,
+        1303,
+        1329,
+        1497,
+        1514,
+        1531,
+        1537,
+        1548,
+        1550,
+        1570,
+        1763,
+        1956,
+        2103,
+        2225,
+        2262,
+        2280,
+        2368,
+        2494,
+        2543,
+        2557,
+        2566,
+        2793,
+        2924,
+        3348,
+        3368,
+        3573,
+        3799,
+        3856,
+        4033,
+        4153,
+        4261,
+        4287,
+        4367,
+        4424,
+        4439,
+        4599,
+        4741,
+        4809,
+        4844,
+        4896
+      ]
+    },
+    "shared3_no_cost": {
+      "cases_reaching_attempt_four": 0,
+      "cases_recovered_after_reaching_attempt_four": 0,
+      "failures_avoided_vs_original": [
+        2448
+      ],
+      "learned_attempt_histogram": {
+        "1": 4625,
+        "2": 315,
+        "3": 60
+      },
+      "learned_success_on_attempt": {
+        "1": 4625,
+        "2": 315
+      },
+      "new_failures_vs_original": [],
+      "own_failed_native_sec": 49.831577000002405,
+      "own_failed_total_sec": 54.77414764361831,
+      "unrecovered_problem_indices": [
+        133,
+        198,
+        238,
+        381,
+        385,
+        386,
+        416,
+        496,
+        505,
+        662,
+        682,
+        738,
+        749,
+        802,
+        820,
+        887,
+        933,
+        1022,
+        1073,
+        1079,
+        1303,
+        1329,
+        1497,
+        1514,
+        1531,
+        1537,
+        1548,
+        1550,
+        1570,
+        1763,
+        1956,
+        2103,
+        2225,
+        2262,
+        2280,
+        2368,
+        2494,
+        2543,
+        2557,
+        2566,
+        2793,
+        2924,
+        3348,
+        3368,
+        3573,
+        3799,
+        3856,
+        4033,
+        4096,
+        4153,
+        4261,
+        4287,
+        4367,
+        4424,
+        4439,
+        4599,
+        4741,
+        4809,
+        4844,
+        4860
+      ]
+    },
+    "shared5_no_cost": {
+      "cases_reaching_attempt_four": 59,
+      "cases_recovered_after_reaching_attempt_four": 0,
+      "failures_avoided_vs_original": [
+        2448,
+        4860
+      ],
+      "learned_attempt_histogram": {
+        "1": 4636,
+        "2": 304,
+        "3": 1,
+        "5": 59
+      },
+      "learned_success_on_attempt": {
+        "1": 4636,
+        "2": 304,
+        "3": 1
+      },
+      "new_failures_vs_original": [],
+      "own_failed_native_sec": 74.14124600000349,
+      "own_failed_total_sec": 82.01172022270174,
+      "unrecovered_problem_indices": [
+        133,
+        198,
+        238,
+        381,
+        385,
+        386,
+        416,
+        496,
+        505,
+        662,
+        682,
+        738,
+        749,
+        802,
+        820,
+        887,
+        933,
+        1022,
+        1073,
+        1079,
+        1303,
+        1329,
+        1497,
+        1514,
+        1531,
+        1537,
+        1548,
+        1550,
+        1570,
+        1763,
+        1956,
+        2103,
+        2225,
+        2262,
+        2280,
+        2368,
+        2494,
+        2543,
+        2557,
+        2566,
+        2793,
+        2924,
+        3348,
+        3368,
+        3573,
+        3799,
+        3856,
+        4033,
+        4096,
+        4153,
+        4261,
+        4287,
+        4367,
+        4424,
+        4439,
+        4599,
+        4741,
+        4809,
+        4844
+      ]
+    }
+  },
+  "capture": {
+    "comparison_sha256": "06001953d00fcad2e61d4404044faaf1b91188538153502a8a48d42ac563711d",
+    "pairing": {
+      "candidate_sha256": "b03ce0bc8fc55ca969c4fddca9e61ffb539979cdf2c21b8aec912ebe7dec2122",
+      "initial_bandit_sha256": "dead048b264a9a7c0336b6a09166076754716b5a3e888b9f3ec495d3e5c15f9c",
+      "initial_controller_sha256": "11a2550883bda42536e606ab8bfa6bb29e59d3670dd24ed8abce5126d74f8984",
+      "stream_sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4"
+    },
+    "run_directory": "results/paper_final/06_recovery/20261006_seed5_advection40",
+    "source_manifest_sha256": "402957621c7d4e400a290a1cdaa594479a628ad61dae2b2e54d6c6413843fa4e",
+    "worker_evidence": {
+      "original": {
+        "environment.json": "2c84ba628d4aae07e93853d7cb9c750c9a4bd18dd8baae5073414d1b1780f665",
+        "result.json": "6a18403cf4350af5015c4027f0aab7a54329911a069f3af30587df61e84439d6",
+        "trajectory.jsonl": "e78b62840ef88a68cb235fb4c72b53ceeadaa7a0b43d54cbdcfe021a8ce0bc48"
+      },
+      "shared3_cost": {
+        "environment.json": "2c84ba628d4aae07e93853d7cb9c750c9a4bd18dd8baae5073414d1b1780f665",
+        "result.json": "df8b23304181f298a7afcadf0cfcfc558d17bd8c9eb9322758a0e7b75989b9db",
+        "trajectory.jsonl": "5e6ecd4e60e9e18ee479ef48296b20bc7b764eaeb3cf0d5b35fe939c8eaa0f98"
+      },
+      "shared3_no_cost": {
+        "environment.json": "2c84ba628d4aae07e93853d7cb9c750c9a4bd18dd8baae5073414d1b1780f665",
+        "result.json": "2fbd50977beb81c1c2f470d0518e3a70b7b3631ab6e57ea7288f2530b2ec5d85",
+        "trajectory.jsonl": "b22a6d63847b75545c3b3670197a5e5fb35e1b3f1e8962ddd9702e2802851925"
+      },
+      "shared5_no_cost": {
+        "environment.json": "2c84ba628d4aae07e93853d7cb9c750c9a4bd18dd8baae5073414d1b1780f665",
+        "result.json": "46c2210170edb4a1bf1f77427fd989692fe85095219c3e045b7b75c4635450d9",
+        "trajectory.jsonl": "7fda0201ab5e88f911a1abd22d5cd8a79a12fc41075d7d5d4cb36abc443df889"
+      }
+    }
+  },
+  "complete": true,
+  "pairing_verified": true,
+  "protocol": {
+    "candidate_pairing": "Original three-row candidate block per problem in every variant; attempts 4/5 use a separate two-row block with seed equal to the original candidate seed + 600006",
+    "cases": 5000,
+    "concurrency": "Four single-thread workers; macOS user-initiated QoS, no hard CPU affinity",
+    "delayed_feedback": "Unified attempts provisionally learn their own cycle costs. After recovery completes, the cost variant restores the case snapshot and replays recorded transitions once with the realized remaining recovery costs. No native solve or action selection is replayed; replay time is charged. Fully unrecovered cases roll back learning in all variants.",
+    "exploratory": true,
+    "failure_feedback": "rollback_unrecovered, unchanged for every variant",
+    "fallback": "One fresh default setup and default solve after the learned budget is exhausted",
+    "interpretation": "One deliberately failure-heavy seed/grid, selected from existing outcomes; exploratory comparison, not a new six-seed paper result",
+    "method": "bandit_lstdq",
+    "module": "06_recovery",
+    "problem": {
+      "advection_max": 1000,
+      "advection_min": 1,
+      "c_max": 1000,
+      "c_min": 1,
+      "grid": [
+        40,
+        40,
+        40
+      ],
+      "kind": "scalar_anisotropic_diffusion_advection"
+    },
+    "retry_triggers": "setup failure, solve failure, nonfinite result, nonconvergence; execution errors abort",
+    "rl_cost": "Native cycle time; the cost variant additionally receives all subsequent native setup/solve work on the same problem",
+    "seeds": {
+      "bandit": 339983787,
+      "base": 339923787,
+      "controller": 339989787,
+      "method_order": 339995787
+    },
+    "selection": {
+      "config": "experiments/paper_final/reproduction/online/seeds_4_to_6/advection_40_s5.json",
+      "config_sha256": "1f44fc9b26436b0353d1063c0a7d3d6eae5816809bf0791dd96d9d0791c176c8",
+      "evidence": "experiments/paper_final/reproduction/online/six_seeds.json",
+      "evidence_sha256": "5164a890f41ec9e34e054d1da07156007d9e7fe938a12cc26b5060858248c0d9",
+      "ranking": [
+        {
+          "all_three_methods_unrecovered": 191,
+          "base_seed": 339923787,
+          "global_seed": 5,
+          "joint_unrecovered": 62,
+          "name": "advection_40_s5"
+        },
+        {
+          "all_three_methods_unrecovered": 179,
+          "base_seed": 56700120,
+          "global_seed": 1,
+          "joint_unrecovered": 59,
+          "name": "advection_40"
+        },
+        {
+          "all_three_methods_unrecovered": 175,
+          "base_seed": 663486482,
+          "global_seed": 3,
+          "joint_unrecovered": 59,
+          "name": "advection_40_s3"
+        },
+        {
+          "all_three_methods_unrecovered": 163,
+          "base_seed": 265187924,
+          "global_seed": 4,
+          "joint_unrecovered": 54,
+          "name": "advection_40_s4"
+        },
+        {
+          "all_three_methods_unrecovered": 154,
+          "base_seed": 173325802,
+          "global_seed": 2,
+          "joint_unrecovered": 50,
+          "name": "advection_40_s2"
+        },
+        {
+          "all_three_methods_unrecovered": 151,
+          "base_seed": 704464735,
+          "global_seed": 6,
+          "joint_unrecovered": 49,
+          "name": "advection_40_s6"
+        },
+        {
+          "all_three_methods_unrecovered": 126,
+          "base_seed": 339923787,
+          "global_seed": 5,
+          "joint_unrecovered": 41,
+          "name": "advection_60_s5"
+        },
+        {
+          "all_three_methods_unrecovered": 129,
+          "base_seed": 663486482,
+          "global_seed": 3,
+          "joint_unrecovered": 40,
+          "name": "advection_60_s3"
+        },
+        {
+          "all_three_methods_unrecovered": 120,
+          "base_seed": 56700120,
+          "global_seed": 1,
+          "joint_unrecovered": 39,
+          "name": "advection_60"
+        },
+        {
+          "all_three_methods_unrecovered": 115,
+          "base_seed": 265187924,
+          "global_seed": 4,
+          "joint_unrecovered": 37,
+          "name": "advection_60_s4"
+        },
+        {
+          "all_three_methods_unrecovered": 111,
+          "base_seed": 704464735,
+          "global_seed": 6,
+          "joint_unrecovered": 37,
+          "name": "advection_60_s6"
+        },
+        {
+          "all_three_methods_unrecovered": 108,
+          "base_seed": 173325802,
+          "global_seed": 2,
+          "joint_unrecovered": 35,
+          "name": "advection_60_s2"
+        },
+        {
+          "all_three_methods_unrecovered": 107,
+          "base_seed": 339923787,
+          "global_seed": 5,
+          "joint_unrecovered": 35,
+          "name": "advection_80_s5"
+        },
+        {
+          "all_three_methods_unrecovered": 95,
+          "base_seed": 663486482,
+          "global_seed": 3,
+          "joint_unrecovered": 32,
+          "name": "advection_80_s3"
+        },
+        {
+          "all_three_methods_unrecovered": 95,
+          "base_seed": 56700120,
+          "global_seed": 1,
+          "joint_unrecovered": 31,
+          "name": "advection_80"
+        },
+        {
+          "all_three_methods_unrecovered": 87,
+          "base_seed": 704464735,
+          "global_seed": 6,
+          "joint_unrecovered": 29,
+          "name": "advection_80_s6"
+        },
+        {
+          "all_three_methods_unrecovered": 84,
+          "base_seed": 265187924,
+          "global_seed": 4,
+          "joint_unrecovered": 27,
+          "name": "advection_80_s4"
+        },
+        {
+          "all_three_methods_unrecovered": 81,
+          "base_seed": 173325802,
+          "global_seed": 2,
+          "joint_unrecovered": 26,
+          "name": "advection_80_s2"
+        }
+      ],
+      "selected": {
+        "all_three_methods_unrecovered": 191,
+        "base_seed": 339923787,
+        "global_seed": 5,
+        "joint_unrecovered": 62,
+        "name": "advection_40_s5"
+      },
+      "selection_rule": "Maximum full-stream LinUCB-LSTDQ unrecovered count; ties use all-method count, then seed/name",
+      "stream_sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4"
+    },
+    "smoke_cases": 0,
+    "solve_activation_problem": 1001,
+    "source_commit": "62e19b92ddedd58509b70d15b939ef013531d7e7",
+    "variants": [
+      {
+        "attempts": 3,
+        "label": "Original recovery",
+        "name": "original",
+        "rl_recovery_cost": true,
+        "unified": false
+      },
+      {
+        "attempts": 3,
+        "label": "Shared 3 + recovery cost",
+        "name": "shared3_cost",
+        "rl_recovery_cost": true,
+        "unified": true
+      },
+      {
+        "attempts": 3,
+        "label": "Shared 3, no recovery cost",
+        "name": "shared3_no_cost",
+        "rl_recovery_cost": false,
+        "unified": true
+      },
+      {
+        "attempts": 5,
+        "label": "Shared 5, no recovery cost",
+        "name": "shared5_no_cost",
+        "rl_recovery_cost": false,
+        "unified": true
+      }
+    ]
+  },
+  "windows": {
+    "all": [
+      {
+        "cases": 5000,
+        "common_success_cases": 4937,
+        "common_success_native_sec": 478.68662399998624,
+        "common_success_total_sec": 566.2036081340792,
+        "fallback": 381,
+        "first_attempt_failures": 381,
+        "label": "Original recovery",
+        "learned_attempts": 5000,
+        "learned_recoveries": 0,
+        "native_sec": 502.77408399998575,
+        "replay_sec": 0.0,
+        "total_sec": 591.9815231631555,
+        "unrecovered": 61,
+        "variant": "original",
+        "wall_sec": 616.4888617419638
+      },
+      {
+        "cases": 5000,
+        "common_success_cases": 4937,
+        "common_success_native_sec": 477.2549549999898,
+        "common_success_total_sec": 567.5329944777553,
+        "fallback": 61,
+        "first_attempt_failures": 365,
+        "label": "Shared 3 + recovery cost",
+        "learned_attempts": 5427,
+        "learned_recoveries": 304,
+        "native_sec": 528.1586829999902,
+        "replay_sec": 0.3180571619886905,
+        "total_sec": 623.5576570925512,
+        "unrecovered": 60,
+        "variant": "shared3_cost",
+        "wall_sec": 648.6208649904002
+      },
+      {
+        "cases": 5000,
+        "common_success_cases": 4937,
+        "common_success_native_sec": 474.3683020000181,
+        "common_success_total_sec": 563.1101273532558,
+        "fallback": 60,
+        "first_attempt_failures": 375,
+        "label": "Shared 3, no recovery cost",
+        "learned_attempts": 5435,
+        "learned_recoveries": 315,
+        "native_sec": 524.61067000002,
+        "replay_sec": 0.0,
+        "total_sec": 618.3676494107895,
+        "unrecovered": 60,
+        "variant": "shared3_no_cost",
+        "wall_sec": 643.9514784993371
+      },
+      {
+        "cases": 5000,
+        "common_success_cases": 4937,
+        "common_success_native_sec": 470.2532720000028,
+        "common_success_total_sec": 559.1426734628632,
+        "fallback": 59,
+        "first_attempt_failures": 364,
+        "label": "Shared 5, no recovery cost",
+        "learned_attempts": 5542,
+        "learned_recoveries": 305,
+        "native_sec": 545.2903070000057,
+        "replay_sec": 0.0,
+        "total_sec": 642.2170829395353,
+        "unrecovered": 59,
+        "variant": "shared5_no_cost",
+        "wall_sec": 667.2746070122812
+      }
+    ],
+    "last_1000": [
+      {
+        "cases": 1000,
+        "fallback": 15,
+        "first_attempt_failures": 15,
+        "learned_attempts": 1000,
+        "learned_recoveries": 0,
+        "native_sec": 86.34851799999956,
+        "replay_sec": 0.0,
+        "total_sec": 105.74127775161632,
+        "unrecovered": 13,
+        "variant": "original",
+        "wall_sec": 110.662697573076
+      },
+      {
+        "cases": 1000,
+        "fallback": 12,
+        "first_attempt_failures": 15,
+        "learned_attempts": 1027,
+        "learned_recoveries": 3,
+        "native_sec": 85.76716499999657,
+        "replay_sec": 0.021168916020542383,
+        "total_sec": 104.34181568972326,
+        "unrecovered": 12,
+        "variant": "shared3_cost",
+        "wall_sec": 109.22438832884654
+      },
+      {
+        "cases": 1000,
+        "fallback": 13,
+        "first_attempt_failures": 19,
+        "learned_attempts": 1032,
+        "learned_recoveries": 6,
+        "native_sec": 86.41259000001276,
+        "replay_sec": 0.0,
+        "total_sec": 105.46421663572812,
+        "unrecovered": 13,
+        "variant": "shared3_no_cost",
+        "wall_sec": 110.52401870430913
+      },
+      {
+        "cases": 1000,
+        "fallback": 12,
+        "first_attempt_failures": 18,
+        "learned_attempts": 1055,
+        "learned_recoveries": 6,
+        "native_sec": 84.45634399999153,
+        "replay_sec": 0.0,
+        "total_sec": 102.11477172821515,
+        "unrecovered": 12,
+        "variant": "shared5_no_cost",
+        "wall_sec": 106.73530056455638
+      }
+    ],
+    "rl_active": [
+      {
+        "cases": 4000,
+        "fallback": 84,
+        "first_attempt_failures": 84,
+        "learned_attempts": 4000,
+        "learned_recoveries": 0,
+        "native_sec": 347.4169279999859,
+        "replay_sec": 0.0,
+        "total_sec": 425.0237632151572,
+        "unrecovered": 44,
+        "variant": "original",
+        "wall_sec": 444.4815339121269
+      },
+      {
+        "cases": 4000,
+        "fallback": 44,
+        "first_attempt_failures": 90,
+        "learned_attempts": 4135,
+        "learned_recoveries": 46,
+        "native_sec": 366.8726139999902,
+        "replay_sec": 0.3180571619886905,
+        "total_sec": 447.4507536084833,
+        "unrecovered": 43,
+        "variant": "shared3_cost",
+        "wall_sec": 467.5785898162285
+      },
+      {
+        "cases": 4000,
+        "fallback": 43,
+        "first_attempt_failures": 74,
+        "learned_attempts": 4117,
+        "learned_recoveries": 31,
+        "native_sec": 358.03158800001995,
+        "replay_sec": 0.0,
+        "total_sec": 436.50213592220837,
+        "unrecovered": 43,
+        "variant": "shared3_no_cost",
+        "wall_sec": 456.87431911425665
+      },
+      {
+        "cases": 4000,
+        "fallback": 42,
+        "first_attempt_failures": 66,
+        "learned_attempts": 4193,
+        "learned_recoveries": 24,
+        "native_sec": 373.03498300000564,
+        "replay_sec": 0.0,
+        "total_sec": 454.3532611512207,
+        "unrecovered": 42,
+        "variant": "shared5_no_cost",
+        "wall_sec": 474.1632127496414
+      }
+    ]
+  }
+}
