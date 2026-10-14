@@ -3,75 +3,72 @@
 Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandits
 and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
 
-Code and frozen protocols for the studies of online BoomerAMG autotuning:
-shared context-action LinUCB selects hierarchy parameters, and recursive
+Shared context-action LinUCB selects BoomerAMG hierarchy parameters; recursive
 LSTDQ selects relaxation weights during the solve.
 
-This submission tree contains online comparison and the matched-hierarchy. It includes 42 exact online configurations,
-compact accepted results, 20 MB of exact online inputs, and a verified 14 MB frozen-input bundle. Original raw measurement logs and generated figure releases are not included. The bundle is sufficient for new matched retiming without earlier result folders.
+## Official paper studies
 
-## Start here
+The [official data registry](experiments/paper_final/reproduction/manifest.json)
+is the single selection of paper data. Each module is a complete study.
 
-| Task | Where to go |
-|---|---|
-| Prepare the experiments | [Install and build](#install-and-build), then [validate the inputs](#validate-experiment-inputs) below |
-| Run Module 04 online autotuning | [Module 04 reproduction](docs/reproduction.md#module-04-exact-configurations) |
-| Run Module 05 matched-hierarchy comparison | [Module 05 reproduction](docs/reproduction.md#module-05-verify-and-retime-the-frozen-bundle) |
-| Understand or maintain the code | [Repository layout](docs/repository_layout.md), with setup, solve and native-binding details linked there |
-| Inspect the prescribed smoothing rule | [Theory references](docs/theory/README.md) |
+| Module | Study | Local full data |
+|---|---|---|
+| 04 | Diffusion and advection, 40³/60³/80³, six seeds, 5,000 cases per seed and problem, four methods | `data/official/module04/` |
+| 05 | Six diffusion-60³ checkpoints, 100 independent cases, 41 fixed weights, five policies, three evaluation repetitions | `data/official/module05/` |
+| 06 | Type 2 variable-flow 60³, six seeds, 5,000 cases per seed, four cold branches, β=2 | `data/official/module06/` |
 
-The reproduction guide links the detailed protocols, accepted results and input
-provenance for each study. Use it as the starting point for experiment commands.
+Module 06 uses aggressive levels 0–2 with conditional aggressive interpolation
+4/6/7. The archived expanded-depth configurations are outside the official set.
+
+Compact configurations, summaries, audit records, and current paper figures are
+in [experiments/paper_final/reproduction/](experiments/paper_final/reproduction/).
+The full local data includes original inputs, trajectories, checkpoints, scans,
+retiming records, and the frozen execution runtime. Large local data and the
+archive are excluded from Git.
+
+## Verify the data
+
+With Python 3.10 or later, verify the compact publication bundle and its source:
+
+```sh
+python tools/verify_official_data.py
+```
+
+When full local data is available, also verify every recorded file:
+
+```sh
+python tools/verify_official_data.py --full
+```
+
+Both commands only read saved files. See the [data and reproduction guide](docs/reproduction.md)
+for coverage, timing definitions, and paper-generation paths.
 
 ## Install and build
 
-Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and
-`mpicxx`. From the repository root, install into an activated Python environment:
+Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and `mpicxx`.
+From the repository root, install into an activated environment:
 
 ```sh
 python -m pip install -e '.[artifacts]'
 make -C hypre JOBS=4
 ```
 
-Core Python dependencies are NumPy, SciPy, mpi4py, Matplotlib and mpmath. The
-`artifacts` extra provides ReportLab and pypdf for PDF release packaging.
-`python -m pip install -e .` installs the computational dependencies.
-Conda users can create the supplied environment with `conda env create -f
-environment.yml`, activate `rl`, then install the extras above.
+The Python dependencies include NumPy, SciPy, mpi4py, Matplotlib, and mpmath.
+The supplied `environment.yml` describes the research environment. Native build
+outputs belong in `hypre/build/`, `hypre/install/`, and `hypre/interfaces/`.
+The recorded official native libraries are retained in `data/official/runtime/`.
 
-The build writes to `hypre/build/`, `hypre/install/` and `hypre/interfaces/`.
-The HYPRE implementation under `hypre/source/` is preserved unchanged; our native
-and Python wiring lives in `hypre/interfaces/` and `hypre/bindings/`.
+## Organization
 
-## Validate experiment inputs
+Use [the repository layout](docs/repository_layout.md) for source responsibilities.
+All historical experiment data, exploratory configurations, old publication
+bundles, and unused figure exports are stored locally under `data/archive/`.
+Paper readers use the explicit official registry and do not search the archive.
+New experiments should write to `results/` and require an explicit selection
+before becoming official data.
 
-The following commands check the recorded experiment configuration and frozen
-inputs without running the full paper experiments. The recorded validation and
-environment limitations are in the [organization report](docs/sisc_repository_cleanup.md).
-
-Validate the formal online protocol without solving PDEs:
-
-```sh
-python -m experiments.paper_final.run_04_online --validate-only
-```
-
-Verify the accepted input bundle without native solves:
-
-```sh
-python -c 'from experiments.paper_final.common.frozen_inputs import DEFAULT_BUNDLE, verify_bundle; print(verify_bundle(DEFAULT_BUNDLE))'
-```
-
-Use the [reproduction guide](docs/reproduction.md) to launch fresh runs. New runs
-record current source and environment provenance; their measured times are
-separate from the accepted September measurements.
-
-## Development history and licensing
-
-The full development and archive trees remain on
-[`online-bandit-rl`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/online-bandit-rl)
-and [`cleanup/sisc-repository-20261004`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/cleanup/sisc-repository-20261004).
-They are outside this submission tree.
+## Licensing
 
 A license for the project-owned code has not yet been selected. HYPRE retains
-its [copyright](hypre/source/COPYRIGHT), [license files](hypre/source/LICENSE-MIT)
+its [copyright](hypre/source/COPYRIGHT), [license files](hypre/source/LICENSE-MIT),
 and [notices](hypre/source/NOTICE).

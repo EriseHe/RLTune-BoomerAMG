@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 import numpy as np
+from .heterogeneous_3d import STRESS_PROBLEMS, STRESS_CONTEXT_FIELDS, validate_context
 
 from .amg import (
     COMPACT_DIFFUSION_CONTEXT_INDICES,
@@ -24,6 +25,7 @@ from .scalar_anisotropic_diffusion_advection import (
 SCALAR_ANISOTROPIC_DIFFUSION = "scalar_anisotropic_diffusion"
 SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION = "scalar_anisotropic_diffusion_advection"
 PROBLEM_KIND_ALIASES = {
+    **{name: name for name in STRESS_PROBLEMS},
     SCALAR_ANISOTROPIC_DIFFUSION: SCALAR_ANISOTROPIC_DIFFUSION,
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION: SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
 }
@@ -31,6 +33,7 @@ SUPPORTED_PROBLEM_KINDS = tuple(PROBLEM_KIND_ALIASES)
 DEFAULT_SETUP_CONTEXT = "default"
 CANONICAL_NO_C_MEAN_SETUP_CONTEXT = DIFFUSION_ADVECTION_NO_MEAN_CONTEXT
 SETUP_CONTEXT_MODES = (
+    *STRESS_CONTEXT_FIELDS,
     DEFAULT_SETUP_CONTEXT,
     CANONICAL_NO_C_MEAN_SETUP_CONTEXT,
     *COMPACT_DIFFUSION_CONTEXT_INDICES,
@@ -59,6 +62,9 @@ _SCALAR_SETUP_CONTEXT_CONTRACTS = {
     ),
 }
 _LEARNING_CONTEXTS = {
+    **{name: ProblemLearningContext(len(STRESS_CONTEXT_FIELDS[info[1]]),
+                                   tuple(range(1, len(STRESS_CONTEXT_FIELDS[info[1]]))))
+       for name, info in STRESS_PROBLEMS.items()},
     SCALAR_ANISOTROPIC_DIFFUSION: ProblemLearningContext(
         dimension=DIFCONV_CONTEXT_DIM,
         interaction_indices=tuple(range(1, DIFCONV_CONTEXT_DIM)),
@@ -103,6 +109,10 @@ def learning_context_for_setup(
     """Resolve the context contract for the retained setup learner."""
     problem = normalize_problem_kind(problem_kind)
     context_mode = normalize_setup_context_mode(setup_context)
+    if problem in STRESS_PROBLEMS:
+        if context_mode != STRESS_PROBLEMS[problem][1]:
+            raise ValueError("The stress family requires its own assembly context")
+        return _LEARNING_CONTEXTS[problem]
     if (
         context_mode in COMPACT_DIFFUSION_CONTEXT_INDICES
         and problem != SCALAR_ANISOTROPIC_DIFFUSION
@@ -130,6 +140,9 @@ def context_for_setup_method(
     problem = normalize_problem_kind(problem_kind)
     context_mode = normalize_setup_context_mode(setup_context)
     context = np.asarray(stream_context, dtype=float).reshape(-1)
+    if problem in STRESS_PROBLEMS:
+        learning_context_for_setup(problem, setup_kind, setup_context=context_mode)
+        return validate_context(context, context_mode).copy()
     if context_mode in _SCALAR_SETUP_CONTEXT_CONTRACTS:
         learning_context_for_setup(problem, setup_kind, setup_context=context_mode)
         canonical = normalize_diffusion_advection_context(context)

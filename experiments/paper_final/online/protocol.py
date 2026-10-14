@@ -63,14 +63,11 @@ def _base_protocol(
             if getattr(args, "failure_penalty_sec", None) is None
             else "budgeted_penalty",
             "penalty_sec": getattr(args, "failure_penalty_sec", None),
-            "setup_target": "cost of successfully completed primary/recovery procedure plus selection and previous-update estimate; unrecovered observations rolled back"
-            if getattr(args, "failure_penalty_sec", None) is None
-            else "measured protocol cost plus selection and previous-update estimate, plus final-failure penalty",
+            "setup_target": "Immediate per-attempt T on success, 2T on failure; T includes native and controller time, setup selection and the previous-update estimate",
             "solve_target": "native cycle costs plus successful terminal recovery; unrecovered episodes rolled back"
             if getattr(args, "failure_penalty_sec", None) is None
             else "native cycle costs, terminal recovery cost and final-failure penalty",
             "penalty_is_measured_runtime": False,
-            "failure_head_label": "primary attempt failure; used only for setup-construction reselection",
         },
         "timing": {
             "schema_version": 2,
@@ -135,7 +132,7 @@ def _base_protocol(
             },
             "frozen_after_warmup": False,
             "independent_updates_per_method": True,
-            "fallback_runtime_included_in_feedback": True,
+            "fallback_runtime_included_in_feedback": False,
             "linear_ts_v2": {
                 "posterior": "Gaussian linear posterior",
                 "precision_factor": "rank-one Cholesky updates",
@@ -144,16 +141,11 @@ def _base_protocol(
                 "runtime_scale_reference": "first successful observation",
                 "posterior_rng_separate_from_candidate_rng": True,
             },
-            "failure_head": {
-                "representation": "shared_context_action_features",
-                "ridge": 1.0,
-                "beta": 2.0,
-            },
             "setup_construction_reselection": {
                 "max_learned_attempts_including_first": 3,
                 "temporary_exact_arm_exclusion": True,
-                "ranking": ["failure_ucb", "runtime_lcb"],
-                "runtime_target": "realized_suffix_cost",
+                "ranking": ["penalized_runtime_score"],
+                "runtime_target": "attempt_2T",
             },
             "solve_failure_reselection": False,
             "default_fallback_attempts": 1,

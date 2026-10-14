@@ -1,0 +1,316 @@
+{
+  "at": "2026-10-13T03:34:32.245925+00:00",
+  "analysis_only": true,
+  "native_solves_executed": 0,
+  "original_results_or_paper_modified": false,
+  "source_summary_sha256": "ec042e2c5e5b5de0c53e9552bab74b982b78917f0010ccbf4e4f1691897de873",
+  "tolerance": 1e-06,
+  "cap_per_attempt": 50,
+  "default_attempt_budget": 1,
+  "learned_attempt_budget": 3,
+  "default_fallback_budget": 1,
+  "all_default_reported_failures_at_50_cycle_cap": true,
+  "default_reported_failure_residual_median": 1.1379422315253675e-06,
+  "default_reported_failure_residual_max": 5.9431825503066045e-06,
+  "both_native_and_rl_paths_apply_cap_before_convergence_at_boundary": true,
+  "boundary_rule_sources": [
+    "hypre/interfaces/amg_runtime.c:573",
+    "hypre/interfaces/amg_rl_shared.c:233",
+    "https://raw.githubusercontent.com/hypre-space/hypre/v3.1.0/src/parcsr_ls/par_amg_solve.c"
+  ],
+  "method_totals": {
+    "default_setup_default_solve": {
+      "cases": 30000,
+      "reported_failures": 1677,
+      "reported_failures_final_residual_at_or_below_tol": 557
+    },
+    "default_setup_lstdq": {
+      "cases": 30000,
+      "reported_failures": 15,
+      "reported_failures_final_residual_at_or_below_tol": 4
+    },
+    "bandit_default": {
+      "cases": 30000,
+      "reported_failures": 31,
+      "reported_failures_final_residual_at_or_below_tol": 8
+    },
+    "bandit_lstdq": {
+      "cases": 30000,
+      "reported_failures": 3,
+      "reported_failures_final_residual_at_or_below_tol": 2
+    }
+  },
+  "common_success_joint": {
+    "native_reduction_pct": {
+      "mean": 54.65769578836999,
+      "sample_sd": 2.007119982527036
+    },
+    "inclusive_reduction_pct": {
+      "mean": 53.02613695839711,
+      "sample_sd": 1.938070458226726
+    }
+  },
+  "seed_checks": [
+    {
+      "seed": "seed_1",
+      "common_success_cases": 4716,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 284,
+          "reported_failures_final_residual_at_or_below_tol": 91
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 0
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 8,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 0
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 13.660040495343573,
+          "inclusive_reduction_pct": 12.637733179750132
+        },
+        "bandit_default": {
+          "native_reduction_pct": 51.371896858584485,
+          "inclusive_reduction_pct": 50.888064459089996
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 53.54707865067028,
+          "inclusive_reduction_pct": 51.97432831108664
+        }
+      }
+    },
+    {
+      "seed": "seed_2",
+      "common_success_cases": 4710,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 290,
+          "reported_failures_final_residual_at_or_below_tol": 99
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 0
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 4,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 0
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 11.211290483639436,
+          "inclusive_reduction_pct": 10.1531931907634
+        },
+        "bandit_default": {
+          "native_reduction_pct": 50.484662975524905,
+          "inclusive_reduction_pct": 50.03570434328118
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 53.916638929990114,
+          "inclusive_reduction_pct": 52.2665968884519
+        }
+      }
+    },
+    {
+      "seed": "seed_3",
+      "common_success_cases": 4704,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 296,
+          "reported_failures_final_residual_at_or_below_tol": 101
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 0
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 9,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 0
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 13.866851183161423,
+          "inclusive_reduction_pct": 12.872942139040633
+        },
+        "bandit_default": {
+          "native_reduction_pct": 51.43782574747111,
+          "inclusive_reduction_pct": 50.97590237240255
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 52.97489097266846,
+          "inclusive_reduction_pct": 51.385258499764554
+        }
+      }
+    },
+    {
+      "seed": "seed_4",
+      "common_success_cases": 4758,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 242,
+          "reported_failures_final_residual_at_or_below_tol": 82
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 3,
+          "reported_failures_final_residual_at_or_below_tol": 0
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 0
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 12.06595642895686,
+          "inclusive_reduction_pct": 11.019010213348546
+        },
+        "bandit_default": {
+          "native_reduction_pct": 51.321151615106864,
+          "inclusive_reduction_pct": 50.83913257409536
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 56.38736875151864,
+          "inclusive_reduction_pct": 54.75298650058738
+        }
+      }
+    },
+    {
+      "seed": "seed_5",
+      "common_success_cases": 4707,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 293,
+          "reported_failures_final_residual_at_or_below_tol": 96
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 8,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 6,
+          "reported_failures_final_residual_at_or_below_tol": 4
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 14.916170340353895,
+          "inclusive_reduction_pct": 13.908691323781142
+        },
+        "bandit_default": {
+          "native_reduction_pct": 52.34803758703974,
+          "inclusive_reduction_pct": 51.87473687465456
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 57.89545251292376,
+          "inclusive_reduction_pct": 56.117550467760466
+        }
+      }
+    },
+    {
+      "seed": "seed_6",
+      "common_success_cases": 4728,
+      "methods": {
+        "default_setup_default_solve": {
+          "cases": 5000,
+          "reported_failures": 272,
+          "reported_failures_final_residual_at_or_below_tol": 88
+        },
+        "default_setup_lstdq": {
+          "cases": 5000,
+          "reported_failures": 4,
+          "reported_failures_final_residual_at_or_below_tol": 2
+        },
+        "bandit_default": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        },
+        "bandit_lstdq": {
+          "cases": 5000,
+          "reported_failures": 1,
+          "reported_failures_final_residual_at_or_below_tol": 1
+        }
+      },
+      "common_success_reductions": {
+        "default_setup_default_solve": {
+          "native_reduction_pct": 0.0,
+          "inclusive_reduction_pct": 0.0
+        },
+        "default_setup_lstdq": {
+          "native_reduction_pct": 13.296538421975058,
+          "inclusive_reduction_pct": 12.258910189770077
+        },
+        "bandit_default": {
+          "native_reduction_pct": 51.213427857834205,
+          "inclusive_reduction_pct": 50.75028746528994
+        },
+        "bandit_lstdq": {
+          "native_reduction_pct": 53.224744912448685,
+          "inclusive_reduction_pct": 51.660101082731714
+        }
+      }
+    }
+  ],
+  "note": "Reported failures are unchanged native protocol statuses. Final-residual counts are a separate diagnostic, not a replacement experiment or reclassification of learner/recovery history. Native cap flags can occur when tolerance is first reached on cycle50; both solver paths intentionally use the same convention."
+}

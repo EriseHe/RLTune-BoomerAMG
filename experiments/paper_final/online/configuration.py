@@ -23,7 +23,7 @@ from solve.registry import (
     OnlineSolveKind,
 )
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TOP_LEVEL_KEYS = {
     "schema_version",
     "name",
@@ -45,7 +45,12 @@ SETUP_KEYS = {
     "configuration_spaces",
     "lin_ts",
 }
-CANDIDATE_SCHEDULE_KEYS = {"mode", "max_selections_per_case", "chunk_rounds"}
+CANDIDATE_SCHEDULE_KEYS = {
+    "mode", "max_selections_per_case", "chunk_rounds", "pool_size", "structured_quotas",
+}
+DEFAULT_STRUCTURED_QUOTAS = {
+    "anchor": 64, "balanced_global": 192, "coordinate_local": 192, "sobol": 64,
+}
 LIN_TS_KEYS = {"relative_sampling_scale", "loss_scale_prior_sec"}
 PROBLEM_KEYS = {
     "kind",
@@ -278,6 +283,8 @@ class CandidateScheduleSpec:
     mode: str = "explicit"
     max_selections_per_case: int = 3
     chunk_rounds: int = 256
+    pool_size: int | None = None
+    structured_quotas: Mapping[str, int] | None = None
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "CandidateScheduleSpec":
@@ -289,10 +296,26 @@ class CandidateScheduleSpec:
         mode = str(raw.get("mode", "explicit"))
         if mode not in {"explicit", "aot"}:
             raise ValueError("setup.candidate_schedule.mode must be explicit or aot")
+        pool_size = raw.get("pool_size")
+        if pool_size is not None and (type(pool_size) is not int or pool_size < 1):
+            raise ValueError("setup.candidate_schedule.pool_size must be a positive integer")
+        quotas = raw.get("structured_quotas")
+        if quotas is not None:
+            quotas = dict(mapping(quotas, name="setup.candidate_schedule.structured_quotas"))
+            if set(quotas) != set(DEFAULT_STRUCTURED_QUOTAS):
+                raise ValueError("structured_quotas requires anchor, balanced_global, coordinate_local and sobol")
+            if any(type(value) is not int or value < 0 for value in quotas.values()):
+                raise ValueError("structured_quotas must contain non-negative integers")
+            if pool_size is None:
+                raise ValueError("structured_quotas requires an explicit pool_size")
+        if pool_size is not None and sum((quotas or DEFAULT_STRUCTURED_QUOTAS).values()) != pool_size:
+            raise ValueError("structured_quotas must sum to pool_size")
         return cls(
             mode=mode,
             max_selections_per_case=int(raw.get("max_selections_per_case", 3)),
             chunk_rounds=int(raw.get("chunk_rounds", 256)),
+            pool_size=pool_size,
+            structured_quotas=quotas,
         )
 
 
@@ -536,6 +559,8 @@ class JointExperimentRuntimeConfig:
     solve_controller_specs: Dict[str, OnlineControllerBuildSpec]
     joint_experiment_spec: JointExperimentSpec
     failure_penalty_sec: float | None = None
+    setup_candidate_pool_size: int | None = None
+    aot_structured_quotas: Mapping[str, int] | None = None
 
 
 def parse_joint_experiment_config(
@@ -545,8 +570,12 @@ def parse_joint_experiment_config(
     if unknown:
         raise ValueError(f"Unknown top-level config keys: {sorted(unknown)}")
     schema_version = int(config.get("schema_version", 0))
-    if schema_version != SCHEMA_VERSION:
-        raise ValueError(f"schema_version must equal {SCHEMA_VERSION}")
+    if schema_version not in (1, SCHEMA_VERSION):
+        raise ValueError(f"schema_version must be 1 or {SCHEMA_VERSION}")
+    # Version 1 retains the exact interpretation of historical captures.
+    # Version 2 has one configurable beta; stale aliases cannot override it.
+    if schema_version >= 2 and {"lstdq_v2", "lstdq_v3"} & set(config.get("solve", {})):
+        raise ValueError("schema_version 2 uses solve.lstdq only; remove legacy lstdq_v2/lstdq_v3 settings")
     configured_output = config.get("output_dir")
     output_dir = output_dir_override or (
         None if configured_output is None else Path(str(configured_output))
@@ -640,6 +669,8 @@ def runtime_config_from_spec(spec: JointExperimentSpec) -> JointExperimentRuntim
         smoother_profile=solve.smoother_profile,
         setup_action_space=spec.setup.action_space,
         setup_candidate_mode=spec.setup.candidate_schedule.mode,
+        setup_candidate_pool_size=spec.setup.candidate_schedule.pool_size,
+        aot_structured_quotas=spec.setup.candidate_schedule.structured_quotas,
         aot_max_selections_per_case=spec.setup.candidate_schedule.max_selections_per_case,
         aot_schedule_chunk_rounds=spec.setup.candidate_schedule.chunk_rounds,
         lin_ts_relative_sampling_scale=spec.setup.lin_ts.relative_sampling_scale,

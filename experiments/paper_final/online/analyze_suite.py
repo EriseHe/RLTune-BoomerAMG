@@ -78,7 +78,7 @@ def audit_run(
             )
         inputs = matrix_inputs
         recovery = validate_recovery_stream(
-            rows, expect_bandit_transaction=method != "default_setup_default_solve"
+            rows, expect_bandit_updates=method != "default_setup_default_solve"
         )
         unrecovered += recovery["unrecovered_failures"]
         for i, row in enumerate(rows):

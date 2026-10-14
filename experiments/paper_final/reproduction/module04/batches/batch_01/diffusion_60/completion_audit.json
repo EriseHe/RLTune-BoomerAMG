@@ -1,0 +1,73 @@
+{
+  "measured_method_cases": 60000,
+  "passed": true,
+  "seed_audits": {
+    "1": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 73632835239166,
+      "last_end_ns": 78492536257166,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 48727
+    },
+    "2": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 73632790388791,
+      "last_end_ns": 78450941602000,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 48728
+    },
+    "3": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 73632790356500,
+      "last_end_ns": 78452011370583,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 48729
+    }
+  },
+  "total_method_cases": 60000
+}

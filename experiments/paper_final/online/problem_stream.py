@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any, Dict, Sequence, Tuple
 import numpy as np
+from problems.heterogeneous_3d import STRESS_PROBLEMS, generate_instances
 from problems.registry import (
     SCALAR_ANISOTROPIC_DIFFUSION,
     SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION,
@@ -27,6 +28,9 @@ def generate_problem_instances(
     advection_max: float | None = None,
 ) -> Sequence[Tuple[Dict[str, Any], np.ndarray]]:
     problem_kind = normalize_problem_kind(problem)
+    if problem_kind in STRESS_PROBLEMS:
+        return generate_instances(problem=problem_kind, count=T, seed=seed,
+                                  grid_choices=grid_choices, c_min=c_min, c_max=c_max)
     if problem_kind == SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION:
         return generate_scalar_anisotropic_diffusion_advection_instances(
             count=int(T),

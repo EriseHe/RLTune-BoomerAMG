@@ -1,0 +1,67 @@
+{
+  "activation_case": 0,
+  "beta": 2,
+  "candidate_pool_size": 1024,
+  "cases_per_seed": 5000,
+  "family": "rs_convection_3d_type2",
+  "max_workers": 3,
+  "methods": [
+    "default_setup_default_solve",
+    "default_setup_lstdq",
+    "bandit_default",
+    "bandit_lstdq"
+  ],
+  "module": "06",
+  "native_sha256": {
+    "hypre/install/lib/libHYPRE.3.0.0.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.300.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/interfaces/libamg_runtime.dylib": "15daee59e89d17a77131e4a092bff431846b0dcbf5a2003b7e21f5447fd65ff3"
+  },
+  "prepared_at": "2026-10-12T22:04:15.343119+00:00",
+  "problem": {
+    "c_max": 0.1,
+    "c_min": 0.0001,
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "kind": "rs_convection_3d_type2"
+  },
+  "recovery": "failure_model_adjacent",
+  "seed_batches": [
+    {
+      "batch": 1,
+      "output": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/06_recovery/20261012_type2_beta2_four_branches_zero_prefix_six_seeds/batches/batch_01",
+      "protocol_sha256": "3bf814f6845298f1dc604dba9fd520c2a144f529cc9822ea8e93efb2ffe48bd2",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 2,
+      "output": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/06_recovery/20261012_type2_beta2_four_branches_zero_prefix_six_seeds/batches/batch_02",
+      "protocol_sha256": "2ea3e156fe06fd5265c95e0b4b4a91fd564bb85e134082cfc86dd2177d395c0e",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    }
+  ],
+  "seeds": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6"
+  ],
+  "shared_prefix": false,
+  "source_commit": "b1291f88099e3abb336156ed5e74fd10430703fd",
+  "source_commit_meaning": "Historical provenance of the verified unchanged frozen numerical source; configurations are new.",
+  "source_runtime": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/controls/official_runtime_20261011"
+}

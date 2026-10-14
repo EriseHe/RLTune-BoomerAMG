@@ -1,0 +1,5 @@
+# Captured evidence is checksummed as bytes; preserve its recorded line endings.
+experiments/paper_final/reproduction/** -text
+*.csv whitespace=cr-at-eol
+# Preserve whitespace in this checksummed, already-published figure export.
+experiments/paper_final/reproduction/module04/figures/individual_cycle_schedules.svg whitespace=-blank-at-eol

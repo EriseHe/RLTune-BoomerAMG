@@ -1,0 +1,1521 @@
+{
+  "cases": 100,
+  "config_path": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/20261012_modules04_06_sequence/module05.json",
+  "evaluation_repetitions": 3,
+  "name": "Fresh matched-policy evaluation: accepted diffusion60 six joint checkpoints",
+  "periodic_pattern": [
+    2.85,
+    1.1
+  ],
+  "problem": {
+    "advection": [
+      0,
+      0,
+      0
+    ],
+    "c_max": 1000,
+    "c_min": 1,
+    "grid": [
+      60,
+      60,
+      60
+    ],
+    "kind": "scalar_anisotropic_diffusion"
+  },
+  "rl_beta": 2.0,
+  "scan_extra_repetitions": 2,
+  "scan_repeat_fraction": 0.1,
+  "scan_repetitions": 1,
+  "schema_version": 1,
+  "seeds": {
+    "candidates": 2026101206,
+    "inputs": 2026101205,
+    "order": 2026101207,
+    "repeats": 2026101208
+  },
+  "solver": {
+    "max_cycles": 50,
+    "profile": "l1_jacobi_direct_coarse",
+    "tolerance": 1e-06
+  },
+  "training_runs": [
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_1/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_1/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_1/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 1,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_1/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 1, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed1_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_1",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 56760120,
+          "base": 56700120,
+          "controller": 56766120,
+          "method_order": 56772120
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "e79ce1e088712599abd69a0b6b48cfbea54fbcf6c684b057353bd64af38ec823",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            56700120,
+            56706120,
+            56712120,
+            56718120,
+            56724120,
+            56730120,
+            56736120,
+            56742120
+          ],
+          "shuffle_seeds": [
+            56748120
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    },
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_2/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_2/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_2/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 2,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_2/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 2, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed2_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_2",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 173385802,
+          "base": 173325802,
+          "controller": 173391802,
+          "method_order": 173397802
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "7e1fe1b87108d45207bbc031c9955dcc8309c944b25e99bfba05a2857f500789",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            173325802,
+            173331802,
+            173337802,
+            173343802,
+            173349802,
+            173355802,
+            173361802,
+            173367802
+          ],
+          "shuffle_seeds": [
+            173373802
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    },
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_3/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_3/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_3/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 3,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_3/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 3, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed3_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01/seed_3",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 663546482,
+          "base": 663486482,
+          "controller": 663552482,
+          "method_order": 663558482
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "93b9f0207a5ba8c5f01f93dbd257cc5d66e307be8800bcab04e3d025aed23353",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            663486482,
+            663492482,
+            663498482,
+            663504482,
+            663510482,
+            663516482,
+            663522482,
+            663528482
+          ],
+          "shuffle_seeds": [
+            663534482
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    },
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_4/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_4/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_4/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 4,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_4/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 4, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed4_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_4",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 265247924,
+          "base": 265187924,
+          "controller": 265253924,
+          "method_order": 265259924
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "e4b2b79eeadef429a9f8fc0049bd40e020c731dd232a3ba3b833f14a5ab6345b",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            265187924,
+            265193924,
+            265199924,
+            265205924,
+            265211924,
+            265217924,
+            265223924,
+            265229924
+          ],
+          "shuffle_seeds": [
+            265235924
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    },
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_5/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_5/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_5/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 5,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_5/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 5, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed5_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_5",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 339983787,
+          "base": 339923787,
+          "controller": 339989787,
+          "method_order": 339995787
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "3ce773afdf722a5ec458596db0d8ea64ebbd522dddbe8f4acf5871cd5a9053c4",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            339923787,
+            339929787,
+            339935787,
+            339941787,
+            339947787,
+            339953787,
+            339959787,
+            339965787
+          ],
+          "shuffle_seeds": [
+            339971787
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    },
+    {
+      "config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_6/experiment_config.json",
+      "controller_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_6/checkpoints/bandit_lstdq_final.npz",
+      "encoder": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_6/checkpoints/bandit_lstdq_final.npz.encoder.json",
+      "method": "bandit_lstdq",
+      "seed": 6,
+      "setup_checkpoint": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_6/final_bandit_states/bandit_lstdq.npz",
+      "training_config": {
+        "description": "Full Module 04: diffusion, 60 cubed, original paper stream seed 6, 5000 inputs, four independently measured branches. Both setup learners and both LSTDQ controllers start cold at input 1. Expanded no-endpoint space; Failure Model + adjacent setup recovery. Structured candidate pool: 1024; anchor/global/local/Sobol targets 128/384/384/128; elite cache 64 and eight local centers, matching the tested doubling configuration.",
+        "failure_feedback": {
+          "mode": "rollback_unrecovered"
+        },
+        "methods": [
+          {
+            "candidate_sampling": "structured512",
+            "id": "bandit_lstdq",
+            "seed_offset": 0,
+            "setup": "linucb",
+            "setup_context": "diffusion3d",
+            "setup_space": "expanded_no_endpoints",
+            "solve": "recursive_lstdq",
+            "solve_activation_case": 0,
+            "solve_context": "diffusion3d",
+            "solve_tolerance": 1e-06
+          }
+        ],
+        "name": "diffusion_60_zero_prefix_seed6_candidates1024",
+        "output_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01/seed_6",
+        "problem": {
+          "advection": [
+            0,
+            0,
+            0
+          ],
+          "c_max": 1000,
+          "c_min": 1,
+          "grid": [
+            60,
+            60,
+            60
+          ],
+          "kind": "scalar_anisotropic_diffusion"
+        },
+        "reporting": {
+          "generate_plots": true,
+          "progress_every": 100,
+          "rolling_window": 100
+        },
+        "schema_version": 2,
+        "seeds": {
+          "bandit": 704524735,
+          "base": 704464735,
+          "controller": 704530735,
+          "method_order": 704536735
+        },
+        "setup": {
+          "action_space": "full_cartesian",
+          "candidate_schedule": {
+            "chunk_rounds": 256,
+            "max_selections_per_case": 3,
+            "mode": "aot",
+            "pool_size": 1024,
+            "structured_quotas": {
+              "anchor": 128,
+              "balanced_global": 384,
+              "coordinate_local": 384,
+              "sobol": 128
+            }
+          },
+          "configuration_spaces": {
+            "expanded_no_endpoints": {
+              "agg_interp_types": [
+                4,
+                6,
+                7
+              ],
+              "coarsen_types": [
+                0,
+                2,
+                3,
+                6,
+                8,
+                10
+              ],
+              "interp_types": [
+                0,
+                2,
+                3,
+                4,
+                6,
+                8,
+                17,
+                18
+              ],
+              "numeric_grids": {
+                "P_max_elmts": [
+                  2,
+                  4,
+                  6,
+                  8,
+                  12,
+                  16
+                ],
+                "agg_num_levels": [
+                  0,
+                  1,
+                  2
+                ],
+                "max_row_sum": [
+                  1e-06,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "strong_threshold": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ],
+                "trunc_factor": [
+                  0.0,
+                  0.05,
+                  0.1,
+                  0.15,
+                  0.2,
+                  0.25,
+                  0.3,
+                  0.35,
+                  0.4,
+                  0.45,
+                  0.5,
+                  0.55,
+                  0.6,
+                  0.65,
+                  0.7,
+                  0.75,
+                  0.8,
+                  0.85,
+                  0.9,
+                  0.95
+                ]
+              }
+            }
+          },
+          "lin_ts": {
+            "loss_scale_prior_sec": 0.1,
+            "relative_sampling_scale": 0.15
+          },
+          "parameter_resolution": 20
+        },
+        "solve": {
+          "action_grid": {
+            "start": 1,
+            "step": 0.05,
+            "stop": 3
+          },
+          "epsilon": {
+            "decay_steps": 20000,
+            "final": 0.03,
+            "start": 0.3
+          },
+          "lstdq": {
+            "beta": 2,
+            "lcb_lower_bound_sec": 0,
+            "residual_floor_sec": 0.001,
+            "ridge": 1,
+            "trace_lambda": 0.8
+          },
+          "max_cycles": 50,
+          "rbf": {
+            "centers": {
+              "start": 1,
+              "step": 0.25,
+              "stop": 3
+            },
+            "sigma": 0.2
+          },
+          "smoother_profile": "l1_jacobi_direct_coarse",
+          "state_encoding": "space_aware_v2",
+          "tolerance": 1e-06
+        },
+        "stream": {
+          "cases": 5000,
+          "cases_per_seed": 625,
+          "expected_sha256": "05ccbccf7977684a3b82d7f141d23299c3a8a75822ccb63e61589b8d63486b66",
+          "group_take": 5000,
+          "instance_offset": 0,
+          "online_cases": 5000,
+          "seed_groups": [
+            704464735,
+            704470735,
+            704476735,
+            704482735,
+            704488735,
+            704494735,
+            704500735,
+            704506735
+          ],
+          "shuffle_seeds": [
+            704512735
+          ],
+          "smoke": false,
+          "warmup_cases": 0
+        }
+      }
+    }
+  ],
+  "weights": [
+    1.0,
+    1.05,
+    1.1,
+    1.15,
+    1.2,
+    1.25,
+    1.3,
+    1.35,
+    1.4,
+    1.45,
+    1.5,
+    1.55,
+    1.6,
+    1.65,
+    1.7,
+    1.75,
+    1.8,
+    1.85,
+    1.9,
+    1.95,
+    2.0,
+    2.05,
+    2.1,
+    2.15,
+    2.2,
+    2.25,
+    2.3,
+    2.35,
+    2.4,
+    2.45,
+    2.5,
+    2.55,
+    2.6,
+    2.65,
+    2.7,
+    2.75,
+    2.8,
+    2.85,
+    2.9,
+    2.95,
+    3.0
+  ],
+  "workers": 3
+}

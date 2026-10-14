@@ -4,6 +4,9 @@ import math
 from typing import Any, Dict, Sequence
 
 import numpy as np
+from problems.heterogeneous_3d import (
+    STRESS_CONTEXT_FIELDS, context_from_matrix_kwargs, validate_context,
+)
 
 from problems.amg import (
     COMPACT_DIFFUSION_CONTEXT_INDICES,
@@ -21,6 +24,7 @@ from problems.amg import (
 CANONICAL_PROBLEM_CONTEXT = "canonical"
 LEGACY_DIFFUSION_ONLY_CONTEXT = "legacy"
 PROBLEM_CONTEXT_MODES = (
+    *STRESS_CONTEXT_FIELDS,
     CANONICAL_PROBLEM_CONTEXT,
     LEGACY_DIFFUSION_ONLY_CONTEXT,
     DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
@@ -74,7 +78,10 @@ class SolveStateEncoder:
                 f"problem_context_mode must be one of {PROBLEM_CONTEXT_MODES}"
             )
         self.cycle_bins = int(self._CYCLE_BOUNDS.size + 1)
-        if self.problem_context_mode == CANONICAL_PROBLEM_CONTEXT:
+        if self.problem_context_mode in STRESS_CONTEXT_FIELDS:
+            self.problem_context_fields = STRESS_CONTEXT_FIELDS[self.problem_context_mode]
+            self.problem_feature_dim = len(self.problem_context_fields) - 1
+        elif self.problem_context_mode == CANONICAL_PROBLEM_CONTEXT:
             self.problem_context_fields = DIFFUSION_ADVECTION_CONTEXT_FIELDS
             self.problem_feature_dim = DIFFUSION_ADVECTION_CONTEXT_DIM - 1
         elif self.problem_context_mode == DIFFUSION_ADVECTION_NO_MEAN_CONTEXT:
@@ -179,7 +186,16 @@ class SolveStateEncoder:
                 1.0,
             )
 
-        if self.problem_context_mode in {
+        if self.problem_context_mode in STRESS_CONTEXT_FIELDS:
+            resolved_context = validate_context(
+                context_from_matrix_kwargs(mkw) if problem_context is None else problem_context,
+                self.problem_context_mode,
+            )
+            problem_key = tuple(float(value) for value in resolved_context)
+            if self._cached_problem_key != problem_key:
+                self._cached_problem_key = problem_key
+                self._cached_problem_features[:] = resolved_context[1:]
+        elif self.problem_context_mode in {
             CANONICAL_PROBLEM_CONTEXT,
             DIFFUSION_ADVECTION_NO_MEAN_CONTEXT,
             *COMPACT_DIFFUSION_CONTEXT_INDICES,

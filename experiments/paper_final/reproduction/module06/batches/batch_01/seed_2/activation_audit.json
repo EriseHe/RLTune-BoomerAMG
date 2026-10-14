@@ -1,0 +1,10 @@
+{
+  "fixed_controller_steps": 0,
+  "joint_controller_steps": 0,
+  "passed": true,
+  "problem_index": 1,
+  "setup_observations": {
+    "bandit_default": 0,
+    "bandit_lstdq": 0
+  }
+}

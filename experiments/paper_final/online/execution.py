@@ -199,7 +199,7 @@ def run_default_setup_method(
         )
         feedback = as_feedback(native, include_controller=False)
     else:
-        raise ValueError("The official default setup branch uses default solve")
+        raise ValueError("Default+LSTDQ requires run_04_factorial; this legacy runner executes only Default solve with fixed setup")
     reported = report_online_outcome(feedback, bandit_timing={})
     reported["bandit_update_committed"] = False
     return reported
@@ -466,7 +466,7 @@ def _validate_and_save_final_state(
 ) -> tuple[Dict[str, Any], Path]:
     recovery_audit = {
         method: _validate_recovery_stream(
-            rows, expect_bandit_transaction=method in plan.bandit_methods
+            rows, expect_bandit_updates=method in plan.bandit_methods
         )
         for (method, rows) in records.items()
     }

@@ -1,0 +1,154 @@
+{
+  "audits": {
+    "bandit_default": {
+      "cases": 5000,
+      "controller": {
+        "episodes": 0,
+        "steps": 0
+      },
+      "model": {
+        "failure_observations": 150,
+        "observations": 5149,
+        "passed": true,
+        "precision_max_abs_error": 3.179692147602109e-10
+      },
+      "trajectory_sha256": "25e9b6b1b0103541afa2e551eccb4074ef2e0d20c272e19a80d6686abfca5b7e"
+    },
+    "bandit_lstdq": {
+      "cases": 5000,
+      "controller": {
+        "episode_moment_count": 5116,
+        "episodes": 5116,
+        "inverse_is_valid": true,
+        "inverse_rebuild_count": 0,
+        "joint_feature_dim": 288,
+        "lcb_lower_bound_sec": 0.0,
+        "sample_count": 69553,
+        "steps": 69553,
+        "stored_transition_count": 0,
+        "uncertainty": "episode-cluster post-fit sandwich covariance",
+        "uncertainty_beta": 2.0
+      },
+      "model": {
+        "failure_observations": 117,
+        "observations": 5116,
+        "passed": true,
+        "precision_max_abs_error": 3.4057325362657487e-10
+      },
+      "trajectory_sha256": "270c0cb513d67147b73009e9de79ebaabd772a35597e101f14815a7a0c582e5f"
+    },
+    "default_setup_default_solve": {
+      "cases": 5000,
+      "controller": {
+        "episodes": 0,
+        "steps": 0
+      },
+      "model": null,
+      "trajectory_sha256": "bf712be850e072dcb0921334864518378192449f5d207709cfab3bde0de61d8a"
+    },
+    "default_setup_lstdq": {
+      "cases": 5000,
+      "controller": {
+        "episode_moment_count": 5000,
+        "episodes": 5000,
+        "inverse_is_valid": true,
+        "inverse_rebuild_count": 0,
+        "joint_feature_dim": 288,
+        "lcb_lower_bound_sec": 0.0,
+        "sample_count": 43495,
+        "steps": 43495,
+        "stored_transition_count": 0,
+        "uncertainty": "episode-cluster post-fit sandwich covariance",
+        "uncertainty_beta": 2.0
+      },
+      "model": null,
+      "trajectory_sha256": "dfb445992dfd78247ce7880ea12e5ef6cc257be6edf8204faddc1337e74cd16d"
+    }
+  },
+  "cases": 5000,
+  "checkpoint_sha256": {
+    "checkpoints/bandit_lstdq_1000.npz": "58ce6892da1afc023175e00bd594f879aaed3229885b6d8a00ae09b452276245",
+    "checkpoints/bandit_lstdq_1000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/bandit_lstdq_2000.npz": "90379cfc26f233515aaaabc794cd0fd6e88b5351d7abeb6ecdb09d6a5e59f08b",
+    "checkpoints/bandit_lstdq_2000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/bandit_lstdq_3000.npz": "48bae0e099c1e899e23682a7db30db939cc38441f34df5062f40bd752abe7915",
+    "checkpoints/bandit_lstdq_3000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/bandit_lstdq_4000.npz": "ddca830b1ec1f3175ee8be6ee882cdcefcb8114453b0959334bf401977b85e20",
+    "checkpoints/bandit_lstdq_4000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/bandit_lstdq_5000.npz": "554b3b342a49ba6980abb6b02635ab04cfc92e8c80729d6ff91dd0d5f775ec8c",
+    "checkpoints/bandit_lstdq_5000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/bandit_lstdq_final.npz": "554b3b342a49ba6980abb6b02635ab04cfc92e8c80729d6ff91dd0d5f775ec8c",
+    "checkpoints/bandit_lstdq_final.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_1000.npz": "aafb03eaddd43712ff83a50a711892043c7f411c1ff782192e67c0b577951bb9",
+    "checkpoints/default_setup_lstdq_1000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_2000.npz": "cda0292306d9cdf87ab8b6d1a9a9657f03149ac06d70df6d23b23286b653670d",
+    "checkpoints/default_setup_lstdq_2000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_3000.npz": "48000b5c800bc02119ac6ad072c9d6006b4e279c4ca2e6de3c4a1de559007ba0",
+    "checkpoints/default_setup_lstdq_3000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_4000.npz": "a8cd2baf7fe68326444ac1375fbf32a9a157cafcbbadd24e58011d766a13429b",
+    "checkpoints/default_setup_lstdq_4000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_5000.npz": "bf685900eb846d86ce278d8cddb337d65f1c20f0810731d96705a548a6330969",
+    "checkpoints/default_setup_lstdq_5000.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "checkpoints/default_setup_lstdq_final.npz": "bf685900eb846d86ce278d8cddb337d65f1c20f0810731d96705a548a6330969",
+    "checkpoints/default_setup_lstdq_final.npz.encoder.json": "fa34bad32715739e4855a6b549289786ef1b915483beec5894ca720838a4eee1",
+    "final_bandit_states/bandit_default.npz": "b871191caaaf79762015d65460fdf31aabbd4133c7f24186eb581b49e92183e4",
+    "final_bandit_states/bandit_lstdq.npz": "a9bfc7d72250f5e69e5ec133823bf22e6294699c7ec2d06db93fb98d40be867e"
+  },
+  "complete": true,
+  "elapsed_sec": 4819.6552717919985,
+  "methods": {
+    "bandit_default": {
+      "cases": 5000,
+      "cycles": 102877,
+      "failures": 0,
+      "fallbacks": 1,
+      "first_failures": 148,
+      "native_fallback_sec": 0.3048029999999926,
+      "native_sec": 1018.9884170000105,
+      "random_actions": 0,
+      "rl_actions": 0,
+      "total_sec": 1033.9098200601102,
+      "zero_selected_score_fraction": null
+    },
+    "bandit_lstdq": {
+      "cases": 5000,
+      "cycles": 69566,
+      "failures": 0,
+      "fallbacks": 1,
+      "first_failures": 113,
+      "native_fallback_sec": 0.3041430000002947,
+      "native_sec": 785.0483950000366,
+      "random_actions": 7302,
+      "rl_actions": 69553,
+      "total_sec": 822.5238430280901,
+      "zero_selected_score_fraction": 0.06862392707719293
+    },
+    "default_setup_default_solve": {
+      "cases": 5000,
+      "cycles": 62949,
+      "failures": 0,
+      "fallbacks": 0,
+      "first_failures": 0,
+      "native_fallback_sec": 0.0,
+      "native_sec": 1439.5612200000019,
+      "random_actions": 0,
+      "rl_actions": 0,
+      "total_sec": 1439.5612200000019,
+      "zero_selected_score_fraction": null
+    },
+    "default_setup_lstdq": {
+      "cases": 5000,
+      "cycles": 43495,
+      "failures": 0,
+      "fallbacks": 0,
+      "first_failures": 0,
+      "native_fallback_sec": 0.0,
+      "native_sec": 1311.861281000039,
+      "random_actions": 6095,
+      "rl_actions": 43495,
+      "total_sec": 1327.5348655069151,
+      "zero_selected_score_fraction": 0.0014254512012875043
+    }
+  },
+  "passed": true
+}

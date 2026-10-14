@@ -25,7 +25,7 @@ from hypre.bindings.recovery import InvalidObservationError
 
 
 class SharedLinUCBTests(unittest.TestCase):
-    def test_budgeted_failure_updates_cost_and_risk_with_matching_precision(self):
+    def test_failure_updates_twice_own_cost_with_matching_precision(self):
         model = self._model()
         context = np.asarray([1.0, 0.5])
         selected = {}
@@ -62,20 +62,12 @@ class SharedLinUCBTests(unittest.TestCase):
                 failure_penalty_sec=0.5,
             )
         phi = selected["phi"]
-        loss = (
-            0.1
-            + result.timing["select_sec"]
-            + result.timing["loss_eval_sec"]
-            + 0.005
-            + 0.5
-        )
+        loss = 2 * (0.05 + result.timing["select_sec"] + 0.005)
         np.testing.assert_allclose(
             model.A_inv, np.linalg.inv(precision_before + np.outer(phi, phi))
         )
         np.testing.assert_allclose(model.b, loss * phi)
-        np.testing.assert_allclose(model.failure_b, phi)
         self.assertEqual(model.t, 1)
-        self.assertEqual(model.failure_observation_count, 1)
         self.assertTrue(result.outcome["unrecovered_failure"])
         self.assertTrue(result.outcome["bandit_update_committed"])
         self.assertAlmostEqual(result.outcome["native_runtime"], 0.1)
@@ -88,9 +80,9 @@ class SharedLinUCBTests(unittest.TestCase):
             alpha=0.0,
         )
         self.assertAlmostEqual(means[0], float(phi @ model.A_inv @ (loss * phi)))
-        self.assertGreater(means[0], float(phi @ model.A_inv @ ((loss - 0.5) * phi)))
+        self.assertGreater(means[0], float(phi @ model.A_inv @ ((loss / 2) * phi)))
 
-    def test_zero_explicit_penalty_retains_bounded_cost_but_invalid_times_do_not(self):
+    def test_invalid_fallback_does_not_erase_valid_primary_feedback(self):
         for mode in (0.0, "invalid"):
             with self.subTest(mode=mode):
                 model = self._model()
@@ -129,15 +121,14 @@ class SharedLinUCBTests(unittest.TestCase):
                     if mode == "invalid":
                         with self.assertRaises(InvalidObservationError):
                             run_same_context_setup_reselection(**kwargs)
-                        np.testing.assert_array_equal(model.A_inv, inverse)
-                        self.assertEqual(model.t, 0)
-                        self.assertEqual(model.failure_observation_count, 0)
+                        self.assertFalse(np.array_equal(model.A_inv, inverse))
+                        self.assertEqual(model.t, 1)
                     else:
                         result = run_same_context_setup_reselection(**kwargs)
                         self.assertTrue(result.outcome["bandit_update_committed"])
                         self.assertEqual(result.outcome["failure_penalty_sec"], 0.0)
 
-    def test_selected_arm_survives_legacy_rollback_after_a_previous_success(self):
+    def test_selected_arm_and_new_observation_survive_final_failure(self):
         model = self._model()
         context = np.asarray([1.0, 0.5])
         model.predict(context)
@@ -170,7 +161,8 @@ class SharedLinUCBTests(unittest.TestCase):
             default_params={"weight": 1.5},
             prev_update_est=0.0,
         )
-        self.assertEqual(model.history[-1].arm_index, previous_arm)
+        self.assertEqual(model.history[-2].arm_index, previous_arm)
+        self.assertEqual(model.history[-1].arm_index, current_arm)
         self.assertEqual(result.outcome["selected_arm_index"], current_arm)
         self.assertEqual(
             result.outcome["primary_attempts"][-1]["arm_index"], current_arm
@@ -270,7 +262,7 @@ class SharedLinUCBTests(unittest.TestCase):
             self.assertEqual(len(model._local_neighbor_cache), cached_count)
             model.update(0.1)
 
-    def test_aot_recovery_reuses_shared_inverse_uncertainty(self) -> None:
+    def test_aot_retry_scores_the_single_updated_cost_model(self) -> None:
         parameter_spec = ParameterSpaceSpec(
             parameters=(
                 ParameterSpec(
@@ -315,28 +307,20 @@ class SharedLinUCBTests(unittest.TestCase):
             context = np.asarray([1.0, 0.5])
             model.predict(context)
             failed_arm = int(model._last_arm)
-            model.begin_recovery_transaction()
-            deferred = model.observe_pending_failure(failure_label=1.0)
+            model.update(0.3)
 
             original = model._mean_uncertainty_subset
             contraction_calls = 0
 
             def counted(*args, **kwargs):
                 nonlocal contraction_calls
-                if kwargs.get("precomputed_uncertainty") is None:
-                    contraction_calls += 1
+                contraction_calls += 1
                 return original(*args, **kwargs)
 
             model._mean_uncertainty_subset = counted
             model.select_recovery(context, excluded_arms=[failed_arm])
             self.assertEqual(contraction_calls, 1)
-            self.assertEqual(
-                model.history[-1].pred_uncert,
-                model.history[-1].pred_failure_uncert,
-            )
             model.update(0.2)
-            model.commit_deferred_observation(deferred, loss=0.3)
-            model.commit_recovery_transaction()
             self.assertIsNone(model._g_actions)
             self.assertEqual(schedule.cursor, 2)
             self.assertEqual(len(model._cand._sparse_arm_stats), 2)
@@ -391,23 +375,18 @@ class SharedLinUCBTests(unittest.TestCase):
         self.assertIsInstance(model._g_actions, np.ndarray)
         self.assertEqual(model._g_actions.shape[0], len(actions))
 
-    def test_failure_head_shares_information_across_actions(self) -> None:
+    def test_retry_uses_updated_cost_score_and_excludes_tried_arm(self):
         model = self._model()
-        context = np.asarray([1.0, 0.5])
+        context = np.array([1.0, 0.5])
         model.predict(context)
-        failed_arm = int(model._last_arm)
-        model.begin_recovery_transaction()
-        observation = model.observe_pending_failure(failure_label=1.0)
-        model.commit_deferred_observation(observation, loss=0.1)
-        model.commit_recovery_transaction()
-
-        _upper, means, _uncertainty = model._failure_subset(
-            context,
-            arms=np.arange(model.K, dtype=int),
-        )
-        neighboring = max(0, failed_arm - 1) if failed_arm > 0 else 1
-        self.assertGreater(means[failed_arm], 0.0)
-        self.assertNotEqual(means[neighboring], 0.0)
+        failed_arm = model._last_arm
+        model.update(0.2)
+        candidates = np.setdiff1d(np.arange(model.K), [failed_arm])
+        scores, _, _ = model._selection_score_subset(context, arms=candidates, alpha=model._effective_alpha())
+        model.select_recovery(context, excluded_arms=[failed_arm])
+        self.assertNotEqual(model._last_arm, failed_arm)
+        selected = np.flatnonzero(candidates == model._last_arm)[0]
+        self.assertAlmostEqual(scores[selected], min(scores))
 
     def test_setup_failures_reselect_at_most_three_learned_arms(self) -> None:
         model = self._model()
@@ -438,6 +417,7 @@ class SharedLinUCBTests(unittest.TestCase):
             solver_fn=fail_setup,
             fallback_solver_fn=lambda _params: {
                 "attempt_status": "success",
+                "residual_norm": 1e-8,
                 "setup_runtime": 0.02,
                 "solve_runtime": 0.03,
                 "failed": False,
@@ -452,9 +432,9 @@ class SharedLinUCBTests(unittest.TestCase):
         self.assertEqual(result.outcome["primary_attempt_count"], 3)
         self.assertEqual(result.outcome["bandit_observation_count"], 3)
         self.assertTrue(result.outcome["fallback_used"])
-        suffixes = [row["suffix_cost"] for row in result.outcome["primary_attempts"]]
-        self.assertGreater(suffixes[0], suffixes[1])
-        self.assertGreater(suffixes[1], suffixes[2])
+        for row in result.outcome["primary_attempts"]:
+            self.assertAlmostEqual(row["learning_cost"], 2 * row["attempt_cost"])
+            self.assertLess(row["attempt_cost"], 0.05)
 
     def test_solve_failure_does_not_reselect_learned_setup(self) -> None:
         model = self._model()
@@ -488,6 +468,7 @@ class SharedLinUCBTests(unittest.TestCase):
             solver_fn=fail_solve,
             fallback_solver_fn=lambda _params: {
                 "attempt_status": "success",
+                "residual_norm": 1e-8,
                 "setup_runtime": 0.02,
                 "solve_runtime": 0.03,
                 "failed": False,
@@ -499,7 +480,7 @@ class SharedLinUCBTests(unittest.TestCase):
         self.assertEqual(result.outcome["primary_attempt_count"], 1)
         self.assertTrue(result.outcome["fallback_used"])
 
-    def test_double_failure_rolls_back_learning_but_not_rng(self) -> None:
+    def test_final_failure_keeps_all_three_valid_setup_updates(self) -> None:
         model = self._model()
 
         class Policy:
@@ -511,7 +492,6 @@ class SharedLinUCBTests(unittest.TestCase):
 
         before_inverse = model.A_inv.copy()
         before_b = model.b.copy()
-        before_failure_b = model.failure_b.copy()
         before_rng = repr(model.rng.bit_generator.state)
         result = run_same_context_setup_reselection(
             policy=Policy(model),
@@ -534,14 +514,13 @@ class SharedLinUCBTests(unittest.TestCase):
             default_params={"weight": 1.5},
             prev_update_est=0.0,
         )
-        np.testing.assert_allclose(model.A_inv, before_inverse)
-        np.testing.assert_allclose(model.b, before_b)
-        np.testing.assert_allclose(model.failure_b, before_failure_b)
-        self.assertEqual(model.t, 0)
-        self.assertEqual(model.history, [])
+        self.assertFalse(np.array_equal(model.A_inv, before_inverse))
+        self.assertFalse(np.array_equal(model.b, before_b))
+        self.assertEqual(model.t, 3)
+        self.assertEqual(len(model.history), 3)
         self.assertNotEqual(repr(model.rng.bit_generator.state), before_rng)
         self.assertTrue(result.outcome["unrecovered_failure"])
-        self.assertFalse(result.outcome["bandit_update_committed"])
+        self.assertTrue(result.outcome["bandit_update_committed"])
 
 
 if __name__ == "__main__":

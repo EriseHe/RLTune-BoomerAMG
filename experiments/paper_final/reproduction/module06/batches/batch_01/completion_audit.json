@@ -1,0 +1,73 @@
+{
+  "measured_method_cases": 60000,
+  "passed": true,
+  "seed_audits": {
+    "1": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 349498174550250,
+      "last_end_ns": 358720918129750,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 51536
+    },
+    "2": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 349498063055583,
+      "last_end_ns": 358783062081958,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 51537
+    },
+    "3": {
+      "activation": {
+        "fixed_controller_steps": 0,
+        "joint_controller_steps": 0,
+        "passed": true,
+        "problem_index": 1,
+        "setup_observations": {
+          "bandit_default": 0,
+          "bandit_lstdq": 0
+        }
+      },
+      "complete_seeded_orders": true,
+      "config_and_checkpoints_unchanged": true,
+      "copied_prefix_rows": 0,
+      "first_start_ns": 349498085096291,
+      "last_end_ns": 358696618944125,
+      "logical_method_cases": 20000,
+      "measured_method_cases": 20000,
+      "passed": true,
+      "serial_execution": true,
+      "worker_pid": 51538
+    }
+  },
+  "total_method_cases": 60000
+}

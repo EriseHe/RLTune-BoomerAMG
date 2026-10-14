@@ -18,6 +18,9 @@ venv/
 /results/
 /plots/
 /output/
+/data/official/
+/data/archive/
+/exports/
 *.log
 *.zip
 

@@ -29,6 +29,7 @@ def make_setup_obs_encoder(
         agg_interp_type_values=(
             configuration_space.agg_interp_types if configuration_space else None
         ),
+        numeric_grids=configuration_space.numeric_grids if configuration_space else None,
     )
     if strict_categories:
         # The native default remains a valid observation even outside a grid.
