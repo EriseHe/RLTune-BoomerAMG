@@ -12,7 +12,6 @@ import zipfile
 
 import numpy as np
 from matplotlib.colors import Normalize, LogNorm
-from matplotlib.lines import Line2D
 from experiments.paper_final.common.figure_style import (
     Exporter,
     apply_style,

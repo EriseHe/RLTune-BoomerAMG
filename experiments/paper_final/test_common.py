@@ -151,9 +151,9 @@ class ArtifactTests(unittest.TestCase):
 
     def test_source_snapshots_include_extracted_execution_and_rendering_helpers(self):
         required = {
-            "experiments/joint/solve_control/native_case.py",
-            "experiments/joint/solve_control/feedback.py",
-            "experiments/joint/solve_control/comparison.py",
+            "experiments/paper_final/online/native_case.py",
+            "experiments/paper_final/online/feedback.py",
+            "experiments/paper_final/online/comparison.py",
             "solve/core/episode.py",
             "solve/controllers/common/td_config.py",
             "experiments/paper_final/common/frozen_policy.py",

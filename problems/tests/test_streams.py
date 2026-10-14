@@ -9,14 +9,13 @@ from problems.scalar_anisotropic_diffusion import (
     build_matrix_kwargs_scalar_anisotropic_diffusion,
 )
 from problems.streams import (
-    generate_difconv_instances,
     generate_scalar_anisotropic_diffusion_instances,
 )
 
 
-class DifConvStreamTests(unittest.TestCase):
-    def test_locked_exp44_prefix_is_unchanged(self) -> None:
-        instances = generate_difconv_instances(
+class ScalarDiffusionStreamTests(unittest.TestCase):
+    def test_locked_scalar_diffusion_prefix_is_unchanged(self) -> None:
+        instances = generate_scalar_anisotropic_diffusion_instances(
             count=3,
             seed=39393939,
             grid_choices=[(40, 40, 40)],
@@ -38,9 +37,9 @@ class DifConvStreamTests(unittest.TestCase):
                     0.8880657745568643,
                     0.7960810827706223,
                     0.8754464956474619,
-                    1.0,
-                    1.0,
-                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
                 ]
             ),
             rtol=0.0,

@@ -42,6 +42,7 @@
 
 #include "amg_rl_shared.h"
 #include "amg_runtime.h"
+#include "amg_stress_builders.h"
 
 /*
  * Quiet shim for the HYPRE test-driver builders (amg_cycle.c).
@@ -323,15 +324,22 @@ AMG_API AMGRuntime* amg_runtime_create(
 
     /* Build matrix A. */
     void *obj = NULL;
-    if (stencil_type == 0)
+    if (stencil_type == 100 || stencil_type == 102 || stencil_type == 103)
     {
-        /* DifConv: Map args as cx=k, cy=c, cz=a0, ax=a1, ay=a2, az=a3, atype=0. */
+        /* Material coefficients (k,c,a0), or the RS diffusion strength k. */
+        env->A = amg_build_stress_matrix(env->comm, nx, ny, nz, stencil_type,
+                                        k, c, a0);
+    }
+    else if (stencil_type == 0)
+    {
+        /* DifConv: Map args as cx=k, cy=c, cz=a0, ax=a1, ay=a2, az=a3.
+         * This experiment branch uses the existing upwind scheme (atype=3). */
         env->A = build_difconv_matrix(
             env->comm,
             (HYPRE_BigInt) nx, (HYPRE_BigInt) ny, (HYPRE_BigInt) nz,
             (HYPRE_Real) k, (HYPRE_Real) c, (HYPRE_Real) a0,
             (HYPRE_Real) a1, (HYPRE_Real) a2, (HYPRE_Real) a3,
-            0);
+            3);
         env->ij_A = NULL;
     }
     else

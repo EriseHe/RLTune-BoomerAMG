@@ -1,4 +1,5 @@
 """Process configuration must be explicit and portable."""
+
 import importlib
 import os
 import unittest
@@ -29,23 +30,32 @@ class ExperimentRuntimeTests(unittest.TestCase):
             self.assertTrue(all(os.environ[key] == "1" for key in runtime.THREAD_KEYS))
 
     def test_non_macos_sleep_protection_does_not_launch_a_process(self):
-        with patch.object(runtime.sys, "platform", "linux"), patch.object(runtime.subprocess, "Popen") as launch:
+        with (
+            patch.object(runtime.sys, "platform", "linux"),
+            patch.object(runtime.subprocess, "Popen") as launch,
+        ):
             self.assertIsNone(runtime.prevent_sleep())
             launch.assert_not_called()
         runtime.stop_sleep_prevention(None)
 
     def test_missing_sleep_helper_does_not_launch_a_process(self):
-        with patch.object(runtime.sys, "platform", "darwin"), \
-             patch.object(runtime.Path, "is_file", return_value=False), \
-             patch.object(runtime.subprocess, "Popen") as launch:
+        with (
+            patch.object(runtime.sys, "platform", "darwin"),
+            patch.object(runtime.Path, "is_file", return_value=False),
+            patch.object(runtime.subprocess, "Popen") as launch,
+        ):
             self.assertIsNone(runtime.prevent_sleep())
             launch.assert_not_called()
 
     def test_sleep_helper_launch_failure_is_optional(self):
-        with patch.object(runtime.sys, "platform", "darwin"), \
-             patch.object(runtime.Path, "is_file", return_value=True), \
-             patch.object(runtime.os, "access", return_value=True), \
-             patch.object(runtime.subprocess, "Popen", side_effect=OSError("unavailable")):
+        with (
+            patch.object(runtime.sys, "platform", "darwin"),
+            patch.object(runtime.Path, "is_file", return_value=True),
+            patch.object(runtime.os, "access", return_value=True),
+            patch.object(
+                runtime.subprocess, "Popen", side_effect=OSError("unavailable")
+            ),
+        ):
             self.assertIsNone(runtime.prevent_sleep())
 
     def test_sleep_helper_is_reaped(self):
@@ -56,12 +66,16 @@ class ExperimentRuntimeTests(unittest.TestCase):
         process.wait.assert_called_once_with(timeout=5)
 
     def test_sleep_helper_uses_original_macos_command(self):
-        with patch.object(runtime.sys, "platform", "darwin"), \
-             patch.object(runtime.Path, "is_file", return_value=True), \
-             patch.object(runtime.os, "access", return_value=True), \
-             patch.object(runtime.subprocess, "Popen") as launch:
+        with (
+            patch.object(runtime.sys, "platform", "darwin"),
+            patch.object(runtime.Path, "is_file", return_value=True),
+            patch.object(runtime.os, "access", return_value=True),
+            patch.object(runtime.subprocess, "Popen") as launch,
+        ):
             self.assertIs(runtime.prevent_sleep(), launch.return_value)
-            launch.assert_called_once_with(["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())])
+            launch.assert_called_once_with(
+                ["/usr/bin/caffeinate", "-is", "-w", str(os.getpid())]
+            )
 
 
 if __name__ == "__main__":

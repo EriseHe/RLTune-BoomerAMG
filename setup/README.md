@@ -1,47 +1,44 @@
-# Setup Phase
+# Setup phase
 
-Setup-only learning and evaluation for BoomerAMG. These experiments choose one
-AMG setup configuration per problem instance and use the default or a fixed
-solve policy.
+The SISC studies select BoomerAMG hierarchy parameters with shared context-action
+LinUCB. `registry.py` accepts `default` and `linucb`; it constructs the learner
+through the LinUCB factory. The native solver defaults remain in `space.py`.
 
-## Layout
+- `space.py`: named categorical configuration spaces, parameter grids, and the
+  setup observation encoder used by the solve controller, and stable action
+  enumeration.
+- `learners/linucb/`: learning, checkpoint persistence, and same-instance setup
+  reselection.
+- `learners/common/`: mixed-type action features, compact action catalogs,
+  candidate schedules, and shared constructor inputs.
+- `tests/`: numerical, candidate-schedule, failure-feedback, and registry checks.
 
-- `learners/`: contextual bandits grouped into `linucb/`, `bayesian/`,
-  `thompson/`, and `tsallis/` families. Active families own their typed
-  algorithm config, factory, implementation, and checkpoint format.
-- `registry.py`: typed learner selection and family-factory dispatch shared by
-  setup-only and joint experiments; it does not construct concrete learners.
-- `scripts/`: setup-only experiment and benchmark entry points.
-- `utils/`: setup action spaces, output paths, plotting, and experiment helpers.
-- `tests/`: setup-only unit and integration tests.
+## LinUCB implementation
 
-Shared PDE streams live in `problems/`. Historical setup plots live in
-`results/archive/setup_phase/legacy_plots/`, and reference implementations live
-in `docs/archive/setup_phase_reference/`.
+[SharedLinUCB](learners/linucb/learner.py) shares a linear context-action model
+across configurations and preserves its original numerical updates, RNG state,
+and NPZ checkpoint format. `learners/linucb/setup_reselection.py` handles setup
+failure and same-instance reselection; the experiment layer owns the recovery
+policy and supplies the observed completion cost.
 
-The canonical Python package and command paths are lowercase `setup/`.
-Checkpoint-only module aliases are installed internally for historical pickle
-payloads; new code must import through `setup`.
+`learners/common/` supplies the mixed-type parameter specification, generic
+action features, compact catalogs, cached factorized features, and ahead-of-time
+candidate schedules. `learners/common/config.py` holds shared construction
+inputs; `learners/linucb/config.py` and `learners/linucb/factory.py` own the
+LinUCB-specific construction.
 
-## Native Solver
+An experiment runner uses `setup.registry.make_setup_learner_spec` and
+`setup.registry.build_online_setup_learner`. Canonical class paths remain under
+`setup.learners.linucb`; official checkpoints use NPZ with `allow_pickle=False`
+and do not require historical pickle module aliases.
 
-Both setup and solve experiments use the same unmodified fork in
-`hypre/source/` and the project wrappers in `hypre/interfaces/`. Build HYPRE
-and both wrappers with:
+## Shared components and checks
 
-```bash
-make -C hypre
-```
+The setup and solve phases share
+[PDE streams](../docs/repository_layout.md#pde-problems) and
+[HYPRE bindings](../hypre/bindings/README.md). The joint experiment runner
+evaluates the selected setup and its recovery attempts.
 
-The shared Python binding lives in `hypre/bindings/`; setup and solve code import
-the same module and link to the same native installation.
-
-## Environment
-
-From the repository root:
-
-```bash
-conda env create -f environment.yml
-```
-
-Setup-specific Python requirements are also listed in `requirements.txt`.
+From the repository root, install the environment and native interfaces using
+[the reproduction guide](../docs/reproduction.md). Run the setup tests with
+`python -m unittest discover -s setup/tests -p 'test_*.py'`.

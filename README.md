@@ -1,80 +1,74 @@
 # RLTune-BoomerAMG
 
-Research code for online BoomerAMG setup tuning with contextual bandits and
-per-cycle relaxation control with reinforcement learning.
+Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandits
+and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
 
-## Start here
+Shared context-action LinUCB selects BoomerAMG hierarchy parameters; recursive
+LSTDQ selects relaxation weights during the solve.
 
-- [Reproduction index](docs/reproduction.md): accepted studies, commands,
-  timing definitions, and required data.
-- [Repository layout](docs/repository_layout.md): component ownership and
-  dependency direction.
-- [Paper experiment index](experiments/paper_final/README.md): current studies
-  and separately labeled development history.
-- [Joint experiment runner](experiments/joint/solve_control/README.md): JSON
-  configuration and general experiment execution.
+## Official paper studies
 
-The repository contains experiment source, configurations, and compact numerical
-evidence. Large trajectories, frozen checkpoints, and generated figure archives
-are separate artifacts. A fresh clone does not include every historical result
-folder; the reproduction index identifies what each operation requires.
+The [official data registry](experiments/paper_final/reproduction/manifest.json)
+is the single selection of paper data. Each module is a complete study.
 
-## Build from a fresh checkout
+| Module | Study | Local full data |
+|---|---|---|
+| 04 | Diffusion and advection, 40³/60³/80³, six seeds, 5,000 cases per seed and problem, four methods | `data/official/module04/` |
+| 05 | Six diffusion-60³ checkpoints, 100 independent cases, 41 fixed weights, five policies, three evaluation repetitions | `data/official/module05/` |
+| 06 | Type 2 variable-flow 60³, six seeds, 5,000 cases per seed, four cold branches, β=2 | `data/official/module06/` |
 
-Install Conda, CMake, Make, a C/C++ compiler, and MPI compiler wrappers
-(`mpicc` and `mpicxx`). Confirm that the wrappers reference installed compilers
-before building. From the repository root:
+Module 06 uses aggressive levels 0–2 with conditional aggressive interpolation
+4/6/7. The archived expanded-depth configurations are outside the official set.
 
-```bash
-conda env create -f environment.yml
-conda activate rl
-make -C hypre
+Compact configurations, summaries, audit records, and current paper figures are
+in [experiments/paper_final/reproduction/](experiments/paper_final/reproduction/).
+The full local data includes original inputs, trajectories, checkpoints, scans,
+retiming records, and the frozen execution runtime. Large local data and the
+archive are excluded from Git.
+
+## Verify the data
+
+With Python 3.10 or later, verify the compact publication bundle and its source:
+
+```sh
+python tools/verify_official_data.py
 ```
 
-The environment is named `rl`. Activate it before running Python commands.
-HYPRE is built out of source under `hypre/build/` and `hypre/install/`;
-project-owned native interfaces are built under `hypre/interfaces/`.
-The vendored HYPRE implementation in `hypre/source/` is kept unchanged.
+When full local data is available, also verify every recorded file:
 
-## Validate the accepted online protocol
-
-```bash
-python -m experiments.paper_final.run_04_online \
-  --suite experiments/paper_final/04_online/20260920_formal/suite.json \
-  --validate-only
+```sh
+python tools/verify_official_data.py --full
 ```
 
-This validates six PDE/grid groups without executing solves. It is the
-September 20 single-seed protocol. The later six-seed evidence has separate
-captured configurations; see the [reproduction index](docs/reproduction.md).
+Both commands only read saved files. See the [data and reproduction guide](docs/reproduction.md)
+for coverage, timing definitions, and paper-generation paths.
 
-## Failure protocol
+## Install and build
 
-Construction failures permit up to three learned setup attempts total, with
-previously failed exact configurations excluded on the same problem. Solve
-nonconvergence goes directly to default recovery. There is at most one default
-attempt. All attempted work and measured recovery cost remain in reported
-runtime. Under the accepted `rollback_unrecovered` protocol, provisional
-learning feedback is rolled back if recovery also fails.
+Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and `mpicxx`.
+From the repository root, install into an activated environment:
 
-## Tests
-
-Run in the activated environment after building the native interfaces:
-
-```bash
-python -m pip install -e '.[dev]'
-python scripts/check_repository.py
+```sh
+python -m pip install -e '.[artifacts]'
+make -C hypre JOBS=4
 ```
 
-Native integration checks require the MPI compiler toolchain in addition to the
-Python environment. Timing depends on hardware and system load; preserve inputs,
-seeds, stopping rules, and accounting when comparing runs.
+The Python dependencies include NumPy, SciPy, mpi4py, Matplotlib, and mpmath.
+The supplied `environment.yml` describes the research environment. Native build
+outputs belong in `hypre/build/`, `hypre/install/`, and `hypre/interfaces/`.
+The recorded official native libraries are retained in `data/official/runtime/`.
 
-The checker compiles project Python source, runs fatal static checks, and runs
-each test group in a separate process. CI builds the native interfaces on Linux
-before running the same checks. Development diagnostic/archive tests run when
-those directories are present; required core/native/paper tests always run.
+## Organization
 
-Install `.[artifacts]` when generating the experiment release PDF with the
-Module 05 packager. The [cleanup report](docs/repository_cleanup_20261004.md)
-records the reorganization and validation.
+Use [the repository layout](docs/repository_layout.md) for source responsibilities.
+All historical experiment data, exploratory configurations, old publication
+bundles, and unused figure exports are stored locally under `data/archive/`.
+Paper readers use the explicit official registry and do not search the archive.
+New experiments should write to `results/` and require an explicit selection
+before becoming official data.
+
+## Licensing
+
+A license for the project-owned code has not yet been selected. HYPRE retains
+its [copyright](hypre/source/COPYRIGHT), [license files](hypre/source/LICENSE-MIT),
+and [notices](hypre/source/NOTICE).

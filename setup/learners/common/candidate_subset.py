@@ -1,8 +1,8 @@
 """
 Shared candidate-subset + elite-cache utilities for large action sets.
 
-This logic is duplicated in older learners (e.g. SharedLinUCB_AMG_v2). New
-learners should use this helper to keep behavior consistent across models.
+The LinUCB learner uses this helper to choose candidates and maintain its
+elite statistics.
 """
 
 from __future__ import annotations

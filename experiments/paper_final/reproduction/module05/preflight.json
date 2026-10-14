@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 1
+    },
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 2
+    },
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 3
+    },
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 4
+    },
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 5
+    },
+    {
+      "controller_frozen": true,
+      "same_reference_residuals": true,
+      "seed": 6
+    }
+  ],
+  "passed": true
+}

@@ -169,7 +169,6 @@ def _merge_recovery_result(
     learn: bool,
     retain_failed_episodes: bool,
     failure_penalty_sec: float | None,
-    deferred_transitions: list[tuple[np.ndarray, int, float]] | None,
 ) -> dict[str, Any]:
     """Serialize one completed transaction without changing result keys."""
     if recovery is not None:
@@ -211,8 +210,6 @@ def _merge_recovery_result(
                 "unrecovered_failure": failed,
             }
         )
-    if deferred_transitions is not None:
-        outcome["_monte_carlo_transitions"] = deferred_transitions
     outcome["failure_feedback_mode"] = (
         "budgeted_penalty" if retain_failed_episodes else "rollback_unrecovered"
     )
@@ -236,7 +233,6 @@ def run_td_episode(
     learn: bool,
     explore: bool,
     epsilon: float | None = None,
-    defer_monte_carlo_update: bool = False,
     record_action_metadata: bool = False,
     initial_environment_weight_override: float | None = None,
     fallback_attempt: Callable[[], Mapping[str, Any] | AttemptOutcome] | None = None,
@@ -256,7 +252,6 @@ def run_td_episode(
     lifecycle_runtime = 0.0
     solve_runtime = 0.0
     trace = _EpisodeTrace()
-    episode_transitions: list[tuple[np.ndarray, int, float]] = []
     residual = float("inf")
     iterations = 0
     initial_environment_weight = float(controller.initial_environment_weight)
@@ -267,12 +262,6 @@ def run_td_episode(
     episode_started = False
     learning_snapshot = None
     prep = None
-    fast_anchor_tail = bool(
-        controller.config.adaptive_cycles is not None
-        and int(controller.config.adaptive_cycles) > 0
-        and controller.config.alpha == 0.0
-        and controller.config.monte_carlo_alpha > 0.0
-    )
     try:
         if learn and hasattr(controller, "snapshot_learning_state"):
             lifecycle_started = time.perf_counter()
@@ -319,39 +308,23 @@ def run_td_episode(
                 raise InvalidObservationError("Nonfinite initial controller features")
 
             for cycle in range(int(solve_max_cycles)):
-                adaptive_decision = bool(
-                    not fast_anchor_tail
-                    or cycle < int(controller.config.adaptive_cycles)
-                )
-                if adaptive_decision:
-                    if pending_action is None:
-                        decision_started = time.perf_counter()
-                        action_index, action_value, selection = (
-                            controller.select_action(
-                                features,
-                                explore=explore,
-                                epsilon=epsilon,
-                                cycle=cycle,
-                                include_metadata=record_action_metadata,
-                            )
-                        )
-                        decision_runtime += float(
-                            time.perf_counter() - decision_started
-                        )
-                    else:
-                        action_index, action_value, selection = pending_action
-                        pending_action = None
-                    weight = controller.environment_weight(
-                        int(action_index),
-                        float(last_weight),
+                if pending_action is None:
+                    decision_started = time.perf_counter()
+                    action_index, action_value, selection = controller.select_action(
+                        features,
+                        explore=explore,
+                        epsilon=epsilon,
+                        cycle=cycle,
+                        include_metadata=record_action_metadata,
                     )
+                    decision_runtime += float(time.perf_counter() - decision_started)
                 else:
-                    action_index = int(controller.anchor_index)
-                    action_value = float(controller.weights[action_index])
-                    weight = controller.environment_weight(
-                        int(action_index),
-                        float(last_weight),
-                    )
+                    action_index, action_value, selection = pending_action
+                    pending_action = None
+                weight = controller.environment_weight(
+                    int(action_index),
+                    float(last_weight),
+                )
                 try:
                     residual_new, cycle_time = env.step_rl(
                         relax_weight=float(weight),
@@ -411,9 +384,6 @@ def run_td_episode(
                         failure_penalty_sec=failure_penalty_sec,
                     )
                     if learning_allowed:
-                        episode_transitions.append(
-                            (features.copy(), int(action_index), float(transition_cost))
-                        )
                         if learn:
                             update_started = time.perf_counter()
                             td_error = controller.update(
@@ -452,13 +422,7 @@ def run_td_episode(
                     or native_status is SolveStatus.MAX_CYCLES
                     or ((not terminated) and iterations >= int(solve_max_cycles))
                 )
-                need_next_features = bool(
-                    not (terminated or truncated)
-                    and (
-                        not fast_anchor_tail
-                        or iterations < int(controller.config.adaptive_cycles)
-                    )
-                )
+                need_next_features = not (terminated or truncated)
                 next_features = None
                 if need_next_features:
                     feature_started = time.perf_counter()
@@ -545,23 +509,7 @@ def run_td_episode(
                     or recovery is None
                     or not recovery.unrecovered_failure
                 )
-                if learning_allowed:
-                    if adaptive_decision or not episode_transitions:
-                        episode_transitions.append(
-                            (features.copy(), int(action_index), float(transition_cost))
-                        )
-                    else:
-                        tail_features, tail_action, accumulated_cost = (
-                            episode_transitions[-1]
-                        )
-                        episode_transitions[-1] = (
-                            tail_features,
-                            tail_action,
-                            float(accumulated_cost + transition_cost),
-                        )
-                if learn and learning_allowed and fast_anchor_tail:
-                    controller.steps += 1
-                elif learn and learning_allowed:
+                if learn and learning_allowed:
                     assert next_features is not None or terminated or truncated
                     update_started = time.perf_counter()
                     td_error = controller.update(
@@ -597,21 +545,6 @@ def run_td_episode(
                 last_cycle_time = cycle_time
                 if terminated or truncated:
                     break
-            if (
-                learn
-                and (
-                    retain_failed_episodes
-                    or recovery is None
-                    or not recovery.unrecovered_failure
-                )
-                and controller.config.monte_carlo_alpha > 0.0
-                and not defer_monte_carlo_update
-            ):
-                update_started = time.perf_counter()
-                trace.td_errors.extend(
-                    controller.monte_carlo_update(episode_transitions)
-                )
-                update_runtime += float(time.perf_counter() - update_started)
             if (
                 recovery is not None
                 and recovery.unrecovered_failure
@@ -672,9 +605,6 @@ def run_td_episode(
             learn=learn,
             retain_failed_episodes=retain_failed_episodes,
             failure_penalty_sec=failure_penalty_sec,
-            deferred_transitions=(
-                episode_transitions if defer_monte_carlo_update else None
-            ),
         )
     except Exception as exc:
         if isinstance(exc, InvalidObservationError) or (

@@ -20,10 +20,10 @@ class ImportTests(unittest.TestCase):
     def test_experiment_import_does_not_need_search_path_bootstrap(self):
         self.run_fresh_python(
             "import sys\n"
-            "from experiments.joint.solve_control import run_joint_experiment\n"
-            "from experiments.joint.solve_control import setup_aware_compare_common\n"
+            "from experiments.paper_final.online import run\n"
+            "from experiments.paper_final.online import methods\n"
             "assert '_project_paths' not in sys.modules\n"
-            "assert 'setup_aware_compare_common' not in sys.modules\n"
+            "assert 'methods' not in sys.modules\n"
         )
 
     def test_configuration_imports_do_not_load_native_library(self):

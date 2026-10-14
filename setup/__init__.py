@@ -1,10 +1,21 @@
-"""Canonical setup-phase package."""
+"""Setup-phase LinUCB construction and parameter spaces for the SISC studies."""
 
-from .registry import *  # noqa: F401,F403
-from .registry import __all__
-from ._compat import install_checkpoint_aliases
+from .registry import (
+    COMPOSABLE_SETUP_KINDS,
+    ONLINE_SETUP_KINDS,
+    SetupLearnerBuildSpec,
+    build_online_setup_learner,
+    make_setup_learner_spec,
+    normalize_setup_kind,
+    setup_kind_registration,
+)
 
-
-install_checkpoint_aliases()
-
-del install_checkpoint_aliases
+__all__ = [
+    "COMPOSABLE_SETUP_KINDS",
+    "ONLINE_SETUP_KINDS",
+    "SetupLearnerBuildSpec",
+    "build_online_setup_learner",
+    "make_setup_learner_spec",
+    "normalize_setup_kind",
+    "setup_kind_registration",
+]

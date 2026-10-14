@@ -67,9 +67,7 @@ def analyze(output):
     }
     raw = {(r["seed"], r["case_id"], r["policy"], r["repeat"]): r for r in rows}
     jobmap = {(j["seed"], j["case_id"]): j for j in jobs if j["repeat"] == 0}
-    parent = Path(protocol["origin_run"])
-    old = artifacts.read(parent / "analysis/summary.json")
-    if old["seeds"] != protocol["training_seeds"]:
+    if protocol["training_seeds"] != list(range(1, 7)):
         raise ValueError("Checkpoint labels misaligned")
     seeds = protocol["training_seeds"]
     cases = list(range(protocol["test_cases"]))
@@ -220,7 +218,13 @@ def analyze(output):
             ),
             "raw_sha256": marker["raw_sha256"],
         },
-        "fixed_selection_provenance": {"source": str(parent), "no_new_scan": True},
+        "fixed_selection_provenance": {
+            "source": protocol["origin_run"],
+            "no_new_scan": True,
+            "bundle_audit": artifacts.read(output / "bundle_audit.json")
+            if (output / "bundle_audit.json").is_file()
+            else None,
+        },
         "interpretation": "Three fresh repetitions; all Run 04 checkpoints, hierarchies and fixed choices retained. (2.85,1.10) prescribed before timing. Same previously observed cases; not new independent training seeds or a fresh holdout.",
     }
     width = max(len(t["actions"]) for t in traces.values())
@@ -285,7 +289,7 @@ def write_report(output, data):
             "",
             "All checkpoints and test cases were already inspected in prior work; seed 4 was retrained after earlier results. This is a prescribed policy follow-up, not a fresh holdout or six newly trained seeds. Fixed comparators use successful best-observed 41-grid choices followed by retiming. The illustrative best seed is selected after evaluation; all six remain in the tables and figures.",
             "",
-            "Run 04 is retained separately as historical evidence. All five current policy roles are freshly timed together; current comparisons do not combine measurements from different runs.",
+            "The accepted frozen inputs and fixed-grid selection evidence are retained in the input bundle. All five current policy roles are freshly timed together; current comparisons do not combine measurements from different runs.",
         ]
     )
     (output / "REPORT.md").write_text("\n".join(lines) + "\n")

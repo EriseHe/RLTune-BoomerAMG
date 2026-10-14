@@ -279,13 +279,12 @@ full-cycle baseline should be described at that scope.
   analytic extrema at 80-digit precision, exact rational perturbation
   identities, and every unordered grid pair. It reads no PDE runtime data.
 - [Saved scalar verification](period_two_minimax_verification_20260928.json).
-- [Paired experiment report](../../results/paper_final/05_policy/20260928_pair285_vs290_joint_6seeds_100cases/REPORT.md),
+- Development paired experiment report (`20260928_pair285_vs290_joint_6seeds_100cases`, retained on the development branch),
   with raw.jsonl, protocol.json, summary.json and independent_audit.json in
   the same directory.
-- [Paired timing runner](../../experiments/archive/paper_development/compare_05_periodic_pairs.py).
+- [Development paired timing runner](https://github.com/EriseHe/RLTune-BoomerAMG/blob/online-bandit-rl/experiments/archive/paper_development/compare_05_periodic_pairs.py).
 - [Historical anchored derivation and implementation audit](anchored_schedule_review_20260927.md).
-- External supplied clarification:
-  `/Users/erisehe/Downloads/module05_run04_review/optimality_clarification.tex`.
+- An external clarification supplied during the original derivation review.
 - User's follow-up review in this chat, accepted 2026-09-28. The peak values
   and perturbation identities were independently rechecked while saving
   this note. Use this note as the current unanchored-baseline reference;
@@ -295,5 +294,5 @@ From the repository root, reproduce the scalar check with the pinned
 experiment environment:
 
 ```sh
-/Users/erisehe/Library/Science/miniforge3/envs/rl/bin/python -m experiments.paper_final.verify_period_two_minimax
+python -m experiments.paper_final.verify_period_two_minimax
 ```

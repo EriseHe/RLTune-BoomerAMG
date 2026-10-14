@@ -1,0 +1,38 @@
+[
+  {
+    "choices": 100,
+    "seed": 1,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  },
+  {
+    "choices": 100,
+    "seed": 2,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  },
+  {
+    "choices": 100,
+    "seed": 3,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  },
+  {
+    "choices": 100,
+    "seed": 4,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  },
+  {
+    "choices": 100,
+    "seed": 5,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  },
+  {
+    "choices": 100,
+    "seed": 6,
+    "setup_learning_unchanged": true,
+    "source": "bandit_lstdq"
+  }
+]

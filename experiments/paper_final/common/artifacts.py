@@ -144,7 +144,7 @@ def support_source_paths():
     """Current shared implementations, including newly added untracked source."""
     directories = (
         Path(__file__).parent,
-        ROOT / "experiments/joint/solve_control",
+        ROOT / "experiments/paper_final/online",
         ROOT / "solve/core",
         ROOT / "solve/controllers/common",
     )

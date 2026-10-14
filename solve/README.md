@@ -1,26 +1,42 @@
-# Solve
+# Solve phase
 
-Solve-phase policy code and solve-only tests belong here. Native project
-wrappers live in `hypre/interfaces/`; no project Python or interface code lives
-inside the HYPRE fork.
+The SISC studies use recursive LSTDQ to select relaxation weights after each
+AMG cycle. `registry.py` accepts `default`, `fixed`, and `recursive_lstdq`.
 
-Build the unchanged fork and the shared runtime with `make -C hypre`.
-All setup and solve environments use `hypre/interfaces/libamg_runtime.dylib`
-through `hypre.bindings`.
+- `controllers/recursive_lstdq/`: the single episode-cluster controller,
+  numerical configuration, and factory.
+- `controllers/common/`: state and action encoders, construction inputs,
+  controller/checkpoint pairing, and linear numerical primitives.
+- `core/episode.py`: the cycle loop, completion-cost targets, recovery accounting,
+  and transactional commit or rollback of controller learning.
+- `core/outcomes.py`: failure classification shared with the native adapter.
+- `tests/`: native status and timing, numerical updates, recovery transactions,
+  controller construction, and checkpoint round trips.
 
-## Layout
+## LSTDQ implementation
 
-- `controllers/`: canonical solve-controller families.
-- `registry.py`: typed dispatch boundary for family-owned factories.
-- `core/`: solver environments and algorithm-independent outcome handling.
-- `scripts/`: solve-only training, evaluation, and smoke entry points.
-- `tests/`: solve-only tests.
+[RecursiveLstdqController](controllers/recursive_lstdq/controller.py) contains
+the recursive mean update, inverse maintenance, episode-cluster covariance,
+and checkpoint operations in one implementation.
+`controllers/recursive_lstdq/common.py` factorizes the shared state-action scoring.
 
-PDE definitions and deterministic instance streams live in the shared
-`problems/` package. Workflows that also use a setup learner belong in
-`experiments/`, not in this directory.
+`controllers/recursive_lstdq/config.py` defines the numerical specs; its factory
+constructs the controller with the encoder and action configuration supplied by
+`solve.registry`. `controllers/common/` contains the encoders, controller bundle,
+TD configuration, and linear primitives. The TD configuration retains its
+historical class name because checkpoint configuration fields remain unchanged.
 
-Online construction returns a `ControllerBundle`. The bundle owns the paired
-state encoder and exposes `run_case()`, `summary()`, `save()`, and
-`protocol_metadata()`; setup selection, fallback choice, stream ordering, and
-reporting remain experiment responsibilities.
+The controller commits one cluster covariance update per successfully committed episode.
+The episode runner owns recovery and rollback; the controller owns its numerical
+state and NPZ checkpoint. The saved checkpoint fields and schema remain unchanged.
+
+## Shared components and checks
+
+A `ControllerBundle` pairs a controller with its exact state encoder. It runs a
+case, reports a summary, and preserves checkpoint metadata. Setup selection,
+stream order, fallback choice, and reporting belong to the experiment layer.
+
+Setup and solve use the same native interfaces in `hypre/interfaces/` and the
+same [PDE streams](../docs/repository_layout.md#pde-problems). Build the interfaces
+with `make -C hypre`; see [reproduction](../docs/reproduction.md) for prerequisites.
+Run solve tests with `python -m unittest discover -s solve/tests -p 'test_*.py'`.

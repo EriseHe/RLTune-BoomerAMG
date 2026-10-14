@@ -1,17 +1,17 @@
 """Guard the official Run 05 protocol, mathematical choice, and durable resume."""
 
-import copy
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from experiments.paper_final import run_05_policy_minimax as run
+from experiments.paper_final.common import policy_analysis as analysis
 from experiments.paper_final.verify_period_two_minimax import evaluate
 
 
-def parent_jobs():
-    """Small explicit parent roster with shared fixed/oracle execution cells."""
+def evaluation_jobs():
+    """Small official roster with shared fixed/oracle execution cells."""
     jobs = []
     for repeat in range(3):
         for seed in (1, 2):
@@ -20,8 +20,7 @@ def parent_jobs():
                     "reference": "fixed_1.00",
                     "fixed": "fixed_1.65",
                     "oracle": "fixed_1.65" if case == 0 else "fixed_1.00",
-                    "periodic": "periodic_2.60_1.00",
-                    "periodic13": "periodic_1.00_3.00",
+                    "periodic": run.POLICY,
                     "rl": "rl_frozen_lcb",
                 }
                 jobs.append(
@@ -42,33 +41,6 @@ def parent_jobs():
 
 
 class MinimaxTests(unittest.TestCase):
-    def test_exact_delta_retains_case_order_fixed_choices_and_shared_cells(self):
-        old = parent_jobs()
-        before = copy.deepcopy(old)
-        new = run.replace_schedule(old)
-        self.assertEqual(old, before)
-        self.assertEqual(len(new), 12)
-        self.assertEqual(
-            len(run.analysis.expected_cells(old))
-            - len(run.analysis.expected_cells(new)),
-            12,
-        )
-        for original, updated in zip(old, new):
-            expected = copy.deepcopy(original)
-            expected["method_policies"].pop("periodic13")
-            expected["method_policies"]["periodic"] = run.POLICY
-            expected["policy_order"] = [
-                run.POLICY if name == run.OLD_POLICY else name
-                for name in original["policy_order"]
-                if name != run.REMOVED_POLICY
-            ]
-            self.assertEqual(updated, expected)
-            self.assertEqual(set(updated["method_policies"]), set(run.METHODS))
-            self.assertEqual(
-                len(updated["policy_order"]),
-                len(set(updated["method_policies"].values())),
-            )
-
     def test_tracked_accepted_protocol_has_original_constants(self):
         protocol = run.artifacts.read(
             Path(__file__).with_name("reproduction") / "matched_policy/protocol.json"
@@ -83,12 +55,6 @@ class MinimaxTests(unittest.TestCase):
             protocol["policies"][run.POLICY],
             {"kind": "periodic", "pattern": [2.85, 1.10]},
         )
-
-    def test_unexpected_parent_schedule_rejected(self):
-        jobs = parent_jobs()
-        jobs[0]["method_policies"]["periodic"] = "periodic_3.00_1.00"
-        with self.assertRaises(ValueError):
-            run.replace_schedule(jobs)
 
     def test_analytic_extrema_select_joint_grid_minimum(self):
         result = evaluate()
@@ -107,7 +73,7 @@ class MinimaxTests(unittest.TestCase):
             output = Path(name)
             (output / "progress").mkdir()
             (output / "raw/test").mkdir(parents=True)
-            jobs = run.replace_schedule(parent_jobs())
+            jobs = evaluation_jobs()
             run.artifacts.dump(output / "jobs_test.json", jobs)
             run.artifacts.dump(
                 output / "protocol.json",
@@ -136,7 +102,7 @@ class MinimaxTests(unittest.TestCase):
                 run.worker(output, "test", 0, 1)
                 before = (output / "raw/test/worker_0.jsonl").read_bytes()
                 run.worker(output, "test", 0, 1)
-            self.assertEqual(len(calls), len(run.analysis.expected_cells(jobs)))
+            self.assertEqual(len(calls), len(analysis.expected_cells(jobs)))
             self.assertEqual(before, (output / "raw/test/worker_0.jsonl").read_bytes())
             self.assertTrue(
                 all(

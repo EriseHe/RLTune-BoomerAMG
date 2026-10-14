@@ -74,14 +74,12 @@ def _shared_protocol_metadata(
     algorithm = asdict(request.algorithm)
     epsilon = request.actions.epsilon
     context_sources = {
+        "material_coefficients": "three normalized log material coefficients from assembly inputs",
+        "rs_diffusion": "normalized log diffusion strength; grid and RS flow type fixed per stream",
         "canonical": "shared per-instance canonical setup/solve PDE context",
         "canonical_no_c_mean": (
             "shared three log diffusion and three signed-log advection "
             "coefficients; mean omitted and intercept retained separately"
-        ),
-        "physics_linear": (
-            "shared per-instance canonical PDE context projected through "
-            "the common physics-linear helper"
         ),
         "legacy": "legacy mkw diffusion-only projection",
         "diffusion3d": (
@@ -102,7 +100,8 @@ def _shared_protocol_metadata(
             "setup_observed_keys": list(request.setup_obs_encoder.observed_keys),
             "setup_parameter_spec": (
                 asdict(request.setup_obs_encoder.parameter_spec)
-                if hasattr(request.setup_obs_encoder, "parameter_spec") else None
+                if hasattr(request.setup_obs_encoder, "parameter_spec")
+                else None
             ),
             "strict_setup_categories": bool(
                 getattr(request.setup_obs_encoder, "strict_categories", False)
@@ -112,12 +111,8 @@ def _shared_protocol_metadata(
             "c_max": float(request.state.c_max),
             "time_scale_sec": float(request.state.time_scale_sec),
             "feature_dim": int(encoder.feature_dim),
-            "problem_context_mode": str(
-                request.state.problem_context_mode
-            ),
-            "problem_context_fields": list(
-                encoder.problem_context_fields
-            ),
+            "problem_context_mode": str(request.state.problem_context_mode),
+            "problem_context_fields": list(encoder.problem_context_fields),
             "problem_context_source": context_sources[
                 str(request.state.problem_context_mode)
             ],

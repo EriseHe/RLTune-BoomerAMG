@@ -1,0 +1,183 @@
+{
+  "cases_override": null,
+  "execution": "Batches are sequential. Each batch completes all experiments in plan order; its seed workers run concurrently, with four serial methods per input.",
+  "experiments": [
+    "diffusion_40",
+    "advection_40",
+    "diffusion_60",
+    "advection_60",
+    "diffusion_80",
+    "advection_80"
+  ],
+  "format": "module04-zero-prefix-campaign-v1",
+  "jobs": [
+    {
+      "batch": 1,
+      "experiment": "diffusion_40",
+      "inputs": 15000,
+      "output": "batches/batch_01/diffusion_40",
+      "protocol_sha256": "c798d9bd1fb72a91f5bc7c813266df1ac12a9c1297d24d964eb722349c8e6d64",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 1,
+      "experiment": "advection_40",
+      "inputs": 15000,
+      "output": "batches/batch_01/advection_40",
+      "protocol_sha256": "74462c8860876c9be01a945a4c970146d51eb527e931585ec411f16552a48613",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 1,
+      "experiment": "diffusion_60",
+      "inputs": 15000,
+      "output": "batches/batch_01/diffusion_60",
+      "protocol_sha256": "2ef55234c5ee4ba3ca5cb93472e9d421d76ce640f1d21134010fd6b7b9e18eda",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 1,
+      "experiment": "advection_60",
+      "inputs": 15000,
+      "output": "batches/batch_01/advection_60",
+      "protocol_sha256": "40e818aa504aeb696047158d90ac7702e0014046578f2a1d5a425f97103464a8",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 1,
+      "experiment": "diffusion_80",
+      "inputs": 15000,
+      "output": "batches/batch_01/diffusion_80",
+      "protocol_sha256": "9207e34846c116b7e05e48716f025189de2abff2a2a551e37f3e8fd488aa2d94",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 1,
+      "experiment": "advection_80",
+      "inputs": 15000,
+      "output": "batches/batch_01/advection_80",
+      "protocol_sha256": "a9e2ea2f2b7760dbed94157a95a40e7fff0cf79a73d50dcc7e28effca173a2f9",
+      "seeds": [
+        "1",
+        "2",
+        "3"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "diffusion_40",
+      "inputs": 15000,
+      "output": "batches/batch_02/diffusion_40",
+      "protocol_sha256": "3bc6b08700d33bb1713cc8899ef10ad236c38e47873ed50a0a683d2ceef3a41c",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "advection_40",
+      "inputs": 15000,
+      "output": "batches/batch_02/advection_40",
+      "protocol_sha256": "958b0bbb7d80812ed5cd0d9687673cdd0a334c6e0ee9248fe82f85cf9198fda3",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "diffusion_60",
+      "inputs": 15000,
+      "output": "batches/batch_02/diffusion_60",
+      "protocol_sha256": "3bef951139f74561714170a0babe22b082c908fab6563ccf43418c21e750e79f",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "advection_60",
+      "inputs": 15000,
+      "output": "batches/batch_02/advection_60",
+      "protocol_sha256": "b592c5318d3c2aae1fa0d2bfba5649e415db690113a4c68c9db897835370a00f",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "diffusion_80",
+      "inputs": 15000,
+      "output": "batches/batch_02/diffusion_80",
+      "protocol_sha256": "519e69d46017ad1aa5df185e2db856c4d3248659307cb47f7814c624f5c2cb81",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    },
+    {
+      "batch": 2,
+      "experiment": "advection_80",
+      "inputs": 15000,
+      "output": "batches/batch_02/advection_80",
+      "protocol_sha256": "ce0648f97d2e845d54365798631cd586a6246fdefeb3abbb5498df8c593ef385",
+      "seeds": [
+        "4",
+        "5",
+        "6"
+      ]
+    }
+  ],
+  "max_workers": 3,
+  "methods": [
+    "default_setup_default_solve",
+    "default_setup_lstdq",
+    "bandit_default",
+    "bandit_lstdq"
+  ],
+  "name": "Module 04 official six-seed online study",
+  "planned_method_evaluations": 720000,
+  "planned_paired_inputs": 180000,
+  "planned_seed_experiments": 36,
+  "prepared_at": "2026-10-09T13:38:40.934863+00:00",
+  "seed_batches": [
+    [
+      "1",
+      "2",
+      "3"
+    ],
+    [
+      "4",
+      "5",
+      "6"
+    ]
+  ]
+}

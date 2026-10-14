@@ -95,7 +95,7 @@ def build_context_scalar_anisotropic_diffusion_advection(
     )
 
 
-def build_legacy_linucb_v4_context(
+def build_default_linucb_context(
     *,
     stream_context: np.ndarray,
     nx: int,
@@ -103,7 +103,7 @@ def build_legacy_linucb_v4_context(
     nz: int,
     grid_norm_div: float,
 ) -> np.ndarray:
-    """Project the v5 stream context onto the legacy v4 DifConv context."""
+    """Project the PDE stream onto the default LinUCB context."""
     context = np.asarray(stream_context, dtype=float).reshape(-1)
     if context.size != SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_DIM:
         raise ValueError(
@@ -187,7 +187,7 @@ __all__ = [
     "SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_CONTEXT_FIELDS",
     "SCALAR_ANISOTROPIC_DIFFUSION_ADVECTION_INTERACTION_INDICES",
     "build_context_scalar_anisotropic_diffusion_advection",
-    "build_legacy_linucb_v4_context",
+    "build_default_linucb_context",
     "build_matrix_kwargs_scalar_anisotropic_diffusion_advection",
     "stencil_0_scalar_anisotropic_diffusion_advection_rl",
 ]

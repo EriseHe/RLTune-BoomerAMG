@@ -17,15 +17,17 @@ from hypre.bindings import (
     SolveStatus,
     run_with_default_fallback,
 )
-from hypre.bindings.recovery import AttemptOutcome, RecoveryOutcome, InvalidObservationError, execute_attempt
-from solve.controllers.sarsa import (
-    ExpectedSarsaLambda,
-    ExpectedSarsaLambdaConfig,
-    run_td_episode,
+from hypre.bindings.recovery import (
+    AttemptOutcome,
+    RecoveryOutcome,
+    InvalidObservationError,
+    execute_attempt,
 )
+from solve.controllers.common.td_config import ExpectedSarsaLambdaConfig
+from solve.core.episode import run_td_episode
 from solve.controllers.recursive_lstdq import (
-    RecursiveLstdqV3LcbController,
-    RecursiveLstdqV3LcbSpec,
+    RecursiveLstdqController,
+    RecursiveLstdqSpec,
 )
 
 
@@ -106,9 +108,7 @@ def _result(*, failed: bool, runtime: float = 0.01):
         "solve_runtime": float(runtime - 0.004),
         "infer_runtime": 0.0,
         "failed": bool(failed),
-        "failure_reason": (
-            "max_iter_reached_without_convergence" if failed else ""
-        ),
+        "failure_reason": ("max_iter_reached_without_convergence" if failed else ""),
         "failure_stage": "solve" if failed else "",
         "residual_norm": 1.0 if failed else 1.0e-8,
         "iterations": 10,
@@ -128,29 +128,22 @@ def _controller(seed: int = 7):
         initial_q_sec=0.0,
         td_algorithm="true_online_sarsa",
     )
-    return ExpectedSarsaLambda(feature_dim=1, config=config, seed=seed)
-
-
-def _v3_controller(seed: int = 7) -> RecursiveLstdqV3LcbController:
-    base = _controller(seed=seed)
-    return RecursiveLstdqV3LcbController(
-        feature_dim=1,
-        config=base.config,
-        spec=RecursiveLstdqV3LcbSpec(
-            ridge=1.0,
-            uncertainty_beta=2.0,
-            residual_floor_sec=1.0e-3,
-        ),
-        seed=seed,
+    return RecursiveLstdqController(
+        feature_dim=1, config=config, spec=RecursiveLstdqSpec(), seed=seed
     )
 
 
-class _RecordingController(ExpectedSarsaLambda):
+def _lstdq_controller(seed: int = 7) -> RecursiveLstdqController:
+    return _controller(seed=seed)
+
+
+class _RecordingController(RecursiveLstdqController):
     def __init__(self, *, seed: int = 7):
         base = _controller(seed=seed)
         super().__init__(
             feature_dim=base.feature_dim,
             config=base.config,
+            spec=base.spec,
             seed=seed,
         )
         self.physical_targets = []
@@ -174,76 +167,132 @@ class RecoveryProtocolTests(unittest.TestCase):
             ("recovered", [0.5, 0.4], 2, False, [0.001, 0.021], 0.024),
             ("unrecovered", [0.5, 0.4], 2, True, [0.001, 0.521], 0.024),
             ("nonfinite", [0.5, float("nan")], 3, True, [0.001, 0.521], 0.024),
-            ("nonfinite_recovered", [0.5, float("nan")], 3, False, [0.001, 0.021], 0.024),
+            (
+                "nonfinite_recovered",
+                [0.5, float("nan")],
+                3,
+                False,
+                [0.001, 0.021],
+                0.024,
+            ),
         )
         for name, residuals, cap, fallback_failed, costs, native_cost in cases:
             with self.subTest(name=name):
                 controller = _RecordingController()
-                fallback = None if fallback_failed is None else lambda: _result(failed=fallback_failed, runtime=0.02)
-                with patch("solve.core.episode.create_env", return_value=_SequentialEnv(residuals)), \
-                        patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
+                fallback = (
+                    None
+                    if fallback_failed is None
+                    else lambda: _result(failed=fallback_failed, runtime=0.02)
+                )
+                with (
+                    patch(
+                        "solve.core.episode.create_env",
+                        return_value=_SequentialEnv(residuals),
+                    ),
+                    patch("time.perf_counter", side_effect=itertools.count(step=1.0)),
+                ):
                     result = run_td_episode(
-                        mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                        solve_tol=1e-6, solve_max_cycles=cap, learn=True, explore=False,
-                        fallback_attempt=fallback, failure_penalty_sec=0.5,
+                        mkw={},
+                        params={},
+                        controller=controller,
+                        encoder=_Encoder(),
+                        solve_tol=1e-6,
+                        solve_max_cycles=cap,
+                        learn=True,
+                        explore=False,
+                        fallback_attempt=fallback,
+                        failure_penalty_sec=0.5,
                     )
                 np.testing.assert_allclose(controller.learning_costs, costs)
-                self.assertAlmostEqual(result.get("native_runtime", result["runtime"]), native_cost)
+                self.assertAlmostEqual(
+                    result.get("native_runtime", result["runtime"]), native_cost
+                )
                 self.assertTrue(result["controller_update_committed"])
                 self.assertEqual(controller.episodes, 1)
                 self.assertEqual(controller.steps, 2)
-                self.assertEqual(result["failure_penalty_sec"], 0.5 if fallback_failed else 0.0)
+                self.assertEqual(
+                    result["failure_penalty_sec"], 0.5 if fallback_failed else 0.0
+                )
                 self.assertTrue(np.all(np.isfinite(controller.theta)))
 
     def test_valid_native_exception_retains_failed_terminal(self):
         controller = _RecordingController()
-        with patch("solve.core.episode.create_env", return_value=_SolveFailureEnv([])), \
-                patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
+        with (
+            patch("solve.core.episode.create_env", return_value=_SolveFailureEnv([])),
+            patch("time.perf_counter", side_effect=itertools.count(step=1.0)),
+        ):
             result = run_td_episode(
-                mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                solve_tol=1e-6, solve_max_cycles=3, learn=True, explore=False,
-                fallback_attempt=lambda: _result(failed=True, runtime=0.02), failure_penalty_sec=0.5,
+                mkw={},
+                params={},
+                controller=controller,
+                encoder=_Encoder(),
+                solve_tol=1e-6,
+                solve_max_cycles=3,
+                learn=True,
+                explore=False,
+                fallback_attempt=lambda: _result(failed=True, runtime=0.02),
+                failure_penalty_sec=0.5,
             )
         self.assertEqual(controller.physical_targets, [(None, None)])
         np.testing.assert_allclose(controller.learning_costs, [0.524])
         self.assertTrue(result["controller_update_committed"])
         self.assertAlmostEqual(result["native_runtime"], 0.026)
 
-    def test_failed_v3_episode_matches_batch_and_retains_coercivity(self):
-        controller = _v3_controller()
+    def test_failed_lstdq_episode_matches_batch_and_retains_coercivity(self):
+        controller = _lstdq_controller()
         controller.config = replace(controller.config, trace_lambda=0.8)
-        with patch("solve.core.episode.create_env", return_value=_SequentialEnv([0.8, 0.7, 0.6])), \
-                patch("time.perf_counter", side_effect=itertools.count(step=1.0)), \
-                patch.object(controller, "update", wraps=controller.update) as updates:
+        with (
+            patch(
+                "solve.core.episode.create_env",
+                return_value=_SequentialEnv([0.8, 0.7, 0.6]),
+            ),
+            patch("time.perf_counter", side_effect=itertools.count(step=1.0)),
+            patch.object(controller, "update", wraps=controller.update) as updates,
+        ):
             result = run_td_episode(
-                mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                solve_tol=1e-6, solve_max_cycles=3, learn=True, explore=False,
-                fallback_attempt=lambda: _result(failed=True, runtime=0.02), failure_penalty_sec=0.5,
+                mkw={},
+                params={},
+                controller=controller,
+                encoder=_Encoder(),
+                solve_tol=1e-6,
+                solve_max_cycles=3,
+                learn=True,
+                explore=False,
+                fallback_attempt=lambda: _result(failed=True, runtime=0.02),
+                failure_penalty_sec=0.5,
             )
         matrix = np.eye(controller.joint_dim)
         target = np.zeros(controller.joint_dim)
         trace = np.zeros(controller.joint_dim)
         for call in updates.call_args_list:
             kw = call.kwargs
-            phi = controller.state_action_feature(kw["features"], kw["action_index"]).copy()
-            following = np.zeros_like(phi) if kw["terminal"] else controller.state_action_feature(
-                kw["next_features"], kw["next_action_index"]
+            phi = controller.state_action_feature(
+                kw["features"], kw["action_index"]
             ).copy()
+            following = (
+                np.zeros_like(phi)
+                if kw["terminal"]
+                else controller.state_action_feature(
+                    kw["next_features"], kw["next_action_index"]
+                ).copy()
+            )
             trace = 0.8 * trace + phi
             matrix += np.outer(trace, phi - following)
             target += trace * kw["cost"]
         np.testing.assert_allclose(controller.a_matrix, matrix)
         np.testing.assert_allclose(controller.b, target)
         np.testing.assert_allclose(controller.theta, np.linalg.solve(matrix, target))
-        self.assertGreaterEqual(np.linalg.eigvalsh((matrix + matrix.T) / 2).min(), 1.0 - 1e-12)
+        self.assertGreaterEqual(
+            np.linalg.eigvalsh((matrix + matrix.T) / 2).min(), 1.0 - 1e-12
+        )
         self.assertEqual(controller.episode_moment_count, 1)
         self.assertTrue(result["unrecovered_failure"])
         self.assertTrue(result["controller_update_committed"])
 
-    def test_corrupt_times_and_estimator_errors_abort_and_restore_v3(self):
+    def test_corrupt_times_and_estimator_errors_abort_and_restore_lstdq(self):
         for invalid_kind in ("nan_time", "negative_time", "estimator"):
             with self.subTest(invalid_kind=invalid_kind):
-                controller = _v3_controller()
+                controller = _lstdq_controller()
                 before = controller.snapshot_learning_state()
                 env = _SequentialEnv([0.5, 0.4])
                 actual_step = env.step_rl
@@ -259,19 +308,46 @@ class RecoveryProtocolTests(unittest.TestCase):
                     raise FloatingPointError("estimator arithmetic")
 
                 with ExitStack() as stack:
-                    stack.enter_context(patch("solve.core.episode.create_env", return_value=env))
+                    stack.enter_context(
+                        patch("solve.core.episode.create_env", return_value=env)
+                    )
                     stack.enter_context(patch.object(env, "step_rl", side_effect=step))
-                    stack.enter_context(patch("time.perf_counter", side_effect=itertools.count(step=1.0)))
+                    stack.enter_context(
+                        patch(
+                            "time.perf_counter", side_effect=itertools.count(step=1.0)
+                        )
+                    )
                     if invalid_kind == "estimator":
-                        stack.enter_context(patch.object(controller, "update", side_effect=broken_update))
-                    with self.assertRaises(FloatingPointError if invalid_kind == "estimator" else InvalidObservationError):
+                        stack.enter_context(
+                            patch.object(
+                                controller, "update", side_effect=broken_update
+                            )
+                        )
+                    with self.assertRaises(
+                        FloatingPointError
+                        if invalid_kind == "estimator"
+                        else InvalidObservationError
+                    ):
                         run_td_episode(
-                            mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                            solve_tol=1e-6, solve_max_cycles=3, learn=True, explore=False,
+                            mkw={},
+                            params={},
+                            controller=controller,
+                            encoder=_Encoder(),
+                            solve_tol=1e-6,
+                            solve_max_cycles=3,
+                            learn=True,
+                            explore=False,
                             failure_penalty_sec=0.5,
                         )
                 after = controller.snapshot_learning_state()
-                for key in ("a_matrix", "a_inverse", "b", "theta", "episode_moment_covariance", "trace"):
+                for key in (
+                    "a_matrix",
+                    "a_inverse",
+                    "b",
+                    "theta",
+                    "episode_moment_covariance",
+                    "trace",
+                ):
                     np.testing.assert_array_equal(before[key], after[key])
                 self.assertEqual(controller.episodes, 0)
 
@@ -279,19 +355,27 @@ class RecoveryProtocolTests(unittest.TestCase):
         controller = _RecordingController()
         env = _SequentialEnv([1e-8])
         prep = env.prepare_rl({})
-        prep.setup_runtime_sec = .977915
-        with patch("solve.core.episode.create_env", return_value=env), \
-                patch.object(env, "prepare_rl", return_value=prep), \
-                patch("time.perf_counter", return_value=0.):
+        prep.setup_runtime_sec = 0.977915
+        with (
+            patch("solve.core.episode.create_env", return_value=env),
+            patch.object(env, "prepare_rl", return_value=prep),
+            patch("time.perf_counter", return_value=0.0),
+        ):
             result = run_td_episode(
-                mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                solve_tol=1e-6, solve_max_cycles=200, learn=True, explore=False,
+                mkw={},
+                params={},
+                controller=controller,
+                encoder=_Encoder(),
+                solve_tol=1e-6,
+                solve_max_cycles=200,
+                learn=True,
+                explore=False,
                 failure_penalty_sec=2.378,
             )
             accepted = execute_attempt(lambda: result, require_valid_observation=True)
         self.assertTrue(result["controller_update_committed"])
-        self.assertAlmostEqual(accepted.native_runtime_sec, .978915)
-        self.assertEqual(controller.learning_costs, [.001])
+        self.assertAlmostEqual(accepted.native_runtime_sec, 0.978915)
+        self.assertEqual(controller.learning_costs, [0.001])
 
     def test_strict_attempt_rejects_execution_errors_and_sanitized_times(self):
         def broken():
@@ -308,22 +392,33 @@ class RecoveryProtocolTests(unittest.TestCase):
                     )
 
     def test_strict_attempt_checks_completed_residual_and_fallback_origin(self):
-        primary = AttemptOutcome.from_mapping({**_result(failed=True), "residual_norm": float("nan")})
+        primary = AttemptOutcome.from_mapping(
+            {**_result(failed=True), "residual_norm": float("nan")}
+        )
         success = AttemptOutcome.from_mapping(_result(failed=False))
         recovered = RecoveryOutcome(primary=primary, fallback=success).to_result()
         with patch("time.perf_counter", side_effect=itertools.count(step=1.0)):
-            accepted = execute_attempt(lambda: recovered, require_valid_observation=True)
+            accepted = execute_attempt(
+                lambda: recovered, require_valid_observation=True
+            )
             self.assertEqual(accepted.result["completed_status"], "success")
             with self.assertRaises(InvalidObservationError):
-                execute_attempt(lambda: {**recovered, "fallback_failure_origin":"execution"},
-                                require_valid_observation=True)
+                execute_attempt(
+                    lambda: {**recovered, "fallback_failure_origin": "execution"},
+                    require_valid_observation=True,
+                )
 
     def test_completed_attempt_survives_recovery_serialization(self):
         success = AttemptOutcome.from_mapping(_result(failed=False))
         failure = AttemptOutcome.from_mapping(_result(failed=True))
-        zero_cost_failure = AttemptOutcome.from_mapping({
-            "failed":True, "failure_stage":"setup", "setup_runtime":0., "solve_runtime":0.,
-        })
+        zero_cost_failure = AttemptOutcome.from_mapping(
+            {
+                "failed": True,
+                "failure_stage": "setup",
+                "setup_runtime": 0.0,
+                "solve_runtime": 0.0,
+            }
+        )
         cases = (
             RecoveryOutcome(primary_attempts=(success,)),
             RecoveryOutcome(primary_attempts=(failure, success)),
@@ -333,19 +428,32 @@ class RecoveryProtocolTests(unittest.TestCase):
             RecoveryOutcome(primary=zero_cost_failure, fallback=failure),
         )
         for recovery in cases:
-            with self.subTest(attempts=recovery.primary_attempt_count, fallback=recovery.fallback_used,
-                              failed=recovery.unrecovered_failure):
+            with self.subTest(
+                attempts=recovery.primary_attempt_count,
+                fallback=recovery.fallback_used,
+                failed=recovery.unrecovered_failure,
+            ):
                 completed = recovery.fallback or recovery.primary
                 payload = recovery.to_result()
                 restored = RecoveryOutcome.from_mapping(payload).to_result()
-                for key in ("runtime", "native_runtime", "setup_runtime", "solve_runtime", "infer_runtime"):
+                for key in (
+                    "runtime",
+                    "native_runtime",
+                    "setup_runtime",
+                    "solve_runtime",
+                    "infer_runtime",
+                ):
                     self.assertAlmostEqual(restored[key], payload[key])
                 for result in (payload, restored):
-                    self.assertEqual(result["completed_residual_norm"], completed.residual_norm)
+                    self.assertEqual(
+                        result["completed_residual_norm"], completed.residual_norm
+                    )
                     self.assertEqual(result["completed_cycles"], completed.cycles)
                     self.assertEqual(result["completed_status"], completed.status.value)
                     if recovery.fallback_used:
-                        self.assertEqual(result["fallback_residual_norm"], completed.residual_norm)
+                        self.assertEqual(
+                            result["fallback_residual_norm"], completed.residual_norm
+                        )
                         self.assertEqual(result["fallback_cycles"], completed.cycles)
 
     def test_episode_passes_native_cycle_targets_separately_from_learning_cost(self):
@@ -374,7 +482,8 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertAlmostEqual(outcome["setup_runtime"], 0.002)
         self.assertAlmostEqual(outcome["runtime"], 0.004)
         self.assertAlmostEqual(
-            outcome["runtime"], outcome["setup_runtime"] + outcome["native_solve_runtime"]
+            outcome["runtime"],
+            outcome["setup_runtime"] + outcome["native_solve_runtime"],
         )
 
     def test_controller_lifecycle_is_charged_on_success_recovery_and_rollback(self):
@@ -395,6 +504,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                             return operation(*args, **kwargs)
                         finally:
                             clock[0] += duration
+
                     return call
 
                 for name, duration in (
@@ -404,28 +514,55 @@ class RecoveryProtocolTests(unittest.TestCase):
                     ("finish_episode", 0.08),
                 ):
                     operation = getattr(controller, name)
-                    patches.enter_context(patch.object(controller, name, side_effect=timed(operation, duration)))
-                patches.enter_context(patch(
-                    "solve.core.episode.time.perf_counter",
-                    side_effect=lambda: clock[0],
-                ))
-                patches.enter_context(patch(
-                    "solve.core.episode.create_env", return_value=env,
-                ))
-                fallback = (None if fallback_failed is None else
-                            lambda: _result(failed=fallback_failed, runtime=0.02))
+                    patches.enter_context(
+                        patch.object(
+                            controller, name, side_effect=timed(operation, duration)
+                        )
+                    )
+                patches.enter_context(
+                    patch(
+                        "solve.core.episode.time.perf_counter",
+                        side_effect=lambda: clock[0],
+                    )
+                )
+                patches.enter_context(
+                    patch(
+                        "solve.core.episode.create_env",
+                        return_value=env,
+                    )
+                )
+                fallback = (
+                    None
+                    if fallback_failed is None
+                    else lambda: _result(failed=fallback_failed, runtime=0.02)
+                )
                 outcome = run_td_episode(
-                    mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                    solve_tol=1e-6, solve_max_cycles=2, learn=True, explore=False,
+                    mkw={},
+                    params={},
+                    controller=controller,
+                    encoder=_Encoder(),
+                    solve_tol=1e-6,
+                    solve_max_cycles=2,
+                    learn=True,
+                    explore=False,
                     fallback_attempt=fallback,
                 )
                 self.assertAlmostEqual(outcome["lifecycle_runtime"], expected_lifecycle)
-                self.assertAlmostEqual(outcome["infer_runtime"], sum(
-                    outcome[key] for key in (
-                        "feature_runtime", "decision_runtime", "update_runtime", "lifecycle_runtime"
-                    )
-                ))
-                self.assertAlmostEqual(outcome.get("native_runtime", outcome["runtime"]), expected_native)
+                self.assertAlmostEqual(
+                    outcome["infer_runtime"],
+                    sum(
+                        outcome[key]
+                        for key in (
+                            "feature_runtime",
+                            "decision_runtime",
+                            "update_runtime",
+                            "lifecycle_runtime",
+                        )
+                    ),
+                )
+                self.assertAlmostEqual(
+                    outcome.get("native_runtime", outcome["runtime"]), expected_native
+                )
                 if label in {"success", "recovered"}:
                     self.assertAlmostEqual(outcome["update_runtime"], 0.08)
                 if label == "success":
@@ -524,9 +661,7 @@ class RecoveryProtocolTests(unittest.TestCase):
             )
 
         learning_after = controller.snapshot_learning_state()
-        np.testing.assert_array_equal(
-            learning_after["theta"], learning_before["theta"]
-        )
+        np.testing.assert_array_equal(learning_after["theta"], learning_before["theta"])
         self.assertEqual(learning_after["episodes"], learning_before["episodes"])
         self.assertEqual(outcome["primary_status"], "setup_failure")
         self.assertFalse(outcome["fallback_used"])
@@ -581,14 +716,13 @@ class RecoveryProtocolTests(unittest.TestCase):
             )
 
         learning_after = controller.snapshot_learning_state()
-        np.testing.assert_array_equal(
-            learning_after["theta"], learning_before["theta"]
-        )
-        np.testing.assert_array_equal(
-            learning_after["td_counts"], learning_before["td_counts"]
-        )
-        self.assertEqual(learning_after["steps"], learning_before["steps"])
-        self.assertEqual(learning_after["episodes"], learning_before["episodes"])
+        self.assertEqual(set(learning_after), set(learning_before))
+        for key, before in learning_before.items():
+            with self.subTest(state_field=key):
+                if isinstance(before, np.ndarray):
+                    np.testing.assert_array_equal(learning_after[key], before)
+                else:
+                    self.assertEqual(learning_after[key], before)
         self.assertNotEqual(controller.rng.bit_generator.state, rng_before)
         self.assertTrue(outcome["fallback_used"])
         self.assertTrue(outcome["unrecovered_failure"])
@@ -620,8 +754,8 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertEqual(controller.steps, 1)
         self.assertGreater(outcome["runtime"], 0.02)
 
-    def test_v3_recovered_nonconvergence_commits_one_cluster(self):
-        controller = _v3_controller()
+    def test_lstdq_recovered_nonconvergence_commits_one_cluster(self):
+        controller = _lstdq_controller()
         covariance_before = controller.episode_moment_covariance.copy()
         with patch(
             "solve.core.episode.create_env",
@@ -649,8 +783,8 @@ class RecoveryProtocolTests(unittest.TestCase):
             )
         )
 
-    def test_v3_unrecovered_failure_restores_cluster_and_mean_state(self):
-        controller = _v3_controller()
+    def test_lstdq_unrecovered_failure_restores_cluster_and_mean_state(self):
+        controller = _lstdq_controller()
         state_before = controller.snapshot_learning_state()
         with patch(
             "solve.core.episode.create_env",
@@ -689,10 +823,10 @@ class RecoveryProtocolTests(unittest.TestCase):
         self.assertTrue(outcome["unrecovered_failure"])
         self.assertFalse(outcome["controller_update_committed"])
 
-    def test_v3_target_on_cycle_50_uses_recovery_and_transaction_rules(self):
+    def test_lstdq_target_on_cycle_50_uses_recovery_and_transaction_rules(self):
         for fallback_failed in (False, True):
             with self.subTest(fallback_failed=fallback_failed):
-                controller = _v3_controller()
+                controller = _lstdq_controller()
                 state_before = controller.snapshot_learning_state()
                 calls = []
 
@@ -702,11 +836,17 @@ class RecoveryProtocolTests(unittest.TestCase):
 
                 with patch(
                     "solve.core.episode.create_env",
-                    return_value=_SequentialEnv([0.5]*49 + [8e-7]),
+                    return_value=_SequentialEnv([0.5] * 49 + [8e-7]),
                 ):
                     outcome = run_td_episode(
-                        mkw={}, params={}, controller=controller, encoder=_Encoder(),
-                        solve_tol=1e-6, solve_max_cycles=50, learn=True, explore=False,
+                        mkw={},
+                        params={},
+                        controller=controller,
+                        encoder=_Encoder(),
+                        solve_tol=1e-6,
+                        solve_max_cycles=50,
+                        learn=True,
+                        explore=False,
                         fallback_attempt=fallback,
                     )
                 self.assertEqual(calls, [True])
@@ -715,12 +855,23 @@ class RecoveryProtocolTests(unittest.TestCase):
                 self.assertLess(outcome["primary_residual_norm"], 1e-6)
                 self.assertAlmostEqual(outcome["primary_solve_runtime"], 0.05)
                 self.assertAlmostEqual(outcome["native_runtime"], 0.052 + 0.02)
-                self.assertAlmostEqual(outcome["runtime"], outcome["native_runtime"] + outcome["infer_runtime"])
-                self.assertEqual(outcome["controller_update_committed"], not fallback_failed)
+                self.assertAlmostEqual(
+                    outcome["runtime"],
+                    outcome["native_runtime"] + outcome["infer_runtime"],
+                )
+                self.assertEqual(
+                    outcome["controller_update_committed"], not fallback_failed
+                )
                 self.assertEqual(outcome["unrecovered_failure"], fallback_failed)
                 if fallback_failed:
                     after = controller.snapshot_learning_state()
-                    for key in ("a_matrix", "a_inverse", "b", "theta", "episode_moment_covariance"):
+                    for key in (
+                        "a_matrix",
+                        "a_inverse",
+                        "b",
+                        "theta",
+                        "episode_moment_covariance",
+                    ):
                         np.testing.assert_array_equal(after[key], state_before[key])
                     self.assertEqual(controller.episodes, 0)
                 else:

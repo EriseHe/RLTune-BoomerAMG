@@ -1,145 +1,105 @@
-# Reproduction index
+# Official data and reproduction
 
-This index connects the current paper experiments to their protocols, runners,
-analysis, and required artifacts. Commands run from the repository root in the
-activated `rl` environment. Build the project-owned native interfaces first as
-shown in the [README](../README.md).
+The [registry](../experiments/paper_final/reproduction/manifest.json) selects
+exactly Modules 04, 05, and 06. The compact publication bundle uses stable module
+names; the full local data lives under `data/official/`.
 
-## Accepted studies and compact evidence
+## Module 04
 
-| Evidence | Protocol and compact numerical record | Runner / reporting |
-|---|---|---|
-| Module 04: online comparison and cost breakdown for 40³/60³/80³ diffusion and diffusion–advection | [September 20 design](../experiments/paper_final/04_online/20260920_formal/README.md), [single-seed suite](../experiments/paper_final/04_online/20260920_formal/suite.json), [six-seed aggregate](../experiments/paper_final/reproduction/online/six_seeds.json) | `run_04_online`, `analyze_04_online`; joint runner generates per-group plots |
-| Module 05 / Run 05: matched-hierarchy frozen policies and periodic smoothing comparison | [Run 05 record](../experiments/paper_final/05_policy/RUN05.md), [captured protocol](../experiments/paper_final/reproduction/matched_policy/protocol.json), [weighted-minimax derivation](theory/period_two_weighted_minimax_20260928.md) | `run_05_policy_minimax`, `analyze_05_policy_minimax`, `plot_05_policy_minimax` |
+`data/official/module04/` contains six problem/grid combinations, each with six
+seeds and 5,000 paired inputs. Four independent cold methods execute every input:
+Default, fixed-setup LSTDQ, setup-only LinUCB, and joint LinUCB–LSTDQ.
+There are 180,000 paired inputs and 720,000 method-cases.
 
-Compact records describe completed measurements. They do not replace raw logs
-for recomputing statistics, or frozen checkpoints for native retiming. No public
-download location for those large artifacts is configured in this repository.
+`campaign.json` explicitly lists the twelve three-seed components. `summary.json`
+and the corresponding CSV files provide the complete six-seed results. Each
+component retains its exact inputs, configurations, source identities, cold-start
+audits, trajectories, checkpoints, and figure arrays. Full and final-1,000-case
+windows are included. Read the campaign entries; do not glob for run directories.
 
-## Module 04: validate, run, and analyze
+## Module 05
 
-Validate the tracked single-seed suite without executing solves:
+`data/official/module05/` contains the six frozen joint checkpoints from official
+Module 04 diffusion 60³. Each checkpoint is evaluated on 100 independent cases.
+Fresh scans cover all 41 weights from 1 to 3 in steps of 0.05; global and per-case
+choices are frozen before independent evaluation. Five policy roles are retimed
+with three repetitions. Identical execution cells are shared by the prescribed
+protocol: 29,520 scan trials and 8,535 distinct evaluation trials are recorded.
 
-```bash
-conda activate rl
-python -m experiments.paper_final.run_04_online \
-  --suite experiments/paper_final/04_online/20260920_formal/suite.json \
-  --validate-only
+The study contains `inputs.json`, `checkpoints/`, `selections.json`, `raw/scan/`,
+`raw/test/`, `analysis/`, and `paper_figures/`. Scan times are not evaluation times.
+All six checkpoints remain in the results.
+
+## Module 06
+
+`data/official/module06/` contains the Type 2 variable-flow 60³ study: six seeds,
+5,000 cases each, and four cold branches learning from case 1, with β=2 and 1,024
+setup candidates. Aggressive levels are 0–2 with conditional interpolation 4/6/7.
+Cycle weights are 1–3; the attempt cap is 50 and tolerance is 10⁻⁶. The recorded
+cap-first stopping rule is retained. Failure Model and adjacent recovery are used.
+
+There are 120,000 method-cases. `final_verification.json`, `fairness_audit.json`,
+and `phase_breakdown.json` accompany the full and final-1,000-case summaries.
+
+## Timing and recovery
+
+For Modules 04 and 06, native time includes every incurred setup and solve attempt,
+retry, and Default fallback. Inclusive time adds learner work. Matrix assembly and
+file I/O are outside these solver metrics. Failed cases remain in full totals;
+Module 06 also reports comparisons on cases where all methods succeed.
+
+Module 05 compares continuation costs on matched hierarchies. The shared primary
+setup is excluded; recovery setup and solve costs are included. Inclusive
+continuation time adds controller work. Its cost boundary differs from online totals.
+
+## Verification and portability
+
+```sh
+python tools/verify_official_data.py
+python tools/verify_official_data.py --full
 ```
 
-Run into a new directory, preserving completed results:
+The first command verifies the compact bundle, complete seed/method coverage,
+summary arithmetic, original Module 06 configuration, and accepted execution
+source. The second also hashes all full local data against `raw_manifest.json`.
+Neither command runs native solves or modifies learned state.
 
-```bash
-python -m experiments.paper_final.run_04_online \
-  --suite experiments/paper_final/04_online/20260920_formal/suite.json \
-  --output-root results/paper_final/04_online/reproduction_single_seed \
-  --run
-python -m experiments.paper_final.analyze_04_online \
-  --suite experiments/paper_final/04_online/20260920_formal/suite.json \
-  --output-root results/paper_final/04_online/reproduction_single_seed
+Measured records are retained byte for byte. Absolute locations inside captured
+metadata describe their execution provenance. `tools/official_data.py` translates
+those recorded paths to current official locations using `source_paths.json`.
+The resolver rejects archived or unregistered data and never substitutes a nearby
+run when a file is missing.
+
+The numerical source files at the repository root match the official source
+manifest. `data/official/runtime/` retains the frozen runtime and native binaries
+used for the measurements. New runs must use new output directories and record
+fresh environment, source, input, and native identities. Saved completed runs
+must never be resumed or overwritten.
+
+## Paper assets
+
+The compact bundle contains the current Module 04 and Module 05 SVG/PNG figures.
+The paper-generation scripts are under `tools/paper/` and in the local
+SISC-Overleaf repository. They read the official registry and verify the saved
+records. Module 04's illustrative Default residual replay is retained under
+`module04/figure_evidence/`. Module 06 has no paper figure.
+
+To regenerate into a separate paper workspace, provide explicit paths:
+
+```sh
+python tools/paper/prepare_module4_current.py --code "$PWD" --paper /path/to/paper
+python tools/paper/prepare_module5_current.py --run "$PWD/data/official/module05" --runtime "$PWD/data/official/runtime" --paper /path/to/paper
 ```
 
-This launches six groups: two families × three grids, each with 5000 inputs
-and three methods. It is a substantial native experiment. The runner refuses to
-restart an incomplete group automatically. Frozen JSON specifies seeds, stream
-hashes, candidate settings, activation, tolerance, and cycle cap.
+These publishers require full local data and the numerical Python environment.
+They generate figures and table material from saved records; they do not rerun
+experiments. The compact bundle supports verification and inspection without the
+large local raw data.
 
-The later six-seed evidence has its original configurations preserved under
-[online reproduction data](../experiments/paper_final/reproduction/online/):
+## Archive
 
-| Global training seeds | Tracked configuration directory | Original output batch under `results/paper_final/04_online/` |
-|---|---|---|
-| 1–3 | `experiments/paper_final/reproduction/online/seeds_1_to_3/` | `20260925_macmini_module04_3seeds/seed_N/` |
-| 4–6 | `experiments/paper_final/reproduction/online/seeds_4_to_6/` | `20260926_macmini_module04_seeds4to6/seed_N/` |
-
-Pass a captured `suite_seed_N.json` through the same `--suite` argument and use
-a new output root. The runner's local replicate labels remain 1–3; global labels
-distinguish the two batches. The six-seed aggregate covers 36 PDE/grid/seed runs.
-Those records came from concurrent single-thread workers; retain that provenance
-when comparing timings.
-
-The September 27 diffusion-60 repeat is a separate sensitivity run. Its
-`preferred_results.json` does not replace the original six-seed evidence.
-Run 05 uses a refreshed seed-4 checkpoint from that follow-up, as its protocol
-records.
-
-Completed-run analysis requires the raw per-method trajectories and matching
-suite. It writes `analysis/modules_1_2.md` and `modules_1_2.json`. Per-group
-stream manifests, summaries, final bandit states, and solve checkpoints remain
-under their original run folders. The historical combined aggregate was stored
-under `20260926_macmini_module04_overnight/analysis/six_seeds.json`.
-
-## Module 05 / Run 05: artifacts and verification
-
-The accepted corrected run is
-`results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases/`.
-Its local release is
-`results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929/`
-with a neighboring `.zip` archive. These large generated artifacts are not
-included in a fresh clone by default.
-
-The full release contains final measurements, retained fixed-grid evidence,
-six frozen setup/controller checkpoints, test inputs, selected fixed weights,
-captured source, tables, figures, and a standalone verifier. From an extracted
-release, verify coverage, hashes, costs, and fixed-grid choices:
-
-```bash
-python reproduction/verify_archive.py
-```
-
-This verifier uses the standard library and does not run HYPRE. The repository
-counterpart accepts the extracted archive directory:
-
-```bash
-python -m experiments.paper_final.verify_05_policy_minimax --root EXTRACTED_RELEASE
-```
-
-To rebuild figures from an existing completed run with its `analysis/summary.json`
-and `trace_arrays.npz`, without fresh solves:
-
-```bash
-python -m experiments.archive.paper_development.plot_05_policy_minimax --output COMPLETED_RUN
-```
-
-The runner calls the `analyze(output)` helper in `analyze_05_policy_minimax`
-automatically after native evaluation. That helper rebuilds summaries from the
-completed raw logs; it currently has no separate command-line entry point.
-
-The historical native retiming commands are:
-
-```bash
-python -m experiments.archive.paper_development.run_05_policy_minimax prepare --output NEW_RUN
-python -m experiments.archive.paper_development.run_05_policy_minimax run --output NEW_RUN
-```
-
-Preparation depends on the completed parent
-`20260927_run04_anchored26_joint_6seeds_100cases` tree and unchanged captured
-execution-source hashes. Refactored source will fail that historical identity
-check. Use the captured source snapshot for an exact historical rerun and retain
-original manifests. A new experiment on cleaned source must record its own
-provenance and must not replace accepted measurements.
-
-## Timing, recovery, and interpretation
-
-- Online native cost includes attempted setup and native solve/recovery work.
-  Total online cost additionally includes recurring learner/controller work.
-  One-time initialization, AOT preparation, matrix/RHS assembly, and output I/O
-  are outside the declared component scope; method wall time is separate.
-- The accepted protocol uses tolerance `1e-6`, cap 50 per solve attempt, and the
-  18/18/9 smoother profile. Construction failure allows at most three learned
-  attempts; solve nonconvergence invokes default recovery directly. There is
-  at most one default attempt. All work remains charged; final unrecovered
-  cases roll back provisional learner observations.
-- Run 05 native continuation excludes common initial setup and controller
-  dispatch, but includes recovery setup/solve. Controller-inclusive continuation
-  adds controller cost. Average prescribed repetitions within case before
-  forming ratios of summed costs.
-- Fixed comparators are successful best-observed choices on the 41-weight grid,
-  followed by retiming. The six checkpoints share 100 test inputs examined in
-  earlier work. The periodic pair comes from a smoothing surrogate; its
-  multilevel runtime is evaluated experimentally.
-
-Development studies, older periodic baselines, the withdrawn penalized-feedback
-trial, and separate solve-specific checkpoint study retain their original
-identifiers. See the [paper experiment index](../experiments/paper_final/README.md)
-and [historical progress record](archive/paper_final_progress_20260929.md).
+`data/archive/20261014/` holds exploratory and unselected experiments, historical
+publication bundles, unused exports, and earlier source/configuration snapshots.
+It is excluded from Git and from the official registry. Legacy filesystem aliases
+outside the official tree support old provenance references; no official data
+folder is a symlink into the archive.

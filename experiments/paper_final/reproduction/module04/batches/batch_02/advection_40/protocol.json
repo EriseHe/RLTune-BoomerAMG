@@ -1,0 +1,80 @@
+{
+  "concurrency": "One single-thread worker per seed; four methods serially in balanced permutation blocks",
+  "copied_measurements": false,
+  "default_attempts": 1,
+  "default_fallback_attempts": 1,
+  "exact_default": {
+    "P_max_elmts": 4,
+    "agg_Pmx": 0,
+    "agg_interp_type": 4,
+    "agg_num_levels": 0,
+    "agg_tr": 0.0,
+    "coarsen_type": 10,
+    "interp_type": 6,
+    "max_row_sum": 0.9,
+    "strong_threshold": 0.25,
+    "trunc_factor": 0.0
+  },
+  "failure_score_beta": 2.0,
+  "feedback_mode": "adjacent_delayed",
+  "fixed_rl_attempts": 1,
+  "learned_attempts": 3,
+  "learning_start": "Both setup learners and both LSTDQ controllers start cold at input 1",
+  "methods": [
+    "default_setup_default_solve",
+    "default_setup_lstdq",
+    "bandit_default",
+    "bandit_lstdq"
+  ],
+  "name": "Module 04 advection_40: four branches, cold learning from input 1; 1024 structured candidates \u2014 seeds 4, 5, 6",
+  "native_sha256": {
+    "hypre/install/lib/libHYPRE.3.0.0.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.300.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/interfaces/libamg_runtime.dylib": "15daee59e89d17a77131e4a092bff431846b0dcbf5a2003b7e21f5447fd65ff3"
+  },
+  "prepared_at": "2026-10-09T13:38:37.959908+00:00",
+  "recovery": "failure_model_adjacent",
+  "rl_recovery_cost": false,
+  "rl_whole_case_failure_rollback": true,
+  "seeds": [
+    "4",
+    "5",
+    "6"
+  ],
+  "setup_failure_observation_retention": true,
+  "shared_prefix": false,
+  "source_commit": "b1291f88099e3abb336156ed5e74fd10430703fd",
+  "stages": {
+    "4": {
+      "cases": 5000,
+      "config_sha256": "f6268b08bcc4f555a0c2ec31cc8756d6a0b4b1bae907efa18eaa0126256593b9",
+      "full_stream_sha256": "093d6ab9dd930ac6a17f10baacac80edff0ca10ba29bf91bf7f06e4f04d9fd11",
+      "inputs_sha256": "8dc1f4c24198b4514920bdbe71dd231d18bc126b926c4415ec7cc2735ae6eea0",
+      "joint_activation_case": 0,
+      "smoke": false,
+      "source_config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/experiments/paper_final/04_online/20261009_full_zero_prefix_1024/advection_40/seed_4.json",
+      "source_config_sha256": "1f6519aaa79de6855a8d4a1b6b7b318c48767ae51ad0638bba0c8a43d0733893"
+    },
+    "5": {
+      "cases": 5000,
+      "config_sha256": "cd5f42fdc2d076f8a6f9baa9dd2a59ae1758d1b1ae08d8f8edd9b4f78bdf51b7",
+      "full_stream_sha256": "c3f7866f341b204de0b884df00345a5313a35262a2e7788e6edae625732fa4b4",
+      "inputs_sha256": "742fa460de2b34daff9965adc01ea2c4448e6bc1f52c16d629b0070151419dab",
+      "joint_activation_case": 0,
+      "smoke": false,
+      "source_config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/experiments/paper_final/04_online/20261009_full_zero_prefix_1024/advection_40/seed_5.json",
+      "source_config_sha256": "6f98bdf17497cf4a9f12fc71d03893b97dda2fc2cba189d83ba4cd742661f223"
+    },
+    "6": {
+      "cases": 5000,
+      "config_sha256": "307ab324f1746acd435d142288f8dcb5718d0ed0263eae864ec2465ffea96b52",
+      "full_stream_sha256": "9073a1ed9a08b9c9636b3161a616440775040567bff3db3ee80d311eb3054a55",
+      "inputs_sha256": "22780c099c890d17f1e92561f246ae34878338f644a58a0154a5e299cae61e85",
+      "joint_activation_case": 0,
+      "smoke": false,
+      "source_config": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/experiments/paper_final/04_online/20261009_full_zero_prefix_1024/advection_40/seed_6.json",
+      "source_config_sha256": "3297f5b6f7b094f1613ae6c0c73c191b569c90c164dc3f130b87e5d7b83cedbb"
+    }
+  }
+}

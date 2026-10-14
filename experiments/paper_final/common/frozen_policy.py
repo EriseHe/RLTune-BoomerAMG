@@ -15,20 +15,21 @@ import numpy as np
 from mpi4py import MPI
 
 from experiments.runtime import THREAD_KEYS
-from experiments.joint.solve_control.composable_joint_4k import (
+from experiments.paper_final.online.methods import (
     build_composable_solve_runtime,
 )
-from experiments.joint.solve_control.joint_experiment_config import (
+from experiments.paper_final.online.configuration import (
     parse_joint_experiment_config,
     runtime_config_from_spec,
 )
-from experiments.joint.solve_control.joint_online_common import report_online_outcome
-from experiments.joint.solve_control.native_case import run_case as _run_case
-from experiments.joint.solve_control.native_evaluation import (
+from experiments.paper_final.online.case_loop import report_online_outcome
+from experiments.paper_final.online.native_case import run_case as _run_case
+from experiments.paper_final.online.native_evaluation import (
     solve_no_rl_case,
     solve_schedule_case,
 )
 from hypre.bindings import (
+    AMG_RUNTIME_LIBRARY,
     RecoveryOutcome,
     augment_setup_params,
     run_with_default_fallback,
@@ -36,10 +37,10 @@ from hypre.bindings import (
 from hypre.bindings.config import configure_smoother_profile
 from setup.space import DEFAULT_SETUP_PARAMS
 from dataclasses import replace
+from pathlib import Path
 
 from .artifacts import (
     ROOT,
-    checkpoint_payload_hash,
     dump,
     file_hash,
     now,
@@ -58,29 +59,30 @@ def build_bundle(raw, method, checkpoint=None, beta=2.0):
     ).controller_bundles[method]
     if checkpoint is not None:
         bundle.load(checkpoint)
-    bundle.controller.spec = replace(bundle.controller.spec, uncertainty_beta=beta)
+    if beta is not None:
+        bundle.controller.spec = replace(bundle.controller.spec, uncertainty_beta=beta)
     return bundle
 
 
-def run_schedule(mkw, params, pattern):
+def run_schedule(mkw, params, pattern, *, tolerance=1e-6, max_cycles=50):
     schedule = (
-        [(50, pattern[0], 1, 1)]
+        [(max_cycles, pattern[0], 1, 1)]
         if len(pattern) == 1
-        else [(i + 1, pattern[i % len(pattern)], 1, 1) for i in range(50)]
+        else [(i + 1, pattern[i % len(pattern)], 1, 1) for i in range(max_cycles)]
     )
     recovery = run_with_default_fallback(
         lambda: solve_schedule_case(
             params=dict(params),
             mkw=dict(mkw),
             schedule=schedule,
-            solve_tol=1e-6,
-            solve_max_cycles=50,
+            solve_tol=tolerance,
+            solve_max_cycles=max_cycles,
         ),
         lambda: solve_no_rl_case(
             params=dict(DEFAULT_SETUP_PARAMS),
             mkw=dict(mkw),
-            solver_tol=1e-6,
-            solver_max_iter=50,
+            solver_tol=tolerance,
+            solver_max_iter=max_cycles,
             augment_params=augment_setup_params,
         ),
     )
@@ -93,7 +95,7 @@ def run_schedule(mkw, params, pattern):
     return outcome
 
 
-def audit_outcome(outcome):
+def audit_outcome(outcome, *, tolerance=1e-6):
     components = [
         outcome[k] for k in ("setup_runtime", "solve_runtime", "infer_runtime")
     ]
@@ -104,11 +106,11 @@ def audit_outcome(outcome):
     ):
         raise AssertionError("Cost accounting mismatch")
     if not outcome["failed"] and not outcome.get("fallback_used", False):
-        if not np.isfinite(outcome["residual_norm"]) or outcome["residual_norm"] > 1e-6:
+        if not np.isfinite(outcome["residual_norm"]) or outcome["residual_norm"] > tolerance:
             raise AssertionError("Successful primary solve violates the tolerance")
     if not outcome["failed"] and "completed_residual_norm" in outcome:
         residual = outcome["completed_residual_norm"]
-        if not np.isfinite(residual) or residual > 1e-6:
+        if not np.isfinite(residual) or residual > tolerance:
             raise AssertionError("Completed solve violates the tolerance")
 
 
@@ -152,20 +154,39 @@ def verify_frozen(bundle, before):
     audit_frozen_policies({"rl": bundle}, {"rl": before[0]}, {"rl": before[1]})
 
 
+def environment_identity(environment):
+    """Stable execution fields used to prevent mixing timing environments."""
+    return {
+        name: environment[name]
+        for name in (
+            "python",
+            "executable",
+            "platform",
+            "thread_environment",
+            "native_hashes",
+            "packages",
+            "mpi",
+            "mpi_world_size",
+            "unexpected_setup_overrides",
+        )
+    }
+
+
 def environment_check(output):
-    reference = read(
-        ROOT
-        / "results/paper_final/04_online/20260925_macmini_n60/provenance/environment_check.json"
-    )
-    package_reference = read(
-        ROOT
-        / "results/paper_final/04_online/20260926_macmini_module04_seeds4to6/provenance/packages.json"
-    )
+    reference_path = output / "reference_environment.json"
+    reference = read(reference_path) if reference_path.is_file() else None
     current = {
         d.metadata["Name"].lower().replace("_", "-"): d.version
         for d in importlib.metadata.distributions()
     }
-    native = {p: file_hash(ROOT / p) for p in reference["native_hashes"]}
+    native_paths = [Path(AMG_RUNTIME_LIBRARY)]
+    native_paths.extend(sorted((ROOT / "hypre/install/lib").glob("libHYPRE.*")))
+    native_paths = [p for p in native_paths if p.is_file()]
+    if not Path(AMG_RUNTIME_LIBRARY).is_file() or len(native_paths) < 2:
+        raise RuntimeError(
+            "Build HYPRE and the native interface before preparing a timing run"
+        )
+    native = {str(p.relative_to(ROOT)): file_hash(p) for p in native_paths}
     result = {
         "at": now(),
         "python": sys.version,
@@ -173,41 +194,44 @@ def environment_check(output):
         "platform": platform.platform(),
         "thread_environment": {k: os.environ.get(k) for k in THREAD_KEYS},
         "native_hashes": native,
-        "native_identical": native == reference["native_hashes"],
-        "python_identical": sys.version == reference["python"],
         "packages": current,
-        "reference_packages": package_reference,
-        "parallelism": "At most three independent processes, one MPI rank and one library thread each; no claimed core affinity",
+        "mpi_world_size": MPI.COMM_WORLD.Get_size(),
+        "mpi": MPI.Get_library_version().rstrip("\x00\n "),
+        "unexpected_setup_overrides": {
+            k: os.environ[k]
+            for k in ("SETUP_NUM_SWEEPS", "SETUP_CYCLE_TYPE", "SETUP_MAX_LEVELS")
+            if os.environ.get(k, "").strip()
+        },
+        "parallelism": "Independent worker processes as recorded in the run protocol, one MPI rank and one library thread each; no claimed core affinity",
     }
-    result["mpi_world_size"] = MPI.COMM_WORLD.Get_size()
-    result["mpi"] = MPI.Get_library_version().rstrip("\x00\n ")
-    result["mpi_identical"] = result["mpi"] == reference["mpi"].rstrip("\x00\n ")
-    result["unexpected_setup_overrides"] = {
-        k: os.environ[k]
-        for k in ("SETUP_NUM_SWEEPS", "SETUP_CYCLE_TYPE", "SETUP_MAX_LEVELS")
-        if os.environ.get(k, "").strip()
+    result["accepted_environment_comparison"] = None if reference is None else {
+        "python_identical": result["python"] == reference["python"],
+        "mpi_identical": result["mpi"] == reference["mpi"].rstrip("\x00\n "),
+        "platform_identical": result["platform"] == reference["platform"],
+        "native_identical": all(
+            native.get(p) == h for p, h in reference["native_hashes"].items()
+        ),
+        "package_differences": {
+            k: [v, current.get(k)]
+            for k, v in reference["packages"].items()
+            if current.get(k) != v
+        },
+        "interpretation": "New timing measurements use the recorded current environment; accepted September environment identity is reported separately.",
     }
-    # The archive may use either pip's [{name, version}] form or a name map.
-    previous = (
-        {r["name"].lower().replace("_", "-"): r["version"] for r in package_reference}
-        if isinstance(package_reference, list)
-        else package_reference
+    saved = (
+        read(output / "prepared.json") if (output / "prepared.json").is_file() else None
     )
-    result["package_differences"] = {
-        k: [v, current.get(k.lower().replace("_", "-"))]
-        for k, v in previous.items()
-        if current.get(k.lower().replace("_", "-")) != v
-    }
+    if saved and "execution_environment" in saved:
+        if environment_identity(result) != saved["execution_environment"]:
+            dump(output / "changed_environment.json", result)
+            raise RuntimeError(
+                "Execution environment changed after preparation; use a new run directory"
+            )
+    if result["mpi_world_size"] != 1 or result["unexpected_setup_overrides"]:
+        raise RuntimeError(
+            "Official frozen evaluation requires one MPI rank and the prescribed setup settings"
+        )
     dump(output / "environment.json", result)
-    if (
-        not result["native_identical"]
-        or not result["python_identical"]
-        or result["package_differences"]
-        or not result["mpi_identical"]
-        or result["mpi_world_size"] != 1
-        or result["unexpected_setup_overrides"]
-    ):
-        raise RuntimeError("Module 04 environment does not match; see environment.json")
     return result
 
 
@@ -222,12 +246,14 @@ def reject_execution_error(outcome):
         )
 
 
-def run_policy(job, name, spec, bundle):
+def run_policy(job, name, spec, bundle, *, tolerance=1e-6, max_cycles=50, profile=PROFILE):
     started = time.perf_counter()
-    configure_smoother_profile(PROFILE)
+    configure_smoother_profile(profile)
     if spec["kind"] == "rl":
         outcome = _run_case(
-            bundle=bundle, setup_row=job, args=NATIVE_ARGS, learn=False, explore=False
+            bundle=bundle, setup_row=job,
+            args=argparse.Namespace(tol=tolerance, max_cycles=max_cycles),
+            learn=False, explore=False
         )
         reject_execution_error(outcome)
         if outcome["failed"] and not outcome.get("fallback_used", False):
@@ -240,12 +266,16 @@ def run_policy(job, name, spec, bundle):
                 lambda: solve_no_rl_case(
                     params=dict(DEFAULT_SETUP_PARAMS),
                     mkw=job["mkw"],
-                    solver_tol=1e-6,
-                    solver_max_iter=50,
+                    solver_tol=tolerance,
+                    solver_max_iter=max_cycles,
                     augment_params=augment_setup_params,
                 ),
             )
             outcome = report_online_outcome(recovery.to_result(), bandit_timing={})
+            outcome["completed_residual_norm"] = (
+                recovery.fallback.residual_norm
+                if recovery.fallback_used else recovery.primary.residual_norm
+            )
     elif spec["kind"] == "native":
 
         def primary():
@@ -254,20 +284,20 @@ def run_policy(job, name, spec, bundle):
                 return solve_no_rl_case(
                     params={**job["params"], **spec["params"]},
                     mkw=job["mkw"],
-                    solver_tol=1e-6,
-                    solver_max_iter=50,
+                    solver_tol=tolerance,
+                    solver_max_iter=max_cycles,
                     augment_params=augment_setup_params,
                 )
             finally:
-                configure_smoother_profile(PROFILE)
+                configure_smoother_profile(profile)
 
         recovery = run_with_default_fallback(
             primary,
             lambda: solve_no_rl_case(
                 params=dict(DEFAULT_SETUP_PARAMS),
                 mkw=job["mkw"],
-                solver_tol=1e-6,
-                solver_max_iter=50,
+                solver_tol=tolerance,
+                solver_max_iter=max_cycles,
                 augment_params=augment_setup_params,
             ),
         )
@@ -278,10 +308,11 @@ def run_policy(job, name, spec, bundle):
             else recovery.primary.residual_norm
         )
     else:
-        outcome = run_schedule(job["mkw"], job["params"], spec["pattern"])
+        outcome = run_schedule(job["mkw"], job["params"], spec["pattern"],
+                               tolerance=tolerance, max_cycles=max_cycles)
     elapsed = time.perf_counter() - started
     reject_execution_error(outcome)
-    audit_outcome(outcome)
+    audit_outcome(outcome, tolerance=tolerance)
     # All reported costs include failed attempts/recovery; primary setup is common.
     native_continuation = float(outcome["solve_runtime"]) + float(
         outcome.get("fallback_setup_runtime", 0)
@@ -325,12 +356,19 @@ def verify_inputs(output, *, check_source=True):
         "inputs.json": saved["inputs_sha256"],
         **{f"jobs_{p}.json": h for p, h in saved["jobs_sha256"].items()},
         **saved["checkpoint_sha256"],
+        **saved.get("evidence_sha256", {}),
     }
     for path, expected in files.items():
         if file_hash(output / path) != expected:
             raise RuntimeError(f"Prepared input changed: {path}")
     if check_source:
-        for path, expected in read(output / "source_manifest.json").items():
+        manifest = read(output / "source_manifest.json")
+        if saved.get("source_scope") == "official_submission":
+            from .frozen_inputs import execution_source_paths
+
+            if set(manifest) != execution_source_paths():
+                raise RuntimeError("Experiment source files changed after preparation")
+        for path, expected in manifest.items():
             if not (ROOT / path).is_file() or file_hash(ROOT / path) != expected:
                 raise RuntimeError(
                     f"Experiment source changed after preparation: {path}"

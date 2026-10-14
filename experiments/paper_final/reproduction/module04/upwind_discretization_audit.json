@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-10-10T01:20:25.470791+00:00",
+  "campaign": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024",
+  "verified_discretization": "HYPRE upwind (atype=3)",
+  "assembly_entrypoint": "amg_runtime_create, stencil_type=0",
+  "source_path": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/hypre/interfaces/amg_runtime.c",
+  "source_sha256": "0e67c99312a32a4d595dc645bd19eb513b2dfe6e6a155ab2e1bd877dd3f0a0f4",
+  "source_call_line": 342,
+  "native_library_path": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/hypre/interfaces/libamg_runtime.dylib",
+  "native_sha256": "15daee59e89d17a77131e4a092bff431846b0dcbf5a2003b7e21f5447fd65ff3",
+  "binary_verification": "ARM64 disassembly selects backward differences when sign(diffusion)*sign(advection)=1 and forward differences otherwise in all three coordinates, matching the source atype=3 branch.",
+  "binary_evidence": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/metadata_corrections/upwind/amg_runtime_create_disassembly.txt",
+  "verified_run_records": [
+    {
+      "grid": 40,
+      "protocol": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_40/protocol.json",
+      "native_hash_matches": true,
+      "captured_source_matches": true
+    },
+    {
+      "grid": 60,
+      "protocol": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_60/protocol.json",
+      "native_hash_matches": true,
+      "captured_source_matches": true
+    },
+    {
+      "grid": 80,
+      "protocol": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_80/protocol.json",
+      "native_hash_matches": true,
+      "captured_source_matches": true
+    }
+  ],
+  "correction": {
+    "previous_label": "HYPRE forward (atype=0), unchanged",
+    "new_label": "HYPRE upwind (atype=3), verified in frozen runtime source and compiled library",
+    "corrected_advection_entries": 18,
+    "input_provenance_path": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/experiments/paper_final/04_online/20261009_full_zero_prefix_1024/input_provenance.json",
+    "workflow_path": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/docs/module04_factorial_workflow.txt",
+    "original_metadata_backup_dir": "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/metadata_corrections/upwind"
+  },
+  "scope": "Documentation and metadata correction only. Frozen numerical sources, binaries, experiment configs, trajectories, and delivered ZIP archives were not changed. No numerical solve was performed. Original paper discretization was not independently verified in this audit."
+}

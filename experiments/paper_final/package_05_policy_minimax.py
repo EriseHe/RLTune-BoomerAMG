@@ -11,20 +11,15 @@ import statistics
 import zipfile
 from experiments.paper_final.verify_05_policy_minimax import verify, read, digest
 from experiments.paper_final.common.artifacts import presentation_source_paths
+from experiments.paper_final.common.frozen_inputs import (
+    DEFAULT_BUNDLE,
+    INPUT_FILES,
+    verify_bundle,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
-RUN = (
-    ROOT
-    / "results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases"
-)
-PRIOR = (
-    ROOT
-    / "results/paper_final/05_policy/releases/module05_final_diffusion60_six_seeds_20260927"
-)
-DEST = (
-    ROOT
-    / "results/paper_final/05_policy/releases/module05_run05_minimax285_diffusion60_six_seeds_20260929"
-)
+RUN = ROOT / "results/paper_final/05_policy/run05_retiming"
+DEST = ROOT / "results/paper_final/05_policy/releases/run05_retiming"
 
 
 def dump(path, data):
@@ -240,22 +235,24 @@ def pdf_summary(dest, data):
         writer.write(f)
 
 
-def build(dest=DEST):
+def build(dest=DEST, *, run=RUN, bundle=DEFAULT_BUNDLE):
+    RUN, BUNDLE = Path(run), Path(bundle)
+    bundle_audit = verify_bundle(BUNDLE)
+    for name in INPUT_FILES:
+        if digest(RUN / name) != digest(BUNDLE / name):
+            raise ValueError(f"Run does not use the accepted frozen inputs: {name}")
     if dest.exists():
         raise FileExistsError(f"Use a new release directory: {dest}")
     assert read(RUN / "complete.json")["status"] == "complete"
-    from experiments.paper_final.common.retained_scan_verifier import (
-        verify as verify_prior,
-    )
-
-    verify_prior(PRIOR)
     dest.mkdir(parents=True)
     summary = read(RUN / "analysis/summary.json")
     protocol = read(RUN / "protocol.json")
-    protocol["scan_extra_repeat_case_ids"] = read(PRIOR / "data/protocol.json")[
-        "scan_extra_repeat_case_ids"
-    ]
-    protocol["retained_fixed_scan_origin"] = str(PRIOR)
+    scan_evidence = read(BUNDLE / "fixed_scan_evidence.json")
+    protocol["scan_extra_repeat_case_ids"] = scan_evidence["scan_extra_repeat_case_ids"]
+    protocol["retained_fixed_scan_origin"] = bundle_audit["accepted_run"]
+    protocol["fixed_scan_representation"] = (
+        "Derived ten-field JSONL gzip; original raw hashes retained separately"
+    )
     for k in ("comparison_costs", "run03_comparison", "comparison_run"):
         summary.pop(k, None)
     summary["protocol"] = protocol
@@ -272,8 +269,8 @@ def build(dest=DEST):
             d.mkdir(parents=True)
             dump(d / "jobs.json", [j for j in jobs if j["seed"] == seed])
             copy(
-                PRIOR / f"data/seeds/seed_{seed}/fixed_weight_scan.jsonl",
-                d / "fixed_weight_scan.jsonl",
+                BUNDLE / f"fixed_scans/seed_{seed}.jsonl.gz",
+                d / "fixed_weight_scan.jsonl.gz",
             )
             handles[seed] = stack.enter_context((d / "evaluation.jsonl").open("w"))
         for name, sha in read(RUN / "raw/test/complete.json")["raw_sha256"].items():
@@ -291,7 +288,7 @@ def build(dest=DEST):
         "retained_from_prior_selection": True,
         "raw_sha256": {
             str(p.relative_to(dest)): digest(p)
-            for p in sorted((dest / "data/seeds").glob("*/fixed_weight_scan.jsonl"))
+            for p in sorted((dest / "data/seeds").glob("*/fixed_weight_scan.jsonl.gz"))
         },
     }
     dump(dest / "data/summary.json", summary)
@@ -307,17 +304,15 @@ def build(dest=DEST):
         "prepared.json",
         "complete.json",
         "parent_audit.json",
+        "bundle_audit.json",
+        "reference_environment.json",
         "source_manifest.json",
     ):
-        copy(RUN / name, dest / "provenance" / name)
+        if (RUN / name).is_file():
+            copy(RUN / name, dest / "provenance" / name)
     copy(RUN / "raw/test/complete.json", dest / "provenance/raw_completion.json")
-    dump(
-        dest / "provenance/retained_scans.json",
-        {
-            str(p.relative_to(PRIOR)): digest(p)
-            for p in sorted((PRIOR / "data/seeds").glob("*/fixed_weight_scan.jsonl"))
-        },
-    )
+    dump(dest / "provenance/retained_scans.json", scan_evidence)
+    dump(dest / "provenance/frozen_input_bundle_audit.json", bundle_audit)
     shutil.copytree(RUN / "provenance/source", dest / "reproduction/source")
     shutil.copytree(RUN / "theory", dest / "theory")
     figures = RUN / "analysis/paper_figures_best_seed"
@@ -352,7 +347,7 @@ def build(dest=DEST):
     current_sources = presentation_source_paths() | {
         "experiments/paper_final/package_05_policy_minimax.py",
         "experiments/paper_final/verify_05_policy_minimax.py",
-        "experiments/paper_final/common/retained_scan_verifier.py",
+        "experiments/paper_final/common/frozen_inputs.py",
     }
     for name in current_sources:
         copy(ROOT / name, dest / "reproduction/current_tools" / name)
@@ -399,4 +394,9 @@ def build(dest=DEST):
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--output", type=Path, default=DEST)
-    build(p.parse_args().output)
+    p.add_argument(
+        "--run", type=Path, default=RUN, help="Completed official Run 05 output"
+    )
+    p.add_argument("--bundle", type=Path, default=DEFAULT_BUNDLE)
+    args = p.parse_args()
+    build(args.output, run=args.run, bundle=args.bundle)

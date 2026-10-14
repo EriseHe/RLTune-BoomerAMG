@@ -1,4 +1,4 @@
-"""Historical Module 05 Run 05: six frozen checkpoints and free pair (2.85,1.10)."""
+"""Official Module 05 Run 05: six frozen checkpoints and free pair (2.85,1.10)."""
 
 from __future__ import annotations
 
@@ -6,40 +6,32 @@ from experiments.runtime import (
     configure_single_thread,
     prevent_sleep,
     stop_sleep_prevention,
-    single_thread_environment,
 )
 
 if __name__ == "__main__":
     configure_single_thread()
 
 from experiments.paper_final.common.workers import run_frozen_worker, run_frozen_phase
+from experiments.paper_final.common.frozen_inputs import (
+    DEFAULT_BUNDLE,
+    INPUT_FILES,
+    execution_source_paths,
+    verify_bundle,
+)
 from experiments.paper_final.common import (
     artifacts,
     frozen_policy as policy,
-    policy_analysis as analysis,
 )
 import argparse
-import copy
 import fcntl
-import json
-import os
 from pathlib import Path
 import shutil
 import signal
-import subprocess
-import sys
 import time
 import numpy as np
 
 ROOT = artifacts.ROOT
-PARENT = (
-    ROOT
-    / "results/paper_final/05_policy/20260927_run04_anchored26_joint_6seeds_100cases"
-)
-DEFAULT = (
-    ROOT
-    / "results/paper_final/05_policy/20260929_run05_minimax285_joint_6seeds_100cases"
-)
+DEFAULT = ROOT / "results/paper_final/05_policy/run05_retiming"
 OLD_POLICY = "periodic_2.60_1.00"
 POLICY = "periodic_2.85_1.10"
 REMOVED_POLICY = "periodic_1.00_3.00"
@@ -52,32 +44,6 @@ LABELS = {
     "periodic": "Periodic (2.85, 1.10)",
     "rl": "Frozen RL",
 }
-THEORY_FILES = [
-    "docs/theory/period_two_weighted_minimax_20260928.md",
-    "docs/theory/anchored_schedule_verification_20260927.json",
-    "docs/theory/period_two_minimax_verification_20260928.json",
-]
-
-
-def replace_schedule(jobs):
-    """Retain parent jobs/order; substitute the free pair and remove (1,3)."""
-    updated = copy.deepcopy(jobs)
-    for j in updated:
-        if j["method_policies"]["periodic"] != OLD_POLICY:
-            raise ValueError("Unexpected parent schedule")
-        if j["method_policies"].pop("periodic13") != REMOVED_POLICY:
-            raise ValueError("Unexpected endpoint schedule")
-        j["method_policies"]["periodic"] = POLICY
-        j["policy_order"] = [
-            POLICY if n == OLD_POLICY else n
-            for n in j["policy_order"]
-            if n != REMOVED_POLICY
-        ]
-        if set(j["method_policies"]) != set(METHODS):
-            raise ValueError("Unexpected method roles")
-        if set(j["policy_order"]) != set(j["method_policies"].values()):
-            raise ValueError("Planned execution differs from method map")
-    return updated
 
 
 def verify(output):
@@ -106,128 +72,39 @@ def verify(output):
             raise RuntimeError("Incorrect evaluation job")
 
 
-def prepare(output, parent=PARENT):
+def prepare(output, bundle=DEFAULT_BUNDLE):
+    """Copy accepted inputs into a fresh, strictly tracked current-source run."""
+    output, bundle = Path(output), Path(bundle).resolve()
     if output.exists() and any(output.iterdir()):
         raise ValueError("Use a new Run 05 directory")
-    policy.verify_inputs(parent, check_source=False)
-    saved = artifacts.read(parent / "prepared.json")
-    if artifacts.file_hash(parent / "selections.json") != saved["selections_sha256"]:
-        raise RuntimeError("Parent selections changed")
-    if artifacts.read(parent / "complete.json")["status"] != "complete":
-        raise ValueError("Incomplete parent")
-    math = artifacts.read(ROOT / THEORY_FILES[-1])
-    implementation = artifacts.read(ROOT / THEORY_FILES[1])
-    if (
-        not math["passed"]
-        or math["grid_minimizers_ordered"] != [["2.85", "1.10"], ["1.10", "2.85"]]
-        or not implementation["implementation"]["passed"]
-    ):
-        raise ValueError("Free minimax and smoother-profile audits must pass")
-    manifest = artifacts.read(parent / "source_manifest.json")
-    differences = artifacts.source_differences(manifest)
-    numerical = [
-        p
-        for p in differences
-        if not any(s in p for s in ("plot_", "analyze_", "test_", "module05_figures/"))
-    ]
-    if numerical:
-        raise RuntimeError(f"Parent execution sources changed: {numerical}")
-    output.mkdir(parents=True)
-    for name in ("analysis", "progress", "raw/test", "provenance/source", "theory"):
+    audit = verify_bundle(bundle)
+    output.mkdir(parents=True, exist_ok=True)
+    for name in ("analysis", "progress", "raw/test", "provenance/source"):
         (output / name).mkdir(parents=True, exist_ok=True)
-    shutil.copytree(parent / "checkpoints", output / "checkpoints")
-    for name in ("inputs.json", "jobs_base_test.json", "jobs_preflight.json"):
-        shutil.copy2(parent / name, output / name)
-    jobs = replace_schedule(artifacts.read(parent / "jobs_test.json"))
-    chosen = artifacts.read(parent / "selections.json")
-    chosen["chosen_policies"] = {
-        k: v
-        for k, v in chosen["chosen_policies"].items()
-        if "/bandit_lstdq/" in k and k.rsplit("/", 1)[-1] in METHODS
-    }
-    for key, value in chosen["chosen_policies"].items():
-        if key.endswith("/periodic"):
-            if value != OLD_POLICY:
-                raise ValueError("Parent selection mismatch")
-            chosen["chosen_policies"][key] = POLICY
-    chosen.update(
-        run_number=5,
-        origin_run=str(parent),
-        selection_frozen_before_final_retiming=True,
-        note="Run 04 fixed choices retained; (2.85,1.10) prescribed by the free 0.05-grid weighted-minimax rule before Run 05.",
-    )
-    old = artifacts.read(parent / "protocol.json")
-    protocol = copy.deepcopy(old)
+    shutil.copytree(bundle / "checkpoints", output / "checkpoints")
+    shutil.copytree(bundle / "theory", output / "theory")
+    shutil.copytree(bundle / "fixed_scans", output / "fixed_scans")
+    for name in INPUT_FILES:
+        shutil.copy2(bundle / name, output / name)
+    for name in ("fixed_scan_evidence.json", "reference_environment.json"):
+        shutil.copy2(bundle / name, output / name)
     for name in (
-        "scan_execution_count",
-        "scan_extra_repeat_case_ids",
-        "changed_test_hierarchies_seed4",
-        "conventional_references",
+        "manifest.json",
+        "accepted_prepared.json",
+        "accepted_source_manifest.json",
     ):
-        protocol.pop(name, None)
-    protocol["policies"].pop(OLD_POLICY)
-    protocol["policies"].pop(REMOVED_POLICY)
-    protocol["policies"][POLICY] = {"kind": "periodic", "pattern": [2.85, 1.10]}
-    used = {n for j in jobs for n in j["policy_order"]}
-    protocol["policies"] = {k: v for k, v in protocol["policies"].items() if k in used}
-    protocol.update(
-        run_number=5,
-        comparison_run=4,
-        methods=list(METHODS),
-        created_at=artifacts.now(),
-        origin_run=str(parent),
-        scope="Matched repeat of Run 04 with a theory-prescribed (2.85,1.10) schedule",
-        unchanged_checkpoint_seeds=list(range(1, 7)),
-        main_heatmap_methods=list(MAIN_METHODS),
-        labels=LABELS,
-        execution_count=len(analysis.expected_cells(jobs)),
-        selection_rule="All Run 04 fixed-weight choices reused, including its refreshed seed-4 scan; no new scan or outcome selection",
-        periodic_rule="(2.85,1.10) is the joint free weighted-minimax choice on {1,1.05,...,3}; high first, reset each primary solve",
-        test_schedule_rule="Only prescribed (2.85,1.10); (1,3) and (2.6,1) excluded; same full-cycle action and charged recovery",
-        theory_scope="Normalized SPD smoothing surrogate and fixed exact two-grid bound; no multilevel runtime-optimality guarantee",
-        ordering_rule="Exact Run 04 case/policy/repetition order, with the periodic pair replaced and endpoint policy removed",
-        interpretation="Same accepted checkpoints and previously observed test cases; a prescribed policy follow-up, not new independent seeds or a fresh holdout",
-        sorting="Run 04 baseline-difficulty case order retained; no sorting on Run 05 outcomes",
-    )
-    artifacts.dump(output / "protocol.json", protocol)
-    artifacts.dump(output / "jobs_test.json", jobs)
-    artifacts.dump(output / "selections.json", chosen)
-    for relative in THEORY_FILES:
-        shutil.copy2(ROOT / relative, output / "theory" / Path(relative).name)
-    extras = [
-        "run_05_policy_minimax.py",
-        "analyze_05_policy_minimax.py",
-        "test_05_policy_minimax.py",
-        "verify_period_two_minimax.py",
-    ]
-    paths = (
-        set(manifest)
-        | artifacts.support_source_paths()
-        | {"experiments/paper_final/" + p for p in extras}
-        | set(THEORY_FILES)
-    )
-    manifest = {p: artifacts.file_hash(ROOT / p) for p in paths}
-    for relative in manifest:
-        target = output / "provenance/source" / relative
+        shutil.copy2(bundle / name, output / "provenance" / name)
+    manifest = {
+        name: artifacts.file_hash(ROOT / name)
+        for name in sorted(execution_source_paths())
+    }
+    for name in manifest:
+        target = output / "provenance/source" / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / relative, target)
+        shutil.copy2(ROOT / name, target)
     artifacts.dump(output / "source_manifest.json", manifest)
-    artifacts.dump(
-        output / "parent_audit.json",
-        {
-            "parent": str(parent),
-            "checkpoint_and_input_hashes_verified": True,
-            "unchanged_execution_sources": True,
-            "historical_reporting_source_differences": differences,
-            "parent_raw_complete_sha256": artifacts.file_hash(
-                parent / "raw/test/complete.json"
-            ),
-            "parent_selections_sha256": artifacts.file_hash(parent / "selections.json"),
-            "parent_summary_sha256": artifacts.file_hash(
-                parent / "analysis/summary.json"
-            ),
-        },
-    )
+    artifacts.dump(output / "bundle_audit.json", {**audit, "bundle": str(bundle)})
+    environment = policy.environment_check(output)
     artifacts.dump(
         output / "prepared.json",
         {
@@ -244,11 +121,25 @@ def prepare(output, parent=PARENT):
                 for p in (output / "checkpoints").rglob("*")
                 if p.is_file()
             },
+            "bundle_sha256": audit["bundle_sha256"],
+            "source_scope": "official_submission",
+            "execution_environment": policy.environment_identity(environment),
+            "evidence_sha256": {
+                str(p.relative_to(output)): artifacts.file_hash(p)
+                for p in (output / "fixed_scans").glob("*.gz")
+            }
+            | {
+                name: artifacts.file_hash(output / name)
+                for name in ("fixed_scan_evidence.json", "reference_environment.json")
+            },
         },
     )
-    policy.environment_check(output)
+    verify(output)
     artifacts.emit(
-        output, "Run 05 prepared", trials=protocol["execution_count"], pair=[2.85, 1.10]
+        output,
+        "Run 05 prepared from accepted frozen inputs",
+        trials=artifacts.read(output / "protocol.json")["execution_count"],
+        pair=[2.85, 1.10],
     )
 
 
@@ -292,9 +183,9 @@ def preflight(output):
     )
 
 
-def run(output):
+def run(output, bundle=DEFAULT_BUNDLE):
     if not (output / "prepared.json").exists():
-        prepare(output)
+        prepare(output, bundle)
     with (output / "supervisor.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         start = time.monotonic()
@@ -374,12 +265,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("prepare", "run", "worker"))
     parser.add_argument("--output", type=Path, default=DEFAULT)
+    parser.add_argument(
+        "--bundle",
+        type=Path,
+        default=DEFAULT_BUNDLE,
+        help="Verified accepted frozen-input bundle for a new run",
+    )
     parser.add_argument("--phase", choices=("test",), default="test")
     parser.add_argument("--worker", type=int)
     args = parser.parse_args()
     if args.command == "worker":
         worker(args.output, args.phase, args.worker, 3)
     elif args.command == "prepare":
-        prepare(args.output)
+        prepare(args.output, args.bundle)
     else:
-        run(args.output)
+        run(args.output, args.bundle)

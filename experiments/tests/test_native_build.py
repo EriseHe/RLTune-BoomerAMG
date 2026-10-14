@@ -25,12 +25,17 @@ class NativeBuildTests(unittest.TestCase):
             )
             subprocess.run(
                 [
-                    "make", "-C", str(root / "hypre/interfaces"),
-                    "UNAME_S=Linux", f"BUILD_DIR={objects}",
+                    "make",
+                    "-C",
+                    str(root / "hypre/interfaces"),
+                    "UNAME_S=Linux",
+                    f"BUILD_DIR={objects}",
                     f"RUNTIME_TARGET={temporary / 'libamg_runtime.so'}",
                     f"MPICC={sys.executable} {compiler}",
                 ],
-                check=True, capture_output=True, text=True,
+                check=True,
+                capture_output=True,
+                text=True,
             )
             arguments = json.loads(capture.read_text())
             self.assertIn("-Wl,-rpath,$ORIGIN/../install/lib", arguments)

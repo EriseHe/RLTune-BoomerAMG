@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-12T15:52:12.461798+00:00",
+  "audit": {
+    "evaluation_failures": 0,
+    "evaluation_trials": 8535,
+    "exact_coverage": true,
+    "fresh_scan_trials": 29520,
+    "recovered_evaluations": 30
+  },
+  "status": "complete"
+}

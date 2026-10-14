@@ -1,0 +1,21 @@
+{
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_diffusion60_seeds1to3_1024_repeat01": "data/official/module04/batches/batch_01/diffusion_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024": "data/official/module04",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_40": "data/official/module04/batches/batch_01/advection_40",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_60": "data/official/module04/batches/batch_01/advection_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/advection_80": "data/official/module04/batches/batch_01/advection_80",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/diffusion_40": "data/official/module04/batches/batch_01/diffusion_40",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/diffusion_60": "data/official/module04/batches/batch_01/diffusion_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_01/diffusion_80": "data/official/module04/batches/batch_01/diffusion_80",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/advection_40": "data/official/module04/batches/batch_02/advection_40",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/advection_60": "data/official/module04/batches/batch_02/advection_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/advection_80": "data/official/module04/batches/batch_02/advection_80",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/diffusion_40": "data/official/module04/batches/batch_02/diffusion_40",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/diffusion_60": "data/official/module04/batches/batch_02/diffusion_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/batches/batch_02/diffusion_80": "data/official/module04/batches/batch_02/diffusion_80",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261009_full_zero_prefix_6seeds_candidates1024/controls/official_runtime_20261011": "data/official/runtime",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261010_diffusion60_seeds4to6_1024_repeat01": "data/official/module04/batches/batch_02/diffusion_60",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/04_online/20261012_diffusion80_seeds1to3_1024_repeat01": "data/official/module04/batches/batch_01/diffusion_80",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/05_policy/20261012_diffusion60_six_seeds_fresh": "data/official/module05",
+  "/Users/erisehe/.codex/worktrees/sisc-submission/RLTune-BoomerAMG/results/paper_final/06_recovery/20261012_type2_beta2_four_branches_zero_prefix_six_seeds": "data/official/module06"
+}

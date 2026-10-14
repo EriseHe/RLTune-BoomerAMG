@@ -1,71 +1,30 @@
 # Repository layout
 
-The directory structure follows component ownership. Historical experiment
-identifiers stay with their recorded protocols and artifacts.
+The [official registry](../experiments/paper_final/reproduction/manifest.json)
+selects the complete paper datasets. See [reproduction](reproduction.md) for
+verification and data definitions.
 
-| Directory | Responsibility |
+| Path | Responsibility |
 |---|---|
-| `problems/` | PDE definitions, coefficient encoders, deterministic instance streams |
-| `hypre/source/` | Vendored HYPRE implementation; unchanged by project cleanup |
-| `hypre/interfaces/`, `hypre/bindings/` | Project-owned native/Python wiring into HYPRE |
-| `setup/` | Setup action space, contextual-bandit learners, construction helpers, tests |
-| `solve/` | Solver environments, controller families, episode execution, tests |
-| `experiments/` | Composition of setup and solve, study protocols, reporting, diagnostics |
-| `results/` | Generated trajectories, checkpoints, figures, and curated numerical evidence |
-| `docs/` | Current guides, theory notes, and labeled historical documentation |
+| `problems/` | PDE definitions, contexts, and input streams |
+| `setup/` | LinUCB, setup spaces, candidate schedules, and checkpoints |
+| `solve/` | Recursive LSTDQ, cycle execution, and recovery accounting |
+| `hypre/source/` | Vendored HYPRE and upstream license notices |
+| `hypre/interfaces/`, `hypre/bindings/` | Project native interface and Python bindings |
+| `experiments/paper_final/online/` | Paired online execution and recorded outcomes |
+| `experiments/paper_final/matched_policy/` | Fresh fixed-weight scans and frozen-policy evaluation |
+| `experiments/paper_final/reproduction/` | Official compact configurations, summaries, audits, paper assets, and manifests |
+| `data/official/module04/` | Complete online study, six seeds for each of six problem/grid combinations |
+| `data/official/module05/` | Complete matched-policy study with six frozen checkpoints |
+| `data/official/module06/` | Original six-seed Type 2 variable-flow study |
+| `data/official/runtime/` | Frozen execution source and original native libraries |
+| `data/archive/` | All historical or unselected experimental data and exports; excluded from Git |
+| `tools/official_data.py` | Explicit official-path resolution without archive discovery |
+| `tools/verify_official_data.py` | Publication and optional full local data verification |
+| `tools/paper/` | Current paper figure/table readers and publishers |
+| `results/` | Fresh, unselected output; excluded from Git |
 
-## Dependency direction
-
-`setup` and `solve` use shared problem definitions and project-owned HYPRE
-wrappers. `experiments` combines those components into complete methods.
-Algorithm implementations should not import executable experiment scripts.
-Setup and solve experiment entry points should not import one another.
-Code that composes both phases belongs under `experiments/`.
-
-`setup.registry` and `solve.registry` contain construction helpers used by
-experiments. Implementations live under `setup.learners` and
-`solve.controllers`. The `SetupPhase` and `SolvePhase` namespaces provide
-historical import compatibility and do not own implementations.
-
-Native changes belong in the project-owned interface layer when needed for
-wiring. Build outputs under `hypre/build/` and `hypre/install/` are generated,
-rather than source files to commit.
-
-## Experiments and artifacts
-
-Use package-qualified imports and run entry points from the repository root with
-`python -m package.module`. Shared study utilities belong in named modules that
-entry points and reporting code can both import. Importing a utility should not
-start a run or set process/thread configuration.
-
-Only Module 04 online autotuning and Module 05 matched-hierarchy Run 05 are
-official paper experiments. Their protocols, commands, and shared study helpers
-live under `experiments/paper_final/`. Other paper development studies live in
-`experiments/archive/paper_development/`. General diagnostic tools are labeled
-development utilities and remain separate from the paper entry points.
-
-Outputs belong under `results/paper_final/<stage>/<run>/`.
-Recorded run names and captured manifests are provenance identifiers; keep them
-when moving reusable source into clearer modules.
-
-Shared online episode execution belongs in `solve/core/episode.py`; controller
-families own their learning updates under `solve/controllers/`. Shared TD
-configuration lives in `solve/controllers/common/td_config.py`. The former
-SARSA imports retain compatibility aliases.
-
-Joint study helpers have explicit responsibilities: `action_spaces.py`,
-`setup_branches.py`, `native_evaluation.py`, and `evaluation.py`. Historical
-`setup_aware_compare_common.py` imports re-export those implementations.
-
-The [reproduction index](reproduction.md) lists accepted evidence separately from
-development runs. Large logs/checkpoints are ignored by default. A reference to
-a local artifact path is not a promise that a fresh clone includes that artifact.
-
-## Documentation
-
-- [Root README](../README.md): build, entry points, and tests.
-- [Reproduction index](reproduction.md): current evidence and artifact requirements.
-- [Paper experiment index](../experiments/paper_final/README.md): stage navigation.
-- [Theory index](theory/README.md): derivations and deterministic checks.
-- `docs/archive/` and `experiments/archive/`: historical/reference material,
-  outside the active execution path.
+The execution-source manifest identifies the numerical files used by the official
+runs. Organization and publication helpers are separate from that frozen numerical
+source. Raw data, runtime binaries, and archives are local-only; the publication
+bundle and manifests are suitable for version control.

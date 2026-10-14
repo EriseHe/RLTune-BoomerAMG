@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import defaultdict
+import gzip
 import hashlib
 import json
 import math
@@ -32,7 +33,9 @@ def digest(path):
 
 
 def records(path):
-    with Path(path).open() as handle:
+    path = Path(path)
+    opener = gzip.open if path.suffix == ".gz" else Path.open
+    with opener(path, "rt") as handle:
         for line in handle:
             if line.strip():
                 yield json.loads(line)
@@ -41,6 +44,52 @@ def records(path):
 def close(a, b):
     if not math.isclose(a, b, rel_tol=1e-11, abs_tol=1e-11):
         raise AssertionError(f"Numerical mismatch: {a} != {b}")
+
+
+def verify_fixed_choices(seed, jobmap, protocol, path):
+    """Reconstruct both fixed comparators from original or derived scan rows."""
+    cases = range(protocol["test_cases"])
+    scan = defaultdict(list)
+    seen = set()
+    for row in records(path):
+        key = row["case_id"], row["policy"], row["repeat"]
+        assert key not in seen, "Duplicate fixed-scan record"
+        seen.add(key)
+        assert row["seed"] == seed and row["source"] == "bandit_lstdq"
+        assert row["kind"] == "fixed"
+        assert math.isfinite(row["native_continuation_sec"])
+        assert row["native_continuation_sec"] >= 0
+        assert isinstance(row["success"], bool)
+        job = jobmap[row["case_id"], 0]
+        assert row["input_id"] == job["input_id"]
+        assert row["hierarchy_id"] == job["hierarchy_id"]
+        scan[row["case_id"], row["policy"]].append(row)
+    weights = [f"fixed_{1 + i * 0.05:.2f}" for i in range(41)]
+    assert set(scan) == {(c, p) for c in cases for p in weights}
+    means = {}
+    for (case, policy), rows in scan.items():
+        expected_repeats = (
+            {0, 1, 2} if case in protocol["scan_extra_repeat_case_ids"] else {0}
+        )
+        assert {r["repeat"] for r in rows} == expected_repeats
+        means[case, policy] = (
+            statistics.mean(r["native_continuation_sec"] for r in rows),
+            all(r["success"] for r in rows),
+        )
+    valid = [p for p in weights if all(means[c, p][1] for c in cases)]
+    fixed = min(valid, key=lambda p: (sum(means[c, p][0] for c in cases), p))
+    for case in cases:
+        oracle = min(
+            (p for p in weights if means[case, p][1]),
+            key=lambda p: (means[case, p][0], p),
+        )
+        assert jobmap[case, 0]["method_policies"]["fixed"] == fixed, (
+            "Fixed choice changed"
+        )
+        assert jobmap[case, 0]["method_policies"]["oracle"] == oracle, (
+            "Per-instance choice changed"
+        )
+    return len(seen)
 
 
 def verify(root, *, check_manifest=True):
@@ -72,6 +121,18 @@ def verify(root, *, check_manifest=True):
     assert protocol["sources"] == ["bandit_lstdq"]
     assert protocol["test_cases"] == 100 and protocol["repetitions_per_case"] == 3
     assert len(read(root / "data/inputs.json")["test"]) == 100
+    retained = read(root / "provenance/retained_scans.json")
+    derived_evidence = (
+        retained.get("format") == "retained-fixed-grid-selection-evidence-v1"
+    )
+    if derived_evidence:
+        for seed in summary["seeds"]:
+            origin = retained["sources"][f"seed_{seed}"]
+            assert len(origin["original_raw_sha256"]) == 64
+            assert (
+                digest(root / f"data/seeds/seed_{seed}/fixed_weight_scan.jsonl.gz")
+                == origin["derived_sha256"]
+            )
     gains = {m: [] for m in METHODS}
     scan_counts = {}
     n_eval = n_fail = n_recovered = 0
@@ -141,43 +202,11 @@ def verify(root, *, check_manifest=True):
         for method in METHODS:
             gains[method].append(100 * (1 - totals[method] / totals["reference"]))
 
-        scan = defaultdict(list)
-        seen = set()
-        for row in records(directory / "fixed_weight_scan.jsonl"):
-            key = row["case_id"], row["policy"], row["repeat"]
-            assert key not in seen
-            seen.add(key)
-            assert row["seed"] == seed and row["source"] == "bandit_lstdq"
-            assert row["kind"] == "fixed"
-            job = jobmap[row["case_id"], 0]
-            assert (
-                row["input_id"] == job["input_id"]
-                and row["hierarchy_id"] == job["hierarchy_id"]
-            )
-            scan[row["case_id"], row["policy"]].append(row)
-        weights = [f"fixed_{1 + i * 0.05:.2f}" for i in range(41)]
-        assert set(scan) == {(c, p) for c in range(100) for p in weights}
-        means = {}
-        for (case, policy), rr in scan.items():
-            expected_repeats = (
-                {0, 1, 2} if case in protocol["scan_extra_repeat_case_ids"] else {0}
-            )
-            assert {r["repeat"] for r in rr} == expected_repeats
-            means[case, policy] = (
-                statistics.mean(r["native_continuation_sec"] for r in rr),
-                all(r["success"] for r in rr),
-            )
-        valid = [p for p in weights if all(means[c, p][1] for c in range(100))]
-        fixed = min(valid, key=lambda p: (sum(means[c, p][0] for c in range(100)), p))
-        for case in range(100):
-            oracle = min(
-                (p for p in weights if means[case, p][1]),
-                key=lambda p: (means[case, p][0], p),
-            )
-            assert jobmap[case, 0]["method_policies"]["fixed"] == fixed
-            assert jobmap[case, 0]["method_policies"]["oracle"] == oracle
-        scan_counts[str(seed)] = len(seen)
-        assert len(seen) == 4920
+        scan_path = directory / "fixed_weight_scan.jsonl"
+        if not scan_path.is_file():
+            scan_path = scan_path.with_suffix(".jsonl.gz")
+        scan_counts[str(seed)] = verify_fixed_choices(seed, jobmap, protocol, scan_path)
+        assert scan_counts[str(seed)] == 4920
     assert n_eval == summary["audit"]["trials"] == 8460
     assert n_fail == summary["audit"]["failures"]
     assert n_recovered == summary["audit"]["recovered_trials"]
@@ -223,6 +252,9 @@ def verify(root, *, check_manifest=True):
         "unrecovered_failures": n_fail,
         "recovered_evaluations": n_recovered,
         "all_fixed_choices_reconstructed": True,
+        "fixed_scan_representation": "derived JSONL gzip"
+        if derived_evidence
+        else "original JSONL",
         "all_current_cost_arrays_recomputed": True,
         "manifest_verified": check_manifest,
     }

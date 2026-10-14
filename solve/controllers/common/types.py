@@ -33,7 +33,6 @@ class OnlineSolveCase:
     explore: bool
     problem_context: Sequence[float] | None = None
     epsilon: float | None = None
-    defer_monte_carlo_update: bool = False
     record_action_metadata: bool = False
     initial_environment_weight_override: float | None = None
     fallback_attempt: FallbackAttempt | None = None
@@ -48,9 +47,7 @@ class OnlineSolveCase:
         if self.epsilon is not None and not 0.0 <= float(self.epsilon) <= 1.0:
             raise ValueError("epsilon must lie in [0, 1]")
         if self.problem_context is not None:
-            normalized_context = normalize_problem_context(
-                self.problem_context
-            )
+            normalized_context = normalize_problem_context(self.problem_context)
             object.__setattr__(
                 self,
                 "problem_context",
@@ -89,7 +86,6 @@ class ControllerBundle:
             learn=bool(case.learn),
             explore=bool(case.explore),
             epsilon=case.epsilon,
-            defer_monte_carlo_update=bool(case.defer_monte_carlo_update),
             record_action_metadata=bool(case.record_action_metadata),
             initial_environment_weight_override=(
                 case.initial_environment_weight_override
@@ -136,7 +132,9 @@ class ControllerBundle:
             if json.loads(sidecar.read_text(encoding="utf-8")) != expected:
                 raise ValueError("Checkpoint state encoder does not match this bundle")
         elif self.encoder.encoding_version != "legacy_v1":
-            raise ValueError("Versioned state encoder requires checkpoint encoder metadata")
+            raise ValueError(
+                "Versioned state encoder requires checkpoint encoder metadata"
+            )
         self.controller.load(path)
 
     def protocol_metadata(self) -> dict[str, Any]:
