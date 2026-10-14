@@ -1,4 +1,4 @@
-"""Read the exact accepted Module 04 inputs without recomputing logarithms."""
+"""Read the exact accepted Module 1 inputs without recomputing logarithms."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import numpy as np
 
 
 STREAM_DIRECTORY = (
-    Path(__file__).resolve().parents[1] / "reproduction" / "online" / "streams"
+    Path(__file__).resolve().parents[3] / "data" / "module1" / "inputs"
 )
 
 

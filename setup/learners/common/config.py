@@ -38,8 +38,6 @@ class SharedSetupLearnerSpec:
     candidate_elite_fraction: float = 0.0
     always_include_arms: tuple[int, ...] | None = None
     elite_cache_size: int = 0
-    failure_beta: float = 2.0
-    failure_l2_reg: float = 1.0
     initial_guess: Sequence[Any] | Mapping[str, Any] | None = None
     initial_guess_rounds: int = 0
     candidate_schedule: AOTCandidateSchedule | None = None
@@ -67,8 +65,6 @@ class SharedSetupLearnerSpec:
             "candidate_elite_fraction": float(self.candidate_elite_fraction),
             "always_include_arms": self.always_include_arms,
             "elite_cache_size": int(self.elite_cache_size),
-            "failure_beta": float(self.failure_beta),
-            "failure_l2_reg": float(self.failure_l2_reg),
             "initial_guess": self.initial_guess,
             "initial_guess_rounds": int(self.initial_guess_rounds),
             "candidate_schedule": self.candidate_schedule,

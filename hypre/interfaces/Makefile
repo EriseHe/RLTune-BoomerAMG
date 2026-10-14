@@ -26,7 +26,7 @@ HYPRE_RPATH := $$ORIGIN/../install/lib
 endif
 
 RUNTIME_TARGET := libamg_runtime.$(SHARED_EXT)
-COMMON_OBJECTS := $(BUILD_DIR)/amg_cycle.o $(BUILD_DIR)/amg_rl_shared.o
+COMMON_OBJECTS := $(BUILD_DIR)/amg_cycle.o $(BUILD_DIR)/amg_rl_shared.o $(BUILD_DIR)/amg_stress_builders.o
 
 .PHONY: all clean print-vars
 

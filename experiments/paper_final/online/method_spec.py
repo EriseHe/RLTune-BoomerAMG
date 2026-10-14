@@ -88,14 +88,12 @@ class ComposableMethodSpec:
     @classmethod
     def from_mapping(cls, raw: Mapping[str, Any]) -> "ComposableMethodSpec":
         solve_kind = normalize_solve_kind(raw.get("solve"))
-        if raw.get("setup") == "default" and solve_kind != "default":
-            raise ValueError("The official Default branch uses default setup and solve")
         if raw.get("setup") not in {"default", "linucb"} or solve_kind not in {
             "default",
             "recursive_lstdq",
         }:
             raise ValueError(
-                "The submission supports only Default, LinUCB, and LinUCB–LSTDQ"
+                "Supported branches combine Default or LinUCB setup with Default or LSTDQ solve"
             )
         unknown = set(raw) - METHOD_KEYS
         if unknown:
@@ -126,9 +124,9 @@ class ComposableMethodSpec:
         if setup_space is not None:
             if not setup_space:
                 raise ValueError(f"method {name!r} setup_space cannot be empty")
-            if setup_kind not in ONLINE_SETUP_KINDS:
+            if setup_kind not in ONLINE_SETUP_KINDS and solve_kind != "recursive_lstdq":
                 raise ValueError(
-                    f"method {name!r} can only set setup_space for a setup bandit"
+                    f"method {name!r} needs a setup learner or solve controller to use setup_space"
                 )
             if candidate_sampling not in CANDIDATE_SAMPLING_METHODS:
                 raise ValueError(

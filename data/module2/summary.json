@@ -1,0 +1,2340 @@
+{
+  "module": 2,
+  "audit": {
+    "evaluation_failures": 0,
+    "evaluation_trials": 8535,
+    "exact_coverage": true,
+    "fresh_scan_trials": 29520,
+    "recovered_evaluations": 30
+  },
+  "per_seed": [
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 11.868820428960476,
+      "inclusive_total_sec": 18.178425095627087,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 11.868085000000104,
+      "native_total_sec": 18.177689666666712,
+      "seed": 1
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.840914046747439,
+      "inclusive_total_sec": 14.1346353800807,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 7.840393333333529,
+      "native_total_sec": 14.134114666666791,
+      "seed": 1
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.669814607685279,
+      "inclusive_total_sec": 13.974593274351932,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 7.66930733333373,
+      "native_total_sec": 13.97408600000039,
+      "seed": 1
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 6.931280024810413,
+      "inclusive_total_sec": 13.250081358143783,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 6.930307333333294,
+      "native_total_sec": 13.249108666666666,
+      "seed": 1
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.475839795402056,
+      "inclusive_total_sec": 13.777375462068637,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 7.218929333333818,
+      "native_total_sec": 13.520465000000405,
+      "seed": 1
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 12.301038741528123,
+      "inclusive_total_sec": 18.874247408194723,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 12.300283666667285,
+      "native_total_sec": 18.87349233333389,
+      "seed": 2
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 8.254535746522249,
+      "inclusive_total_sec": 14.824103079855522,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 8.254006333333129,
+      "native_total_sec": 14.823573666666407,
+      "seed": 2
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 8.066648473511329,
+      "inclusive_total_sec": 14.628563806844504,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 8.066126666666507,
+      "native_total_sec": 14.628041999999684,
+      "seed": 2
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.419859315905022,
+      "inclusive_total_sec": 14.00288798257173,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 7.418804999999625,
+      "native_total_sec": 14.001833666666323,
+      "seed": 2
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.741622048460626,
+      "inclusive_total_sec": 14.33521904846076,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 7.48594833333377,
+      "native_total_sec": 14.0795453333339,
+      "seed": 2
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 11.919143006919475,
+      "inclusive_total_sec": 18.328736006919332,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 11.918412666666846,
+      "native_total_sec": 18.328005666666712,
+      "seed": 3
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.9405737987033485,
+      "inclusive_total_sec": 14.368476798703446,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 7.940058666666824,
+      "native_total_sec": 14.367961666666922,
+      "seed": 3
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.759793153346989,
+      "inclusive_total_sec": 14.183248820013608,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 7.759287333333251,
+      "native_total_sec": 14.18274299999987,
+      "seed": 3
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.041587913079403,
+      "inclusive_total_sec": 13.475929913079522,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 7.040619333333244,
+      "native_total_sec": 13.474961333333356,
+      "seed": 3
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.113783945925465,
+      "inclusive_total_sec": 13.533221945925412,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 6.870187333333234,
+      "native_total_sec": 13.289625333333188,
+      "seed": 3
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 12.295535329218907,
+      "inclusive_total_sec": 18.54272332921893,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 12.294798999999449,
+      "native_total_sec": 18.541986999999466,
+      "seed": 4
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 8.271212800349012,
+      "inclusive_total_sec": 14.526717467015748,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 8.270688000000609,
+      "native_total_sec": 14.526192666667349,
+      "seed": 4
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 8.12559801089805,
+      "inclusive_total_sec": 14.37951101089797,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 8.12506633333391,
+      "native_total_sec": 14.378979333333831,
+      "seed": 4
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.535058467193739,
+      "inclusive_total_sec": 13.790743467193812,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 7.533954666666298,
+      "native_total_sec": 13.789639666666362,
+      "seed": 4
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.836617271018168,
+      "inclusive_total_sec": 14.102097937684876,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 7.5761896666663535,
+      "native_total_sec": 13.841670333333056,
+      "seed": 4
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 11.940330065253619,
+      "inclusive_total_sec": 18.358283065253612,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 11.939603333332688,
+      "native_total_sec": 18.357556333332703,
+      "seed": 5
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.931919236158271,
+      "inclusive_total_sec": 14.338997236158383,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 7.931390333333923,
+      "native_total_sec": 14.33846833333404,
+      "seed": 5
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.723023540269953,
+      "inclusive_total_sec": 14.132768206936776,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 7.7225203333339305,
+      "native_total_sec": 14.132265000000752,
+      "seed": 5
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.054141753968889,
+      "inclusive_total_sec": 13.46487442063561,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 7.05315933333348,
+      "native_total_sec": 13.4638920000002,
+      "seed": 5
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.274101340754221,
+      "inclusive_total_sec": 13.6844210074208,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 7.0259806666668645,
+      "native_total_sec": 13.436300333333442,
+      "seed": 5
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 12.294040166507251,
+      "inclusive_total_sec": 19.208715499840512,
+      "label": "Fixed w=1",
+      "method": "reference",
+      "native_continuation_sec": 12.293301666665911,
+      "native_total_sec": 19.20797699999917,
+      "seed": 6
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 8.121203079161948,
+      "inclusive_total_sec": 15.045672745828616,
+      "label": "Best global fixed",
+      "method": "fixed",
+      "native_continuation_sec": 8.120688333333245,
+      "native_total_sec": 15.045157999999919,
+      "seed": 6
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.824115738986541,
+      "inclusive_total_sec": 14.772055405653145,
+      "label": "Best per-instance fixed",
+      "method": "oracle",
+      "native_continuation_sec": 7.8236180000005735,
+      "native_total_sec": 14.771557666667178,
+      "seed": 6
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.110687478858777,
+      "inclusive_total_sec": 14.034651812192251,
+      "label": "Periodic schedule",
+      "method": "periodic",
+      "native_continuation_sec": 7.109754000000764,
+      "native_total_sec": 14.033718333334237,
+      "seed": 6
+    },
+    {
+      "cases": 100,
+      "defined": true,
+      "expected_cases": 100,
+      "failed_cases": 0,
+      "inclusive_continuation_sec": 7.503730077718743,
+      "inclusive_total_sec": 14.43257841105219,
+      "label": "Frozen LSTDQ",
+      "method": "rl",
+      "native_continuation_sec": 7.259176333333257,
+      "native_total_sec": 14.188024666666701,
+      "seed": 6
+    }
+  ],
+  "rl_comparisons": [
+    {
+      "comparator": "reference",
+      "mean_pct": 40.19219927482915,
+      "metric": "native_continuation_sec",
+      "sample_sd_pct": 1.5242347798609432,
+      "seeds": 6
+    },
+    {
+      "comparator": "reference",
+      "mean_pct": 38.11716266568315,
+      "metric": "inclusive_continuation_sec",
+      "sample_sd_pct": 1.564529703668459,
+      "seeds": 6
+    },
+    {
+      "comparator": "fixed",
+      "mean_pct": 10.187924423633186,
+      "metric": "native_continuation_sec",
+      "sample_sd_pct": 2.0777486293132843,
+      "seeds": 6
+    },
+    {
+      "comparator": "fixed",
+      "mean_pct": 7.072131616862125,
+      "metric": "inclusive_continuation_sec",
+      "sample_sd_pct": 2.1358103326363653,
+      "seeds": 6
+    },
+    {
+      "comparator": "oracle",
+      "mean_pct": 7.918883425845731,
+      "metric": "native_continuation_sec",
+      "sample_sd_pct": 2.0152172260103955,
+      "seeds": 6
+    },
+    {
+      "comparator": "oracle",
+      "mean_pct": 4.724577201186912,
+      "metric": "inclusive_continuation_sec",
+      "sample_sd_pct": 2.059742002617826,
+      "seeds": 6
+    },
+    {
+      "comparator": "periodic",
+      "mean_pct": -0.82098148627844,
+      "metric": "native_continuation_sec",
+      "sample_sd_pct": 2.2297394580784364,
+      "seeds": 6
+    },
+    {
+      "comparator": "periodic",
+      "mean_pct": -4.311011924266198,
+      "metric": "inclusive_continuation_sec",
+      "sample_sd_pct": 2.2963319777116045,
+      "seeds": 6
+    }
+  ],
+  "selections": {
+    "1": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.895330666665991,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.355210666647162,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.929448333330427,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.387885666669943,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.005690000007322,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.595433333331616,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.241709333343833,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.959550333328565,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.592116333335717,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.3324480000008,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.079874999997779,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 7.920420666667788,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 7.849360333331195,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.164961333329696,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.994670666663083,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.766008000006531,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 13.433147666668761,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 17.836695333346213,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 27.00132266668319,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.78653266667102,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.903386666665654,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.70200266665548,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.086803000013525,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.812893666674285,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.75828599997349,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.725971999994805,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.591030666669276,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.78379533331246,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.835008000007676,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.80956200000886,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.842242666669414,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.863110333336465,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.84272933334088,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.689061333340575,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.88286366665365,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.760946333340236,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.87649199998582,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.84278899998685,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.70387066665296,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.983481666667586,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.647173333319664,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.65",
+        "1": "fixed_1.45",
+        "10": "fixed_1.65",
+        "11": "fixed_1.6",
+        "12": "fixed_1.75",
+        "13": "fixed_1.6",
+        "14": "fixed_1.6",
+        "15": "fixed_1.65",
+        "16": "fixed_1.4",
+        "17": "fixed_1.6",
+        "18": "fixed_1.6",
+        "19": "fixed_1.5",
+        "2": "fixed_1.55",
+        "20": "fixed_1.6",
+        "21": "fixed_1.55",
+        "22": "fixed_1.6",
+        "23": "fixed_1.55",
+        "24": "fixed_1.55",
+        "25": "fixed_1.6",
+        "26": "fixed_1.55",
+        "27": "fixed_1.6",
+        "28": "fixed_1.5",
+        "29": "fixed_1.5",
+        "3": "fixed_1.55",
+        "30": "fixed_1.4",
+        "31": "fixed_1.65",
+        "32": "fixed_1.55",
+        "33": "fixed_1.55",
+        "34": "fixed_1.55",
+        "35": "fixed_1.6",
+        "36": "fixed_1.65",
+        "37": "fixed_1.6",
+        "38": "fixed_1.6",
+        "39": "fixed_1.65",
+        "4": "fixed_1.5",
+        "40": "fixed_1.5",
+        "41": "fixed_1.6",
+        "42": "fixed_1.55",
+        "43": "fixed_1.55",
+        "44": "fixed_1.5",
+        "45": "fixed_1.6",
+        "46": "fixed_1.55",
+        "47": "fixed_1.4",
+        "48": "fixed_1.6",
+        "49": "fixed_1.6",
+        "5": "fixed_1.7",
+        "50": "fixed_1.65",
+        "51": "fixed_1.7",
+        "52": "fixed_1.55",
+        "53": "fixed_1.55",
+        "54": "fixed_1.65",
+        "55": "fixed_1.65",
+        "56": "fixed_1.65",
+        "57": "fixed_1.6",
+        "58": "fixed_1.55",
+        "59": "fixed_1.6",
+        "6": "fixed_1.55",
+        "60": "fixed_1.55",
+        "61": "fixed_1.65",
+        "62": "fixed_1.6",
+        "63": "fixed_1.55",
+        "64": "fixed_1.7",
+        "65": "fixed_1.7",
+        "66": "fixed_1.45",
+        "67": "fixed_1.6",
+        "68": "fixed_1.65",
+        "69": "fixed_1.65",
+        "7": "fixed_1.65",
+        "70": "fixed_1.55",
+        "71": "fixed_1.65",
+        "72": "fixed_1.55",
+        "73": "fixed_1.6",
+        "74": "fixed_1.65",
+        "75": "fixed_1.6",
+        "76": "fixed_1.6",
+        "77": "fixed_1.65",
+        "78": "fixed_1.5",
+        "79": "fixed_1.65",
+        "8": "fixed_1.65",
+        "80": "fixed_1.4",
+        "81": "fixed_1.6",
+        "82": "fixed_1.55",
+        "83": "fixed_1.55",
+        "84": "fixed_1.6",
+        "85": "fixed_1.6",
+        "86": "fixed_1.65",
+        "87": "fixed_1.55",
+        "88": "fixed_1.4",
+        "89": "fixed_1.6",
+        "9": "fixed_1.45",
+        "90": "fixed_1.5",
+        "91": "fixed_1.65",
+        "92": "fixed_1.7",
+        "93": "fixed_1.55",
+        "94": "fixed_1.65",
+        "95": "fixed_1.5",
+        "96": "fixed_1.7",
+        "97": "fixed_1.65",
+        "98": "fixed_1.65",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    },
+    "2": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 12.309114999993854,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.817617333339815,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.337598666657115,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.799526333326634,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.424044666662667,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.962221333335144,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.619767333330014,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.42316600000785,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.117650666669702,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.793524333330076,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.534988333328311,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.31090899999095,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.283699333336335,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.465710999994748,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.35654100000643,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.141187333324648,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 13.814987000009086,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 18.23138733334189,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 27.074859666665557,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.984635666662115,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.96925799999727,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.92355899997897,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.96811733333367,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.159550333346296,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.95981966665023,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.9202490000075,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.9917666666645,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.90817000000384,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.02096699996591,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.89147766666054,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.90166399999059,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.00749500000169,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.93665733332167,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.94987466666798,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.88009133333984,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.03304366667103,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.83220633330382,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.96656666666705,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.79321599999752,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.95220866667646,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.074716333336795,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.65",
+        "1": "fixed_1.35",
+        "10": "fixed_1.55",
+        "11": "fixed_1.6",
+        "12": "fixed_1.7",
+        "13": "fixed_1.6",
+        "14": "fixed_1.5",
+        "15": "fixed_1.65",
+        "16": "fixed_1.55",
+        "17": "fixed_1.5",
+        "18": "fixed_1.65",
+        "19": "fixed_1.55",
+        "2": "fixed_1.6",
+        "20": "fixed_1.65",
+        "21": "fixed_1.55",
+        "22": "fixed_1.55",
+        "23": "fixed_1.6",
+        "24": "fixed_1.5",
+        "25": "fixed_1.7",
+        "26": "fixed_1.65",
+        "27": "fixed_1.6",
+        "28": "fixed_1.55",
+        "29": "fixed_1.55",
+        "3": "fixed_1.65",
+        "30": "fixed_1.55",
+        "31": "fixed_1.55",
+        "32": "fixed_1.55",
+        "33": "fixed_1.55",
+        "34": "fixed_1.6",
+        "35": "fixed_1.55",
+        "36": "fixed_1.55",
+        "37": "fixed_1.6",
+        "38": "fixed_1.65",
+        "39": "fixed_1.65",
+        "4": "fixed_1.65",
+        "40": "fixed_1.55",
+        "41": "fixed_1.55",
+        "42": "fixed_1.55",
+        "43": "fixed_1.5",
+        "44": "fixed_1.5",
+        "45": "fixed_1.65",
+        "46": "fixed_1.55",
+        "47": "fixed_1.6",
+        "48": "fixed_1.65",
+        "49": "fixed_1.6",
+        "5": "fixed_1.65",
+        "50": "fixed_1.7",
+        "51": "fixed_1.7",
+        "52": "fixed_1.7",
+        "53": "fixed_1.6",
+        "54": "fixed_1.5",
+        "55": "fixed_1.7",
+        "56": "fixed_1.65",
+        "57": "fixed_1.55",
+        "58": "fixed_1.6",
+        "59": "fixed_1.65",
+        "6": "fixed_1.6",
+        "60": "fixed_1.55",
+        "61": "fixed_1.65",
+        "62": "fixed_1.45",
+        "63": "fixed_1.55",
+        "64": "fixed_1.6",
+        "65": "fixed_1.7",
+        "66": "fixed_1.5",
+        "67": "fixed_1.55",
+        "68": "fixed_1.55",
+        "69": "fixed_1.55",
+        "7": "fixed_1.65",
+        "70": "fixed_1.45",
+        "71": "fixed_1.6",
+        "72": "fixed_1.6",
+        "73": "fixed_1.6",
+        "74": "fixed_1.6",
+        "75": "fixed_1.65",
+        "76": "fixed_1.6",
+        "77": "fixed_1.6",
+        "78": "fixed_1.4",
+        "79": "fixed_1.6",
+        "8": "fixed_1.55",
+        "80": "fixed_1.5",
+        "81": "fixed_1.6",
+        "82": "fixed_1.65",
+        "83": "fixed_1.5",
+        "84": "fixed_1.6",
+        "85": "fixed_1.7",
+        "86": "fixed_1.5",
+        "87": "fixed_1.6",
+        "88": "fixed_1.55",
+        "89": "fixed_1.65",
+        "9": "fixed_1.6",
+        "90": "fixed_1.55",
+        "91": "fixed_1.6",
+        "92": "fixed_1.65",
+        "93": "fixed_1.35",
+        "94": "fixed_1.5",
+        "95": "fixed_1.5",
+        "96": "fixed_1.55",
+        "97": "fixed_1.65",
+        "98": "fixed_1.55",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    },
+    "3": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.895168000009198,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.478268000004968,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.910991000008417,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.38837466666605,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.04069233333034,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.627610666663024,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.270900999989786,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.956296333327977,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.669650999996648,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.405967999992484,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.239767000003305,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 7.983162666675815,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 7.912886666667587,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.16363066665763,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.056494666664976,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.832534000001349,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 13.519171666670928,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 18.086632000007768,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 27.063109666673416,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.89824633334423,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.901389666662965,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.92347233333637,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.08778733332945,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.0605133333284,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.01561633334272,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.04429899998692,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.88306833331601,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.03374366664061,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.271369666664185,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.03479266666645,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.96139666667635,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.14990900000087,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.235076333365036,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.04538966665301,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.97141566665641,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.981339666664894,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.99396833331296,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.95261599998982,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.11132266667639,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.100768000001075,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.03125633333578,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.7",
+        "1": "fixed_1.35",
+        "10": "fixed_1.6",
+        "11": "fixed_1.6",
+        "12": "fixed_1.7",
+        "13": "fixed_1.45",
+        "14": "fixed_1.5",
+        "15": "fixed_1.6",
+        "16": "fixed_1.55",
+        "17": "fixed_1.65",
+        "18": "fixed_1.65",
+        "19": "fixed_1.6",
+        "2": "fixed_1.65",
+        "20": "fixed_1.5",
+        "21": "fixed_1.45",
+        "22": "fixed_1.6",
+        "23": "fixed_1.55",
+        "24": "fixed_1.55",
+        "25": "fixed_1.65",
+        "26": "fixed_1.65",
+        "27": "fixed_1.6",
+        "28": "fixed_1.5",
+        "29": "fixed_1.6",
+        "3": "fixed_1.65",
+        "30": "fixed_1.6",
+        "31": "fixed_1.55",
+        "32": "fixed_1.55",
+        "33": "fixed_1.6",
+        "34": "fixed_1.65",
+        "35": "fixed_1.65",
+        "36": "fixed_1.55",
+        "37": "fixed_1.6",
+        "38": "fixed_1.7",
+        "39": "fixed_1.65",
+        "4": "fixed_1.6",
+        "40": "fixed_1.35",
+        "41": "fixed_1.55",
+        "42": "fixed_1.5",
+        "43": "fixed_1.6",
+        "44": "fixed_1.6",
+        "45": "fixed_1.65",
+        "46": "fixed_1.6",
+        "47": "fixed_1.45",
+        "48": "fixed_1.55",
+        "49": "fixed_1.4",
+        "5": "fixed_1.7",
+        "50": "fixed_1.7",
+        "51": "fixed_1.7",
+        "52": "fixed_1.7",
+        "53": "fixed_1.6",
+        "54": "fixed_1.65",
+        "55": "fixed_1.7",
+        "56": "fixed_1.65",
+        "57": "fixed_1.6",
+        "58": "fixed_1.55",
+        "59": "fixed_1.7",
+        "6": "fixed_1.6",
+        "60": "fixed_1.6",
+        "61": "fixed_1.6",
+        "62": "fixed_1.55",
+        "63": "fixed_1.45",
+        "64": "fixed_1.6",
+        "65": "fixed_1.65",
+        "66": "fixed_1.6",
+        "67": "fixed_1.5",
+        "68": "fixed_1.65",
+        "69": "fixed_1.6",
+        "7": "fixed_1.65",
+        "70": "fixed_1.5",
+        "71": "fixed_1.6",
+        "72": "fixed_1.6",
+        "73": "fixed_1.6",
+        "74": "fixed_1.6",
+        "75": "fixed_1.65",
+        "76": "fixed_1.6",
+        "77": "fixed_1.65",
+        "78": "fixed_1.45",
+        "79": "fixed_1.6",
+        "8": "fixed_1.6",
+        "80": "fixed_1.45",
+        "81": "fixed_1.6",
+        "82": "fixed_1.55",
+        "83": "fixed_1.45",
+        "84": "fixed_1.5",
+        "85": "fixed_1.65",
+        "86": "fixed_1.7",
+        "87": "fixed_1.55",
+        "88": "fixed_1.55",
+        "89": "fixed_1.65",
+        "9": "fixed_1.55",
+        "90": "fixed_1.55",
+        "91": "fixed_1.55",
+        "92": "fixed_1.6",
+        "93": "fixed_1.45",
+        "94": "fixed_1.65",
+        "95": "fixed_1.65",
+        "96": "fixed_1.6",
+        "97": "fixed_1.7",
+        "98": "fixed_1.6",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    },
+    "4": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 12.425893333321248,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.937771999999399,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.358422666664069,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.852118333336945,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.47364033333317,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.05926433333612,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.679928000011225,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.438015666667848,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.06572500001285,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.803725333327037,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.681426333328384,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.461700000007841,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.342235999993449,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.552004333344495,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.400054000005005,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.086845333328823,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 13.871788000011557,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 18.294223333319763,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 27.017478666683143,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.32569833335621,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.99855666665425,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.15930166668633,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.993955999995066,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.30239699999799,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.1643069999929,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.16933600001989,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.318863999991315,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.177901000004304,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.07996666664305,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.076300333321505,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.96880633334925,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.14566966666005,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.14402466666424,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.201933000009625,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.297536999989894,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.28778699998959,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.00593633333134,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.17410866666274,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.12808599999708,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.06009133334007,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.19432866665626,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.65",
+        "1": "fixed_1.5",
+        "10": "fixed_1.5",
+        "11": "fixed_1.65",
+        "12": "fixed_1.7",
+        "13": "fixed_1.65",
+        "14": "fixed_1.6",
+        "15": "fixed_1.65",
+        "16": "fixed_1.35",
+        "17": "fixed_1.55",
+        "18": "fixed_1.5",
+        "19": "fixed_1.6",
+        "2": "fixed_1.6",
+        "20": "fixed_1.65",
+        "21": "fixed_1.4",
+        "22": "fixed_1.55",
+        "23": "fixed_1.6",
+        "24": "fixed_1.55",
+        "25": "fixed_1.7",
+        "26": "fixed_1.5",
+        "27": "fixed_1.5",
+        "28": "fixed_1.55",
+        "29": "fixed_1.65",
+        "3": "fixed_1.65",
+        "30": "fixed_1.5",
+        "31": "fixed_1.65",
+        "32": "fixed_1.5",
+        "33": "fixed_1.6",
+        "34": "fixed_1.55",
+        "35": "fixed_1.65",
+        "36": "fixed_1.55",
+        "37": "fixed_1.6",
+        "38": "fixed_1.7",
+        "39": "fixed_1.65",
+        "4": "fixed_1.55",
+        "40": "fixed_2.1",
+        "41": "fixed_1.55",
+        "42": "fixed_1.55",
+        "43": "fixed_1.55",
+        "44": "fixed_1.6",
+        "45": "fixed_1.65",
+        "46": "fixed_1.65",
+        "47": "fixed_1.6",
+        "48": "fixed_1.55",
+        "49": "fixed_1.4",
+        "5": "fixed_1.7",
+        "50": "fixed_1.7",
+        "51": "fixed_1.7",
+        "52": "fixed_1.7",
+        "53": "fixed_1.6",
+        "54": "fixed_1.55",
+        "55": "fixed_1.65",
+        "56": "fixed_1.7",
+        "57": "fixed_1.6",
+        "58": "fixed_1.55",
+        "59": "fixed_1.7",
+        "6": "fixed_1.6",
+        "60": "fixed_1.6",
+        "61": "fixed_1.55",
+        "62": "fixed_1.65",
+        "63": "fixed_1.5",
+        "64": "fixed_1.7",
+        "65": "fixed_1.7",
+        "66": "fixed_1.5",
+        "67": "fixed_1.65",
+        "68": "fixed_1.65",
+        "69": "fixed_1.5",
+        "7": "fixed_1.7",
+        "70": "fixed_1.5",
+        "71": "fixed_1.55",
+        "72": "fixed_1.6",
+        "73": "fixed_1.6",
+        "74": "fixed_1.65",
+        "75": "fixed_1.65",
+        "76": "fixed_1.5",
+        "77": "fixed_1.65",
+        "78": "fixed_1.4",
+        "79": "fixed_1.65",
+        "8": "fixed_1.6",
+        "80": "fixed_1.4",
+        "81": "fixed_1.6",
+        "82": "fixed_1.55",
+        "83": "fixed_1.5",
+        "84": "fixed_1.55",
+        "85": "fixed_1.7",
+        "86": "fixed_1.6",
+        "87": "fixed_1.6",
+        "88": "fixed_1.6",
+        "89": "fixed_1.65",
+        "9": "fixed_1.45",
+        "90": "fixed_1.5",
+        "91": "fixed_1.55",
+        "92": "fixed_1.6",
+        "93": "fixed_1.5",
+        "94": "fixed_1.65",
+        "95": "fixed_1.45",
+        "96": "fixed_1.7",
+        "97": "fixed_1.7",
+        "98": "fixed_1.65",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    },
+    "5": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 12.011627000005138,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.460586999998757,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.911279333334965,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.444928666664731,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.008809999998888,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.602731666676489,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.265913000002772,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.99324733334209,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.677972333326908,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.371225666663161,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.168692333330613,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.035632333327733,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 7.939255333328002,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.196731999997276,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.060240333348858,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.862634000001533,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 13.584964000004145,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 18.18830233333848,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 27.215123666671264,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.094458999988554,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.990445333348084,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.20627200000901,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.119250333327514,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.29397399999892,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.30462366666144,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.99477233333662,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.99411233331018,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.08656133332414,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.08890999999117,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.18598366666557,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.063315333333556,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.21796733334738,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.254620333335474,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.22400799999731,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.113867666669115,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.13220233333209,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.23790000000446,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.31271533334908,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.23277300000102,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 61.18263466664944,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 60.98450666666612,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.65",
+        "1": "fixed_1.5",
+        "10": "fixed_1.65",
+        "11": "fixed_1.6",
+        "12": "fixed_1.7",
+        "13": "fixed_1.6",
+        "14": "fixed_1.55",
+        "15": "fixed_1.65",
+        "16": "fixed_1.5",
+        "17": "fixed_1.45",
+        "18": "fixed_1.6",
+        "19": "fixed_1.5",
+        "2": "fixed_1.6",
+        "20": "fixed_1.65",
+        "21": "fixed_1.45",
+        "22": "fixed_1.6",
+        "23": "fixed_1.6",
+        "24": "fixed_1.55",
+        "25": "fixed_1.7",
+        "26": "fixed_1.65",
+        "27": "fixed_1.5",
+        "28": "fixed_1.55",
+        "29": "fixed_1.6",
+        "3": "fixed_1.65",
+        "30": "fixed_1.5",
+        "31": "fixed_1.6",
+        "32": "fixed_1.45",
+        "33": "fixed_1.5",
+        "34": "fixed_1.65",
+        "35": "fixed_1.55",
+        "36": "fixed_1.65",
+        "37": "fixed_1.6",
+        "38": "fixed_1.7",
+        "39": "fixed_1.65",
+        "4": "fixed_1.55",
+        "40": "fixed_1.35",
+        "41": "fixed_1.4",
+        "42": "fixed_1.5",
+        "43": "fixed_1.6",
+        "44": "fixed_1.5",
+        "45": "fixed_1.65",
+        "46": "fixed_1.55",
+        "47": "fixed_1.5",
+        "48": "fixed_1.6",
+        "49": "fixed_1.55",
+        "5": "fixed_1.7",
+        "50": "fixed_1.65",
+        "51": "fixed_1.7",
+        "52": "fixed_1.6",
+        "53": "fixed_1.6",
+        "54": "fixed_1.65",
+        "55": "fixed_1.7",
+        "56": "fixed_1.7",
+        "57": "fixed_1.65",
+        "58": "fixed_1.6",
+        "59": "fixed_1.6",
+        "6": "fixed_1.6",
+        "60": "fixed_1.6",
+        "61": "fixed_1.55",
+        "62": "fixed_1.65",
+        "63": "fixed_1.55",
+        "64": "fixed_1.7",
+        "65": "fixed_1.65",
+        "66": "fixed_1.6",
+        "67": "fixed_1.65",
+        "68": "fixed_1.6",
+        "69": "fixed_1.6",
+        "7": "fixed_1.7",
+        "70": "fixed_1.5",
+        "71": "fixed_1.65",
+        "72": "fixed_1.55",
+        "73": "fixed_1.6",
+        "74": "fixed_1.65",
+        "75": "fixed_1.6",
+        "76": "fixed_1.65",
+        "77": "fixed_1.65",
+        "78": "fixed_1.45",
+        "79": "fixed_1.6",
+        "8": "fixed_1.7",
+        "80": "fixed_1.5",
+        "81": "fixed_1.6",
+        "82": "fixed_1.55",
+        "83": "fixed_1.5",
+        "84": "fixed_1.65",
+        "85": "fixed_1.6",
+        "86": "fixed_1.65",
+        "87": "fixed_1.65",
+        "88": "fixed_1.6",
+        "89": "fixed_1.65",
+        "9": "fixed_1.5",
+        "90": "fixed_1.55",
+        "91": "fixed_1.65",
+        "92": "fixed_1.6",
+        "93": "fixed_1.55",
+        "94": "fixed_1.65",
+        "95": "fixed_1.5",
+        "96": "fixed_1.6",
+        "97": "fixed_1.6",
+        "98": "fixed_1.65",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    },
+    "6": {
+      "global": "fixed_1.6",
+      "global_candidates": [
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 12.343841333341677,
+          "policy": "fixed_1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.730854333345118,
+          "policy": "fixed_1.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.194106333341841,
+          "policy": "fixed_1.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.632716333337491,
+          "policy": "fixed_1.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 10.262690666664747,
+          "policy": "fixed_1.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.862566000006723,
+          "policy": "fixed_1.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.482115999987915,
+          "policy": "fixed_1.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.096010999993089,
+          "policy": "fixed_1.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.794518333333087,
+          "policy": "fixed_1.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.584467000007042,
+          "policy": "fixed_1.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.303522000004735,
+          "policy": "fixed_1.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.163925333329056,
+          "policy": "fixed_1.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.15717100000085,
+          "policy": "fixed_1.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 8.525273333326169,
+          "policy": "fixed_1.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 9.602637333322319,
+          "policy": "fixed_1.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 11.525788666668062,
+          "policy": "fixed_1.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 14.329654666665139,
+          "policy": "fixed_1.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 19.148178000010883,
+          "policy": "fixed_1.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 28.773141666683895,
+          "policy": "fixed_1.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.16235600000246,
+          "policy": "fixed_1.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.01979333330831,
+          "policy": "fixed_2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.95970333333645,
+          "policy": "fixed_2.05"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.95344966667362,
+          "policy": "fixed_2.1"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.06645699999248,
+          "policy": "fixed_2.15"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.083752999996314,
+          "policy": "fixed_2.2"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.89645033334528,
+          "policy": "fixed_2.25"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.9311526666489,
+          "policy": "fixed_2.3"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.35540966668296,
+          "policy": "fixed_2.35"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.98868599999712,
+          "policy": "fixed_2.4"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.046596666667554,
+          "policy": "fixed_2.45"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.03731366666886,
+          "policy": "fixed_2.5"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.0669753333245,
+          "policy": "fixed_2.55"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.990808666683435,
+          "policy": "fixed_2.6"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.95252033332572,
+          "policy": "fixed_2.65"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.825873333327564,
+          "policy": "fixed_2.7"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.01898900001287,
+          "policy": "fixed_2.75"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.88755400001518,
+          "policy": "fixed_2.8"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.773377666666946,
+          "policy": "fixed_2.85"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.1156226666643,
+          "policy": "fixed_2.9"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 62.991393333340184,
+          "policy": "fixed_2.95"
+        },
+        {
+          "failed_cases": 0,
+          "native_continuation_sec": 63.032244666663075,
+          "policy": "fixed_3"
+        }
+      ],
+      "per_instance": {
+        "0": "fixed_1.65",
+        "1": "fixed_1.35",
+        "10": "fixed_1.5",
+        "11": "fixed_1.65",
+        "12": "fixed_1.45",
+        "13": "fixed_1.65",
+        "14": "fixed_1.6",
+        "15": "fixed_1.65",
+        "16": "fixed_1.5",
+        "17": "fixed_1.55",
+        "18": "fixed_1.65",
+        "19": "fixed_1.65",
+        "2": "fixed_1.7",
+        "20": "fixed_1.6",
+        "21": "fixed_1.5",
+        "22": "fixed_1.6",
+        "23": "fixed_1.55",
+        "24": "fixed_1.6",
+        "25": "fixed_1.65",
+        "26": "fixed_1.45",
+        "27": "fixed_1.55",
+        "28": "fixed_1.55",
+        "29": "fixed_1.5",
+        "3": "fixed_1.65",
+        "30": "fixed_1.5",
+        "31": "fixed_1.5",
+        "32": "fixed_1.8",
+        "33": "fixed_1.45",
+        "34": "fixed_1.6",
+        "35": "fixed_1.5",
+        "36": "fixed_1.5",
+        "37": "fixed_1.6",
+        "38": "fixed_1.65",
+        "39": "fixed_1.65",
+        "4": "fixed_1.6",
+        "40": "fixed_1.2",
+        "41": "fixed_1.5",
+        "42": "fixed_1.55",
+        "43": "fixed_1.6",
+        "44": "fixed_1.45",
+        "45": "fixed_1.65",
+        "46": "fixed_1.45",
+        "47": "fixed_1.5",
+        "48": "fixed_1.55",
+        "49": "fixed_1.55",
+        "5": "fixed_1.7",
+        "50": "fixed_1.7",
+        "51": "fixed_1.7",
+        "52": "fixed_1.7",
+        "53": "fixed_1.55",
+        "54": "fixed_1.55",
+        "55": "fixed_1.65",
+        "56": "fixed_1.65",
+        "57": "fixed_1.6",
+        "58": "fixed_1.65",
+        "59": "fixed_1.7",
+        "6": "fixed_1.5",
+        "60": "fixed_1.6",
+        "61": "fixed_1.55",
+        "62": "fixed_1.55",
+        "63": "fixed_1.55",
+        "64": "fixed_1.7",
+        "65": "fixed_1.65",
+        "66": "fixed_1.5",
+        "67": "fixed_1.55",
+        "68": "fixed_1.5",
+        "69": "fixed_1.6",
+        "7": "fixed_1.65",
+        "70": "fixed_1.5",
+        "71": "fixed_1.6",
+        "72": "fixed_1.55",
+        "73": "fixed_1.6",
+        "74": "fixed_1.65",
+        "75": "fixed_1.65",
+        "76": "fixed_1.6",
+        "77": "fixed_1.55",
+        "78": "fixed_1.55",
+        "79": "fixed_1.65",
+        "8": "fixed_1.65",
+        "80": "fixed_1.35",
+        "81": "fixed_1.55",
+        "82": "fixed_1.6",
+        "83": "fixed_1.45",
+        "84": "fixed_1.65",
+        "85": "fixed_1.6",
+        "86": "fixed_1.6",
+        "87": "fixed_1.6",
+        "88": "fixed_1.45",
+        "89": "fixed_1.65",
+        "9": "fixed_1.5",
+        "90": "fixed_1.5",
+        "91": "fixed_1.55",
+        "92": "fixed_1.6",
+        "93": "fixed_1.35",
+        "94": "fixed_1.5",
+        "95": "fixed_1.6",
+        "96": "fixed_1.65",
+        "97": "fixed_1.7",
+        "98": "fixed_1.6",
+        "99": "fixed_1.65"
+      },
+      "uncovered_case_ids": []
+    }
+  }
+}

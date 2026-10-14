@@ -78,7 +78,7 @@ class Exporter:
         self.atlas = PdfPages(
             self.root / "main_figure_atlas.pdf",
             metadata={
-                "Title": "Module 05: matched-hierarchy policy evaluation",
+                "Title": "Module 2: matched-hierarchy policy evaluation",
                 "Subject": "Scientific figures; all six checkpoints; diffusion 60 cubed",
             },
         )
@@ -126,7 +126,7 @@ class Exporter:
 
 
 def trajectory_image(ax, values, *, cmap, norm):
-    """Display recorded [problem, cycle] arrays using the Module 04 axis convention."""
+    """Display recorded [problem, cycle] arrays using the Module 1 axis convention."""
     problems, cycles = values.shape
     im = ax.imshow(
         np.ma.masked_invalid(values.T),

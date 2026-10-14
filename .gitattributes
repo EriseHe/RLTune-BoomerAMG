@@ -1,0 +1,3 @@
+# Preserve the byte representation of the released data.
+data/** -text
+*.csv whitespace=cr-at-eol

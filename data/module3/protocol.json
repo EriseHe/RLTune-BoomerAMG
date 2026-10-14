@@ -1,0 +1,49 @@
+{
+  "module": 3,
+  "cases_per_seed": 5000,
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "methods": [
+    "default_setup_default_solve",
+    "default_setup_lstdq",
+    "bandit_default",
+    "bandit_lstdq"
+  ],
+  "exact_default": {
+    "P_max_elmts": 4,
+    "agg_Pmx": 0,
+    "agg_interp_type": 4,
+    "agg_num_levels": 0,
+    "agg_tr": 0.0,
+    "coarsen_type": 10,
+    "interp_type": 6,
+    "max_row_sum": 0.9,
+    "strong_threshold": 0.25,
+    "trunc_factor": 0.0
+  },
+  "recovery": "failure_model_adjacent",
+  "feedback_mode": "adjacent_delayed",
+  "learned_attempts": 3,
+  "fixed_rl_attempts": 1,
+  "default_fallback_attempts": 1,
+  "default_attempts": 1,
+  "rl_recovery_cost": false,
+  "rl_whole_case_failure_rollback": true,
+  "setup_failure_observation_retention": true,
+  "failure_score_beta": 2.0,
+  "shared_prefix": false,
+  "learning_start": "Both setup learners and both LSTDQ controllers start cold at input 1",
+  "concurrency": "One single-thread worker per seed; four methods serially in balanced permutation blocks",
+  "native_sha256": {
+    "hypre/install/lib/libHYPRE.3.0.0.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.300.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/install/lib/libHYPRE.dylib": "c4ade67c2d6b2d4a3e69554808de3910cd13c42dae93d9312fa4493f89c04e21",
+    "hypre/interfaces/libamg_runtime.dylib": "15daee59e89d17a77131e4a092bff431846b0dcbf5a2003b7e21f5447fd65ff3"
+  }
+}

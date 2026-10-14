@@ -1,0 +1,17 @@
+{
+  "name": "Module 3: variable_flow_60",
+  "seeds": [
+    {
+      "label": "1",
+      "config": "../configurations/variable_flow_60/seed_1.json"
+    },
+    {
+      "label": "2",
+      "config": "../configurations/variable_flow_60/seed_2.json"
+    },
+    {
+      "label": "3",
+      "config": "../configurations/variable_flow_60/seed_3.json"
+    }
+  ]
+}

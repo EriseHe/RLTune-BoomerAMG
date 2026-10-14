@@ -288,6 +288,8 @@ def build_named_setup_branches(
             if aot_enabled
             else None,
             candidate_schedule_chunk_rounds=int(args.aot_schedule_chunk_rounds),
+            candidate_pool_size=getattr(args, "setup_candidate_pool_size", None),
+            structured_quotas=getattr(args, "aot_structured_quotas", None),
             candidate_sampling=str(method_spec.candidate_sampling),
             context_dim=int(learning_context.dimension),
             context_interaction_indices=learning_context.interaction_indices,

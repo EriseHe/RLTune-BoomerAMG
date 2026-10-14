@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple
 import numpy as np
 from setup.space import SetupConfigurationSpace, build_setup_param_space
 from setup.learners.linucb import run_same_context_setup_reselection
@@ -219,6 +219,8 @@ def build_online_linucb_branch(
     candidate_schedule_rounds: int | None = None,
     candidate_schedule_seed: int | None = None,
     candidate_schedule_chunk_rounds: int = 256,
+    candidate_pool_size: int | None = None,
+    structured_quotas: Mapping[str, int] | None = None,
     candidate_sampling: str = "uniform512",
     context_dim: int = DIFCONV_CONTEXT_DIM,
     context_interaction_indices: Sequence[int] = (1, 2, 3, 4),
@@ -230,6 +232,10 @@ def build_online_linucb_branch(
     learner_method = "linucb"
     family = "Shared LinUCB"
     cfg = default_test_final_bandit_config_from_env()
+    if candidate_pool_size is not None:
+        if type(candidate_pool_size) is not int or candidate_pool_size < 1:
+            raise ValueError("candidate_pool_size must be a positive integer")
+        cfg = replace(cfg, candidate_pool_size=candidate_pool_size)
     resolved_context_dim = int(context_dim)
     resolved_interaction_indices = tuple(
         (int(index) for index in context_interaction_indices)
@@ -301,6 +307,12 @@ def build_online_linucb_branch(
                 chunk_rounds=int(candidate_schedule_chunk_rounds),
                 sampling_method=str(candidate_sampling),
                 factorized_cache=action_feature_cache,
+                **({
+                    "structured_anchor_size": structured_quotas["anchor"],
+                    "structured_global_size": structured_quotas["balanced_global"],
+                    "structured_local_size": structured_quotas["coordinate_local"],
+                    "structured_sobol_size": structured_quotas["sobol"],
+                } if structured_quotas is not None else {}),
             )
         policy = build_test_final_bandit_policy(
             method=learner_method,

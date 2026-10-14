@@ -74,6 +74,8 @@ def _shared_protocol_metadata(
     algorithm = asdict(request.algorithm)
     epsilon = request.actions.epsilon
     context_sources = {
+        "material_coefficients": "three normalized log material coefficients from assembly inputs",
+        "rs_diffusion": "normalized log diffusion strength; grid and RS flow type fixed per stream",
         "canonical": "shared per-instance canonical setup/solve PDE context",
         "canonical_no_c_mean": (
             "shared three log diffusion and three signed-log advection "

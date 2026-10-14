@@ -27,8 +27,9 @@ def stop_children(children):
 
 
 def run_frozen_worker(output, phase, worker_id, workers, *, run_number, verify, policy):
-    if workers not in range(1, 4) or worker_id not in range(workers):
-        raise ValueError("At most three workers")
+    protocol = artifacts.read(output / "protocol.json")
+    if not 1 <= workers <= protocol.get("max_workers", 3) or worker_id not in range(workers):
+        raise ValueError("Worker count or index differs from the protocol")
     directory = output / "raw" / phase
     directory.mkdir(parents=True, exist_ok=True)
     with (directory / f"worker_{worker_id}.lock").open("a") as lock:
@@ -114,6 +115,7 @@ def run_frozen_worker(output, phase, worker_id, workers, *, run_number, verify, 
 
 def run_frozen_phase(output, phase, *, runner_module, run_number, workers=3):
     jobs = artifacts.read(output / f"jobs_{phase}.json")
+    tolerance = artifacts.read(output / "protocol.json").get("tolerance", 1e-6)
     expected = analysis.expected_cells(jobs)
     children = []
     logs = []
@@ -185,7 +187,10 @@ def run_frozen_phase(output, phase, *, runner_module, run_number, workers=3):
                 key = analysis.cell_key(row)
                 if key in seen:
                     raise ValueError("Duplicate trial")
-                frozen_policy.audit_outcome(row["outcome"])
+                frozen_policy.audit_outcome(
+                    row["outcome"],
+                    tolerance=tolerance,
+                )
                 seen.add(key)
         if seen != expected:
             raise AssertionError("Phase coverage mismatch")

@@ -1,0 +1,17 @@
+{
+  "name": "Module 1: advection_80",
+  "seeds": [
+    {
+      "label": "4",
+      "config": "../configurations/advection_80/seed_4.json"
+    },
+    {
+      "label": "5",
+      "config": "../configurations/advection_80/seed_5.json"
+    },
+    {
+      "label": "6",
+      "config": "../configurations/advection_80/seed_6.json"
+    }
+  ]
+}

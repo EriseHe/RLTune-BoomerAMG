@@ -241,8 +241,15 @@ class RecursiveLstdqController(_SharedActionLcbController):
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         del cycle
         state = self._factorized_scoring.prepare_state(features)
-        state_lift = self._factorized_scoring.state_lift
-        projected_lift = state_lift @ self.a_inverse
+        # The lift has one copy of state in each diagonal action-basis block.
+        # Contract those blocks directly, preserving the full nonsymmetric
+        # inverse and the same sandwich covariance without multiplying zeros.
+        inverse_blocks = self.a_inverse.reshape(
+            self._factorized_scoring.basis_dim, self.feature_dim, self.joint_dim
+        )
+        projected_lift = np.einsum(
+            "f,afj->aj", state, inverse_blocks, optimize=False
+        )
         reduced_covariance = (
             projected_lift @ self.episode_moment_covariance
         ) @ projected_lift.T

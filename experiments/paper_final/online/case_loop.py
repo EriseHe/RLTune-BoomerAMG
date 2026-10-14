@@ -278,7 +278,7 @@ def method_stream_summary(records: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def validate_recovery_stream(
-    records: Sequence[Dict[str, Any]], *, expect_bandit_transaction: bool
+    records: Sequence[Dict[str, Any]], *, expect_bandit_updates: bool
 ) -> Dict[str, Any]:
     """Validate bounded setup reselection and recovery timing identities."""
     fallback_count = 0
@@ -295,6 +295,7 @@ def validate_recovery_stream(
             None,
             "rollback_unrecovered",
             "budgeted_penalty",
+            "attempt_2T",
         }:
             raise AssertionError(f"record {index}: unknown failure-feedback protocol")
         fallback_used = bool(outcome.get("fallback_used", False))
@@ -344,15 +345,14 @@ def validate_recovery_stream(
             outcome.get("learned_reselection_count", primary_attempts - 1)
         )
         bandit_observation_count += int(outcome.get("bandit_observation_count", 0))
-        if expect_bandit_transaction:
-            expected_update = (
-                not outcome.get("unrecovered_failure", False)
-                or outcome.get("failure_feedback_mode") == "budgeted_penalty"
-            )
-            if bool(outcome.get("bandit_update_committed", False)) != expected_update:
-                raise AssertionError(
-                    f"record {index}: bandit update contradicts failure-feedback protocol"
-                )
+        if expect_bandit_updates:
+            if (not outcome.get("bandit_update_committed", False)
+                or outcome.get("bandit_observation_count") != primary_attempts):
+                raise AssertionError(f"record {index}: missing per-attempt setup update")
+            for attempt in outcome["primary_attempts"]:
+                target = attempt["attempt_cost"] * (1 if attempt["status"] == "success" else 2)
+                if not np.isfinite(target) or target < 0 or not np.isclose(attempt["learning_cost"], target):
+                    raise AssertionError(f"record {index}: invalid per-attempt setup target")
         if outcome.get("failure_feedback_mode") == "budgeted_penalty":
             penalty = float(outcome.get("failure_penalty_sec", float("nan")))
             if (

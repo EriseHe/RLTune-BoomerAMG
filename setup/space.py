@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
 
 import numpy as np
@@ -150,12 +150,13 @@ class SetupParamSpace:
 
 @dataclass(frozen=True)
 class SetupConfigurationSpace:
-    """Named categorical choices for one setup-bandit branch."""
+    """Named categorical choices and optional explicit numerical grids."""
 
     name: str
     coarsen_types: Tuple[int, ...]
     interp_types: Tuple[int, ...]
     agg_interp_types: Tuple[int, ...] = (int(DEFAULT_SETUP_PARAMS["agg_interp_type"]),)
+    numeric_grids: Mapping[str, Tuple[float, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         name = str(self.name).strip()
@@ -176,6 +177,22 @@ class SetupConfigurationSpace:
             if len(values) != len(set(values)):
                 raise ValueError(f"{field_name} cannot contain duplicate values")
             object.__setattr__(self, field_name, values)
+        grids = {}
+        allowed_numeric = {"strong_threshold", "max_row_sum", "trunc_factor", "P_max_elmts", "agg_num_levels"}
+        if set(self.numeric_grids) - allowed_numeric:
+            raise ValueError("Unknown numerical setup grid")
+        for key, raw_values in self.numeric_grids.items():
+            values = tuple(float(v) for v in raw_values)
+            if not values or len(values) != len(set(values)) or any(not np.isfinite(v) or v < 0 for v in values):
+                raise ValueError(f"Invalid numerical grid: {key}")
+            if key in {"P_max_elmts", "agg_num_levels"}:
+                if any(v != int(v) for v in values):
+                    raise ValueError(f"{key} requires integer values")
+                values = tuple(int(v) for v in values)
+            elif any(v > 1 for v in values):
+                raise ValueError(f"{key} must lie in [0, 1]")
+            grids[key] = values
+        object.__setattr__(self, "numeric_grids", grids)
 
     @classmethod
     def from_mapping(
@@ -183,7 +200,7 @@ class SetupConfigurationSpace:
         name: str,
         raw: Mapping[str, Any],
     ) -> "SetupConfigurationSpace":
-        allowed = {"coarsen_types", "interp_types", "agg_interp_types"}
+        allowed = {"coarsen_types", "interp_types", "agg_interp_types", "numeric_grids"}
         unknown = set(raw) - allowed
         if unknown:
             raise ValueError(
@@ -205,14 +222,18 @@ class SetupConfigurationSpace:
                     (DEFAULT_SETUP_PARAMS["agg_interp_type"],),
                 )
             ),
+            numeric_grids=raw.get("numeric_grids", {}),
         )
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        result = {
             "coarsen_types": [int(value) for value in self.coarsen_types],
             "interp_types": [int(value) for value in self.interp_types],
             "agg_interp_types": [int(value) for value in self.agg_interp_types],
         }
+        if self.numeric_grids:
+            result["numeric_grids"] = {key: list(values) for key, values in self.numeric_grids.items()}
+        return result
 
 
 class SetupObsEncoder:
@@ -231,10 +252,16 @@ class SetupObsEncoder:
         self.strict_categories = bool(strict_categories)
 
     def encode(self, params: Dict[str, Any]) -> np.ndarray:
+        # Match the action catalog's conditional semantics even for observations
+        # from a native fallback or a caller that supplies inactive settings.
+        effective = {**self.defaults, **params}
+        for param in self.parameter_spec.parameters:
+            if any(effective.get(name) not in allowed for name, allowed in param.active_if):
+                effective[param.name] = param.default
         encoded = []
         for key in self.observed_keys:
             encoded.append(
-                self._encode_one(key, params.get(key, self.defaults.get(key, 0.0)))
+                self._encode_one(key, effective.get(key, 0.0))
             )
         arr = np.asarray(encoded, dtype=np.float32)
         return np.nan_to_num(arr, nan=0.0, posinf=10.0, neginf=-10.0).astype(np.float32)
@@ -331,6 +358,7 @@ def build_setup_parameter_spec(
     coarsen_type_values: Sequence[int] | None = None,
     interp_type_values: Sequence[int] | None = None,
     agg_interp_type_values: Sequence[int] | None = None,
+    numeric_grids: Mapping[str, Sequence[float]] | None = None,
 ) -> Tuple[ParameterSpaceSpec, Dict[str, Any]]:
     param_resolution = int(
         os.environ.get("SETUP_PARAM_RESOLUTION", "10")
@@ -339,18 +367,31 @@ def build_setup_parameter_spec(
     )
     if param_resolution <= 0:
         raise ValueError("parameter_resolution must be positive")
-    grid_max = float(
+    grids = {} if numeric_grids is None else numeric_grids
+    explicit_continuous = all(key in grids for key in ("strong_threshold", "max_row_sum", "trunc_factor"))
+    grid_max = 0.95 if explicit_continuous else float(
         os.environ.get("SETUP_GRID_MAX", os.environ.get("GRID_MAX", "0.95"))
     )
     th_grid = np.linspace(0.0, grid_max, param_resolution)
     mxrs_grid = np.linspace(0.0, grid_max, param_resolution)
+    # Preserve grid positions while making an intended reference entry exact.
+    # Near-equal thresholds can change native solver decisions at a boundary.
+    for grid, name in ((th_grid, "strong_threshold"), (mxrs_grid, "max_row_sum")):
+        reference = float(DEFAULT_SETUP_PARAMS[name])
+        grid[np.abs(grid-reference) <= 4*np.spacing(reference)] = reference
     if len(mxrs_grid) > 0:
         mxrs_grid[0] = 1e-6
     tr_grid = np.linspace(0.0, grid_max, param_resolution)
-    p_max_values = _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
-    agg_nl_values = _parse_int_list_env(
-        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES
-    )
+    p_max_values = grids["P_max_elmts"] if "P_max_elmts" in grids else _parse_int_list_env("P_MAX_ELMTS_VALUES", DEFAULT_P_MAX_ELMTS_VALUES)
+    agg_nl_values = grids["agg_num_levels"] if "agg_num_levels" in grids else _parse_int_list_env(
+        "AGG_NUM_LEVELS_VALUES", DEFAULT_AGG_NUM_LEVELS_VALUES)
+    # Explicit named-space grids take precedence over legacy environment knobs.
+    if "strong_threshold" in grids:
+        th_grid = np.asarray(grids["strong_threshold"], dtype=float)
+    if "max_row_sum" in grids:
+        mxrs_grid = np.asarray(grids["max_row_sum"], dtype=float)
+    if "trunc_factor" in grids:
+        tr_grid = np.asarray(grids["trunc_factor"], dtype=float)
     coarsen_values = (
         _parse_int_list_env("COARSEN_TYPE_VALUES", DEFAULT_COARSEN_TYPE_VALUES)
         if coarsen_type_values is None
@@ -537,6 +578,7 @@ def build_setup_param_space(
             if configuration_space is None
             else configuration_space.agg_interp_types
         ),
+        numeric_grids=None if configuration_space is None else configuration_space.numeric_grids,
     )
     if materialize:
         actions = build_actions_from_spec(parameter_spec, fixed_params=fixed_params)

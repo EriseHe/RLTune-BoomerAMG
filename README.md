@@ -1,77 +1,41 @@
 # RLTune-BoomerAMG
 
-Reproducibility code for **Online Autotuning of BoomerAMG with Contextual Bandits
-and Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
+Code and data for **Online Autotuning of BoomerAMG with Contextual Bandits and
+Reinforcement Learning**, by Erise He, Jonathan Wang, and Lance Ding.
 
-Code and frozen protocols for the studies of online BoomerAMG autotuning:
-shared context-action LinUCB selects hierarchy parameters, and recursive
-LSTDQ selects relaxation weights during the solve.
+| Module | Study | Data |
+|---|---|---|
+| 1 | Diffusion and advection at 40³, 60³, and 80³; six seeds; 5,000 cases per seed | [module1](data/module1) |
+| 2 | Six frozen checkpoints; 100 evaluation cases; 41 weights; five policies | [module2](data/module2) |
+| 3 | Variable-flow 60³; six seeds; 5,000 cases per seed | [module3](data/module3) |
 
-This submission tree contains online comparison and the matched-hierarchy. It includes 42 exact online configurations,
-compact accepted results, 20 MB of exact online inputs, and a verified 14 MB frozen-input bundle. Original raw measurement logs and generated figure releases are not included. The bundle is sufficient for new matched retiming without earlier result folders.
+## Reproduce the tables and figures
 
-## Start here
-
-| Task | Where to go |
-|---|---|
-| Prepare the experiments | [Install and build](#install-and-build), then [validate the inputs](#validate-experiment-inputs) below |
-| Run Module 04 online autotuning | [Module 04 reproduction](docs/reproduction.md#module-04-exact-configurations) |
-| Run Module 05 matched-hierarchy comparison | [Module 05 reproduction](docs/reproduction.md#module-05-verify-and-retime-the-frozen-bundle) |
-| Understand or maintain the code | [Repository layout](docs/repository_layout.md), with setup, solve and native-binding details linked there |
-| Inspect the prescribed smoothing rule | [Theory references](docs/theory/README.md) |
-
-The reproduction guide links the detailed protocols, accepted results and input
-provenance for each study. Use it as the starting point for experiment commands.
-
-## Install and build
-
-Use Python 3.10, CMake, Make, a C/C++ compiler, and MPI with `mpicc` and
-`mpicxx`. From the repository root, install into an activated Python environment:
+With Python 3.10 or later:
 
 ```sh
-python -m pip install -e '.[artifacts]'
+python -m pip install -e .
+python tools/verify_data.py
+python tools/reproduce.py --output output/paper
+```
+
+The output contains the paper figures and tables computed from the released
+measurements. This does not require a native HYPRE build. Use a new output
+folder for each invocation.
+
+## Run the experiments
+
+Build HYPRE and the native interface with CMake, Make, a C/C++ compiler, and MPI:
+
+```sh
 make -C hypre JOBS=4
 ```
 
-Core Python dependencies are NumPy, SciPy, mpi4py, Matplotlib and mpmath. The
-`artifacts` extra provides ReportLab and pypdf for PDF release packaging.
-`python -m pip install -e .` installs the computational dependencies.
-Conda users can create the supplied environment with `conda env create -f
-environment.yml`, activate `rl`, then install the extras above.
+[Experiment instructions](docs/experiments.md) give the commands and timing
+definitions. Full local trajectories are stored under `data/official/module1`,
+`module2`, and `module3` and are excluded from Git. Verify them, when available,
+with `python tools/verify_data.py --raw`.
 
-The build writes to `hypre/build/`, `hypre/install/` and `hypre/interfaces/`.
-The HYPRE implementation under `hypre/source/` is preserved unchanged; our native
-and Python wiring lives in `hypre/interfaces/` and `hypre/bindings/`.
-
-## Validate experiment inputs
-
-The following commands check the recorded experiment configuration and frozen
-inputs without running the full paper experiments. The recorded validation and
-environment limitations are in the [organization report](docs/sisc_repository_cleanup.md).
-
-Validate the formal online protocol without solving PDEs:
-
-```sh
-python -m experiments.paper_final.run_04_online --validate-only
-```
-
-Verify the accepted input bundle without native solves:
-
-```sh
-python -c 'from experiments.paper_final.common.frozen_inputs import DEFAULT_BUNDLE, verify_bundle; print(verify_bundle(DEFAULT_BUNDLE))'
-```
-
-Use the [reproduction guide](docs/reproduction.md) to launch fresh runs. New runs
-record current source and environment provenance; their measured times are
-separate from the accepted September measurements.
-
-## Development history and licensing
-
-The full development and archive trees remain on
-[`online-bandit-rl`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/online-bandit-rl)
-and [`cleanup/sisc-repository-20261004`](https://github.com/EriseHe/RLTune-BoomerAMG/tree/cleanup/sisc-repository-20261004).
-They are outside this submission tree.
-
-A license for the project-owned code has not yet been selected. HYPRE retains
-its [copyright](hypre/source/COPYRIGHT), [license files](hypre/source/LICENSE-MIT)
-and [notices](hypre/source/NOTICE).
+HYPRE retains its [copyright](hypre/source/COPYRIGHT),
+[license](hypre/source/LICENSE-MIT), and [notices](hypre/source/NOTICE).
+A license for the project-owned code has not yet been selected.

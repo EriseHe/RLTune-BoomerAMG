@@ -14,10 +14,12 @@ __pycache__/
 venv/
 .env/
 
-# Generated experiment outputs (accepted evidence lives under reproduction/)
+# Generated outputs and full local trajectories
 /results/
 /plots/
 /output/
+/data/official/
+/exports/
 *.log
 *.zip
 
